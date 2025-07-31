@@ -115,7 +115,7 @@ def get_shipper_company_profile_information(
                 "is_verified": director.is_verified,
                 "status": director.status,
                 "id_document": director.id_document,
-                "proof_off_address": director.proof_off_address,
+                "proof_off_address": director.proof_of_address,
                 }
         }
     except Exception as e:
