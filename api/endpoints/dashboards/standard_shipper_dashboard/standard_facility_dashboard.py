@@ -85,7 +85,6 @@ def get_shipper_company_profile_information(
         financial_account = db.query(FinancialAccounts).filter(
             FinancialAccounts.id == company_id
         ).first()
-        
         return {
             "company_information": {
                 "id": company.id,
@@ -93,11 +92,11 @@ def get_shipper_company_profile_information(
                 "company_name": company.legal_business_name,
                 "country_of_Incorporation": company.country_of_incorporation,
                 "business_registration_number": company.business_registration_number,
-                "company_address": company.company_address,
-                "company_email": company.company_email,
-                "company_phone_number": company.company_phone_number,
+                "company_address": company.business_address,
+                "company_email": company.business_email,
+                "company_phone_number": company.business_phone_number,
                 "is_verified": company.is_verified,
-                "company_registration_certificate": company.company_registration_certificate,
+                "company_registration_certificate": company.business_registration_certificate,
                 "business_proof_of_address": company.business_proof_of_address,
                 "tax_clearance_certificate": company.tax_clearance_certificate,
             },
