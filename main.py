@@ -7,7 +7,7 @@ app = FastAPI()
 
 app.include_router(standard_facility_dashboard.router, prefix="/api", tags=["Standard Shipper Dashboard"])
 app.include_router(equipment_management.router, prefix="/api", tags=["Shipper Equipment Management"])
-app.include_router(equipment_management.router, prefix="/api", tags=["Spot Shipment Managment"])
+app.include_router(spot_shipment_management.router, prefix="/api", tags=["Spot Shipment Managment"])
 
 @app.get("/")
 def read_root():
