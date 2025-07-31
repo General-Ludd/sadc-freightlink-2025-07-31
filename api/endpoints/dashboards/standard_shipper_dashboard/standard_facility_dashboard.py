@@ -116,7 +116,7 @@ def get_shipper_company_profile_information(
                 "status": director.status,
                 "id_document": director.id_document,
                 "proof_off_address": director.proof_of_address,
-                }
+                },
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
