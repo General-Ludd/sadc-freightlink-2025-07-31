@@ -112,7 +112,6 @@ def create_standard_shipper(db: Session, shipper_data: CorporationBase, director
         email=director_data.email,
         password_hash=hash_password(director_data.password),
         id_document=director_data.id_document,
-        is_admin=True,
         is_verified=False,
         company_id=company.id,
     )
