@@ -2,7 +2,9 @@ annotated-types==0.7.0
 anyio==4.9.0
 argon2-cffi==25.1.0
 argon2-cffi-bindings==25.1.0
+certifi==2025.7.14
 cffi==1.17.1
+charset-normalizer==3.4.2
 click==8.2.1
 dnspython==2.7.0
 ecdsa==0.19.1
@@ -21,6 +23,7 @@ pydantic_core==2.33.2
 python-dotenv==1.1.1
 python-jose==3.5.0
 PyYAML==6.0.2
+requests==2.32.4
 rsa==4.9.1
 six==1.17.0
 sniffio==1.3.1
@@ -28,6 +31,7 @@ SQLAlchemy==2.0.42
 starlette==0.47.2
 typing-inspection==0.4.1
 typing_extensions==4.14.1
+urllib3==2.5.0
 uvicorn==0.35.0
 uvloop==0.21.0
 watchfiles==1.1.0
