@@ -78,13 +78,14 @@ def get_shipper_company_profile_information(
     try:
         company = db.query(Corporation).filter(
             Corporation.id == company_id
-        )
+        ).first()
         director = db.query(Director).filter(
             Director.company_id == company_id
-        )
+        ).first()
         financial_account = db.query(FinancialAccounts).filter(
             FinancialAccounts.id == company_id
-        )
+        ).first()
+        
         return {
             "company_information": {
                 "id": company.id,
@@ -118,161 +119,5 @@ def get_shipper_company_profile_information(
                 "proof_off_address": director.proof_off_address,
                 }
         }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.get("/shipper/company/id", response_model=CorporationResponse) #UnTested
-def get_current_users_shipper_company(
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    assert "company_id" in current_user, "Missing company_id in current_user"
-    company_id = current_user.get("company_id")
-    user_id = current_user.get("id")
-
-    if not company_id:
-        raise HTTPException(
-            status_code=400,
-            detail="User does not belong to a company"
-        )
-    try:
-        shipper_company = db.query(Corporation).filter(
-            Corporation.id == company_id,
-        ).first()
-
-        if not shipper_company:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Shipper company with (ID {id}) not found or user not authorized to access said account information"
-            )
-        
-        return shipper_company
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    
-@router.get("/shipper/company/director/id", response_model=DirectorResponse) #UnTested
-def get_current_users_shipper_company_director_account(
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    assert "company_id" in current_user, "Missing company_id in current_user"
-    company_id = current_user.get("company_id")
-    user_id = current_user.get("id")
-
-    if not company_id:
-        raise HTTPException(
-            status_code=400,
-            detail="User does not belong to a company"
-        )
-    try:
-        shipper_director_account = db.query(Director).filter(
-            Director.company_id == company_id,
-            Director.is_verified == True
-        ).first()
-
-        if not shipper_director_account:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Shipper company director with (ID {id}) not found or user not authorized to access said account information"
-            )
-        
-        return shipper_director_account
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.get("/shipper/company/financial-account/id", response_model=CorporationResponse) #UnTested
-def get_current_users_shipper_company_financial_account(
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    assert "company_id" in current_user, "Missing company_id in current_user"
-    company_id = current_user.get("company_id")
-    user_id = current_user.get("id")
-
-    if not company_id:
-        raise HTTPException(
-            status_code=400,
-            detail="User does not belong to a company"
-        )
-    try:
-        shipper_financial_account = db.query(FinancialAccounts).filter(
-            FinancialAccounts.id == company_id,
-        ).first()
-
-        if not shipper_financial_account:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Shipper financial account with (ID {id}) not found or user not authorized to access said account information"
-            )
-        
-        return shipper_financial_account
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-#################################To be re-eximaned##########################################################
-
-@router.get("/shipper/user/{id}", response_model=ShipperUserResponse) #UnTested
-def get_individual_shipper_user_account(
-    id: int,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    assert "company_id" in current_user, "Missing company_id in current_user"
-    company_id = current_user.get("company_id")
-
-    if not company_id:
-        raise HTTPException(
-            status_code=400,
-            detail="User does not belong to a company"
-        )
-
-
-    try:
-        user = db.query(Director).filter(
-            Director.id == id,
-            Director.company_id == company_id
-        ).first()
-
-        if not user:
-            raise HTTPException(
-                status_code=404,
-                detail=f"User with ID {id} not found or not authorized"
-            )
-
-        return user
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/shipper/current/user", response_model=ShipperUserResponse) #UnTested
-def get_individual_shipper_current_user_account(
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    assert "company_id" in current_user, "Missing company_id in current_user"
-    company_id = current_user.get("company_id")
-    user_id = current_user.get("id")
-
-    if not company_id:
-        raise HTTPException(
-            status_code=400,
-            detail="User does not belong to a company"
-        )
-
-
-    try:
-        user = db.query(Director).filter(
-            Director.id == user_id,
-        ).first()
-
-        if not user:
-            raise HTTPException(
-                status_code=404,
-                detail=f"User with ID {id} not found or not authorized"
-            )
-
-        return user
-
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
