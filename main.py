@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+import threading
 from api.endpoints.dashboards.standard_shipper_dashboard import standard_facility_dashboard
 from api.endpoints.dashboards.standard_shipper_dashboard import equipment_management
 from api.endpoints.dashboards.standard_shipper_dashboard.shipment_management import spot_shipment_management
@@ -14,6 +15,8 @@ from api.endpoints.dashboards.carrier_dashboard.shipment_management import dedic
 from api.endpoints.dashboards.carrier_dashboard.finance import financial_account
 from api.endpoints.dashboards.carrier_dashboard import spot_loadboards
 from api.endpoints.dashboards.carrier_dashboard import exchange_loadboards
+
+from triggers.scheduler import start_tracking_scheduler
 
 app = FastAPI()
 
@@ -34,6 +37,11 @@ app.include_router(shipment_management.router, prefix="/api", tags=["Carrier Das
 app.include_router(dedicated_lanes_management.router, prefix="/api", tags=["Carrier Dashboard Dedicated Lanes Management"])
 app.include_router(spot_loadboards.router, prefix="/api", tags=["Carrier Dashboard Exchange Loadboards"])
 app.include_router(exchange_loadboards.router, prefix="/api", tags=["Carrier Dashboard Exchange Loadboards"])
+
+@app.on_event("startup")
+def startup_event():
+    print("🚀 Starting background vehicle tracking...")
+    threading.Thread(target=start_tracking_scheduler, daemon=True).start()
 
 @app.get("/")
 def read_root():
