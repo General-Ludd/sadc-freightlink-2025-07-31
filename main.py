@@ -5,6 +5,10 @@ from api.endpoints.dashboards.standard_shipper_dashboard.shipment_management imp
 from api.endpoints.dashboards.standard_shipper_dashboard.shipment_management import exchange_shipment_management
 from api.endpoints.dashboards.standard_shipper_dashboard.bookings import spot_bookings
 from api.endpoints.dashboards.standard_shipper_dashboard.bookings import exchange_bookings
+from api.endpoints.dashboards.carrier_dashboard import carrier_dashboard
+from api.endpoints.dashboards.carrier_dashboard.finance import financial_account
+from api.endpoints.dashboards.carrier_dashboard import spot_loadboards
+from api.endpoints.dashboards.carrier_dashboard import exchange_loadboards
 
 app = FastAPI()
 
@@ -14,6 +18,12 @@ app.include_router(spot_shipment_management.router, prefix="/api", tags=["Spot S
 app.include_router(exchange_shipment_management.router, prefix="/api", tags=["Exchange Shipment Managment"])
 app.include_router(spot_bookings.router, prefix="/api", tags=["Spot Shipment and Lane Bookings"])
 app.include_router(exchange_bookings.router, prefix="/api", tags=["Exchange Shipment and Lane Bookings"])
+
+################################################Carrier Dashbaoard#####################################
+app.include_router(carrier_dashboard.router, prefix="/api", tags=["Carrier_Dashboard"])
+app.include_router(financial_account.router, prefix="/api", tags=["Carrier Dashboard Financial Account"])
+app.include_router(spot_loadboards.router, prefix="/api", tags=["Carrier Dashboard Exchange Loadboards"])
+app.include_router(exchange_loadboards.router, prefix="/api", tags=["Carrier Dashboard Exchange Loadboards"])
 
 @app.get("/")
 def read_root():
