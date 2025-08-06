@@ -189,3 +189,7 @@ class Individual_Service_Invoice_Response(BaseModel):
     total: int
     due_amount: int
     paid_amount: Optional [int] = None
+
+class Withdrawal_Request(BaseMode):
+    amount:int
+    withdral_type: str

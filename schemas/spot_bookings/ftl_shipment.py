@@ -203,12 +203,10 @@ class AssignedFTLShipmentsResponse(BaseModel):
     text_eta_date: str
 
 
-class Shipper_FTL_Shipment_Dispute_Create(BaseModel):
-    filed_by_shipper: bool
+class FTL_Shipment_Dispute_Create(BaseModel):
     shipment_id: int
-    carrier_company_id: int
     dispute_reason: str
-    additional__details: Optional [str] = None
+    additional_details: Optional [str] = None
 
 class Shipment_Dispute_Response(BaseModel):
     id: int

@@ -104,7 +104,7 @@ class Assigned_Power_Shipments(Base):
     rate_per_km = Column(Integer, nullable=False)
     rate_per_ton = Column(Integer, nullable=False)
     payment_terms = Column(Integer, nullable=False)
-    status = Column(Enum("Assigned", "In-Progress", "Completed"), default="Assigned")
+    status = Column(Enum("Assigned", "In-Progress", "Completed", "Cancelled"), default="Assigned")
     trip_status = Column(Enum("Scheduled", "Carrier En-route to pickup", " Carrier at pickup facility", "Loading",
                               "Carrier in transit", "Carrier at delivery", "Off-loading", "Completed", "Cancelled"), default="Scheduled")
     required_truck_type = Column(String, nullable=True)

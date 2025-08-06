@@ -114,6 +114,7 @@ class FTL_Shipment_Dispute(Base):
     carrier_company_id = Column(Integer, nullable=False)
     dispute_reason = Column(String, nullable=False)
     additional_details = Column(String, nullable=True)
+    shipment_status = Column(String, nullable=False)#####Update in database
     status = Column(Enum("Open", "Closed"), default="Open")
     created_at = Column(DateTime(timezone=True), default=get_sast_time)
     updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)

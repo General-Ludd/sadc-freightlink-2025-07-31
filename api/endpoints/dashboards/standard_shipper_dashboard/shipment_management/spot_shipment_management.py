@@ -1,5 +1,5 @@
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from db.database import SessionLocal
 from models.brokerage.assigned_shipments import Assigned_Spot_Ftl_Shipments
@@ -16,6 +16,7 @@ from schemas.spot_bookings.dedicated_lanes_ftl_shipment import Ftl_Lanes_Summary
 from schemas.spot_bookings.ftl_shipment import FTL_Shipment_Response, FTL_Shipments_Summary_Response
 from schemas.spot_bookings.power_shipment import POWER_SHIPMENT_RESPONSE, Power_Shipments_Summary_Response
 from utils.auth import get_current_user
+from services.cancellations.spot_cancellations import cancel_spot_ftl_shipment
 
 
 router = APIRouter()
@@ -400,7 +401,26 @@ def shipper_get_individual_ftl_shipment(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    
+
+@router.post("/spot/ftl-shipment-cancel/{shipment_id}", status_code=status.HTTP_200_OK)
+def cancel_spot_ftl_shipment_endpoint(
+    shipment_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Cancels a Spot FTL shipment by ID.
+    """
+    try:
+        result = cancel_spot_ftl_shipment(
+            db=db,
+            shipment_id=shipment_id,
+            cancelled_by_user_id=current_user["user_id"]  # Adjust key if needed
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 @router.post("/shipper/power/all-shipments")
 def shipper_get_all_power_shipments(
     db: Session = Depends(get_db),
@@ -579,6 +599,25 @@ def shipper_get_individual_power_shipment(
     }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/spot/power-shipment-cancel/{shipment_id}", status_code=status.HTTP_200_OK)
+def cancel_spot_power_shipment_endpoint(
+    shipment_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Cancels a Spot POWER shipment by ID.
+    """
+    try:
+        result = cancel_spot_power_shipment(
+            db=db,
+            shipment_id=shipment_id,
+            current_user=current_user,
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/shipper/all-lanes/all-modes")
 def get_all_shipper_dedicated_lanes(

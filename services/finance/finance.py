@@ -5,8 +5,9 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from enums import EquipmentType, Recurrence_Days, TrailerLength, TrailerType, TruckType
 from models.brokerage.finance import Contract, LateFeeRates, Invoice, FinancialAccounts
-from models.spot_bookings.dedicated_lane_ftl_shipment import FTL_Lane
+from models.spot_bookings.dedicated_lane_ftl_shipment import FTL_Lane, Withdrawal_Request, CarrierFinancialAccounts
 from models.spot_bookings.ftl_shipment import FTL_SHIPMENT
+from schemas.brokerage.finance import Withdrawal_Request
 from services.brokerage.recurrence_calculator import RecurrenceCalculator
 from services.shipment_service import calculate_qoute_for_power_shipment, calculate_quote_for_shipment, calculate_total_shipment_quote
 from utils.google_maps import AddressInput, calculate_distance
@@ -364,3 +365,70 @@ def calculate_spot_power_quote(
 
     except HTTPException as e:
             raise HTTPException(status_code=500, detail=f"Quote calculation failed: {e.detail}")
+
+
+def create_withdral_request(
+    withdral_request_data: Withdrawal_Request,
+    db: Session,
+    current_user: dict
+):
+    assert "company_id" in current_user, "Missing company_id in current_user"
+    company_id = current_user.get("company_id")
+
+    if not company_id:
+        raise HTTPException(
+            status_code=400,
+            detail="User does not belong to a company"
+        )
+    try:
+        carrier = db.query(Carrier).filter(Carrier.id == company_id).first()
+        if not carrier:
+            raise HTTPException(status_code=400, detail="Carrier company not found")
+        if not carrier.is_verified:
+            raise HTTPException(status_code=400, detail="Carrier company account not verifed, please undergo verification before requesting a withdrawal")
+        if carrier.status in ["Under Investigation", "Suspended"]:
+            raise HTTPException(status_code=400, detail="Carrier Company cannot withdraw financial account funds during the event of suspension or the company profile being under investigation")
+        
+        financial_account = db.query(CarrierFinancialAccounts).filter(CarrierFinancialAccounts.id == company_id).first()
+        if not financial_account:
+            raise HTTPException(status_code=400, detail="Carrier financial account not found")
+        if not financial_account.is_verified:
+            raise HTTPException(status_code=400, detail="Carrier financial account not verified, please undergo verification before requesting a withdrawal")
+        if financial_account.status in ["Under Investigation", "Suspended"]:
+            raise HTTPException(status_code=400, detail="Carrier Company cannot withdraw financial account funds during the event of suspension or the company profile being under investigation")
+
+        # Check Balance Function
+        if financial_account.current_balance < withdral_request_data.amount:
+            raise HTTPException(status_code=400, detail="Insufficient funds in the financial account")
+
+        # Calculate withdrawal fee
+        withdrawal_fee = 0
+        if withdrawal_request_data.withdral_type == "Expedited Withdrawal":
+            withdrawal_fee = int(amount * 0.01) # 1 percent fee for expedited withdrawal
+
+        if financial_account.current_balance < (amount + withdrawal_fee):
+             raise HTTPException(status_code=400, detail="Insufficient funds in the financial account for this withdrawal including fees")
+
+        # Create the withdrawal request
+        withdral_request = Withdrawal_Request(
+            type=withdral_request_data.withdral_type,
+            requested_amount=withdral_request_data.amount,
+            withdrawal_fee=withdrawal_fee,
+            to_be_paid_out=int(withdral_request_data.amount - withdrawal_fee)
+            carrier_company_name=carrier.legal_business_name,
+            financial_account_id=financial_account.id,
+            financial_account_current_balance=financial_account.current_balance,
+            bank_name=financial_account.bank_name,
+            bank_country=financial_account.bank_country,
+            branch_code=financial_account.branch_code,
+            account_number=financial_account.account_number,
+        )
+        db.add(withdral_request)
+        db.commit()
+        db.refresh(withdral_request)
+        return withdral_request
+
+    except Exception as e:
+        # Log the exception for debugging
+        print(f"An error occurred: {e}")
+        raise HTTPException(status_code=500, detail="An internal server error occurred")

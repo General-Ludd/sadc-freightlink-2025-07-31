@@ -161,7 +161,7 @@ def accept_ftl_shipment_exchange_bid(db: Session, bid_data: Accept_Bid, current_
     if not exchange:
         raise ValueError("Exchange not found.")
     if exchange.auction_status !="Open":
-        raise ValueError("Exchange bidding closed.")
+        raise ValueError("Exchange has ended and bidding closed.")
     
     exchange_loadboard = db.query(Exchange_Ftl_Load_Board).filter(
         Exchange_Ftl_Load_Board.exchange_id == bid.exchange_id
@@ -178,6 +178,32 @@ def accept_ftl_shipment_exchange_bid(db: Session, bid_data: Accept_Bid, current_
 
     if not financial_account:
         raise Exception("Financial account not found") 
+
+    try:
+        if financial_account.payment_terms == "PAB":
+            # If financial account's payment terms is (PAB), deduct from credit balance
+            if financial_account.credit_balance >= bid.baked_bid_amount:
+                financial_account.credit_balance -= bid.baked_bid_amount
+            else:
+                raise HTTPException(
+                    status_code=402,
+                    detail=f"Attempt to accept bid failed due to insufficient funds. Please deposit at least R{bid.baked_bid_amount:.2f} to proceed, failure to do so will result with the exchange closing with no bids accepted."
+                )
+        else:
+            projected_balance = financial_account.total_outstanding + bid.baked_bid_amount
+            if projected_balance <= financial_account.spending_limit:
+                financial_account.total_outstanding = projected_balance
+            else:
+                raise HTTPException(
+                    status_code=402,
+                    detail="Shipment booking failed: excepting this bid would exceed your company's per financial billing cycle spending limits."
+                )
+        db.add(financial_account)
+        db.flush()
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Exhange billing process failed: {str(e)}")
 
     # Step 1: Create the FTL shipment
     shipment = FTL_SHIPMENT(
@@ -565,6 +591,32 @@ def accept_power_shipment_exchange_bid(db: Session, bid_data: Accept_Bid, curren
 
     if not financial_account:
         raise Exception("Financial account not found") 
+
+    try:
+        if financial_account.payment_terms == "PAB":
+            # If financial account's payment terms is (PAB), deduct from credit balance
+            if financial_account.credit_balance >= bid.baked_bid_amount:
+                financial_account.credit_balance -= bid.baked_bid_amount
+            else:
+                raise HTTPException(
+                    status_code=402,
+                    detail=f"Attempt to accept bid failed due to insufficient funds. Please deposit at least R{bid.baked_bid_amount:.2f} to proceed, failure to do so will result with the exchange closing with no bids accepted."
+                )
+        else:
+            projected_balance = financial_account.total_outstanding + bid.baked_bid_amount
+            if projected_balance <= financial_account.spending_limit:
+                financial_account.total_outstanding = projected_balance
+            else:
+                raise HTTPException(
+                    status_code=402,
+                    detail="Shipment booking failed: excepting this bid would exceed your company's per financial billing cycle spending limits."
+                )
+        db.add(financial_account)
+        db.flush()
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Exhange billing process failed: {str(e)}")
 
     # Step 1: Create the FTL shipment
     shipment = POWER_SHIPMENT(

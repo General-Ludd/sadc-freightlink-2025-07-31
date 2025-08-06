@@ -104,3 +104,17 @@ class POWER_Shipment_Docs(Base):
     da5501orsad500 = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), default=get_sast_time)
     updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)
+
+class POWER_Shipment_Dispute(Base):
+    __tablename__ = "power_shipment_disputes"
+
+    id = Column(Integer, index=True, primary_key=True)
+    filed_by_shipper = Column(Boolean)
+    shipment_id = Column(Integer, nullable=False)
+    shipper_company_id = Column(Integer, nullable=False)
+    carrier_company_id = Column(Integer, nullable=False)
+    dispute_reason = Column(String, nullable=False)
+    additional_details = Column(String, nullable=True)
+    status = Column(Enum("Open", "Closed"), default="Open")
+    created_at = Column(DateTime(timezone=True), default=get_sast_time)
+    updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)

@@ -14,6 +14,7 @@ from schemas.exchange_bookings.dedicated_ftl_lane import Exchange_Ftl_Lane_Respo
 from schemas.exchange_bookings.ftl_shipment import Exchange_FTL_Shipment_Response, Exchange_Ftl_Shipments_Summary_Response
 from schemas.exchange_bookings.power_shipment import Exchange_Power_Shipments_Summary_Response, exchange_power_shipment_response
 from services.exchange.auction import accept_a_ftl_lane_exchange_bid, accept_ftl_shipment_exchange_bid, accept_power_shipment_exchange_bid
+from services.cancellations.exchange_cancellations import cancel_exchange_ftl_booking, cancel_exchange_power_booking
 from utils.auth import get_current_user
 
 router = APIRouter()
@@ -195,6 +196,25 @@ def get_single_ftl_exchange_details(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.post("/exchange/power-exchange-cancel/{exchange_id}", status_code=status.HTTP_200_OK)
+def cancel_exchange_power_exchange_endpoint(
+    exchange_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Cancels a Spot POWER shipment by ID.
+    """
+    try:
+        result = cancel_exchange_ftl_booking(
+            db=db,
+            exchange_id=exchange_id,
+            current_user=current_user,
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 @router.post("shipper/power-exchange/id")
 def get_single_power_exchange_details(
     shipment_data: Exchange_Id,
@@ -315,6 +335,24 @@ def get_single_power_exchange_details(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.post("/exchange/power-exchange-cancel/{exchange_id}", status_code=status.HTTP_200_OK)
+def cancel_exchange_power_exchange_endpoint(
+    exchange_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Cancels a Spot POWER shipment by ID.
+    """
+    try:
+        result = cancel_exchange_power_booking(
+            db=db,
+            exchange_id=exchange_id,
+            current_user=current_user,
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/shipper/ftl-lane-exchange/id")
 def shipper_single_ftl_lane_exchange_detials(

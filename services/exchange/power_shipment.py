@@ -104,6 +104,46 @@ def create_power_shipment_exchange(
     except HTTPException as e:
         raise HTTPException(status_code=500, detail=f"Quote calculation failed: {e.detail}")
     
+    try:
+        quote_per_shipment = calculate_quote_for_shipment(
+            db=db,
+            required_truck_type=safe_str(shipment_data.required_truck_type),
+            equipment_type=safe_str(shipment_data.equipment_type),
+            trailer_type=safe_str(shipment_data.trailer_type),
+            trailer_length=safe_str(shipment_data.trailer_length),
+            distance=distance,
+            minimum_weight_bracket=shipment_data.minimum_weight_bracket
+        )
+    except HTTPException as e:
+        raise HTTPException(status_code=500, detail=f"Quote calculation failed: {e.detail}")
+    
+    try:
+        if financial_account.payment_terms == "PAB":
+            # Require at least 25% of shipment value in credit_balance
+            required_min_balance = quote_per_shipment
+            if financial_account.credit_balance < required_min_balance:
+                raise HTTPException(
+                    status_code=402,
+                    detail=f"Insufficient funds: For companies trading with PAB (Payment at booking) payment terms, Your company account must have at least (R{required_min_balance:.2f}) to proceed. in order to book this exchange"
+                )
+            # ✅ Passed the check — no deduction
+        else:
+            # Validate spending limit (but do not add to outstanding yet)
+            projected_balance = financial_account.total_outstanding + quote_per_shipment
+            if projected_balance > financial_account.spending_limit:
+                raise HTTPException(
+                    status_code=402,
+                    detail="Booking this shipment would exceed your company's spending limit. Please adjust your limit or clear some outstanding balance."
+                )
+            # ✅ Passed the check — no update to outstanding for now
+
+        # Do not modify financial account yet
+        db.flush()
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Shipment billing validation failed: {str(e)}")
+
     pickup_contact = ContactPerson(
         first_name=pickup_contact_data.first_name,
         last_name=pickup_contact_data.last_name,

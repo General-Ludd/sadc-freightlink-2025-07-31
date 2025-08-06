@@ -101,11 +101,11 @@ def create_ftl_shipment_exchange(
     try:
         if financial_account.payment_terms == "PAB":
             # Require at least 25% of shipment value in credit_balance
-            required_min_balance = quote_per_shipment * 0.25
+            required_min_balance = quote_per_shipment
             if financial_account.credit_balance < required_min_balance:
                 raise HTTPException(
                     status_code=402,
-                    detail=f"Insufficient funds: Your account must have at least 25% of the shipment value (R{required_min_balance:.2f}) to proceed."
+                    detail=f"Insufficient funds: For companies trading with PAB (Payment at booking) payment terms, Your company account must have at least (R{required_min_balance:.2f}) to proceed. in order to book this exchange."
                 )
             # ✅ Passed the check — no deduction
         else:

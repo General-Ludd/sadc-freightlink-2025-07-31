@@ -146,3 +146,8 @@ class POWER_Shipment_docs_create(BaseModel):
     import_or_export_permits: Optional[str] = None
     certificate_of_origin: Optional[str] = None
     da5501orsad500: Optional[str] = None
+
+class POWER_Shipment_Dispute_Create(BaseModel):
+    shipment_id: int
+    dispute_reason: str
+    additional_details: Optional [str] = None

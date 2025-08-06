@@ -677,15 +677,17 @@ class Withdrawal_Request(Base):
     __tablename__ = "withdrawal_requests"
 
     id = Column(Integer, primary_key=True, index=True)
-    type = Column(String, nullable=False) # e.g., "Brokerage", "Exchange"
+    type = Column(Enum("Standard Withdrawal", "Expedited Withdrawal"), default="Standard Withdrawal")
     carrier_company_name = Column(String, nullable=False)
     financial_account_id = Column(Integer, index=True)
     financial_account_current_balance = Column(Integer)
     bank_name = Column(String, nullable=False)
     bank_country = Column(String, nullable=False)
+    branch_code = Column(String, nullable=False)
     bank_account_number = Column(String, nullable=False)
     requested_amount = Column(Integer)
     withdrawal_fee = Column(Integer)
+    to_be_paid_out = Column(integer)
     status = Column(String, nullable=False)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

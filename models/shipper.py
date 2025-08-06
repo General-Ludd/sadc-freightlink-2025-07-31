@@ -25,3 +25,25 @@ class Corporation(Base):
     status = Column(Enum("Un-verified", "Active", "Under Investigation", "Suspended"), default="Un-verified") #Update in Database
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+class Consignor(Base):
+    __tablename__ = "consignors"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    status = Column(String)
+    priority_level = Column(String)
+    company_name = Column(String)
+    client_type = Column(String)
+    business_sector = Column(String)
+    company_website = Column(String)
+    business_address = Column(String)
+    contact_person_name = Column(String)
+    position = Column(String)
+    phone_number = Column(String)
+    email = Column(String)
+    preferred_contact_method = Column(String)
+    client_notes = Column(String)
+    shipments = column(Integer)
+    contract_lanes = Column(Integer)
+    revenue_generated = Column(Integer)
+    profit_generated = Column(Integer)

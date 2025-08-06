@@ -25,7 +25,7 @@ class Exchange_Ftl_Load_Board(Base):
     rate_per_ton = Column(Integer, nullable=False)
     payment_terms = Column(String, nullable=False)
     payment_date = Column(Date)
-    status = Column(Enum("Open", "Closed"), default="Open")
+    status = Column(Enum("Open", "Closed", "Cancelled"), default="Open")
     required_truck_type = Column(String, nullable=True)
     equipment_type = Column(String, nullable=True)
     trailer_type = Column(String, nullable=True)
