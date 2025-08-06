@@ -156,6 +156,77 @@ def create_standard_shipper(db: Session, shipper_data: CorporationBase, director
 
     return {"company": company, "director": director}
 
+def create_brokerage_firm(db: Session, shipper_data: CorporationBase, director_data: DirectorCreate, financial_data: Shipper_Financial_Account_Create):
+    #Create Brokerage Firm/Shipper
+    company = Corporation(
+        type="Brokerage Firm",
+        legal_business_name=shipper_data.legal_business_name,
+        country_of_incorporation=shipper_data.country_of_incorporation,
+        business_registration_number=shipper_data.business_registration_number,
+        business_address=shipper_data.business_address,
+        business_email=shipper_data.business_email,
+        business_phone_number=shipper_data.business_phone_number,
+        business_registration_certificate=shipper_data.business_registration_certificate,
+        business_proof_of_address=shipper_data.business_proof_of_address,
+        tax_clearance_certificate=shipper_data.tax_clearence_certificate
+    )
+    db.add(company)
+    db.commit()
+    db.refresh(company)
+
+    director = Director(
+        first_name=director_data.first_name,
+        last_name=director_data.last_name,
+        id_number=director_data.id_number,
+        nationality=director_data.nationality,
+        home_address=director_data.home_address,
+        phone_number=director_data.phone_number,
+        email=director_data.email,
+        password_hash=hash_password(director_data.password),
+        id_document=director_data.id_document,
+        is_verified=False,
+        company_id=company.id,
+    )
+    db.add(director)
+    db.commit()
+    db.refresh(director)
+
+    account = FinancialAccounts(
+        id=company.id,
+        payment_terms=financial_data.payment_terms,
+        company_name=shipper_data.legal_business_name,
+        business_country_of_incorporation=shipper_data.country_of_incorporation,
+        business_registration_number=shipper_data.business_registration_number,
+        business_address=shipper_data.business_address,
+        directors_first_name=director_data.first_name,
+        directors_last_name=director_data.last_name,
+        directors_nationality=director_data.nationality,
+        directors_id_number=director_data.id_number,
+        directors_home_address=director_data.home_address,
+        directors_phone_number=director_data.phone_number,
+        directors_email_address=director_data.email,
+        years_in_business=financial_data.years_in_business,
+        nature_of_business=financial_data.nature_of_business,
+        annual_turnover=financial_data.annual_turnover,
+        annual_cash_flow=financial_data.annual_cash_flow,
+        credit_score=financial_data.credit_score,
+        bank_name=financial_data.bank_name,
+        branch_code=financial_data.branch_code,
+        account_number=financial_data.account_number,
+        account_type=financial_data.account_type,
+        projected_monthly_bookings=financial_data.projected_monthly_bookings,
+        tax_clearance_certificate=financial_data.tax_clearance_certificate,
+        audited_financial_statement=financial_data.audited_financial_statement,
+        bank_statement=financial_data.bank_statement,
+        business_credit_score_report=financial_data.business_credit_score_report,
+        account_confirmation_letter=financial_data.account_confirmation_letter,
+        suretyship=financial_data.suretyship,
+    )
+    db.add(account)
+    db.commit()
+    db.refresh(account)
+
+    return {"company": company, "director": director}
 
 def create_facility_shipper(db: Session, facility_data: FacilityCreate, director_data: UserCreate):
     try:

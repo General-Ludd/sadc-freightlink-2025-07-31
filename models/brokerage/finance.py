@@ -691,3 +691,18 @@ class Withdrawal_Request(Base):
     status = Column(String, nullable=False)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+class Brokers_Brokerage_Transactions(Base):
+    __tablename__ = "brokers_brokerage_transactions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    brokerage_firm_id = Column(Integer, nullable=False)
+    shipment_id = Column(Integer)
+    lane_Id = Column(Integer)
+    type = Column(String)
+    consignor_id = Column(Integer)
+    consignor_billable = Column(Integer)
+    platform_booking_amount = Column(Integer)
+    profit = Column(Integer)
+    created_at = Column(DateTime(timezone=True), default=get_sast_time)
+    updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)

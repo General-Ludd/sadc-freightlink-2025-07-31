@@ -43,7 +43,7 @@ class Consignor(Base):
     email = Column(String)
     preferred_contact_method = Column(String)
     client_notes = Column(String)
-    shipments = column(Integer)
+    shipments = Column(Integer)
     contract_lanes = Column(Integer)
     revenue_generated = Column(Integer)
     profit_generated = Column(Integer)
