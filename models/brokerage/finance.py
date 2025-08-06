@@ -687,7 +687,7 @@ class Withdrawal_Request(Base):
     bank_account_number = Column(String, nullable=False)
     requested_amount = Column(Integer)
     withdrawal_fee = Column(Integer)
-    to_be_paid_out = Column(integer)
+    to_be_paid_out = Column(Integer)
     status = Column(String, nullable=False)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
