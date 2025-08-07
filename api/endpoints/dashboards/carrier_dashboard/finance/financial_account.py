@@ -388,7 +388,7 @@ def get_carrier_shipment_invoice(
                     "distance": invoice.distance,
                 },
 
-                "base_amount": invoice.base_amount
+                "base_amount": invoice.base_amount,
                 "detention_fees": invoice.other_surcharges,
                 "total_due": invoice.due_amount,
                 "settled_amount": invoice.paid_amount
@@ -429,7 +429,7 @@ def get_carrier_interim_invoice(
                 "status": invoice.status,
                 "payment_terms": invoice.payment_terms,
 
-                "base_amount": invoice.base_amount
+                "base_amount": invoice.base_amount,
                 "detention_fees": invoice.other_surcharges,
                 "total_due": invoice.due_amount,
                 "settled_amount": invoice.paid_amount
@@ -471,7 +471,7 @@ def get_carrier_lane_invoice(
                 "status": invoice.status,
                 "payment_terms": invoice.payment_terms,
 
-                "base_amount": invoice.base_amount
+                "base_amount": invoice.base_amount,
                 "detention_fees": invoice.other_surcharges,
                 "total_due": invoice.due_amount,
                 "settled_amount": invoice.paid_amount
