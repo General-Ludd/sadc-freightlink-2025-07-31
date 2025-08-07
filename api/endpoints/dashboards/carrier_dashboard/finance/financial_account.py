@@ -316,37 +316,6 @@ def get_carrier_lanes_invoices_status(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/shipper/finance/Overdue/service-invoices", response_model=List[Service_Invoices_Summary_Response]) #UnTested
-def get_all_shipper_overdue_service_invoices(
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    assert "company_id" in current_user, "Missing company_id in current_user"
-    company_id = current_user.get("company_id")
-
-    if not company_id:
-        raise HTTPException(
-            status_code=400,
-            detail="User does not belong to a company"
-        )
-
-    try:
-        invoices = db.query(Shipment_Invoice).filter(
-            Shipment_Invoice.financial_account_id == company_id,
-            Shipment_Invoice.status == "Overdue"
-        ).all()
-
-        if not invoices:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Shipments linked to carrier ID {id} not found or not authorized"
-            )
-        
-        return invoices
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
 #########################################Individual Invoice#############################################
 @router.get("/carrier/finance/shipment-invoice/{invoice_id}") #UnTested
 def get_carrier_shipment_invoice(
