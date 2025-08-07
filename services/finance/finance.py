@@ -414,7 +414,7 @@ def create_withdral_request(
             type=withdrawal_request_data.withdrawal_type,
             requested_amount=withdrawal_request_data.amount,
             withdrawal_fee=withdrawal_fee,
-            to_be_paid_out=(withdrawal_request_data.amount - withdrawal_fee)
+            to_be_paid_out=int(withdrawal_request_data.amount - withdrawal_fee),
             carrier_company_name=carrier.legal_business_name,
             financial_account_id=financial_account.id,
             financial_account_current_balance=financial_account.current_balance,
