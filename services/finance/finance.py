@@ -368,7 +368,7 @@ def calculate_spot_power_quote(
 
 
 def create_withdral_request(
-    withdral_request_data: Withdrawal_Request,
+    withdrawal_request_data: Withdrawal_Request,
     db: Session,
     current_user: dict
 ):
@@ -403,18 +403,18 @@ def create_withdral_request(
 
         # Calculate withdrawal fee
         withdrawal_fee = 0
-        if withdrawal_request_data.withdral_type == "Expedited Withdrawal":
+        if withdrawal_request_data.withdrawal_type == "Expedited Withdrawal":
             withdrawal_fee = int(amount * 0.01) # 1 percent fee for expedited withdrawal
 
         if financial_account.current_balance < (amount + withdrawal_fee):
              raise HTTPException(status_code=400, detail="Insufficient funds in the financial account for this withdrawal including fees")
 
         # Create the withdrawal request
-        withdral_request = Withdrawal_Request(
-            type=withdral_request_data.withdral_type,
-            requested_amount=withdral_request_data.amount,
+        withdrawal_request = Withdrawal_Request(
+            type=withdrawal_request_data.withdrawal_type,
+            requested_amount=withdrawal_request_data.amount,
             withdrawal_fee=withdrawal_fee,
-            to_be_paid_out=int(withdral_request_data.amount - withdrawal_fee)
+            to_be_paid_out=int(withdrawal_request_data.amount - withdrawal_fee)
             carrier_company_name=carrier.legal_business_name,
             financial_account_id=financial_account.id,
             financial_account_current_balance=financial_account.current_balance,
@@ -423,10 +423,10 @@ def create_withdral_request(
             branch_code=financial_account.branch_code,
             account_number=financial_account.account_number,
         )
-        db.add(withdral_request)
+        db.add(withdrawal_request)
         db.commit()
-        db.refresh(withdral_request)
-        return withdral_request
+        db.refresh(withdrawal_request)
+        return withdrawal_request
 
     except Exception as e:
         # Log the exception for debugging
