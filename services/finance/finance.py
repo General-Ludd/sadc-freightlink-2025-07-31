@@ -4,8 +4,8 @@ from typing import Optional
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from enums import EquipmentType, Recurrence_Days, TrailerLength, TrailerType, TruckType
-from models.brokerage.finance import Contract, LateFeeRates, Invoice, FinancialAccounts, Withdrawal_Request
-from models.spot_bookings.dedicated_lane_ftl_shipment import FTL_Lane, CarrierFinancialAccounts
+from models.brokerage.finance import Contract, LateFeeRates, Invoice, FinancialAccounts, CarrierFinancialAccounts, Withdrawal_Request
+from models.spot_bookings.dedicated_lane_ftl_shipment import FTL_Lane
 from models.spot_bookings.ftl_shipment import FTL_SHIPMENT
 from schemas.brokerage.finance import Withdrawal_Request
 from services.brokerage.recurrence_calculator import RecurrenceCalculator
