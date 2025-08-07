@@ -5,6 +5,7 @@ from sqlalchemy import ARRAY, Date
 from sqlalchemy.sql import func
 from sqlalchemy import Column, Integer, Float, String, ForeignKey, Enum, DateTime, Boolean, Numeric
 from decimal import Decimal
+from utils.sast_datetime import get_sast_time
 
 class BillingAnchor(Base):
     __tablename__ = "billing_anchors"
