@@ -57,3 +57,18 @@ class CorporationResponse(CorporationBase):
 
     class Config:
         orm_mode = True
+
+class ConsignorCreate(BaseModel):
+    status: Optional[str]
+    priority_level: Optional[str]
+    company_name: str
+    client_type: Optional[str]
+    business_sector: Optional[str]
+    company_website: Optional[str]
+    business_address: str
+    contact_person_name: str
+    position: Optional[str]
+    phone_number: str
+    email: str
+    preferred_contact_method: Optional[str]
+    client_notes: Optional[str]

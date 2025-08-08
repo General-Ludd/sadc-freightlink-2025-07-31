@@ -5,6 +5,7 @@ from sqlalchemy.orm import relationship
 from models.base import Base
 from enums import ShipperType
 from enums import FacilityType
+from utils.sast_datetime import get_sast_time
 
 class Corporation(Base):
     __tablename__ = "corporations"
@@ -23,13 +24,14 @@ class Corporation(Base):
     tax_clearance_certificate = Column(String, nullable=True)
     is_verified = Column(Boolean, default=False)
     status = Column(Enum("Un-verified", "Active", "Under Investigation", "Suspended"), default="Un-verified") #Update in Database
-    created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime(timezone=True), default=get_sast_time)
+    updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)
 
 class Consignor(Base):
     __tablename__ = "consignors"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    brokerage_firm_id = Column(Integer)
     status = Column(String)
     priority_level = Column(String)
     company_name = Column(String)
@@ -47,3 +49,5 @@ class Consignor(Base):
     contract_lanes = Column(Integer)
     revenue_generated = Column(Integer)
     profit_generated = Column(Integer)
+    created_at = Column(DateTime(timezone=True), default=get_sast_time)
+    updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)

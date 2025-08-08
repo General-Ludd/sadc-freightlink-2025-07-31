@@ -140,7 +140,7 @@ def get_brokerage_company_profile_information(
                 "nature_of_business": financial_account.nature_of_business,
                 "annual_turnover": financial_account.annual_turnover,
                 "annual_cashflow": financial_account.annual_cash_flow,
-                "business_credit_score" financial_account.business_credit_score,
+                "business_credit_score": financial_account.business_credit_score,
                 "bank_name": financial_account.bank_name,
                 "branch_code": financial_account.branch_code,
                 "account_number": financial_account.account_number,
@@ -170,3 +170,6 @@ def get_brokerage_company_profile_information(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+######################################Client Mana

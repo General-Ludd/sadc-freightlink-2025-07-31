@@ -48,19 +48,18 @@ def broker_get_all_shipment_modes(
     ftl_shipment_ids = [shipment.id for shipment in ftl_shipments]
 
     # Get brokerage transactions for those shipments
-    brokerage_transactions = db.query(Brokers_Brokerage_Transactions).filter(
-        Brokers_Brokerage_Transactions.shipment_id.in_(ftl_shipment_ids)
+    ftl_brokerage_transactions = db.query(Brokers_Brokerage_Transactions).filter(
+        Brokers_Brokerage_Transactions.shipment_id.in_(ftl_shipment_ids),
+        Brokers_Brokerage_Transactions.type == "FTL"
     ).all()
 
     # Create a lookup dictionary for consignor_billable by shipment_id
-    brokerage_map = {bt.shipment_id: bt.consignor_billable for bt in brokerage_transactions}
+    ftl_brokerage_map = {bt.shipment_id: bt.consignor_billable for bt in ftl_brokerage_transactions}
 
     # Format FTL response
     ftl_response = [{
         "id": shipment.id,
         "type": shipment.type,
-        "trip_status": shipment.trip_status,
-        "priority_level": shipment.priority_level,
         "status": shipment.shipment_status,
         "origin": shipment.origin_city_province,
         "pickup_date": shipment.pickup_date,
@@ -68,18 +67,29 @@ def broker_get_all_shipment_modes(
         "destination": shipment.destination_city_province,
         "eta_date": shipment.eta_date,
         "eta_window": shipment.eta_window,
+        "equipment": f"{shipment.equipment_type} - {shipment.trailer_type} - {shipment.trailer_length}",
+        "commodity": shipment.commodity,
         "broker_billable": shipment.quote,
-        "consignor_billable": brokerage_map.get(shipment.id, 0)
+        "consignor_billable": ftl_brokerage_map.get(shipment.id, 0),
+        "priority_level": shipment.priority_level,
     } for shipment in ftl_shipments]
 
     # You mentioned POWER_SHIPMENT, here’s how to add that section too
     power_shipments = db.query(POWER_SHIPMENT).filter(POWER_SHIPMENT.shipper_company_id == company_id).all()
+    power_shipment_ids = [shipment.id for shipment in power_shipments]
+
+    # Get brokerage transactions for those shipments
+    power_brokerage_transactions = db.query(Brokers_Brokerage_Transactions).filter(
+        Brokers_Brokerage_Transactions.shipment_id.in_(power_shipment_ids),
+        Brokers_Brokerage_Transactions.type == "POWER"
+    ).all()
+
+    # Create a lookup dictionary for consignor_billable by shipment_id
+    power_brokerage_map = {bt.shipment_id: bt.consignor_billable for bt in power_brokerage_transactions}
 
     power_response = [{
         "id": shipment.id,
         "type": shipment.type,
-        "trip_status": shipment.trip_status,
-        "priority_level": shipment.priority_level,
         "status": shipment.shipment_status,
         "origin": shipment.origin_city_province,
         "pickup_date": shipment.pickup_date,
@@ -87,7 +97,11 @@ def broker_get_all_shipment_modes(
         "destination": shipment.destination_city_province,
         "eta_date": shipment.eta_date,
         "eta_window": shipment.eta_window,
+        "equipment": f"{shipment.equipment_type} - {shipment.trailer_type} - {shipment.trailer_length}",
+        "commodity": shipment.commodity,
         "broker_billable": shipment.quote,
+        "consignor_billable": power_brokerage_map.get(shipment.id, 0),
+        "priority_level": shipment.priority_level
     } for shipment in power_shipments]
 
     return {
@@ -95,8 +109,9 @@ def broker_get_all_shipment_modes(
         "power_shipments": power_response
     }
 
-@router.post("/shipper/all-shipments-modes/booked")
-def shipper_get_all_shipment_modes_booked(
+@router.post("/broker-access/all-shipments-modes/{status}")
+def broker_get_all_shipment_modes_by_status(
+    status: str,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
@@ -109,150 +124,76 @@ def shipper_get_all_shipment_modes_booked(
             detail="User does not belong to a company"
         )
 
-    try:
-        ftl_shipments = db.query(FTL_SHIPMENT).filter(FTL_SHIPMENT.shipper_company_id == company_id,
-                                                      POWER_SHIPMENT.shipment_status == "Booked").all()
-        power_shipments = db.query(POWER_SHIPMENT).filter(POWER_SHIPMENT.shipper_company_id == company_id,
-                                                          POWER_SHIPMENT.shipment_status == "Booked").all()
+    # Get FTL Shipments
+    ftl_shipments = db.query(FTL_SHIPMENT).filter(FTL_SHIPMENT.shipper_company_id == company_id,
+                                                    FTL_SHIPMENT.shiment_status == status).all()
+    ftl_shipment_ids = [shipment.id for shipment in ftl_shipments]
 
-        return {
-            "ftl_shipments": [{
-                "id": ftl_shipment.id,
-                "type": ftl_shipment.type,
-                "trip_status": ftl_shipment.trip_status,
-                "priority_level": ftl_shipment.priority_level,
-                "status": ftl_shipment.shipment_status,
-                "origin": ftl_shipment.origin_city_province,
-                "pickup_date": ftl_shipment.pickup_date,
-                "pickup_window": ftl_shipment.pickup_appointment,
-                "destination": ftl_shipment.destination_city_province,
-                "eta_date": ftl_shipment.eta_date,
-                "eta_window": ftl_shipment.eta_window,
-            } for ftl_shipment in ftl_shipments],
+    # Get brokerage transactions for those shipments
+    ftl_brokerage_transactions = db.query(Brokers_Brokerage_Transactions).filter(
+        Brokers_Brokerage_Transactions.shipment_id.in_(ftl_shipment_ids),
+        Brokers_Brokerage_Transactions.type == "FTL"
+    ).all()
 
-            "power_shipmnets": [{
-                "id": power_shipment.id,
-                "type": power_shipment.type,
-                "trip_status": power_shipment.trip_status,
-                "priority_level": power_shipment.priority_level,
-                "status": power_shipment.shipment_status,
-                "origin": power_shipment.origin_city_province,
-                "pickup_date": power_shipment.pickup_date,
-                "pickup_window": power_shipment.pickup_appointment,
-                "destination": power_shipment.destination_city_province,
-                "eta_date": power_shipment.eta_date,
-                "eta_window": power_shipment.eta_window,
-            } for power_shipment in power_shipments],
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    # Create a lookup dictionary for consignor_billable by shipment_id
+    ftl_brokerage_map = {bt.shipment_id: bt.consignor_billable for bt in ftl_brokerage_transactions}
 
-@router.post("/shipper/all-shipments-modes/in-progress")
-def shipper_get_all_shipment_modes_in_progress(
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    assert "company_id" in current_user, "Missing company_id in current_user"
-    company_id = current_user.get("company_id")
+    # Format FTL response
+    ftl_response = [{
+        "id": shipment.id,
+        "type": shipment.type,
+        "status": shipment.shipment_status,
+        "origin": shipment.origin_city_province,
+        "pickup_date": shipment.pickup_date,
+        "pickup_window": shipment.pickup_appointment,
+        "destination": shipment.destination_city_province,
+        "eta_date": shipment.eta_date,
+        "eta_window": shipment.eta_window,
+        "equipment": f"{shipment.equipment_type} - {shipment.trailer_type} - {shipment.trailer_length}",
+        "commodity": shipment.commodity,
+        "broker_billable": shipment.quote,
+        "consignor_billable": ftl_brokerage_map.get(shipment.id, 0),
+        "priority_level": shipment.priority_level,
+    } for shipment in ftl_shipments]
 
-    if not company_id:
-        raise HTTPException(
-            status_code=400,
-            detail="User does not belong to a company"
-        )
+    # You mentioned POWER_SHIPMENT, here’s how to add that section too
+    power_shipments = db.query(POWER_SHIPMENT).filter(POWER_SHIPMENT.shipper_company_id == company_id,
+                                                        POWER_SHIPMENT.shipment_status == status).all()
+    power_shipment_ids = [shipment.id for shipment in power_shipments]
 
-    try:
-        ftl_shipments = db.query(FTL_SHIPMENT).filter(FTL_SHIPMENT.shipper_company_id == company_id,
-                                                      POWER_SHIPMENT.shipment_status == "In-Progress").all()
-        power_shipments = db.query(POWER_SHIPMENT).filter(POWER_SHIPMENT.shipper_company_id == company_id,
-                                                          POWER_SHIPMENT.shipment_status == "In-Progress").all()
+    # Get brokerage transactions for those shipments
+    power_brokerage_transactions = db.query(Brokers_Brokerage_Transactions).filter(
+        Brokers_Brokerage_Transactions.shipment_id.in_(power_shipment_ids),
+        Brokers_Brokerage_Transactions.type == "POWER"
+    ).all()
 
-        return {
-            "ftl_shipments": [{
-                "id": ftl_shipment.id,
-                "type": ftl_shipment.type,
-                "trip_status": ftl_shipment.trip_status,
-                "priority_level": ftl_shipment.priority_level,
-                "status": ftl_shipment.shipment_status,
-                "origin": ftl_shipment.origin_city_province,
-                "pickup_date": ftl_shipment.pickup_date,
-                "pickup_window": ftl_shipment.pickup_appointment,
-                "destination": ftl_shipment.destination_city_province,
-                "eta_date": ftl_shipment.eta_date,
-                "eta_window": ftl_shipment.eta_window,
-            } for ftl_shipment in ftl_shipments],
+    # Create a lookup dictionary for consignor_billable by shipment_id
+    power_brokerage_map = {bt.shipment_id: bt.consignor_billable for bt in power_brokerage_transactions}
 
-            "power_shipmnets": [{
-                "id": power_shipment.id,
-                "type": power_shipment.type,
-                "trip_status": power_shipment.trip_status,
-                "priority_level": power_shipment.priority_level,
-                "status": power_shipment.shipment_status,
-                "origin": power_shipment.origin_city_province,
-                "pickup_date": power_shipment.pickup_date,
-                "pickup_window": power_shipment.pickup_appointment,
-                "destination": power_shipment.destination_city_province,
-                "eta_date": power_shipment.eta_date,
-                "eta_window": power_shipment.eta_window,
-            } for power_shipment in power_shipments],
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    
-@router.post("/shipper/all-shipments-modes/completed")
-def shipper_get_all_shipment_modes_completed(
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    assert "company_id" in current_user, "Missing company_id in current_user"
-    company_id = current_user.get("company_id")
+    power_response = [{
+        "id": shipment.id,
+        "type": shipment.type,
+        "status": shipment.shipment_status,
+        "origin": shipment.origin_city_province,
+        "pickup_date": shipment.pickup_date,
+        "pickup_window": shipment.pickup_appointment,
+        "destination": shipment.destination_city_province,
+        "eta_date": shipment.eta_date,
+        "eta_window": shipment.eta_window,
+        "equipment": f"{shipment.equipment_type} - {shipment.trailer_type} - {shipment.trailer_length}",
+        "commodity": shipment.commodity,
+        "broker_billable": shipment.quote,
+        "consignor_billable": power_brokerage_map.get(shipment.id, 0),
+        "priority_level": shipment.priority_level
+    } for shipment in power_shipments]
 
-    if not company_id:
-        raise HTTPException(
-            status_code=400,
-            detail="User does not belong to a company"
-        )
+    return {
+        "ftl_shipments": ftl_response,
+        "power_shipments": power_response
+    }
 
-    try:
-        ftl_shipments = db.query(FTL_SHIPMENT).filter(FTL_SHIPMENT.shipper_company_id == company_id,
-                                                      POWER_SHIPMENT.shipment_status == "Completed").all()
-        power_shipments = db.query(POWER_SHIPMENT).filter(POWER_SHIPMENT.shipper_company_id == company_id,
-                                                          POWER_SHIPMENT.shipment_status == "Completed").all()
-
-        return {
-            "ftl_shipments": [{
-                "id": ftl_shipment.id,
-                "type": ftl_shipment.type,
-                "trip_status": ftl_shipment.trip_status,
-                "priority_level": ftl_shipment.priority_level,
-                "status": ftl_shipment.shipment_status,
-                "origin": ftl_shipment.origin_city_province,
-                "pickup_date": ftl_shipment.pickup_date,
-                "pickup_window": ftl_shipment.pickup_appointment,
-                "destination": ftl_shipment.destination_city_province,
-                "eta_date": ftl_shipment.eta_date,
-                "eta_window": ftl_shipment.eta_window,
-            } for ftl_shipment in ftl_shipments],
-
-            "power_shipmnets": [{
-                "id": power_shipment.id,
-                "type": power_shipment.type,
-                "trip_status": power_shipment.trip_status,
-                "priority_level": power_shipment.priority_level,
-                "status": power_shipment.shipment_status,
-                "origin": power_shipment.origin_city_province,
-                "pickup_date": power_shipment.pickup_date,
-                "pickup_window": power_shipment.pickup_appointment,
-                "destination": power_shipment.destination_city_province,
-                "eta_date": power_shipment.eta_date,
-                "eta_window": power_shipment.eta_window,
-            } for power_shipment in power_shipments],
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.post("/shipper/ftl/all-shipments") #UnTested
-def shipper_get_all_ftl_shipments(
+@router.post("/broker-access/ftl/all-shipments") #UnTested
+def broker_access_get_all_ftl_shipments(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
@@ -287,7 +228,7 @@ def shipper_get_all_ftl_shipments(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/broker-access/ftl-shipment/id")
-def broker_get_individual_ftl_shipment(
+def broker_access_get_individual_ftl_shipment(
     shipment_data: individual_shipment_or_lane_request,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
@@ -434,8 +375,8 @@ def broker_get_individual_ftl_shipment(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/spot/ftl-shipment-cancel/{shipment_id}", status_code=status.HTTP_200_OK)
-def cancel_spot_ftl_shipment_endpoint(
+@router.post("/broker-access/ftl-shipment-cancel/{shipment_id}", status_code=status.HTTP_200_OK)
+def broker_access_cancel_spot_ftl_shipment_endpoint(
     shipment_id: int,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user),
@@ -452,44 +393,9 @@ def cancel_spot_ftl_shipment_endpoint(
         return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-
-@router.post("/shipper/power/all-shipments")
-def shipper_get_all_power_shipments(
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    assert "company_id" in current_user, "Missing company_id in current_user"
-    company_id = current_user.get("company_id")
-
-    if not company_id:
-        raise HTTPException(
-            status_code=400,
-            detail="User does not belong to a company"
-        )
-
-    try:
-        power_shipments = db.query(POWER_SHIPMENT).filter(POWER_SHIPMENT.shipper_company_id == company_id).all()
-
-        return {
-            "power_shipmnets": [{
-                "id": power_shipment.id,
-                "type": power_shipment.type,
-                "trip_status": power_shipment.trip_status,
-                "priority_level": power_shipment.priority_level,
-                "status": power_shipment.shipment_status,
-                "origin": power_shipment.origin_city_province,
-                "pickup_date": power_shipment.pickup_date,
-                "pickup_window": power_shipment.pickup_appointment,
-                "destination": power_shipment.destination_city_province,
-                "eta_date": power_shipment.eta_date,
-                "eta_window": power_shipment.eta_window,
-            } for power_shipment in power_shipments],
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
     
-@router.post("/shipper/power-shipment/id")
-def shipper_get_individual_power_shipment(
+@router.post("/broker-access/power-shipment/id")
+def broker_access_get_individual_power_shipment(
     shipment_data: individual_shipment_or_lane_request,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
@@ -505,6 +411,9 @@ def shipper_get_individual_power_shipment(
 
     try:
         shipment = db.query(POWER_SHIPMENT).filter(POWER_SHIPMENT.id == shipment_data.id).first()
+        consignor = db.query(Consignor).filter(Consignor.id = shipment.consignor_id).first()
+        broker_transaction = db.query(Brokers_Brokerage_Transactions).filter(Brokers_Brokerage_Transactions.shipment_id == shipment.id,
+                                                                            Brokers_Brokerage_Transactions.type == shipment.type).first()
         trailer = db.query(ShipperTrailer).filter(ShipperTrailer.id == shipment.trailer_id).first()
 
         carrier = db.query(Carrier).filter(Carrier.id == shipment.carrier_id).first()
@@ -552,6 +461,18 @@ def shipper_get_individual_power_shipment(
                 "estimated_transit_time": shipment.estimated_transit_time,
                 "route_preview_embed": shipment.route_preview_embed,
             },
+
+            "consignor_information": {
+                "id": consignor.id,
+                "client_type": consignor.client_type,
+                "business_sector": consignor.business_sector,
+                "company_name": consignor.company_name,
+                "contact_person": consignor.contact_person_name,
+                "phone_number": consignor.phone_number,
+                "email": consignor.email,
+                "consignor_billable": broker_transaction.consignor_billable if broker_transaction else "N/A",
+                "broker_profit": (broker.transaction.consignor_billable - shipment.quote)
+            }
 
             "shipper_trailer_information": {
                 "id": trailer.id,
@@ -632,8 +553,8 @@ def shipper_get_individual_power_shipment(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/spot/power-shipment-cancel/{shipment_id}", status_code=status.HTTP_200_OK)
-def cancel_spot_power_shipment_endpoint(
+@router.post("/broker-access/power-shipment-cancel/{shipment_id}", status_code=status.HTTP_200_OK)
+def broker_access_cancel_spot_power_shipment_endpoint(
     shipment_id: int,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user),
@@ -651,8 +572,8 @@ def cancel_spot_power_shipment_endpoint(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.post("/shipper/all-lanes/all-modes")
-def get_all_shipper_dedicated_lanes(
+@router.post("/broker-access/all-lanes/all-modes")
+def get_all_brokerage_firm_dedicated_lanes(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
@@ -691,8 +612,8 @@ def get_all_shipper_dedicated_lanes(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-router.post("shipper/ftl-lane/id")
-def shipper_get_individual_ftl_lane(
+router.post("/broker-access/ftl-lane/id")
+def broker_access_get_individual_ftl_lane(
     lane_data: individual_shipment_or_lane_request,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)

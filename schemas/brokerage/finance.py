@@ -192,4 +192,7 @@ class Individual_Service_Invoice_Response(BaseModel):
 
 class Withdrawal_Request(BaseModel):
     amount:int
-    withdral_type: str
+    withdrawal_type: str
+
+class Broker_Brokerage_TransactionCreate(BaseModel):
+    consignor_billable: Optional [int] = None

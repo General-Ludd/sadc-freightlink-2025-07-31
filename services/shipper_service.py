@@ -3,8 +3,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from models.brokerage.finance import FinancialAccounts
 from models.user import User, Director
-from models.shipper import Corporation
-from schemas.shipper import CorporationBase, ShipperCreate
+from models.shipper import Corporation, Consignor
+from schemas.shipper import CorporationBase, ShipperCreate, ConsignorCreate
 from schemas.user import UserCreate, DirectorCreate
 from schemas.shipper import FacilityCreate
 from schemas.brokerage.finance import Shipper_Financial_Account_Create
@@ -291,3 +291,32 @@ def create_facility_shipper(db: Session, facility_data: FacilityCreate, director
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
+
+def create_brokerage_firm_consignor_client(
+    consignor_data: ConsignorCreate,
+    db: Session,
+    current_user: dict):
+    assert "company_id" in current_user, "Missing company_id in current_user"
+    company_id = current_user.get("company_id")
+
+    consignor = Consignor(
+        brokerage_firm_id=company_id,
+        status=consignor_data.status,
+        priority_level=consignor_data.priority_level,
+        company_name=consignor_data.company_name,
+        client_type=consignor_data.client_type,
+        business_sector=consignor_data.business_sector,
+        company_website=consignor_data.company_website,
+        business_address=consignor_data.business_address,
+        contact_person_name=consignor_data.contact_person_name,
+        position=consignor_data.position,
+        phone_number=consignor_data.phone_number,
+        email=consignor_data.email,
+        preferred_contact_method=consignor_data.preferred_contact_method,
+        client_notes=consignor_data.client_notes,
+    )
+    db.add(consignor)
+    db.commit()
+    db.refresh(consignor)
+
+    return {"Consignor successfully created"}
