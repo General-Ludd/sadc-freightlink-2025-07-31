@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 import threading
+from fastapi.middleware.cors import CORSMiddleware
 from api.endpoints.dashboards.standard_shipper_dashboard import standard_facility_dashboard
 from api.endpoints.dashboards.standard_shipper_dashboard import equipment_management
 from api.endpoints.dashboards.standard_shipper_dashboard.shipment_management import spot_shipment_management
@@ -22,6 +23,14 @@ from api.endpoints.dashboards.carrier_dashboard import exchange_loadboards
 from triggers.scheduler import start_tracking_scheduler
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 ################################################Shipper Dashboard######################################
 app.include_router(standard_facility_dashboard.router, prefix="/api", tags=["Standard Shipper Dashboard"])
