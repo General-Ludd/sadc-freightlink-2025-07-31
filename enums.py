@@ -3,6 +3,7 @@ from enum import Enum
 
 class ShipperShipmentStatus(str, Enum):
     BOOKED = "Booked"
+    ASSIGNED = "Assigned"
     INPROGRESS = "In-progress"
     COMPLETED = "Completed"
     DELAYED = "Delayed"
