@@ -336,7 +336,7 @@ def shipper_get_all_power_shipments(
         power_shipments = db.query(POWER_SHIPMENT).filter(POWER_SHIPMENT.shipper_company_id == company_id).all()
 
         return {
-            "power_shipmnets": [{
+            "power_shipments": [{
                 "id": power_shipment.id,
                 "type": power_shipment.type,
                 "trip_status": power_shipment.trip_status,
