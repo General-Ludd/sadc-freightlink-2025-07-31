@@ -589,8 +589,10 @@ class CarrierFinancialAccounts(Base):
     directors_phone_number = Column(String, nullable=False)
     directors_email_address = Column(String, nullable=False)
     bank_name = Column(String, nullable=True)
+    bank_country = Column(String, nullable=True)
     branch_code = Column(String, nullable=True)
     account_number = Column(Integer, nullable=True)
+    account_type
     account_confirmation_letter = Column(String, nullable=True)
     paid_invoices_amount = Column(Integer, default=0)
     outstanding_invoices_amount = Column(Integer, default=0)

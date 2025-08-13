@@ -93,9 +93,9 @@ def get_all_shipper_exchanges(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("shipper/ftl-exchange/id")
+@router.get("shipper/ftl-exchange/{id}")
 def get_single_ftl_exchange_details(
-    shipment_data: Exchange_Id,
+    id: int,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
@@ -108,7 +108,7 @@ def get_single_ftl_exchange_details(
             detail="User does not belong to a company"
         )
     try:
-        exchange = db.query(FTL_SHIPMENT_EXCHANGE).filter(FTL_SHIPMENT_EXCHANGE.id == shipment_data.id,
+        exchange = db.query(FTL_SHIPMENT_EXCHANGE).filter(FTL_SHIPMENT_EXCHANGE.id == id,
                                                           FTL_SHIPMENT_EXCHANGE.shipper_company_id == company_id).first()
         
         pickup_facility = db.query(ShipmentFacility).filter_by(id=exchange.pickup_facility_id).first()
@@ -215,9 +215,9 @@ def cancel_exchange_power_exchange_endpoint(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.post("shipper/power-exchange/id")
+@router.get("shipper/power-exchange/{id}")
 def get_single_power_exchange_details(
-    shipment_data: Exchange_Id,
+    id: int,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
@@ -230,7 +230,7 @@ def get_single_power_exchange_details(
             detail="User does not belong to a company"
         )
     try:
-        exchange = db.query(POWER_SHIPMENT_EXCHANGE).filter(POWER_SHIPMENT_EXCHANGE.id == shipment_data.id,
+        exchange = db.query(POWER_SHIPMENT_EXCHANGE).filter(POWER_SHIPMENT_EXCHANGE.id == id,
                                                           POWER_SHIPMENT_EXCHANGE.shipper_company_id == company_id).first()
         
         trailer = db.query(ShipperTrailer).filter(ShipperTrailer.id == exchange.trailer_id).first()
@@ -354,9 +354,9 @@ def cancel_exchange_power_exchange_endpoint(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.get("/shipper/ftl-lane-exchange/id")
+@router.get("/shipper/ftl-lane-exchange/{id}")
 def shipper_single_ftl_lane_exchange_detials(
-    shipment_data: Exchange_Id,
+    id: int,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
@@ -369,7 +369,7 @@ def shipper_single_ftl_lane_exchange_detials(
             detail="User does not belong to a company"
         )
     try:
-        exchange = db.query(FTL_Lane_Exchange).filter(FTL_Lane_Exchange.id == shipment_data.id,
+        exchange = db.query(FTL_Lane_Exchange).filter(FTL_Lane_Exchange.id == id,
                                                           FTL_Lane_Exchange.shipper_company_id == company_id).first()
 
         bids = db.query(Exchange_FTL_Lane_Bid).filter(Exchange_FTL_Lane_Bid.exchange_id == exchange.id,
@@ -483,329 +483,3 @@ def shipper_single_ftl_lane_exchange_detials(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-@router.get("/shipper/ftl/all-exchanges", response_model=List[Exchange_Ftl_Shipments_Summary_Response]) #UnTested
-def get_all_shipper_ftl_exchanges(
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    assert "company_id" in current_user, "Missing company_id in current_user"
-    company_id = current_user.get("company_id")
-
-    if not company_id:
-        raise HTTPException(
-            status_code=400,
-            detail="User does not belong to a company"
-        )
-
-    try:
-        exchanges = db.query(FTL_SHIPMENT_EXCHANGE).filter(
-            FTL_SHIPMENT_EXCHANGE.shipper_company_id == company_id
-        ).all()
-
-        if not exchanges:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Shipments linked to carrier ID {id} not found or not authorized"
-            )
-        
-        return exchanges
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.get("/exchange/ftl-exchange/id", response_model=Exchange_FTL_Shipment_Response) #UnTested
-def shipper_get_individual_ftl_exchange(
-    bid_data: Exchange_Id,
-    db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
-    assert "company_id" in current_user, "Missing company_id in current_user"
-    print(f"current_user: {current_user}")
-    
-    # Extract the company_id from the current user
-    company_id = current_user.get("company_id")
-    if not company_id:
-        raise HTTPException(
-            status_code=400,
-            detail="User does not belong to a company"
-        )
-        
-    try:
-        # Query all records from the "dedicated_lanes_loadboard" table
-        exchange = db.query(FTL_SHIPMENT_EXCHANGE).filter(FTL_SHIPMENT_EXCHANGE.id == bid_data.id).all()
-        return exchange
-    except Exception as e:
-        return {"error": str(e)}
-
-@router.get("/exchange/ftl-exchange-id/all-bids", response_model=List[FTL_Exchange_ShipperSide_BidResponse]) #UnTested
-def shipper_get_all_ftl_exchange_bids(
-    bid_data: Exchange_Id,
-    db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
-    assert "company_id" in current_user, "Missing company_id in current_user"
-    print(f"current_user: {current_user}")
-    
-    # Extract the company_id from the current user
-    company_id = current_user.get("company_id")
-    if not company_id:
-        raise HTTPException(
-            status_code=400,
-            detail="User does not belong to a company"
-        )
-        
-    try:
-        # Query all records from the "dedicated_lanes_loadboard" table
-        bids = db.query(Exchange_FTL_Shipment_Bid).filter(Exchange_FTL_Shipment_Bid.exchange_id == bid_data.id).all()
-        return bids
-    except Exception as e:
-        return {"error": str(e)}
-    
-@router.post("/exchange/ftl-exchange-id/accept-bid-id", status_code=status.HTTP_201_CREATED) #UnTested
-def accept_ftl_exchange_bid(
-    bid_data: Accept_Bid,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
-):
-    try:
-        result = accept_ftl_shipment_exchange_bid(
-            db,
-            bid_data,
-            current_user=current_user)
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    
-##############################################POWER EXCHANGE################################################
-
-@router.get("/shipper/power/all-exchanges", response_model=List[Exchange_Power_Shipments_Summary_Response]) #UnTested
-def get_all_shipper_power_exchanges(
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    assert "company_id" in current_user, "Missing company_id in current_user"
-    company_id = current_user.get("company_id")
-
-    if not company_id:
-        raise HTTPException(
-            status_code=400,
-            detail="User does not belong to a company"
-        )
-
-    try:
-        exchanges = db.query(POWER_SHIPMENT_EXCHANGE).filter(
-            POWER_SHIPMENT_EXCHANGE.shipper_company_id == company_id
-        ).all()
-
-        if not exchanges:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Shipments linked to carrier ID {id} not found or not authorized"
-            )
-        
-        return exchanges
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.get("/exchange/power-exchange/id", response_model=exchange_power_shipment_response) #UnTested
-def shipper_get_individual_power_exchange(
-    bid_data: Exchange_Id,
-    db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
-    assert "company_id" in current_user, "Missing company_id in current_user"
-    print(f"current_user: {current_user}")
-    
-    # Extract the company_id from the current user
-    company_id = current_user.get("company_id")
-    if not company_id:
-        raise HTTPException(
-            status_code=400,
-            detail="User does not belong to a company"
-        )
-        
-    try:
-        # Query all records from the "dedicated_lanes_loadboard" table
-        exchange = db.query(POWER_SHIPMENT_EXCHANGE).filter(POWER_SHIPMENT_EXCHANGE.id == bid_data.id).all()
-        return exchange
-    except Exception as e:
-        return {"error": str(e)}
-
-@router.get("/exchange/power-exchange-id/all-bids", response_model=List[POWER_Exchange_ShipperSide_BidResponse]) #UnTested
-def shipper_get_all_power_exchange_bids(
-    bid_data: Exchange_Id,
-    db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
-    assert "company_id" in current_user, "Missing company_id in current_user"
-    print(f"current_user: {current_user}")
-    
-    # Extract the company_id from the current user
-    company_id = current_user.get("company_id")
-    if not company_id:
-        raise HTTPException(
-            status_code=400,
-            detail="User does not belong to a company"
-        )
-        
-    try:
-        # Query all records from the "dedicated_lanes_loadboard" table
-        bids = db.query(Exchange_POWER_Shipment_Bid).filter(Exchange_POWER_Shipment_Bid.exchange_id == bid_data.id).all()
-        return bids
-    except Exception as e:
-        return {"error": str(e)}
-    
-@router.post("/exchange/power-exchange-id/accept-bid-id", status_code=status.HTTP_201_CREATED) #UnTested
-def accept_power_exchange_bid(
-    bid_data: Accept_Bid,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
-):
-    try:
-        result = accept_power_shipment_exchange_bid(
-            db,
-            bid_data,
-            current_user=current_user)
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-####################################################FTL LANE EXCHANGES MANAGEMENTS###########################
-@router.get("/exchange/ftl-lane/all-exchanges", response_model=List[Exchange_Ftl_Lane_Summary_Response]) #UnTested
-def get_all_shipper_ftl_lane_exchanges(
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    assert "company_id" in current_user, "Missing company_id in current_user"
-    company_id = current_user.get("company_id")
-
-    if not company_id:
-        raise HTTPException(
-            status_code=400,
-            detail="User does not belong to a company"
-        )
-
-    try:
-        exchanges = db.query(FTL_Lane_Exchange).filter(
-            FTL_Lane_Exchange.shipper_company_id == company_id
-        ).all()
-
-        if not exchanges:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Shipments linked to carrier ID {id} not found or not authorized"
-            )
-        return exchanges
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/exchange/ftl-lane/id", response_model=Exchange_Ftl_Lane_Response) #UnTested
-def shipper_get_individual_ftl_lane_exchange(
-    bid_data: Exchange_Id,
-    db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
-    assert "company_id" in current_user, "Missing company_id in current_user"
-    print(f"current_user: {current_user}")
-    
-    # Extract the company_id from the current user
-    company_id = current_user.get("company_id")
-    if not company_id:
-        raise HTTPException(
-            status_code=400,
-            detail="User does not belong to a company"
-        )
-        
-    try:
-        # Query all records from the "dedicated_lanes_loadboard" table
-        exchange = db.query(FTL_Lane_Exchange).filter(FTL_Lane_Exchange.id == bid_data.id).all()
-        return exchange
-    except Exception as e:
-        return {"error": str(e)}
-
-@router.get("/exchange/ftl-lane-id/all-bids", response_model=List[Exchange_FTL_Lane_ShipperSide_BidResponse]) #UnTested
-def shipper_get_all_ftl_lane_exchange_bids(
-    bid_data: Exchange_Id,
-    db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
-    assert "company_id" in current_user, "Missing company_id in current_user"
-    print(f"current_user: {current_user}")
-    
-    # Extract the company_id from the current user
-    company_id = current_user.get("company_id")
-    if not company_id:
-        raise HTTPException(
-            status_code=400,
-            detail="User does not belong to a company"
-        )
-        
-    try:
-        # Query all records from the "dedicated_lanes_loadboard" table
-        bids = db.query(Exchange_FTL_Lane_Bid).filter(Exchange_FTL_Lane_Bid.exchange_id == bid_data.id).all()
-        return bids
-    except Exception as e:
-        return {"error": str(e)}
-
-@router.post("/exchange/ftl-lane-exchange-id/accept-bid-id", status_code=status.HTTP_201_CREATED) #UnTested
-def accept_ftl_lane_exchange_bid(
-    bid_data: Accept_Bid,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
-):
-    try:
-        result = accept_a_ftl_lane_exchange_bid(
-            db,
-            bid_data,
-            current_user=current_user)
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    
-@router.post("/exchange/ftl/id/cancel")
-def cancel_ftl_shipment_exchange(
-    exchange_data: Exchange_Id,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
-):
-    assert "company_id" in current_user, "Missing company_id in current_user"
-
-    # Step 1: Load Shipment Exchange
-    shipment = db.query(FTL_SHIPMENT_EXCHANGE).filter(FTL_SHIPMENT_EXCHANGE.id == exchange_data.id).first()
-    if not shipment:
-        raise HTTPException(status_code=404, detail="Shipment exchange not found.")
-
-    # Step 2: Check if exchange is open
-    if shipment.auction_status != "Open":
-        raise HTTPException(status_code=403, detail="Cannot cancel a closed exchange. Please contact support.")
-
-    # Step 3: Update Loadboard Entry Status
-    loadboard_entry = db.query(Exchange_Ftl_Load_Board).filter(
-        Exchange_Ftl_Load_Board.exchange_id == shipment.id
-    ).first()
-    if loadboard_entry:
-        loadboard_entry.status = "Cancelled"
-        db.add(loadboard_entry)
-        db.commit()
-
-    return {"message": f"FTL Shipment Exchange ID {exchange_data.id} has been cancelled successfully."}
-    
-@router.post("/exchange/power/cancel/id")
-def cancel_ftl_shipment_exchange(
-    exchange_data: Exchange_Id,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
-):
-    assert "company_id" in current_user, "Missing company_id in current_user"
-
-    # Step 1: Load Shipment Exchange
-    shipment = db.query(POWER_SHIPMENT_EXCHANGE).filter(POWER_SHIPMENT_EXCHANGE.id == exchange_data.id).first()
-    if not shipment:
-        raise HTTPException(status_code=404, detail="Shipment exchange not found.")
-
-    # Step 2: Check if exchange is open
-    if shipment.auction_status != "Open":
-        raise HTTPException(status_code=403, detail="Cannot cancel a closed exchange. Please contact support.")
-
-    # Step 3: Update Loadboard Entry Status
-    loadboard_entry = db.query(Exchange_Power_Load_Board).filter(
-        Exchange_Power_Load_Board.exchange_id == shipment.id
-    ).first()
-    if loadboard_entry:
-        loadboard_entry.status = "Cancelled"
-        db.add(loadboard_entry)
-        db.commit()
-
-    return {"message": f"FTL Shipment Exchange ID {exchange_data.id} has been cancelled successfully."}

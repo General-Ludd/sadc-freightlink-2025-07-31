@@ -39,3 +39,17 @@ class Carrier(Base):
     status = Column(Enum("Un-verified", "Active", "Under Investigation", "Suspended"), default="Un-verified") #Update in Database
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id = Column(Integer, autoincrement=True, primary_key=True, index=True)
+    recipient_type = Column(String, nullable=False)  # "shipper", "carrier", "agent", "admin"
+    recipient_id = Column(Integer, nullable=False)   # The user ID in their respective table
+    type = Column(String, nullable=False)  # e.g. "shipment_update", "payment", "dispute"
+    message = Column(String, nullable=False)
+    related_id = Column(Integer, nullable=True)      # e.g. shipment_id or dispute_id
+    related_type = Column(String, nullable=True)     # "shipment", "dispute", "payment"
+    is_read = Column(Boolean, default=False)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

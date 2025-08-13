@@ -3,7 +3,7 @@ from models.carrier import Carrier
 from models.shipper import Corporation
 from models.vehicle import Vehicle, Trailer, ShipperTrailer
 from models.user import CarrierDirector
-from schemas.vehicle import VehicleCreate, TrailerCreate, ShipperTrailerCreate
+from schemas.vehicle import VehicleCreate, TrailerCreate, ShipperTrailerCreate, TrailerUpdate
 from utils.auth import get_current_user
 from fastapi import Depends, HTTPException
 from utils.payload_capacity import calculate_payload_capacity  # Import the payload calculation function
@@ -180,3 +180,50 @@ def create_shipper_trailer(db: Session, trailer_data: ShipperTrailerCreate, curr
     db.commit()
     db.refresh(trailer)
     return trailer
+
+def update_shipper_trailer(db: Session, trailer_id: int, trailer_data: TrailerUpdate, current_user: dict):
+    assert "company_id" in current_user, "Missing company_id in current_user"
+    print(f"current_user: {current_user}")
+
+    company_id = current_user.get("company_id")
+    if not company_id:
+        raise HTTPException(status_code=400, detail="User does not belong to a company")
+
+    # Check if carrier exists and is valid
+    carrier = db.query(Carrier).filter(Carrier.id == company_id).first()
+    if not carrier or not carrier.is_verified or carrier.status != "Active":
+        raise HTTPException(status_code=400, detail="Carrier not found, not verified, or not active")
+
+    # Get the existing trailer (your filter was missing a comma between conditions)
+    trailer = db.query(ShipperTrailer).filter(
+        ShipperTrailer.id == trailer_id,
+        ShipperTrailer.company_id == company_id
+    ).first()
+
+    if not trailer:
+        raise HTTPException(status_code=404, detail="Trailer not found")
+
+    # ✅ Update fields dynamically if provided
+    update_fields = [
+        "vin", "license_plate", "license_expiry_date", "vrc_leasing",
+        "vehicle_license_disk", "road_worthy_certificate",
+        "front_angle_image", "rear_angle_image", "left_angle_image", "right_angle_image"
+    ]
+
+    for field in update_fields:
+        value = getattr(trailer_data, field)
+        if value is not None:
+            setattr(trailer, field, value)
+
+    # When updating, always reset verification status
+    trailer.is_verified = False
+    trailer.status = "Suspended"
+
+    db.commit()
+    db.refresh(trailer)
+
+    return {
+        "message": f"Trailer-{trailer.id} updated successfully, please wait while it undergoes partial verification"
+    }
+
+

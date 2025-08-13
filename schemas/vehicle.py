@@ -217,9 +217,10 @@ class Trailers_Summary_Response(BaseModel):
     truck_payload_capacity: Optional [int] = None
 
 class TrailerUpdate(BaseModel):
+    vin: Optional[str] = None
     license_plate: Optional[str] = None
     license_expiry_date: Optional[date] = None
-    vrc_or_leasing: Optional[str] = None
+    vrc_leasing: Optional[str] = None
     vehicle_license_disk: Optional[str] = None
     road_worthy_certificate: Optional[str] = None
     front_angle_image: Optional[str] = None

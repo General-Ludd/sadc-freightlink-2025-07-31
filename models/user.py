@@ -174,3 +174,20 @@ class Director(Base):
     facility_id = Column(Integer, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+class UserAuditLog(Base):
+    __tablename__ = "user_audit_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    changed_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    company_id = Column(Integer, ForeignKey("companies.id"), nullable=False)
+    company_type = Column(String, nullable=False)
+    field_name = Column(String, nullable=False)
+    old_value = Column(String, nullable=True)
+    new_value = Column(String, nullable=True)
+    changed_at = Column(DateTime, default=datetime.utcnow)
+
+    # relationships (optional)
+    user = relationship("User", foreign_keys=[user_id])
+    changed_by_user = relationship("User", foreign_keys=[changed_by_user_id])

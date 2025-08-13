@@ -110,6 +110,7 @@ class FTL_Shipment_Dispute(Base):
     id = Column(Integer, index=True, primary_key=True)
     filed_by_shipper = Column(Boolean)
     shipment_id = Column(Integer, nullable=False)
+    shipment_type = Column(String, nullable=False)
     shipper_company_id = Column(Integer, nullable=False)
     carrier_company_id = Column(Integer, nullable=False)
     dispute_reason = Column(String, nullable=False)

@@ -17,7 +17,7 @@ from schemas.spot_bookings.ftl_shipment import FTL_Shipment_Response, FTL_Shipme
 from schemas.spot_bookings.power_shipment import POWER_SHIPMENT_RESPONSE, Power_Shipments_Summary_Response
 from utils.auth import get_current_user
 from services.cancellations.spot_cancellations import cancel_spot_ftl_shipment
-
+from enums import ShipperShipmentStatus
 
 router = APIRouter()
 
@@ -78,8 +78,9 @@ def shipper_get_all_shipment_modes(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/shipper/all-shipments-modes/booked")
+@router.get("/shipper/all-shipments-modes/{status}")
 def shipper_get_all_shipment_modes_booked(
+    status: ShipperShipmentStatus,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
@@ -94,9 +95,9 @@ def shipper_get_all_shipment_modes_booked(
 
     try:
         ftl_shipments = db.query(FTL_SHIPMENT).filter(FTL_SHIPMENT.shipper_company_id == company_id,
-                                                      POWER_SHIPMENT.shipment_status == "Booked").all()
+                                                      POWER_SHIPMENT.shipment_status == status.value).all()
         power_shipments = db.query(POWER_SHIPMENT).filter(POWER_SHIPMENT.shipper_company_id == company_id,
-                                                          POWER_SHIPMENT.shipment_status == "Booked").all()
+                                                          POWER_SHIPMENT.shipment_status == status.value).all()
 
         return {
             "ftl_shipments": [{
@@ -130,111 +131,7 @@ def shipper_get_all_shipment_modes_booked(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/shipper/all-shipments-modes/in-progress")
-def shipper_get_all_shipment_modes_in_progress(
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    assert "company_id" in current_user, "Missing company_id in current_user"
-    company_id = current_user.get("company_id")
-
-    if not company_id:
-        raise HTTPException(
-            status_code=400,
-            detail="User does not belong to a company"
-        )
-
-    try:
-        ftl_shipments = db.query(FTL_SHIPMENT).filter(FTL_SHIPMENT.shipper_company_id == company_id,
-                                                      POWER_SHIPMENT.shipment_status == "In-Progress").all()
-        power_shipments = db.query(POWER_SHIPMENT).filter(POWER_SHIPMENT.shipper_company_id == company_id,
-                                                          POWER_SHIPMENT.shipment_status == "In-Progress").all()
-
-        return {
-            "ftl_shipments": [{
-                "id": ftl_shipment.id,
-                "type": ftl_shipment.type,
-                "trip_status": ftl_shipment.trip_status,
-                "priority_level": ftl_shipment.priority_level,
-                "status": ftl_shipment.shipment_status,
-                "origin": ftl_shipment.origin_city_province,
-                "pickup_date": ftl_shipment.pickup_date,
-                "pickup_window": ftl_shipment.pickup_appointment,
-                "destination": ftl_shipment.destination_city_province,
-                "eta_date": ftl_shipment.eta_date,
-                "eta_window": ftl_shipment.eta_window,
-            } for ftl_shipment in ftl_shipments],
-
-            "power_shipmnets": [{
-                "id": power_shipment.id,
-                "type": power_shipment.type,
-                "trip_status": power_shipment.trip_status,
-                "priority_level": power_shipment.priority_level,
-                "status": power_shipment.shipment_status,
-                "origin": power_shipment.origin_city_province,
-                "pickup_date": power_shipment.pickup_date,
-                "pickup_window": power_shipment.pickup_appointment,
-                "destination": power_shipment.destination_city_province,
-                "eta_date": power_shipment.eta_date,
-                "eta_window": power_shipment.eta_window,
-            } for power_shipment in power_shipments],
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    
-@router.post("/shipper/all-shipments-modes/completed")
-def shipper_get_all_shipment_modes_completed(
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    assert "company_id" in current_user, "Missing company_id in current_user"
-    company_id = current_user.get("company_id")
-
-    if not company_id:
-        raise HTTPException(
-            status_code=400,
-            detail="User does not belong to a company"
-        )
-
-    try:
-        ftl_shipments = db.query(FTL_SHIPMENT).filter(FTL_SHIPMENT.shipper_company_id == company_id,
-                                                      POWER_SHIPMENT.shipment_status == "Completed").all()
-        power_shipments = db.query(POWER_SHIPMENT).filter(POWER_SHIPMENT.shipper_company_id == company_id,
-                                                          POWER_SHIPMENT.shipment_status == "Completed").all()
-
-        return {
-            "ftl_shipments": [{
-                "id": ftl_shipment.id,
-                "type": ftl_shipment.type,
-                "trip_status": ftl_shipment.trip_status,
-                "priority_level": ftl_shipment.priority_level,
-                "status": ftl_shipment.shipment_status,
-                "origin": ftl_shipment.origin_city_province,
-                "pickup_date": ftl_shipment.pickup_date,
-                "pickup_window": ftl_shipment.pickup_appointment,
-                "destination": ftl_shipment.destination_city_province,
-                "eta_date": ftl_shipment.eta_date,
-                "eta_window": ftl_shipment.eta_window,
-            } for ftl_shipment in ftl_shipments],
-
-            "power_shipmnets": [{
-                "id": power_shipment.id,
-                "type": power_shipment.type,
-                "trip_status": power_shipment.trip_status,
-                "priority_level": power_shipment.priority_level,
-                "status": power_shipment.shipment_status,
-                "origin": power_shipment.origin_city_province,
-                "pickup_date": power_shipment.pickup_date,
-                "pickup_window": power_shipment.pickup_appointment,
-                "destination": power_shipment.destination_city_province,
-                "eta_date": power_shipment.eta_date,
-                "eta_window": power_shipment.eta_window,
-            } for power_shipment in power_shipments],
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.post("/shipper/ftl/all-shipments") #UnTested
+@router.get("/shipper/ftl/all-shipments") #UnTested
 def shipper_get_all_ftl_shipments(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
@@ -269,9 +166,9 @@ def shipper_get_all_ftl_shipments(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/shipper/ftl-shipment/id")
+@router.get("/shipper/ftl-shipment/{id}")
 def shipper_get_individual_ftl_shipment(
-    shipment_data: individual_shipment_or_lane_request,
+    id: int,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
@@ -285,7 +182,7 @@ def shipper_get_individual_ftl_shipment(
         )
 
     try:
-        shipment = db.query(FTL_SHIPMENT).filter(FTL_SHIPMENT.id == shipment_data.id).first()
+        shipment = db.query(FTL_SHIPMENT).filter(FTL_SHIPMENT.id == id).first()
         carrier = db.query(Carrier).filter(Carrier.id == shipment.carrier_id).first()
         vehicle = db.query(Vehicle).filter(Vehicle.id == shipment.vehicle_id).first()
         driver = db.query(Driver).filter(Driver.id == shipment.driver_id).first()
@@ -421,7 +318,7 @@ def cancel_spot_ftl_shipment_endpoint(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.post("/shipper/power/all-shipments")
+@router.get("/shipper/power/all-shipments")
 def shipper_get_all_power_shipments(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
@@ -456,9 +353,9 @@ def shipper_get_all_power_shipments(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
-@router.post("/shipper/power-shipment/id")
+@router.get("/shipper/power-shipment/{id}")
 def shipper_get_individual_power_shipment(
-    shipment_data: individual_shipment_or_lane_request,
+    id: int,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
@@ -472,7 +369,7 @@ def shipper_get_individual_power_shipment(
         )
 
     try:
-        shipment = db.query(POWER_SHIPMENT).filter(POWER_SHIPMENT.id == shipment_data.id).first()
+        shipment = db.query(POWER_SHIPMENT).filter(POWER_SHIPMENT.id == id).first()
         trailer = db.query(ShipperTrailer).filter(ShipperTrailer.id == shipment.trailer_id).first()
 
         carrier = db.query(Carrier).filter(Carrier.id == shipment.carrier_id).first()
@@ -619,7 +516,7 @@ def cancel_spot_power_shipment_endpoint(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.post("/shipper/all-lanes/all-modes")
+@router.get("/shipper/all-lanes/all-modes")
 def get_all_shipper_dedicated_lanes(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
@@ -659,9 +556,9 @@ def get_all_shipper_dedicated_lanes(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-router.post("shipper/ftl-lane/id")
-def shipper_get_individual_ftl_lane(
-    lane_data: individual_shipment_or_lane_request,
+@router.get("/shipper/ftl-lane/{id}")
+def shipper_get_individual_ftl_lane_id(
+    id: int,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
@@ -675,7 +572,7 @@ def shipper_get_individual_ftl_lane(
         )
 
     try:
-        lane = db.query(FTL_Lane).filter(FTL_Lane.id == lane_data.id).first()
+        lane = db.query(FTL_Lane).filter(FTL_Lane.id == id).first()
         invoices = db.query(Interim_Invoice).filter(Interim_Invoice.contract_id == lane.id,
                                                Interim_Invoice.contract_type == lane.type).all()
         sub_shipments = db.query(FTL_SHIPMENT).filter(FTL_SHIPMENT.dedicated_lane_id == lane.id).all()
@@ -779,9 +676,8 @@ def shipper_get_individual_ftl_lane(
                 "carrier_name": f"SADC FREIGHTLINK Carrier-{carrier.id}" if carrier else "N/A",
                 "carrier_git_cover": carrier.git_cover_amount if carrier else "N/A",
                 "carrier_liability_cover_amount": carrier.liability_insurance_cover_amount if carrier else "N/A",
-            }
-
-            }
+            },
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

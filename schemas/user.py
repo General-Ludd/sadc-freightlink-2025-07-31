@@ -157,6 +157,16 @@ class DirectorCreate(BaseModel):
     id_document: str
     proof_of_address: str
 
+class DirectorUpdate(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    id_number: Optional[str] = None
+    home_address: Optional[str] = None
+    phone_number: Optional[str] = None
+    email: Optional[EmailStr] = None
+    id_document: Optional[str] = None
+    proof_of_address: Optional[str] = None
+
 class ShipperUserResponse(BaseModel):
     id: int
     first_name: str

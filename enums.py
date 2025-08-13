@@ -1,6 +1,31 @@
 # enums.py
 from enum import Enum
 
+class ShipperShipmentStatus(str, Enum):
+    BOOKED = "Booked"
+    INPROGRESS = "In-progress"
+    COMPLETED = "Completed"
+    DELAYED = "Delayed"
+    CANCELLED = "Cancelled"
+
+class CarrierShipmentStatus(str, Enum):
+    INPROGRESS = "In-progress"
+    COMPLETED = "Completed"
+    DELAYED = "Delayed"
+    CANCELLED = "Cancelled"
+
+class TrailerAvailabilityStatus(str, Enum):
+    AVAILABLE = "Available"
+    IN_USE = "In Use"
+    MAINTENANCE = "Maintenance"
+
+class UserStatus(str, Enum):
+    UNVERIFIED = "Un-verified"
+    ACTIVE = "Active"
+    SUSPENDED = "Suspended"
+    UNDER_INVESTIGATION = "Under-Investigation"
+    DELETED = "Deleted"
+
 class PaymentTerms(str, Enum):
     PAB = "PAB"
     NET_7 = "NET_7"
@@ -23,7 +48,6 @@ class Recurrence_Days(str, Enum):
 
 class InvoiceStatus(str, Enum):
     PENDING = "PENDING"
-    PARTIALLY_PAID = "PARTIALLY_PAID"
     PAID = "PAID"
     OVERDUE = "OVERDUE"
     CANCELLED = "CANCELLED"
