@@ -4,7 +4,7 @@ from enum import Enum
 class ShipperShipmentStatus(str, Enum):
     BOOKED = "Booked"
     ASSIGNED = "Assigned"
-    INPROGRESS = "In-progress"
+    IN_PROGRESS = "In-Progress"
     COMPLETED = "Completed"
     DELAYED = "Delayed"
     CANCELLED = "Cancelled"
