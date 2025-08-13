@@ -28,7 +28,7 @@ def get_db():
     finally:
         db.close()
 
-@router.post("/shipper/all-shipments/modes")
+@router.get("/shipper/all-shipments/modes")
 def shipper_get_all_shipment_modes(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
