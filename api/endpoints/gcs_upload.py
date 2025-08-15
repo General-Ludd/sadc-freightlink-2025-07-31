@@ -11,7 +11,12 @@ import re
 from schemas.gcs_upload import UploadRequest
 
 # Load your service account credentials
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "sadc-freightlink-4b7604ef086c.json"
+# Build the path relative to the project root
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+key_path = os.path.join(BASE_DIR, "secrets", "sadc-freightlink-4b7604ef086c.json")
+
+# Set the environment variable
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = key_path
 
 router = APIRouter()
 
@@ -38,7 +43,7 @@ async def generate_upload_url(data: UploadRequest):
     safe_filename = sanitize_filename(data.file_name)
 
     storage_client = storage.Client()
-    bucket = storage_client.bucket(bucket_name)
+    bucket = storage_client.bucket("freightlink-docs-images-bucket")
     blob = bucket.blob(safe_filename)
 
     # Create signed URL valid for 15 minutes
