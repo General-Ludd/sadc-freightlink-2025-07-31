@@ -59,8 +59,9 @@ class DriverCreate(BaseModel):
     id_number: str
     license_number: str
     license_expiry_date: date
-    prdp_number: str
-    prdp_expiry_date: date
+    prdp_number: Optional[str] = None
+    prdp_expiry_date: Optional[date] = None
+    passport_number: Optional[str] = None
     address: str
     email: EmailStr
     phone_number: str
@@ -68,6 +69,7 @@ class DriverCreate(BaseModel):
     id_document: str
     license_document: str
     prdp_document: str
+    passport_document: Optional[str] = None
     proof_of_address: str
 
 class Driver_Info(BaseModel):

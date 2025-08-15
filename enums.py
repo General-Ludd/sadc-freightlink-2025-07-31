@@ -104,11 +104,6 @@ class TrailerLength(str,Enum):
     _13m = "13m"
     _14m = "14m"
 
-"6m x 12m"
-"7m x 11m"
-"13m"
-"14m"
-
 class EquipmentType(str, Enum):
     SIDE_TIPPER = "Side-Tipper"
     TAUTLINER = "Tautliner"

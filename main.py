@@ -20,6 +20,7 @@ from api.endpoints.dashboards.carrier_dashboard.shipment_management import dedic
 from api.endpoints.dashboards.carrier_dashboard.finance import financial_account
 from api.endpoints.dashboards.carrier_dashboard import spot_loadboards
 from api.endpoints.dashboards.carrier_dashboard import exchange_loadboards
+from api.endpoints import gcs_upload
 
 from triggers.scheduler import start_tracking_scheduler
 
@@ -34,6 +35,7 @@ app.add_middleware(
 )
 
 ################################################Shipper Dashboard######################################
+app.include_router(gcs_upload.router, prefix="/api", tags=["File Upload"])
 app.include_router(standard_facility_dashboard.router, prefix="/api", tags=["Standard Shipper Dashboard"])
 app.include_router(user_management.router, prefix="/api", tags=["Shipper User Management"])
 app.include_router(equipment_management.router, prefix="/api", tags=["Shipper Equipment Management"])
