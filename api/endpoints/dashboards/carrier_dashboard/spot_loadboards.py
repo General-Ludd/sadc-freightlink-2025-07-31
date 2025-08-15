@@ -30,8 +30,8 @@ def get_db():
     finally:
         db.close()
 
-@router.get("/spot/ftl-loadboard", response_model=List[SpotFTLLoadBoardSummaryResponse]) #UnTested
-def get_all_spot_ftl_loads(db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+@router.get("/spot/ftl-loadboard") #UnTested
+def get_all_spot_ftl_loadboard_loads(db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
     assert "company_id" in current_user, "Missing company_id in current_user"
     print(f"current_user: {current_user}")
     
@@ -49,7 +49,30 @@ def get_all_spot_ftl_loads(db: Session = Depends(get_db), current_user: dict = D
     try:
         # Query all records from the "dedicated_lanes_loadboard" table
         shipments = db.query(Ftl_Load_Board).filter(Ftl_Load_Board.status == "Available").all()
-        return shipments
+
+        return {
+            "shipments": [{
+                "id": shipment.id,
+                "trip_type": shipment.trip_type,
+                "rate": shipment.shipment_rate,
+                "distance": shipment.distance,
+                "route_preview_embed": shipment.route_preview_embed
+                "rate_per_kilometer": shipment.rate_per_km,
+                "origin": shipment.origin_city_province,
+                "pickup_date": shipment.pickup_date,
+                "pickup_appointment": shipment.pickup_appointment,
+                "destination": shipment.destination_city_province,
+                "eta_date": shipment.eta_date,
+                "eta_window": shipment.eta_window,
+                "required_truck_type": shipment.required_truck_type,
+                "equipment_type": shipment.equipment_type,
+                "trailer_type": shipment.trailer_year,
+                "trailer_length": shipment.trailer_length,
+                "minimum_weight_bracket": shipment.minimum_weight_bracket,
+                "commodity": shipment.commodity,
+                "hazardous_materials": shipment.hazardous_metarials
+            } for shipment in shipments]
+        }
     except Exception as e:
         return {"error": str(e)}
     
@@ -84,7 +107,34 @@ def get_all_spot_ftl_loads(db: Session = Depends(get_db), current_user: dict = D
     try:
         # Query all records from the "dedicated_lanes_loadboard" table
         ftl_lanes = db.query(Dedicated_lanes_LoadBoard).filter(Dedicated_lanes_LoadBoard.status == "Available").all()
-        return ftl_lanes
+        return {
+            "lanes": [{
+                "id": ftl_lane.id,
+                "status": ftl_lane.status,
+                "trip_type": ftl_lane.trip_type,
+                "load_type": ftl_lane.load_type,
+                "origin": ftl_lane.origin_city_province,
+                "destination": ftl_lane.destination_city_province,
+                "distance": ftl_lane.distance,
+                "full_route": ftl_lane.route_preview_embed,
+                "truck_type": ftl_lane.required_truck_type,
+                "equipment_type": ftl_lane.equipment_type, if ftl_lane.equipment_type else "N/A",
+                "trailer_type": ftl_lane.trailer_type if ftl_lane.trailer_type else "N/A",
+                "trailer_length": ftl_lane.trailer_length if ftl_lane.trailer_length else "N/A",
+                "minimum_weight_bracket": ftl_lane.minimum_weight_bracket,
+                "commodity": ftl_lane.commodity,
+                "packaging_type": ftl_lane.packaging_type,
+                "average_shipment_weight": ftl_lane.average_shipment_weight,
+                "start_date": ftl_lane.start_date,
+                "end_date": ftl_lane.end_date,
+                "frequency": ftl_lane.recurrence_frequency,
+                "recurrence_days": ftl_lane.recurrence_days,
+                "shipment_per_interval": ftl_lane.shipments_per_interval,
+                "total_shipments": ftl_lane.total_shipments,
+                "per_shipment_rate": ftl_lane.rate_per_shipment,
+                "contract_rate": ftl_lane.contract_rate,
+            } for ftl_lane in ftl_lanes]
+        }
     except Exception as e:
         return {"error": str(e)}
 
@@ -159,7 +209,7 @@ def get__shipment_facility_contact_person(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
-@router.get("/spot/power-loadboard", response_model=List[SpotPowerLoadBoardSummaryResponse]) #UnTested
+@router.get("/spot/power-loadboard") #UnTested
 def get_all_spot_power_loads(db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
     assert "company_id" in current_user, "Missing company_id in current_user"
     print(f"current_user: {current_user}")
@@ -178,7 +228,27 @@ def get_all_spot_power_loads(db: Session = Depends(get_db), current_user: dict =
     try:
         # Query all records from the "dedicated_lanes_loadboard" table
         shipments = db.query(Power_Load_Board).filter(Power_Load_Board.status == "Available").all()
-        return shipments
+        return {
+            "shipments": [{
+                "id": shipment.id,
+                "rate": shipment.shipment_rate,
+                "load_type": shipment.load_type,
+                "origin": shipment.origin_city_province,
+                "pickup_date": shipment.pickup_date,
+                "pickup_appointment": shipment.pickup_appointment,
+                "destination": shipment.destination_city_province,
+                "eta_date": shipment.eta_date,
+                "eta_window": shipment.eta_window,
+                "route_preview_embed": shipment.route_preview_embed,
+                "distance": shipment.distance,
+                "rate_per_kilometer": shipment.rate_per_kilometer,
+                "truck_type": shipment.required_truck_type,
+                "axle_configuration": shipment.axle_configuration,
+                "minimum_weight_bracket": shipment.minimum_weight_bracket,
+                "commodity": shipment.commodity,
+                "hazardous_materials": shipment.hazardous_materials,
+            } for shipment in shipments]
+        }
     except Exception as e:
         return {"error": str(e)}
     
