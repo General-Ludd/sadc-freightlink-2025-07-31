@@ -118,7 +118,7 @@ def get_all_spot_ftl_lanes_loads(db: Session = Depends(get_db), current_user: di
                 "distance": ftl_lane.distance,
                 "full_route": ftl_lane.route_preview_embed,
                 "truck_type": ftl_lane.required_truck_type,
-                "equipment_type": ftl_lane.equipment_type, if ftl_lane.equipment_type else "N/A",
+                "equipment_type": ftl_lane.equipment_type if ftl_lane.equipment_type else "N/A",
                 "trailer_type": ftl_lane.trailer_type if ftl_lane.trailer_type else "N/A",
                 "trailer_length": ftl_lane.trailer_length if ftl_lane.trailer_length else "N/A",
                 "minimum_weight_bracket": ftl_lane.minimum_weight_bracket,
