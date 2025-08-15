@@ -56,7 +56,7 @@ def get_all_spot_ftl_loadboard_loads(db: Session = Depends(get_db), current_user
                 "trip_type": shipment.trip_type,
                 "rate": shipment.shipment_rate,
                 "distance": shipment.distance,
-                "route_preview_embed": shipment.route_preview_embed
+                "route_preview_embed": shipment.route_preview_embed,
                 "rate_per_kilometer": shipment.rate_per_km,
                 "origin": shipment.origin_city_province,
                 "pickup_date": shipment.pickup_date,
@@ -89,7 +89,7 @@ def accept_spot_ftl_shipment_from_loadboard(
         raise HTTPException(status_code=400, detail=str(e))
     
 @router.get("/dedicated-ftl-lane-loadboard", response_model=List[FTL_Lane_LoadBoard_Summary_Response]) #UnTested
-def get_all_spot_ftl_loads(db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+def get_all_spot_ftl_lanes_loads(db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
     assert "company_id" in current_user, "Missing company_id in current_user"
     print(f"current_user: {current_user}")
     
