@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from datetime import datetime, timedelta
 from models.Exchange.power_shipment import POWER_SHIPMENT_EXCHANGE
 from models.brokerage.loadboards.exchange_loadboards import Exchange_Ftl_Load_Board, Exchange_Power_Load_Board
 from models.shipper import Corporation
@@ -144,6 +145,18 @@ def create_power_shipment_exchange(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Shipment billing validation failed: {str(e)}")
 
+    # Step 7: Calculate auction end time
+    pickup_datetime = datetime.combine(shipment_data.pickup_date, pickup_facility_data.start_time)
+
+    # Auction must end 3.5 hours before pickup
+    latest_allowed_end = pickup_datetime - timedelta(hours=1, minutes=30)
+
+    # Auction can’t run more than 24h from creation
+    max_duration_end = datetime.utcnow() + timedelta(hours=24)
+
+    # Take whichever comes first
+    auction_end_time = min(latest_allowed_end, max_duration_end)
+
     pickup_contact = ContactPerson(
         first_name=pickup_contact_data.first_name,
         last_name=pickup_contact_data.last_name,
@@ -232,6 +245,7 @@ def create_power_shipment_exchange(
         distance=distance,
         automatically_accept_lower_bid=shipment_data.automatically_accept_lower_bid,
         allow_carrier_to_book_at_current_or_lower_offer_rate=shipment_data.allow_carrier_to_book_at_current_or_lower_offer_rate,
+        end_time=auction_end_time,
         offer_rate=shipment_data.offer_rate,
         backed_offer_rate=shipment_data.offer_rate * 0.90,
         suggested_rate=quote_per_shipment,
@@ -251,6 +265,7 @@ def create_power_shipment_exchange(
 
     loadboard_entry = Exchange_Power_Load_Board(
         exchange_id=shipment.id,
+        exchange_end_time=auction_end_time,
         type=shipment.type,
         trip_type=shipment.trip_type,
         load_type=shipment_data.load_type,
@@ -317,14 +332,19 @@ def create_power_shipment_exchange(
     db.refresh(loadboard_entry)
 
     # Step 6: Return all details
+    # Step 6: Return all details
     return {
-        "loadboard_entry": {
-            "id": loadboard_entry.id,
-            "shipment_id": shipment.id,
-            "shipment_rate": loadboard_entry.offer_rate,
-            "rate_per_km": loadboard_entry.rate_per_km,
-            "rate_per_ton": loadboard_entry.rate_per_ton,
-            "payment_terms": loadboard_entry.payment_terms,
-            "created_at": loadboard_entry.created_at,
-        },
+        "status": "success",
+        "message": f"Exchange successfully booked for pickup date {shipment.pickup_date}",
+        "booking_details": {
+            "origin": shipment.origin_city_province,
+            "destination": shipment.destination_city_province,
+            "pickup_date": shipment.pickup_date,
+            "distance": shipment.distance,
+            "required_truck_type": shipment.required_truck_type,
+            "axle_configuration": shipment.axle_configuration,
+            "trailer_type": trailer.trailer_type if trailer else "N/A",
+            "trailer_length": trailer.trailer_length if trailer else "N/A",
+            "offer_rate": shipment.offer_rate,
+        }
     }

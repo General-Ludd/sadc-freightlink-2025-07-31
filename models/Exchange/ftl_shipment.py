@@ -57,6 +57,7 @@ class FTL_SHIPMENT_EXCHANGE(Base):
     number_of_bids_submitted = Column(Integer, default=0)
     route_preview_embed = Column(String)
     auction_status = Column(Enum("Open", "Closed", "Cancelled"), default="Open")
+    end_time = Column(DateTime)
     trip_savings = Column(Integer)
     exchange_savings = Column(Integer)
     payment_terms = Column(String)

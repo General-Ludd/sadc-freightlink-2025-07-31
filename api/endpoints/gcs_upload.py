@@ -64,7 +64,6 @@ async def generate_upload_url(data: UploadRequest):
         version="v4",
         expiration=datetime.timedelta(minutes=15),
         method="PUT",
-        content_type=data.content_type
     )
 
     public_url = f"https://storage.googleapis.com/{bucket_name}/{safe_filename}"

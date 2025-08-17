@@ -77,7 +77,7 @@ class Exchange_Ftl_Load_Board(Base):
     delivery_last_name = Column(String, nullable=False)
     delivery_phone_number = Column(String, nullable=False)
     delivery_email = Column(String, nullable=False)
-    end_time = Column(DateTime) ###################Update in database
+    exchange_end_time = Column(DateTime) ###################Update in database
     created_at = Column(DateTime, nullable=False, server_default=func.now())
     updated_at = Column(DateTime, nullable=True, onupdate=func.now())
 
@@ -170,7 +170,7 @@ class Exchange_Power_Load_Board(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     exchange_id = Column(Integer, nullable=False)
-    automatically_accept_lower_bid = Column(Boolean, default=True)
+    automatically_accept_lower_bid = Column(Boolean, default=False)
     allow_carrier_to_book_at_current_or_lower_offer_rate = Column(Boolean, default=True)
     type = Column(String)
     trip_type = Column(String, nullable=False)

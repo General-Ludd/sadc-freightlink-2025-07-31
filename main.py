@@ -57,7 +57,7 @@ app.include_router(vehicle_management.router, prefix="/api", tags=["Carrier Dash
 app.include_router(driver_management.router, prefix="/api", tags=["Carrier Dashboard Driver Management"])
 app.include_router(shipment_management.router, prefix="/api", tags=["Carrier Dashboard Shipment Management"])
 app.include_router(dedicated_lanes_management.router, prefix="/api", tags=["Carrier Dashboard Dedicated Lanes Management"])
-app.include_router(spot_loadboards.router, prefix="/api", tags=["Carrier Dashboard Exchange Loadboards"])
+app.include_router(spot_loadboards.router, prefix="/api", tags=["Carrier Dashboard Spot Loadboards"])
 app.include_router(exchange_loadboards.router, prefix="/api", tags=["Carrier Dashboard Exchange Loadboards"])
 
 @app.on_event("startup")

@@ -6,7 +6,7 @@ class POWER_SHIPMENT_EXCHANGE(Base):
     __tablename__ = "power_shipment_exchanges"
 
     id = Column(Integer, index=True, primary_key=True)
-    automatically_accept_lower_bid = Column(Boolean, default=True)
+    automatically_accept_lower_bid = Column(Boolean, default=False)
     allow_carrier_to_book_at_current_or_lower_offer_rate = Column(Boolean, default=True)
     exchange_type = Column(String, default="Open", nullable=False)
     type = Column(String, default="POWER")
@@ -57,6 +57,7 @@ class POWER_SHIPMENT_EXCHANGE(Base):
     number_of_bids_submitted = Column(Integer, default=0)
     route_preview_embed = Column(String)
     auction_status = Column(Enum("Open", "Closed"), default="Open")
+    end_time = Column(DateTime) ###Update in database
     trip_savings = Column(Integer)
     exchange_savings = Column(Integer)
     payment_terms = Column(String)

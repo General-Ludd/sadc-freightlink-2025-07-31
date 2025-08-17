@@ -126,6 +126,18 @@ def create_ftl_shipment_exchange(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Shipment billing validation failed: {str(e)}")
 
+    # Step 7: Calculate auction end time
+    pickup_datetime = datetime.combine(shipment_data.pickup_date, pickup_facility_data.start_time)
+
+    # Auction must end 3.5 hours before pickup
+    latest_allowed_end = pickup_datetime - timedelta(hours=1, minutes=30)
+
+    # Auction can’t run more than 24h from creation
+    max_duration_end = datetime.utcnow() + timedelta(hours=24)
+
+    # Take whichever comes first
+    auction_end_time = min(latest_allowed_end, max_duration_end)
+
     pickup_contact = ContactPerson(
         first_name=pickup_contact_data.first_name,
         last_name=pickup_contact_data.last_name,
@@ -220,6 +232,7 @@ def create_ftl_shipment_exchange(
         suggested_price=quote_per_shipment,
         payment_terms=financial_account.payment_terms,
         route_preview_embed=route_preview_embed,
+        end_time=auction_end_time,
     )
     db.add(shipment)
     db.commit()
@@ -295,6 +308,8 @@ def create_ftl_shipment_exchange(
         delivery_last_name=dropoff_contact_data.last_name,
         delivery_phone_number=dropoff_contact_data.phone_number,
         delivery_email=dropoff_contact_data.email,
+        exchange_end_time=auction_end_time,
+        allow_carrier_to_book_at_current_or_lower_offer_rate=shipment.allow_carrier_to_book_at_current_or_lower_offer_rate,
     )
     db.add(loadboard_entry)
     db.commit()
@@ -302,13 +317,17 @@ def create_ftl_shipment_exchange(
 
     # Step 6: Return all details
     return {
-        "loadboard_entry": {
-            "id": loadboard_entry.id,
-            "shipment_id": shipment.id,
-            "shipment_rate": loadboard_entry.shipment_rate,
-            "rate_per_km": loadboard_entry.rate_per_km,
-            "rate_per_ton": loadboard_entry.rate_per_ton,
-            "payment_terms": loadboard_entry.payment_terms,
-            "created_at": loadboard_entry.created_at,
-        },
+        "status": "success",
+        "message": f"Exchange successfully booked for pickup date {shipment.pickup_date}",
+        "booking_details": {
+            "origin": shipment.origin_city_province,
+            "destination": shipment.destination_city_province,
+            "pickup_date": shipment.pickup_date,
+            "distance": shipment.distance,
+            "required_truck_type": shipment.required_truck_type,
+            "equipment_type": shipment.equipment_type,
+            "trailer_type": shipment.trailer_type if shipment.trailer_type else "N/A",
+            "trailer_length": shipment.trailer_length if shipment.trailer_length else "N/A",
+            "offer_rate": shipment.offer_rate,
+        }
     }

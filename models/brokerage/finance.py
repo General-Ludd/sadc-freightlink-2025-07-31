@@ -608,64 +608,6 @@ class CarrierFinancialAccounts(Base):
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
-class PlatformCreditAccount(Base):
-    __tablename__ = "platform_account"
-
-    id = Column(Integer, primary_key=True, index=True)
-    company_name = Column(String, nullable=False)
-    registration_number = Column(String, nullable=False)
-    address = Column(String, nullable=False)
-    bank_name = Column(String, nullable=True)
-    branch_code = Column(String, nullable=True)
-    account_number = Column(Integer, nullable=True)
-    account_confirmation_letter = Column(String, nullable=True)
-    current_credit_balance = Column(Integer, default=0)
-    total_outstanding = Column(Integer, default=0)
-    total_settled = Column(Integer, default=0)
-
-class PlatformEscrowAccount(Base):
-    __tablename__ = "platform_escrow_account"
-
-    id = Column(Integer, primary_key=True, index=True)
-    company_name = Column(String, nullable=False)
-    registration_number = Column(String, nullable=False)
-    address = Column(String, nullable=False)
-    bank_name = Column(String, nullable=True)
-    branch_code = Column(String, nullable=True)
-    account_number = Column(Integer, nullable=True)
-    account_confirmation_letter = Column(String, nullable=True)
-    current_balance = Column(Integer, default=0)
-    total_earned = Column(Integer, default=0)
-    total_withdrawn = Column(Integer, default=0)
-
-class Spot_Escrow(Base):
-    __tablename__ = "escrow"
-
-    id = Column(Integer, primary_key=True, index=True)
-    escrow_status = Column(Enum("In Escrow", "Released"), default="In Escrow")
-    shipment_id = Column(Integer, index=True)
-    shipper_invoice_id = Column(Integer, index=True)
-    shipper_invoice_status = Column(String, nullable=False)
-    shipment_status = Column(Enum("In Progress", "Complete", "Disputed"), default="In Progress")
-    amount = Column(Integer, primary_key=True, index=True)
-    recepient_carrier_invoice_id = Column(Integer, index=True)
-    recepient_carrier_invoice_status = Column(String, nullable=False)
-    recepient_carrier_financial_account_id = Column(Integer, index=True)
-    recepient_carrier_id = Column(Integer, index=True)
-    created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
-
-class Transaction(Base):
-    __tablename__ = "transactions"
-
-    id = Column(Integer, primary_key=True, index=True)
-    company_id = Column(Integer, nullable=False, index=True)
-    type = Column(String, nullable=False)
-    amount = Column(String, nullable=False)
-    created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
-    
-
 class BrokerageCommission(Base):
     __tablename__ = "brokerage_commissions"
 
