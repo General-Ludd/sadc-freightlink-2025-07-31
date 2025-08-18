@@ -8,7 +8,7 @@ from schemas.brokerage.finance import CarrierFinancialAccountResponse, Carrier_F
 from schemas.carrier import CarrierCompanyResponse, CarrierCreate
 from schemas.user import CarrierUserResponse, DriverCreate, DriverResponse, CarrierUsers
 from schemas.vehicle import TrailerCreate, TrailerResponse, VehicleCreate, VehicleResponse, VehicleUpdate
-from services.carrier_service import fleet_create_driver
+from services.carrier_service import fleet_create_driver, create_fleet_carrier
 from services.carrier_dashboards import assign_primary_driver, assign_trailer_to_vehicle
 from services.vehicle_service import create_trailer, create_vehicle
 from utils.auth import get_current_user, verify_password
