@@ -74,7 +74,9 @@ def create_fleet_carrier(db: Session, carrier_data: CarrierCreate, director_data
         directors_phone_number=director_data.phone_number,
         directors_email_address=director_data.email,
         bank_name=financial_data.bank_name,
+        bank_country=financial_data.bank_country,
         branch_code=financial_data.branch_code,
+        account_type=financial_data.account_type,
         account_number=financial_data.account_number,
         account_confirmation_letter=financial_data.account_confirmation_letter,
     )
@@ -83,7 +85,7 @@ def create_fleet_carrier(db: Session, carrier_data: CarrierCreate, director_data
     db.refresh(financial_account)
 
 
-    return {"company": company, "director": director}
+    return {"Fleet carrier account successfully registered"}
 
 def create_owner_operator(db: Session, carrier_data: CreateFleetCarrier, director_data: CarrierDirectorCreate, driver_data: DriverCreate):
     # Create Carrier Company

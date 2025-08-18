@@ -47,7 +47,9 @@ class Shipper_Financial_Account_Create(BaseModel):
 
 class Carrier_FinancialAccount_Create(BaseModel):
     bank_name: str
+    bank_country: str
     branch_code: str
+    account_type: str
     account_number: int
     account_confirmation_letter: str
 
