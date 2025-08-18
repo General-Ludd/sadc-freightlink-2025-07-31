@@ -2,8 +2,10 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from db.database import SessionLocal
+from models.brokerage.assigned_lanes import Assigned_Ftl_Lanes
+from models.brokerage.assigned_shipments import Assigned_Spot_Ftl_Shipments, Assigned_Power_Shipments
 from models.brokerage.finance import CarrierFinancialAccounts
-from models.carrier import Carrier, Notification
+from models.carrier import Carrier, Notification, Carrier_Notification
 from schemas.brokerage.finance import CarrierFinancialAccountResponse, Carrier_FinancialAccount_Create
 from schemas.carrier import CarrierCompanyResponse, CarrierCreate
 from schemas.user import CarrierUserResponse, DriverCreate, DriverResponse, CarrierUsers
@@ -15,8 +17,8 @@ from utils.auth import get_current_user, verify_password
 from utils.jwt_handler import create_access_token
 from models.user import CarrierUser, Driver
 from models.vehicle import Trailer, Vehicle
-from models.spot_bookings.ftl_shipment import FTL_Shipment_Dispute
-from models.spot_bookings.power_shipment import POWER_Shipment_Dispute
+from models.spot_bookings.ftl_shipment import FTL_Shipment_Dispute, FTL_SHIPMENT
+from models.spot_bookings.power_shipment import POWER_Shipment_Dispute, POWER_SHIPMENT
 from schemas.auth import LoginRequest, LoginResponse
 
 router = APIRouter()
@@ -100,10 +102,27 @@ def get_carrier_dashboard_home(
         vehicles = db.query(Vehicle).filter(Vehicle.owner_id == company_id).all()
         trailers = db.query(Trailer).filter(Trailer.owner_id == company_id).all()
         drivers = db.query(Driver).filter(Driver.company_id == company_id).all()
+        # Query FTL & POWER shipments for this carrier
+        ftl_shipments = db.query(Assigned_Spot_Ftl_Shipments).filter(Assigned_Spot_Ftl_Shipments.carrier_id == company_id).all()
+        power_shipments = db.query(Assigned_Power_Shipments).filter(Assigned_Power_Shipments.carrier_id == company_id).all()
+        ftl_lane = db.query(Assigned_Ftl_Lanes).filter(Assigned_Ftl_Lanes.carrier_company_id == company_id).all()
+        # Filter by status
+        in_progress_shipments = [
+            s for s in (ftl_shipments + power_shipments) if getattr(s, "status", None) == "In-Progress"
+        ]
+        assigned_shipments = [
+            s for s in (ftl_shipments + power_shipments) if getattr(s, "status", None) == "Assigned"
+        ]
+        assigned_lanes = [
+            l for l in ftl_lane if getattr(l, "status", None) == "Assigned"
+        ]
+        in_progress_lanes = [
+            l for l in ftl_lane if getattr(l, "status", None) == "In-Progress"
+        ]
+        # Get disputes
         ftl_disputes = db.query(FTL_Shipment_Dispute).filter(FTL_Shipment_Dispute.carrier_company_id == company_id).all()
         power_disputes = db.query(POWER_Shipment_Dispute).filter(POWER_Shipment_Dispute.carrier_company_id == company_id).all()
-        notifications = db.query(Notification).filter(Notification.recipient_type == "Carrier",
-                                                    Notification.recipient_id == company_id).all()
+        notifications = db.query(Carrier_Notification).filter(Carrier_Notification.company_id == company_id).all()
         active_disputes = [
             d for d in (ftl_disputes + power_disputes)
             if getattr(d, "status", None) == "Open"
@@ -111,35 +130,83 @@ def get_carrier_dashboard_home(
         disputes = ftl_disputes + power_disputes
 
         return {
-            "total_vehicles": len(vehicles),
-            "total_trailers": len(trailers),
-            "total_drivers": len(drivers),
-            "completed_shipments": carrier.completed_shipments,
-            "active_contracts": carrier.number_of_ongoing_dedicated_lanes,
-            "total_revenue": financial_account.total_earned,
-            "pending_payments": financial_account.holding_balance,
+            "navbar_company_name": carrier.legal_business_name,
+            "dashboard": {
+                "fleet_vehicles": len(vehicles),
+                "trailers": len(trailers),
+                "drivers": len(drivers),
+                "assigned_shipments": len(assigned_shipments),
+                "in_progress_shipments": len(in_progress_shipments),
+                "completed_shipments": carrier.completed_shipments,
+                "assigned_lanes": len(assigned_lanes),
+                "in_progress_lanes": len(in_progress_lanes),
+                "completed_lanes": carrier.completed_lanes,
+                "rating": f"{carrier.rating}/5",
+                "active_disputes": len(active_disputes),
+                "total_earned": financial_account.total_earned,
+                "total_withdrawn": financial_account.total_withdrawn,
+                "current_balance": financial_account.current_balance,
+                "holding_balance": financial_account.holding_balance,
 
-            "active_disputes": [{
-                "id": dispute.id,
-                "shipment_id": dispute.shipment_id,
-                "shipment_type": dispute.shipment_type,
-            } for active_dispute in active_disputes],
+                "shipment_management_and_disputes": {
+                    "active_shipments": [
+                        {
+                            "id": s.id,
+                            "type": "FTL" if isinstance(s, FTL) else "POWER",  # ensure we distinguish
+                            "trip_status": s.trip_status,
+                            "origin": s.origin_city_province,
+                            "destination": s.destination_city_province,
+                        }
+                        for s in in_progress_shipments
+                    ],
 
-            "disputes": [{
-                "id": dispute.id,
-                "shipment_id": dispute.shipment_id,
-                "shipment_type": dispute.shipment_type,
-            } for dispute in disputes],
+                    "disputes": [{
+                        "id": dispute.id,
+                        "shipment_id": dispute.shipment_id,
+                        "shipment_type": dispute.shipment_type,
+                    } for dispute in disputes],
+                },
 
-            "notifications_alerts": [{
-                "id": notification.id,
-                "type": notification.type,
-                "message": notification.message
-            } for notification in notifications]
+
+                "notifications_alerts": [{
+                    "id": notification.id,
+                    "type": notification.type,
+                    "message": notification.message
+                } for notification in notifications]
+            }
         }
     except Exception as e:
         return {"error": str(e)}
 
+@router.get("/carrier/notifications")
+def get_carrier_account_notifications(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    assert "company_id" in current_user, "Missing company_id in current_user"
+    print(f"current_user: {current_user}")
+    
+    # Extract the company_id from the current user
+    company_id = current_user.get("company_id")
+    if not company_id:
+        raise HTTPException(
+            status_code=400,
+            detail="User does not belong to a company"
+        )
+    try:
+        notifications = db.query(Carrier_Notification).filter(Carrier_Notification.company_id == company_id).all()
+
+        return {
+            "notifications": [{
+                "id": notification.id,
+                "type": notification.type,
+                "message": notification.message,
+                "is_read": notification.is_read,
+                "recieved_at": notification.created_at
+            } for notification in notifications]
+        }
+    except Exception as e:
+        return {"error": str(e)}
 
 @router.get("/carrier/account")
 def carrier_get_account_information(

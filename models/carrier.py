@@ -53,3 +53,15 @@ class Notification(Base):
     is_read = Column(Boolean, default=False)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+class Carrier_Notification(Base):
+    __tablename__ = "carrier_notifications"
+
+    id = Column(Integer, autoincrement=True, primary_key=True, index=True)
+    company_id = Column(Integer, nullable=False)   # The user ID in their respective table
+    type = Column(String, nullable=False)  # e.g. "shipment_update", "payment", "dispute"
+    message = Column(String, nullable=False)
+    is_read = Column(Boolean, default=False)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
