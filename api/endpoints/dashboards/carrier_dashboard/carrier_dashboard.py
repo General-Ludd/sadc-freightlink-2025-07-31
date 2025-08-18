@@ -4,9 +4,9 @@ from sqlalchemy.orm import Session
 from db.database import SessionLocal
 from models.brokerage.finance import CarrierFinancialAccounts
 from models.carrier import Carrier, Notification
-from schemas.brokerage.finance import CarrierFinancialAccountResponse
-from schemas.carrier import CarrierCompanyResponse
-from schemas.user import CarrierUserResponse, DriverCreate, DriverResponse
+from schemas.brokerage.finance import CarrierFinancialAccountResponse, Carrier_FinancialAccount_Create
+from schemas.carrier import CarrierCompanyResponse, CarrierCreate
+from schemas.user import CarrierUserResponse, DriverCreate, DriverResponse, CarrierUsers
 from schemas.vehicle import TrailerCreate, TrailerResponse, VehicleCreate, VehicleResponse, VehicleUpdate
 from services.carrier_service import fleet_create_driver
 from services.carrier_dashboards import assign_primary_driver, assign_trailer_to_vehicle
@@ -27,6 +27,19 @@ def get_db():
         yield db
     finally:
         db.close()
+
+@router.post("/fleet-carrier-registration")
+def process_fleet_carrier_registration(
+    carrier_data: CarrierCreate,
+    director_data: CarrierUsers,
+    financial_data: Carrier_FinancialAccount_Create,
+    db: Session = Depends(get_db),
+):
+    try:
+        results = create_fleet_carrier(db, carrier_data, director_data, financial_data)
+        return {f"Fleet Carrier Registrations successful. please login into your account and await verification"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/carrier-director-login", response_model=LoginResponse) #tested
 def login(request: LoginRequest, db: Session = Depends(get_db)):
