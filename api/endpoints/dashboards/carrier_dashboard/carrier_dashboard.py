@@ -98,7 +98,7 @@ def get_carrier_dashboard_home(
                 status_code=404,
                 detail="Carrier not found"
             )
-        financial_account = db.query(CarrierFinancialAccounts).filter(CarrierFinancialAccounts).first()
+        financial_account = db.query(CarrierFinancialAccounts).filter(CarrierFinancialAccounts.id == company_id).first()
         vehicles = db.query(Vehicle).filter(Vehicle.owner_id == company_id).all()
         trailers = db.query(Trailer).filter(Trailer.owner_id == company_id).all()
         drivers = db.query(Driver).filter(Driver.company_id == company_id).all()
