@@ -39,7 +39,7 @@ class LoadBoardEntryCreate(BaseModel):
     commodity: str
     temperature_control: str
     hazardous_metarials: bool
-    packaging_quantity: Optional[int] = None
+    packaging_quantity: Optional[str] = None
     packaging_type: Optional[str] = None
     pickup_number: Optional[str] = None
     pickup_notes: Optional[str] = None
