@@ -70,7 +70,7 @@ def get_all_company_trailers(
 
                 "current_shipment":{
                     "id": f"SHP-{trailer.current_shipment_id}" if trailer.current_shipment_id else None,
-                    "status": trailer.current_shipment.status if trailer.current_shipment.status else None,
+                    "status": trailer.current_shipment_status if trailer.current_shipment_status else None,
                 }
             } for trailer in trailers]
         }
