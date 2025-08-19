@@ -267,11 +267,11 @@ class FTL_lane_LoadBoard_Entry(BaseModel):
     commodity: str
     temperature_control: str
     hazardous_materials: bool
-    packaging_quantity: Optional[int] = None
+    packaging_quantity: Optional[str] = None
     packaging_type: Optional[str] = None
-    pickup_number: Optional[int] = None
+    pickup_number: Optional[str] = None
     pickup_notes: Optional[str] = None
-    delivery_number: Optional[int] = None
+    delivery_number: Optional[str] = None
     delivery_notes: Optional[str] = None
     estimated_transit_time: str
     pickup_facility_name: str
