@@ -226,7 +226,6 @@ class Dedicated_lanes_LoadBoard(Base):
     delivery_last_name = Column(String, nullable=False)
     delivery_phone_number = Column(String, nullable=False)
     delivery_email = Column(String, nullable=False)
-    exchange_end_time = Column(DateTime)
     created_at = Column(DateTime, nullable=False, server_default=func.now())
     updated_at = Column(DateTime, nullable=True, onupdate=func.now())
 
