@@ -1,3 +1,4 @@
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from models.Exchange.ftl_shipment import FTL_SHIPMENT_EXCHANGE
 from models.brokerage.loadboards.exchange_loadboards import Exchange_Ftl_Load_Board
