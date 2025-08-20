@@ -79,7 +79,7 @@ def create_dedicated_ftl_lane_exchange(
     
 
     # Step 7: Calculate auction end time
-    pickup_datetime = datetime.combine(shipment_data.pickup_date, pickup_facility_data.start_time)
+    pickup_datetime = datetime.combine(shipment_data.start_date, pickup_facility_data.start_time)
 
     # Auction must end 3.5 hours before pickup
     latest_allowed_end = pickup_datetime - timedelta(hours=1, minutes=30)
