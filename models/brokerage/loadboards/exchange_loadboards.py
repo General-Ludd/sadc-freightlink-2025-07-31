@@ -11,6 +11,7 @@ class Exchange_Ftl_Load_Board(Base):
     id = Column(Integer, primary_key=True, index=True)
     exchange_id = Column(Integer, nullable=False)
     automatically_accept_lower_bid = Column(Boolean, default=True)
+    allow_carrier_to_book_at_current_or_lower_offer_rate = Column(Boolean, default=True)
     type = Column(String)
     trip_type = Column(String, nullable=False)
     load_type = Column(String, nullable=False)
