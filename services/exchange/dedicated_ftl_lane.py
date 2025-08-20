@@ -1,3 +1,4 @@
+from datetime import date, datetime, timedelta
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from models.Exchange.dedicated_ftl_lane import FTL_Lane_Exchange
@@ -76,7 +77,19 @@ def create_dedicated_ftl_lane_exchange(
     except HTTPException as e:
         raise HTTPException(status_code=500, detail=f"Distance calculation failed: {e.detail}")
     
-    
+
+    # Step 7: Calculate auction end time
+    pickup_datetime = datetime.combine(shipment_data.pickup_date, pickup_facility_data.start_time)
+
+    # Auction must end 3.5 hours before pickup
+    latest_allowed_end = pickup_datetime - timedelta(hours=1, minutes=30)
+
+    # Auction can’t run more than 24h from creation
+    max_duration_end = datetime.utcnow() + timedelta(hours=24)
+
+    # Take whichever comes first
+    auction_end_time = min(latest_allowed_end, max_duration_end)
+
     # Step 1: Create Pickup and Dropoff Contact
     pickup_contact = ContactPerson(
         first_name=pickup_contact_data.first_name,
@@ -232,6 +245,7 @@ def create_dedicated_ftl_lane_exchange(
         total_shipments=total_shipments,  # Add total shipments to the shipment record
         payment_dates=all_payment_dates,  # Add payment dates to the shipment record
         shipment_dates=shipment_dates,
+        exchange_end_time=auction_end_time,
     )
     db.add(shipment)
     db.commit()
@@ -314,6 +328,7 @@ def create_dedicated_ftl_lane_exchange(
         delivery_last_name=dropoff_contact.last_name,
         delivery_phone_number=dropoff_contact.phone_number,
         delivery_email=dropoff_contact.email,
+        exchange_end_time=auction_end_time,
     )
     db.add(loadboard_entry)
     db.commit()
@@ -321,10 +336,19 @@ def create_dedicated_ftl_lane_exchange(
 
     # Step 6: Return all details
     return {
-        "loadboard_entry": {
-            "id": loadboard_entry.id,
-            "exchange_id": shipment.id,
-            "payment_terms": loadboard_entry.payment_terms,
-            "created_at": loadboard_entry.created_at,
-        },
+        "status": "success",
+        "message": "Dedicated lane exchange successfully booked",
+        "booking_details": {
+            "origin": shipment.origin_city_province,
+            "destination": shipment.destination_city_province,
+            "from": shipment.start_date,
+            "to": shipment.end_date,
+            "distance": shipment.distance,
+            "required_truck_type": shipment.required_truck_type,
+            "equipment_type": shipment.equipment_type,
+            "trailer_type": shipment.trailer_type if shipment.trailer_type else "N/A",
+            "trailer_length": shipment.trailer_length if shipment.trailer_length else "N/A",
+            "per_shipment_offer_rate": shipment.per_shipment_offer_rate,
+            "contract_offer_rate": shipment.contract_offer_rate,
+        }
     }

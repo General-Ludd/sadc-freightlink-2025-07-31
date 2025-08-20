@@ -70,6 +70,7 @@ class FTL_Lane_Exchange(Base):
     shipment_dates = Column(ARRAY(Date), nullable=True)
     payment_dates = Column(ARRAY(Date), nullable=True)
     # Status and Meta
+    exchange_end_time = Column(DateTime)
     auction_status = Column(Enum("Open", "Closed"), default="Open")
     is_active = Column(Boolean, default=True)  # Whether the contract is active
     created_at = Column(DateTime, server_default=func.now())
