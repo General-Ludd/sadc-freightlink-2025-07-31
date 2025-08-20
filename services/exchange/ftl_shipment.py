@@ -329,6 +329,6 @@ def create_ftl_shipment_exchange(
             "equipment_type": shipment.equipment_type,
             "trailer_type": shipment.trailer_type if shipment.trailer_type else "N/A",
             "trailer_length": shipment.trailer_length if shipment.trailer_length else "N/A",
-            "offer_rate": shipment.offer_rate,
+            "offer_rate": shipment.offer_price,
         }
     }
