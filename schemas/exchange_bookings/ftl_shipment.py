@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr
 from typing import Optional
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from enums import EquipmentType, Load_Type, Priority_Level, TrailerLength, TrailerType, TruckType
 
