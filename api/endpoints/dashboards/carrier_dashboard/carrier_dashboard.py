@@ -164,6 +164,7 @@ def get_carrier_dashboard_home(
                         "id": dispute.id,
                         "shipment_id": dispute.shipment_id,
                         "shipment_type": dispute.shipment_type,
+                        "status": dispute.status,
                     } for dispute in disputes],
                 },
 
