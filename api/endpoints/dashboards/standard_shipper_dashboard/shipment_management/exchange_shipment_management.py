@@ -420,10 +420,26 @@ def shipper_single_ftl_lane_exchange_detials(
                         "suggested_contract_rate": exchange.suggested_contract_rate,
                         "per_shipment_offer_rate": exchange.per_shipment_offer_rate,
                         "contract_offer_rate": exchange.contract_offer_rate,
-                        "per_shipment_savings": (exchange.suggested_per_shipment_rate - exchange.per_shipment_offer_rate),
-                        "contract_savings": (exchange.suggested_contract_rate - exchange.contract_offer_rate),
-                        "trip_savings": (exchange.per_shipment_offer_rate - exchange.leading_per_shipment_bid_amount),
-                        "exchange_savings": (exchange.contract_offer_rate - exchange.leading_contract_bid_amount)
+                        "per_shipment_savings": (
+                            exchange.suggested_per_shipment_rate - exchange.per_shipment_offer_rate
+                            if exchange.suggested_per_shipment_rate is not None and exchange.per_shipment_offer_rate is not None
+                            else None
+                        ),
+                        "contract_savings": (
+                            exchange.suggested_contract_rate - exchange.contract_offer_rate
+                            if exchange.suggested_contract_rate is not None and exchange.contract_offer_rate is not None
+                            else None
+                        ),
+                        "trip_savings": (
+                            exchange.per_shipment_offer_rate - exchange.leading_per_shipment_bid_amount
+                            if exchange.per_shipment_offer_rate is not None and exchange.leading_per_shipment_bid_amount is not None
+                            else None
+                        ),
+                        "exchange_savings": (
+                            exchange.contract_offer_rate - exchange.leading_contract_bid_amount
+                            if exchange.contract_offer_rate is not None and exchange.leading_contract_bid_amount is not None
+                            else None
+                        ),
                     },
 
                     "exchange_finance": {
