@@ -53,7 +53,7 @@ def get_all_shipper_exchanges(
                 "origin": ftl_exchange.origin_city_province,
                 "destination": ftl_exchange.destination_city_province,
                 "pickup_date": ftl_exchange.pickup_date,
-                #############ADD Payment Terms##########
+                "payment_terms": ftl_exchange.payment_terms,
                 "number_of_bids_submitted": ftl_exchange.number_of_bids_submitted,
                 "offer_rate": ftl_exchange.offer_price,
                 "leading_bid": ftl_exchange.leading_bid_amount,
@@ -66,7 +66,7 @@ def get_all_shipper_exchanges(
                 "origin": power_exchange.origin_city_province,
                 "destination": power_exchange.destination_city_province,
                 "pickup_date": power_exchange.pickup_date,
-                #############ADD Payment Terms##########
+                "payment_terms": power_exchange.payment_terms,
                 "number_of_bids_submitted": power_exchange.number_of_bids_submitted,
                 "offer_rate": power_exchange.offer_rate,
                 "leading_bid": power_exchange.leading_bid_amount,
