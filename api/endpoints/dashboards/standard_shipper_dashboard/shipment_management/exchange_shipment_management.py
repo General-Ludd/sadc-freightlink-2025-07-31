@@ -485,7 +485,7 @@ def shipper_single_ftl_lane_exchange_detials(
             } if pickup_facility else None,
 
             "delivery_facility": {
-                "facility_name": delivery_facility.address.name if delivery_facility else None,
+                "facility_name": delivery_facility.name if delivery_facility else None,
                 "address": delivery_facility.address if delivery_facility else None,
                 "time_window": f"{delivery_facility.start_time} - {delivery_facility.end_time}",
                 "scheduling_type": delivery_facility.scheduling_type,
