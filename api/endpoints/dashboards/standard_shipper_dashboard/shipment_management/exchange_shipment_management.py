@@ -157,6 +157,7 @@ def get_single_ftl_exchange_details(
             "exchange_saving": exchange.exchange_savings,
             "route_preview_embed": exchange.route_preview_embed,
             "created_at": exchange.created_at,
+            "end_time": exchange.end_time,
 
             "exchange_finance": {
                 "offer_rate": exchange.offer_price,
