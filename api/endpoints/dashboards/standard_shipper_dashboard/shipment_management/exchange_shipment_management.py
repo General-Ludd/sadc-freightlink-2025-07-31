@@ -93,7 +93,7 @@ def get_all_shipper_exchanges(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("shipper/ftl-exchange/{id}")
+@router.get("/shipper/ftl-exchange/{id}")
 def get_single_ftl_exchange_details(
     id: int,
     db: Session = Depends(get_db),
