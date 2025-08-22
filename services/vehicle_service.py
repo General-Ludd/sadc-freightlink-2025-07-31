@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from models.carrier import Carrier
+from models.carrier import Carrier, Carrier_Notification
 from models.shipper import Corporation
 from models.vehicle import Vehicle, Trailer, ShipperTrailer
 from models.user import CarrierDirector
@@ -67,6 +67,18 @@ def create_vehicle(db: Session, vehicle_data: VehicleCreate, current_user: dict)
     db.add(truck)
     db.commit()
     db.refresh(truck)
+
+    # ✅ Create a notification for the vehicle creation
+    notification = Carrier_Notification(
+        company_id=company_id,
+        type="vehicle_creation",
+        message=f"New vehicle {truck.make} {truck.model} ({truck.license_plate}) has been added to your fleet and undergoing verification.",
+        is_read=False
+    )
+    db.add(notification)
+    db.commit()
+    db.refresh(notification)
+
     return truck
 
 def create_trailer(db: Session, trailer_data: TrailerCreate, current_user: dict):
