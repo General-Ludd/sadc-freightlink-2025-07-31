@@ -131,7 +131,7 @@ def get_exchange_ftl_load_id(
                 "delivery_number": loadboard_shipment.delivery_number,
                 "delivery_notes": loadboard_shipment.delivery_notes,
                 "allow_booking": loadboard_shipment.automatically_accept_lower_bid,
-                "end_time": loadboard_shipment.end_time,
+                "end_time": loadboard_shipment.exchange_end_time,
 
                 "exchange_information": {
                     "exchange_offer": loadboard_shipment.shipment_rate,
