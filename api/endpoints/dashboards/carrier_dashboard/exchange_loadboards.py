@@ -229,7 +229,7 @@ def exchange_ftl_lane_loadboard(
                 "packaging_type": loadboard_shipment.packaging_type,
                 "average_shipment_weight": loadboard_shipment.average_shipment_weight,
                 "start_date": loadboard_shipment.start_date,
-                "end_date": loadboard_shipment.end_date,
+                "end_date": loadboard_shipment.exchange_end_date,
                 "frequency": loadboard_shipment.recurrence_frequency,
                 "shipments_per_interval": loadboard_shipment.shipments_per_interval,
                 "total_shipments": loadboard_shipment.total_shipments,
