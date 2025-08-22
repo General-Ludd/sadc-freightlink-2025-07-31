@@ -18,95 +18,89 @@ from models.vehicle import Vehicle
 from schemas.exchange_bookings.auction import Accept_Bid, Exchange_FTL_Lane_Bid_Create, Exchange_FTL_Shipment_Bid_Create, Exchange_POWER_Shipment_Bid_Create
 from services.brokerage.carrier_loadboard_service import calculate_rates
 from utils.billing import BillingEngine
-
 from fastapi import HTTPException, Depends, Request
 from sqlalchemy.orm import Session
 
-@router.post("/carrier/ftl/bid")
-async def place_ftl_shipment_bid(
-    request: Request,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    # Ensure company_id exists
+def place_ftl_shipment_bid(db: Session, bid_data: Exchange_FTL_Shipment_Bid_Create, current_user: dict):
     assert "company_id" in current_user, "Missing company_id in current_user"
     print(f"current_user: {current_user}")
-
+    
     company_id = current_user.get("company_id")
     user_id = current_user.get("id")
     if not company_id:
-        raise HTTPException(status_code=400, detail="User does not belong to a company")
+        raise HTTPException(
+            status_code=400,
+            detail="User does not belong to a company"
+        )
 
-    # ✅ Extract JSON body instead of using schema
-    body = await request.json()
-    exchange_id = body.get("exchange_id")
-    bid_amount = body.get("bid_amount")
-    bid_notes = body.get("bid_notes", None)
-
-    if not exchange_id or not bid_amount:
-        raise HTTPException(status_code=422, detail="exchange_id and bid_amount are required")
-
-    # Step 1: Validate Exchange
     exchange = db.query(FTL_SHIPMENT_EXCHANGE).filter(
-        FTL_SHIPMENT_EXCHANGE.id == exchange_id,
+        FTL_SHIPMENT_EXCHANGE.id == bid_data.exchange_id,
         FTL_SHIPMENT_EXCHANGE.auction_status == "Open"
     ).first()
     if not exchange:
-        raise HTTPException(status_code=404, detail="Exchange not found or closed")
+        raise ValueError("Exchange not found, or Exchange bidding closed")
+    if exchange.auction_status !="Open":
+        raise ValueError("Exchange bidding closed")
 
-    # Step 2: Validate Loadboard
     exchange_loadboard = db.query(Exchange_Ftl_Load_Board).filter(
-        Exchange_Ftl_Load_Board.exchange_id == exchange_id,
+        Exchange_Ftl_Load_Board.exchange_id == bid_data.exchange_id,
         Exchange_Ftl_Load_Board.status == "Open"
     ).first()
     if not exchange_loadboard:
-        raise HTTPException(status_code=404, detail="Exchange board not found or closed")
+        raise ValueError("Exchange board not found.")
+    if exchange_loadboard.status !="Open":
+        raise ValueError("Exchange bidding closed")
 
-    # Step 3: Validate Carrier
-    carrier = db.query(Carrier).filter(Carrier.id == company_id).first()
+    carrier = db.query(Carrier).filter(
+        Carrier.id == company_id).first()
     if not carrier:
-        raise HTTPException(status_code=404, detail="Carrier not found")
+        raise ValueError("Carrier Not found")
     if not carrier.is_verified:
-        raise HTTPException(status_code=403, detail="Carrier company not verified")
+        raise ValueError("Carrier company account not verified. Please request or await verification.")
     if carrier.status != "Active":
-        raise HTTPException(status_code=403, detail="Carrier account inactive")
+        raise ValueError("Carrier account is not active.")
 
-    # Validate insurance cover
-    if carrier.git_cover_amount < exchange.minimum_git_cover_amount:
-        raise HTTPException(status_code=400, detail="Carrier GIT Cover does not meet requirement")
-    if carrier.liability_insurance_cover_amount < exchange.minimum_liability_cover_amount:
-        raise HTTPException(status_code=400, detail="Carrier Liability Cover does not meet requirement")
+    try:
+        assert carrier.git_cover_amount >= exchange.minimum_git_cover_amount, "Carrier GIT Cover Amount does not meet exchange GIT cover amount requirement"
+        assert carrier.liability_insurance_cover_amount >= exchange.minimum_liability_cover_amount, "Carrier Liability Cover Amount does not meet exchange Liability cover amount requirement"
+    except AssertionError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
-    # Step 4: Financial Account
+    # Step 3: Retrieve Financial Account & Generate Payment Dates Based on Terms
     financial_account = db.query(CarrierFinancialAccounts).filter(
         CarrierFinancialAccounts.id == company_id
     ).first()
     if not financial_account:
-        raise HTTPException(status_code=404, detail="Financial account not found")
+        raise HTTPException(status_code=404, detail="Financial account not found.")
     if not financial_account.is_verified:
-        raise HTTPException(status_code=403, detail="Financial account not verified")
+        raise HTTPException(status_code=403, detail="Financial account is not verified, Please await verification to accept shipments.")
     if financial_account.status != "Active":
-        raise HTTPException(status_code=403, detail="Financial account inactive")
+        raise HTTPException(status_code=403, detail="Financial account is not active, Please await activation to accept shipments.")
 
-    # Step 5: Compare Bids
+
+    # Fetch existing bids for comparison
     existing_bids = db.query(Exchange_FTL_Shipment_Bid).filter(
-        Exchange_FTL_Shipment_Bid.exchange_id == exchange_id
+        Exchange_FTL_Shipment_Bid.exchange_id == bid_data.exchange_id
     ).all()
 
-    baked_bid = bid_amount * 1.10
-    is_lowest_bid = all(bid_amount < existing_bid.bid_amount for existing_bid in existing_bids)
+    baked_bid = bid_data.bid_amount * 1.10
+
+    # Determine if this bid is the lowest
+    is_lowest_bid = all(bid_data.bid_amount < existing_bid.bid_amount for existing_bid in existing_bids)
+
+    # Set status based on comparison
     new_bid_status = "Placed" if is_lowest_bid else "Outbidded"
 
-    # Step 6: Create Bid
+    # Create the new bid
     bid = Exchange_FTL_Shipment_Bid(
-        exchange_id=exchange_id,
+        exchange_id=bid_data.exchange_id,
         carrier_id=company_id,
         carrier_type=carrier.type,
         carrier_name=carrier.legal_business_name,
         user_id=user_id,
-        bid_amount=bid_amount,
+        bid_amount=bid_data.bid_amount,
         baked_bid_amount=baked_bid,
-        bid_notes=bid_notes,
+        bid_notes=bid_data.bid_notes,
         status=new_bid_status
     )
     exchange.number_of_bids_submitted = (exchange.number_of_bids_submitted or 0) + 1
@@ -114,24 +108,20 @@ async def place_ftl_shipment_bid(
     db.commit()
     db.refresh(bid)
 
-    # Step 7: Update other bids if this one is lowest
+    # If this is the new lowest bid, update all other bids to Outbidded
     if is_lowest_bid:
         db.query(Exchange_FTL_Shipment_Bid).filter(
-            Exchange_FTL_Shipment_Bid.exchange_id == exchange_id,
-            Exchange_FTL_Shipment_Bid.id != bid.id
-        ).update({"status": "Outbidded"}, synchronize_session=False)
-
+            Exchange_FTL_Shipment_Bid.exchange_id == bid_data.exchange_id,
+            Exchange_FTL_Shipment_Bid.id != bid.id  # exclude the new bid itself
+        ).update(
+            {"status": "Outbidded"},
+            synchronize_session=False
+        )
         exchange.leading_bid_id = bid.id
         exchange.leading_bid_amount = baked_bid
         db.commit()
 
-    return {
-        "message": "Bid placed successfully",
-        "bid_id": bid.id,
-        "exchange_id": exchange_id,
-        "bid_amount": bid_amount,
-        "status": new_bid_status
-    }
+    return bid
 
 
 def accept_ftl_shipment_exchange_bid(db: Session, bid_data: Accept_Bid, current_user:dict):

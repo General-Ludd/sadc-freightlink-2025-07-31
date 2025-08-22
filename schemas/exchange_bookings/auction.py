@@ -11,13 +11,11 @@ class Exchange_Id(BaseModel):
 # Bid Schemas
 class Exchange_FTL_Shipment_Bid_Create(BaseModel):
     exchange_id: int
-    type: str
     bid_amount: int
     bid_notes: Optional [str] = None
 
 class Exchange_POWER_Shipment_Bid_Create(BaseModel):
     exchange_id: int
-    type: str
     bid_amount: int
     bid_notes: Optional [str] = None
 
