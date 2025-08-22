@@ -66,7 +66,7 @@ def get_all_spot_ftl_loadboard_loads(db: Session = Depends(get_db), current_user
                 "eta_window": shipment.eta_window,
                 "required_truck_type": shipment.required_truck_type,
                 "equipment_type": shipment.equipment_type,
-                "trailer_type": shipment.trailer_year,
+                "trailer_type": shipment.trailer_type,
                 "trailer_length": shipment.trailer_length,
                 "minimum_weight_bracket": shipment.minimum_weight_bracket,
                 "commodity": shipment.commodity,
