@@ -300,7 +300,7 @@ def exchange_ftl_lane(
                 "pickup_notes": loadboard_lane.pickup_notes,
                 "delivery_notes": loadboard_lane.delivery_notes,
                 "allow_booking": loadboard_lane.automatically_accept_lower_bid,
-                "end_time": loadboard_lane.end_time,
+                "end_time": loadboard_lane.exchange_end_time,
 
                 "exchange_information": {
                     "opening_per_shipment_offer": loadboard_lane.per_shipment_offer_rate,
