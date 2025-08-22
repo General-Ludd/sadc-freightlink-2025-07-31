@@ -119,6 +119,8 @@ def place_ftl_shipment_bid(db: Session, bid_data: Exchange_FTL_Shipment_Bid_Crea
         )
         exchange.leading_bid_id = bid.id
         exchange.leading_bid_amount = baked_bid
+        exchange_loadboard.leading_bid_id = bid.id,
+        exchange_loadboard.leading_bid_amount = bid.bid_amount
         db.commit()
 
     return bid

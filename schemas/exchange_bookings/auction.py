@@ -74,7 +74,6 @@ class POWER_Exchange_ShipperSide_BidResponse(BaseModel):
 
 class Exchange_FTL_Lane_Bid_Create(BaseModel):
     exchange_id: int
-    type: str
     per_shipment_bid_amount: int
     bid_notes: Optional [str] = None
 
