@@ -37,37 +37,40 @@ def get_ftl_exchange_loadboard(
             status_code=400,
             detail="User does not belong to a company"
         )
-    loads = db.query(Exchange_Ftl_Load_Board).filter(Exchange_Ftl_Load_Board.status == "Open").all()
-    return {
-        "loads": [{
-            "id": load.exchange_id,
-            "rate": load.shipment_rate,
-            "trip_type": load.trip_type,
-            "status": load.status,
-            "end_time": load.exchange_end_time,
-            "origin": load.origin_city_province,
-            "pickup_date": load.pickup_date,
-            "pickup_window": load.pickup_appointment,
-            "destination": load.destination_city_province,
-            "route": load.route_preview_embed,
-            "eta_date": load.eta_date,
-            "eta_window": load.eta_window,
-            "provider": f"SADC FREIGHTLINK",
-            "distance": load.distance,
-            "minimum_transit_time": load.estimated_transit_time,
-            "truck": load.required_truck_type,
-            "equipment": load.equipment_type,
-            "trailer_type": load.trailer_type,
-            "trailer_length": load.trailer_length,
-            "minimum_weight_bracket": load.minimum_weight_bracket,
-            "commodity": load.commodity,
-            "hazardous_materials": load.hazardous_materials,
-            "leading_bid_amount": load.leading_bid_amount,
-            "allow_carrier_to_book_at_current_or_lower_offer_rate": load.allow_carrier_to_book_at_current_or_lower_offer_rate,
-        } for load in loads]
-    }
+
+    try:
+        loads = db.query(Exchange_Ftl_Load_Board).filter(Exchange_Ftl_Load_Board.status == "Open").all()
+        return {
+            "loads": [{
+                "id": load.exchange_id,
+                "rate": load.shipment_rate,
+                "trip_type": load.trip_type,
+                "status": load.status,
+                "end_time": load.exchange_end_time,
+                "origin": load.origin_city_province,
+                "pickup_date": load.pickup_date,
+                "pickup_window": load.pickup_appointment,
+                "destination": load.destination_city_province,
+                "route": load.route_preview_embed,
+                "eta_date": load.eta_date,
+                "eta_window": load.eta_window,
+                "provider": "SADC FREIGHTLINK",
+                "distance": load.distance,
+                "minimum_transit_time": load.estimated_transit_time,
+                "truck": load.required_truck_type,
+                "equipment": load.equipment_type,
+                "trailer_type": load.trailer_type,
+                "trailer_length": load.trailer_length,
+                "minimum_weight_bracket": load.minimum_weight_bracket,
+                "commodity": load.commodity,
+                "hazardous_materials": load.hazardous_materials,
+                "leading_bid_amount": load.leading_bid_amount,
+                "allow_carrier_to_book_at_current_or_lower_offer_rate": load.allow_carrier_to_book_at_current_or_lower_offer_rate,
+            } for load in loads]
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 
 @router.get("/carrier/exchange-ftl-load/{id}")
