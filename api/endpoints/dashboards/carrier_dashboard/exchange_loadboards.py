@@ -41,7 +41,7 @@ def get_ftl_exchange_loadboard(
     try:
         loads = db.query(Exchange_Ftl_Load_Board).filter(Exchange_Ftl_Load_Board.status == "Open").all()
         return {
-            "loads": [{
+            "exchanges": [{
                 "id": load.exchange_id,
                 "rate": load.shipment_rate,
                 "trip_type": load.trip_type,
@@ -99,7 +99,7 @@ def get_exchange_ftl_load_id(
                                                             Exchange_FTL_Shipment_Bid.carrier_id == company_id).all()
 
         return {
-            "ftl_shipment": {
+            "ftl_exchange": {
                 "id": loadboard_shipment.exchange_id,
                 "shipment_type": loadboard_shipment.type,
                 "trip_type": loadboard_shipment.trip_type,
