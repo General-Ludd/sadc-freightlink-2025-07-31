@@ -308,7 +308,7 @@ def exchange_ftl_lane(
                     "leading_per_shipment_bid": loadboard_lane.leading_per_shipment_offer_bid_amount,
                     "leading_contract_bid": loadboard_lane.leading_contract_offer_bid_amount,
                     "active_bidders": loadboard_lane.number_of_bids_submitted,
-                    "auction_end_time": loadboard_lane.end_time,
+                    "auction_end_time": loadboard_lane.exchange_end_time,
                 
                 "your_bids": [{
                     "bid_id": bid.id,
