@@ -357,7 +357,7 @@ def exchange_ftl_lane(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/exchange/ftl-lane-loadboard/id/bid", status_code=status.HTTP_201_CREATED) #UnTested
+@router.post("/exchange/ftl-lane-loadboard/bid", status_code=status.HTTP_201_CREATED) #UnTested
 def place_ftl_lane_exchange_bid(
     bid_data: Exchange_FTL_Lane_Bid_Create,
     db: Session = Depends(get_db),
