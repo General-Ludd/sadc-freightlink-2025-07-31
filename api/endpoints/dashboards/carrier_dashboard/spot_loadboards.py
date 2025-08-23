@@ -138,6 +138,85 @@ def get_all_spot_ftl_lanes_loads(db: Session = Depends(get_db), current_user: di
     except Exception as e:
         return {"error": str(e)}
 
+@router.get("/spot/ftl-lane-loadboard/{id}")
+def get_individual_loadboard_ftl_lane(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    try:
+        # Query all records from the "dedicated_lanes_loadboard" table
+        lane = db.query(Dedicated_lanes_LoadBoard).filter(Dedicated_lanes_LoadBoard.shipment_id == id).first()
+        if not lane:
+            raise HTTPException(status_code=404, detail="Lane not found")
+            
+        return {
+            "lane_information": {
+                "id": lane.shipment_id,
+                "status": lane.status,
+                "type": lane.type,
+                "load_type": lane.load_type,
+                "trip_type": lane.trip_type,
+                "origin": lane.origin_city_province,
+                "destination": lane.destination_city_province,
+                "distance": lane.distance,
+                "minimum_transit_time": lane.estimated_transit_time,
+                "route_preview": lane.route_preview_embed,
+                "required_truck_type": lane.required_truck_type,
+                "equipment_type": lane.equipment_type,
+                "trailer_type": lane.trailer_type if lane.trailer_type else "N/A",
+                "trailer_length": lane.trailer_length if lane.trailer_length else "N/A",
+                "minimum_weight_bracket": lane.minimum_weight_bracket,
+                "average_shipment_weight": lane.average_shipment_weight,
+                "minimum_git_cover_amount": lane.minimum_git_cover_amount,
+                "minimum_liability_cover_amount": lane.minimum_liability_cover_amount,
+                "commodity": lane.commodity,
+                "temperature_control": lane.temperature_control,
+                "hazardous_materials": lane.hazardous_materials,
+                "packaging_quantity": lane.packaging_quantity,
+                "packaging_type": lane.packaging_type,
+                "pickup_number": lane.pickup_number,
+                "pickup_notes": lane.pickup_notes,
+                "delivery_number": lane.delivery_number,
+                "delivery_notes": lane.delivery_notes,
+            },
+            "contract_information": {
+                "start_date": lane.start_date,
+                "end_date": lane.end_date,
+                "recurrence_frequency": lane.recurrence_frequency,
+                "recurrence_days": lane.recurrence_days,
+                "shipments_per_interval": lane.shipment_per_interval,
+                "total_shipments": lane.total_shipments,
+                "per_shipment_rate": lane.rate_per_shipment,
+                "total_contract_rate": lane.contract_rate,
+                "distance_per_shipment": lane.distance,
+                "rate_per_km": lane.rate_per_km,
+                "rate_per_ton": lane.rate_per_ton,
+                "shipment_dates": lane.shipment_dates,
+                "payment_dates": lane.payment_dates,
+            },
+            "pickup_facility": {
+                "name": lane.pickup_facility_name,
+                "address": lane.pickup_facility_address,
+                "scheduling_type": lane.pickup_scheduling_type,
+                "operating_hours": f"{lane.pickup_start_time} - {lane.pickup_end_time}",
+                "contact_person": f"{lane.pickup_first_name} {lane.pickup_last_name}",
+                "phone_number": lane.pickup_phone_number,
+                "email": lane.pickup_email,
+            },
+            "delivery_facility": {
+                "name": lane.delivery_facility_name,
+                "address": lane.delivery_facility_address,
+                "scheduling_type": lane.delivery_scheduling_type,
+                "operating_hours": f"{lane.delivery_start_time} - {lane.delivery_end_time}",
+                "contact_person": f"{lane.delivery_first_name} {lane.delivery_last_name}",
+                "phone_number": lane.delivery_phone_number,
+                "email": lane.delivery_email,
+            },
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
 @router.get("/spot/ftl-lane-loadboard/id", response_model=FTL_Lane_Loadboard_Individual_Shipment_Response) #UnTested
 def loadboard_get_individual_ftl_lane(
     loadboard_data: IndividualLoadboardShipmentRequest,
