@@ -185,7 +185,7 @@ def get_individual_loadboard_ftl_lane(
                 "end_date": lane.end_date,
                 "recurrence_frequency": lane.recurrence_frequency,
                 "recurrence_days": lane.recurrence_days,
-                "shipments_per_interval": lane.shipment_per_interval,
+                "shipments_per_interval": lane.shipments_per_interval,
                 "total_shipments": lane.total_shipments,
                 "per_shipment_rate": lane.rate_per_shipment,
                 "total_contract_rate": lane.contract_rate,
