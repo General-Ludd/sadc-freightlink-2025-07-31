@@ -98,7 +98,7 @@ def get_all_fleet_vehicles(db: Session = Depends(get_db), current_user: dict = D
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/carrier/vehicle/{id}") #Tested
+@router.get("/carrier/vehicle/{id}") # Tested
 def carrier_get_single_truck(
     id: int,
     db: Session = Depends(get_db),
@@ -121,27 +121,35 @@ def carrier_get_single_truck(
         if not truck:
             raise HTTPException(
                 status_code=404,
-                detail=f"Truck with ID {vehicle_data.id} not found or not authorized"
+                detail=f"Truck with ID {id} not found or not authorized"
             )
-        vehicle_schedules = db.query(Vehicle_Schedule).filter(Vehicle_Schedule.vehicle_id == truck.id,
-                                                                Vehicle_Schedule.past == False).all()
 
-        trailer = db.query(Trailer).filter(Trailer.id == truck.trailer_id).first()
-        driver = db.query(Driver).filter(Driver.id == truck.primary_driver_id).first()
+        vehicle_schedules = db.query(Vehicle_Schedule).filter(
+            Vehicle_Schedule.vehicle_id == truck.id,
+            Vehicle_Schedule.past == False
+        ).all()
+
+        trailer = None
+        if truck.trailer_id:
+            trailer = db.query(Trailer).filter(Trailer.id == truck.trailer_id).first()
+
+        driver = None
+        if truck.primary_driver_id:
+            driver = db.query(Driver).filter(Driver.id == truck.primary_driver_id).first()
 
         shipment = None
         if truck.current_shipment_id and truck.current_shipment_type:
             if truck.current_shipment_type.lower() == "ftl":
                 shipment = db.query(Assigned_Spot_Ftl_Shipments).filter(
-                    FTL_Shipment.id == truck.current_shipment_id
+                    Assigned_Spot_Ftl_Shipments.shipment_id == truck.current_shipment_id
                 ).first()
             elif truck.current_shipment_type.lower() == "power":
                 shipment = db.query(Assigned_Power_Shipments).filter(
-                    Power_Shipment.id == truck.current_shipment_id
+                    Assigned_Power_Shipments.shipment_id == truck.current_shipment_id
                 ).first()
 
         return {
-            "vehicle information": {
+            "vehicle_information": {
                 "id": truck.id,
                 "verification_status": truck.is_verified,
                 "status": truck.status,
@@ -149,8 +157,8 @@ def carrier_get_single_truck(
                 "type": truck.type,
                 "axle_configuration": truck.axle_configuration,
                 "equipment_type": truck.equipment_type,
-                "trailer_type": truck.trailer_type if truck.trailer_type else "N/A",
-                "trailer_length": truck.trailer_length if truck.trailer_length else "N/A",
+                "trailer_type": truck.trailer_type or "N/A",
+                "trailer_length": truck.trailer_length or "N/A",
                 "make": truck.make,
                 "model": truck.model,
                 "year": truck.year,
@@ -191,7 +199,7 @@ def carrier_get_single_truck(
                 "eta": schedule.eta,
                 "distance": schedule.distance,
                 "rate": schedule.rate,
-            }for schedule in vehicle_schedules],
+            } for schedule in vehicle_schedules],
             "trailer_information": {
                 "id": trailer.id if trailer else "N/A",
                 "verification_status": trailer.is_verified if trailer else "N/A",
@@ -210,19 +218,19 @@ def carrier_get_single_truck(
                 "payload_capacity": trailer.payload_capacity if trailer else "N/A",
             },
             "driver_information": {
-                "id": driver.id,
-                "verification_status": driver.is_verified,
-                "status": driver.status,
-                "first_name": driver.first_name,
-                "last_name": driver.last_name,
-                "nationality": driver.nationality,
-                "id_number": driver.id_number,
-                "phone_number": driver.phone_number,
-                "email": driver.email,
-                "license_number": driver.license_number,
-                "license_expiry_date": driver.license_expiry_date,
-                "distance_driven": driver.total_distance_driven,
-                "total_shipments_fulfilled": driver.total_shipments_completed,
+                "id": driver.id if driver else "N/A",
+                "verification_status": driver.is_verified if driver else "N/A",
+                "status": driver.status if driver else "N/A",
+                "first_name": driver.first_name if driver else "N/A",
+                "last_name": driver.last_name if driver else "N/A",
+                "nationality": driver.nationality if driver else "N/A",
+                "id_number": driver.id_number if driver else "N/A",
+                "phone_number": driver.phone_number if driver else "N/A",
+                "email": driver.email if driver else "N/A",
+                "license_number": driver.license_number if driver else "N/A",
+                "license_expiry_date": driver.license_expiry_date if driver else "N/A",
+                "distance_driven": driver.total_distance_driven if driver else "N/A",
+                "total_shipments_fulfilled": driver.total_shipments_completed if driver else "N/A",
             },
             "current_shipment_information": {
                 "id": shipment.shipment_id if shipment else "N/A",
@@ -241,6 +249,7 @@ def carrier_get_single_truck(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
     
 @router.patch("/update-vehicle/{vehicle_id}", response_model=VehicleResponse) #UnTested
 def partial_update_truck(
