@@ -63,33 +63,33 @@ def get_all_fleet_drivers(
             if driver.current_vehicle_id:
                 vehicle = db.query(Vehicle).filter(Vehicle.id == driver.current_vehicle_id).first()
 
-        return {
-            "id": driver.id,
-            "verification_status": driver.is_verified,
-            "status": driver.status,
-            "service_status": driver.service_status,
-            "first_name": driver.first_name,
-            "last_name": driver.last_name,
-            "nationality": driver.nationality,
-            "id_number": driver.id_number,
-            "license_number": driver.license_number,
-            "license_expiry_date": driver.license_expiry_date,
-            "current_vehicle": {
-                "make": vehicle.make if vehicle else None,
-                "model": vehicle.model if vehicle else None,
-                "year": vehicle.year if vehicle else None,
-                "license_plate": vehicle.license_plate if vehicle else None,
-                "type": vehicle.type if vehicle else None,
-                "equipment_type": vehicle.type if vehicle else None,
-                "trailer_type": vehicle.trailer_type if vehicle else None,
-                "trailer_length": vehicle.trailer_length if vehicle else None,
-            }
-        }
+            results.append({
+                "id": driver.id,
+                "verification_status": driver.is_verified,
+                "status": driver.status,
+                "service_status": driver.service_status,
+                "first_name": driver.first_name,
+                "last_name": driver.last_name,
+                "nationality": driver.nationality,
+                "id_number": driver.id_number,
+                "license_number": driver.license_number,
+                "license_expiry_date": driver.license_expiry_date,
+                "current_vehicle": {
+                    "make": vehicle.make if vehicle else None,
+                    "model": vehicle.model if vehicle else None,
+                    "year": vehicle.year if vehicle else None,
+                    "license_plate": vehicle.license_plate if vehicle else None,
+                    "type": vehicle.type if vehicle else None,
+                    "equipment_type": vehicle.equipment_type if vehicle else None,
+                    "trailer_type": vehicle.trailer_type if vehicle else None,
+                    "trailer_length": vehicle.trailer_length if vehicle else None,
+                } if vehicle else None
+            })
+
+        return results
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-    
 
 @router.get("/driver/id", response_model=DriverResponse)
 def get_driver_by_id(
