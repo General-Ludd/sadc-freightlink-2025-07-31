@@ -385,7 +385,7 @@ def get_single_trailer(
                 "model": trailer.model,
                 "year": trailer.year,
                 "color": trailer.color,
-                "vin": trailer.vin
+                "vin": trailer.vin,
                 "license_plate": trailer.license_plate,
                 "license_expiry_date": trailer.license_expiry_date,
                 "equipment_type": trailer.equipment_type,
