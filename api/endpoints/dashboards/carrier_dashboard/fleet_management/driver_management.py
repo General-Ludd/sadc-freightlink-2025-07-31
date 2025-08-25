@@ -63,33 +63,28 @@ def get_all_fleet_drivers(
             if driver.current_vehicle_id:
                 vehicle = db.query(Vehicle).filter(Vehicle.id == driver.current_vehicle_id).first()
 
-            driver_summary = Drivers_Summary_Response(
-                id=driver.id,
-                is_verified=driver.is_verified,
-                service_status=driver.service_status,
-                location_description=driver.location_description,
-                first_name=driver.first_name,
-                last_name=driver.last_name,
-                id_number=driver.id_number,
-                license_number=driver.license_number,
-                prdp_number=driver.prdp_number,
-                phone_number=driver.phone_number,
-                email=driver.email,
-                current_vehicle_id=driver.current_vehicle_id,
-                vehicle_is_verified=vehicle.is_verified if vehicle else None,
-                vehicle_make=vehicle.make if vehicle else None,
-                vehicle_model=vehicle.model if vehicle else None,
-                vehicle_year=vehicle.year if vehicle else None,
-                vehicle_license_plate=vehicle.license_plate if vehicle else None,
-                vehicle_license_expiry_date=vehicle.license_expiry_date if vehicle else None,
-                vehicle_axle_configuration=vehicle.axle_configuration if vehicle else None,
-                vehicle_equipment_type=vehicle.equipment_type if vehicle else None,
-                vehicle_trailer_type=vehicle.trailer_type if vehicle else None,
-                vehicle_trailer_length=vehicle.trailer_length if vehicle else None,
-            )
-            results.append(driver_summary)
-
-        return results
+        return {
+            "id": driver.id,
+            "verification_status": driver.is_verified,
+            "status": driver.status,
+            "service_status": driver.service_status,
+            "first_name": driver.first_name,
+            "last_name": driver.last_name,
+            "nationality": driver.nationality,
+            "id_number": driver.id_number,
+            "license_number": driver.license_number,
+            "license_expiry_date": driver.license_expiry_date,
+            "current_vehicle": {
+                "make": vehicle.make if vehicle else None,
+                "model": vehicle.model if vehicle else None,
+                "year": vehicle.year if vehicle else None,
+                "license_plate": vehicle.license_plate if vehicle else None,
+                "type": vehicle.type if vehicle else None,
+                "equipment_type": vehicle.type if vehicle else None,
+                "trailer_type": vehicle.trailer_type if vehicle else None,
+                "trailer_length": vehicle.trailer_length if vehicle else None,
+            }
+        }
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
