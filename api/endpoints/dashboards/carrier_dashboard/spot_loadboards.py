@@ -88,7 +88,7 @@ def accept_spot_ftl_shipment_from_loadboard(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
     
-@router.get("/dedicated-ftl-lane-loadboard", response_model=List[FTL_Lane_LoadBoard_Summary_Response]) #UnTested
+@router.get("/dedicated-ftl-lane-loadboard") #UnTested
 def get_all_spot_ftl_lanes_loads(db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
     assert "company_id" in current_user, "Missing company_id in current_user"
     print(f"current_user: {current_user}")
