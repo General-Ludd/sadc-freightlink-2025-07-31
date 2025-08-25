@@ -297,11 +297,14 @@ def create_trailer_endpoint(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.get("/all-fleet-trailers") #UnTested
-def get_all_fleet_trailers(db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+@router.get("/all-fleet-trailers")  # UnTested
+def get_all_fleet_trailers(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
     assert "company_id" in current_user, "Missing company_id in current_user"
     print(f"current_user: {current_user}")
-    
+
     # Extract the company_id from the current user
     company_id = current_user.get("company_id")
     if not company_id:
@@ -312,11 +315,6 @@ def get_all_fleet_trailers(db: Session = Depends(get_db), current_user: dict = D
 
     try:
         trailers = db.query(Trailer).filter(Trailer.owner_id == company_id).all()
-
-        for trailer in trailers:
-            truck = None
-            if trailer.truck_id:
-                truck = db.query(Vehicle).filter(Vehicle.id == trailer.truck_id).first()
 
         return {
             "trailers": [{
@@ -332,20 +330,25 @@ def get_all_fleet_trailers(db: Session = Depends(get_db), current_user: dict = D
                 "trailer_type": trailer.trailer_type,
                 "trailer_length": trailer.trailer_length,
                 "payload_capacity": trailer.payload_capacity,
-                "current_vehicle_make": {
-                    "make": truck.make,
-                    "model": truck.model,
-                    "year": truck.year,
-                    "color": truck.color,
-                    "axle_configuration": truck.axle_configuration,
-                    "license_plate": truck.license_plate
-                } if truck else 
+                "current_vehicle": (
+                    {
+                        "make": truck.make,
+                        "model": truck.model,
+                        "year": truck.year,
+                        "color": truck.color,
+                        "axle_configuration": truck.axle_configuration,
+                        "license_plate": truck.license_plate
+                    }
+                    if (truck := db.query(Vehicle).filter(Vehicle.id == trailer.truck_id).first())
+                    else None
+                )
             } for trailer in trailers]
         }
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
-@router.get("/fleet-trailers/{id}") #Tested
+@router.get("/fleet-trailer/{id}") #Tested
 def get_single_trailer(
     id: int,
     db: Session = Depends(get_db),
