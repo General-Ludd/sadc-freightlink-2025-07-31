@@ -109,7 +109,7 @@ def get_all_spot_ftl_lanes_loads(db: Session = Depends(get_db), current_user: di
         ftl_lanes = db.query(Dedicated_lanes_LoadBoard).filter(Dedicated_lanes_LoadBoard.status == "Available").all()
         return {
             "lanes": [{
-                "id": ftl_lane.id,
+                "id": ftl_lane.shipment_id,
                 "status": ftl_lane.status,
                 "trip_type": ftl_lane.trip_type,
                 "load_type": ftl_lane.load_type,
