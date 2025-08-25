@@ -52,7 +52,7 @@ def get_all_spot_ftl_loadboard_loads(db: Session = Depends(get_db), current_user
 
         return {
             "shipments": [{
-                "id": shipment.id,
+                "id": shipment.shipment_id,
                 "trip_type": shipment.trip_type,
                 "rate": shipment.shipment_rate,
                 "distance": shipment.distance,
@@ -83,7 +83,7 @@ def get_individual_spot_ftl_loadboard_shipment(
     current_user: dict = Depends(get_current_user)
 ):
     try:
-        shipment = db.query(Ftl_Load_Board).filter(Ftl_Load_Board.id == id).first()
+        shipment = db.query(Ftl_Load_Board).filter(Ftl_Load_Board.shipment_id == id).first()
 
         if not shipment:
             raise HTTPException(status_code=404, detail="Shipment not found")
