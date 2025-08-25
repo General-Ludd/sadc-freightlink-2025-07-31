@@ -197,7 +197,7 @@ def get_individual_loadboard_ftl_lane(
             },
             "pickup_facility": {
                 "name": lane.pickup_facility_name,
-                "address": lane.pickup_facility_address,
+                "address": lane.origin_address,
                 "scheduling_type": lane.pickup_scheduling_type,
                 "operating_hours": f"{lane.pickup_start_time} - {lane.pickup_end_time}",
                 "contact_person": f"{lane.pickup_first_name} {lane.pickup_last_name}",
@@ -206,7 +206,7 @@ def get_individual_loadboard_ftl_lane(
             },
             "delivery_facility": {
                 "name": lane.delivery_facility_name,
-                "address": lane.delivery_facility_address,
+                "address": lane.destination_address,
                 "scheduling_type": lane.delivery_scheduling_type,
                 "operating_hours": f"{lane.delivery_start_time} - {lane.delivery_end_time}",
                 "contact_person": f"{lane.delivery_first_name} {lane.delivery_last_name}",
