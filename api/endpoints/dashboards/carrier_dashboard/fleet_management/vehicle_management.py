@@ -123,7 +123,8 @@ def carrier_get_single_truck(
                 status_code=404,
                 detail=f"Truck with ID {vehicle_data.id} not found or not authorized"
             )
-        vehicle_schedules = db.query(Vehicle_Schedule).filter(Vehicle_Schedule.vehicle_id == truck.id).all()
+        vehicle_schedules = db.query(Vehicle_Schedule).filter(Vehicle_Schedule.vehicle_id == truck.id,
+                                                                Vehicle_Schedule.past == False).all()
 
         trailer = db.query(Trailer).filter(Trailer.id == truck.trailer_id).first()
         driver = db.query(Driver).filter(Driver.id == truck.primary_driver_id).first()

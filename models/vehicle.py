@@ -71,6 +71,7 @@ class Vehicle_Schedule(Base):
     shipment_type = Column(String)
     origin = Column(String)
     destination = Column(String)
+    pickup_date = Column(Date)
     pickup_appointment = Column(String)
     eta_date = Column(Date)
     eta_window = Column(String)
