@@ -98,7 +98,7 @@ def get_all_fleet_vehicles(db: Session = Depends(get_db), current_user: dict = D
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/vehicle/{id}") #Tested
+@router.get("/carrier/vehicle/{id}") #Tested
 def carrier_get_single_truck(
     id: int,
     db: Session = Depends(get_db),
