@@ -46,6 +46,7 @@ def get_all_fleet_drivers(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
+    # Ensure company_id exists
     if "company_id" not in current_user:
         raise HTTPException(status_code=400, detail="Missing company_id in current_user")
 
@@ -63,7 +64,7 @@ def get_all_fleet_drivers(
             if driver.current_vehicle_id:
                 vehicle = db.query(Vehicle).filter(Vehicle.id == driver.current_vehicle_id).first()
 
-            results.append({
+            driver_data = {
                 "id": driver.id,
                 "verification_status": driver.is_verified,
                 "status": driver.status,
@@ -84,7 +85,9 @@ def get_all_fleet_drivers(
                     "trailer_type": vehicle.trailer_type if vehicle else None,
                     "trailer_length": vehicle.trailer_length if vehicle else None,
                 } if vehicle else None
-            })
+            }
+
+            results.append(driver_data)
 
         return results
 
