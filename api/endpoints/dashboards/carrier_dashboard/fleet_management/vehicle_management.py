@@ -77,6 +77,8 @@ def get_all_fleet_vehicles(
 
             vehicle_data = {
                 "id": vehicle.id,
+                "verification_status": vehicle.is_verified,
+                "availablity_status": vehicle.service_status,
                 "make": vehicle.make,
                 "model": vehicle.model,
                 "year": vehicle.year,
@@ -89,6 +91,8 @@ def get_all_fleet_vehicles(
                     "name": f"{driver.first_name} {driver.last_name}",
                     "nationality": driver.nationality,
                     "id_number": driver.id_number,
+                    "license_number": driver.license_number,
+                    "license_expiry_date": driver.license_expiry_date,
                     "phone_number": driver.phone_number,
                     "email": driver.email,
                 } if driver else None
