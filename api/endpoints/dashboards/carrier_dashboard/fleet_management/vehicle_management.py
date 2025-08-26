@@ -365,33 +365,37 @@ def get_all_fleet_trailers(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
-@router.get("/fleet-trailer/{id}") #Tested
+@router.get("/fleet-trailer/{id}")  # Tested
 def get_single_trailer(
     id: int,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    assert "company_id" in current_user, "Missing company_id in current_user"
+    # Validate company_id
+    if "company_id" not in current_user:
+        raise HTTPException(status_code=400, detail="Missing company_id in current_user")
     company_id = current_user.get("company_id")
 
     if not company_id:
-        raise HTTPException(
-            status_code=400,
-            detail="User does not belong to a company"
-        )
+        raise HTTPException(status_code=400, detail="User does not belong to a company")
 
     try:
+        # Fetch trailer
         trailer = db.query(Trailer).filter(
             Trailer.id == id,
             Trailer.owner_id == company_id
         ).first()
-        truck = db.query(Vehicle).filter(Vehicle.id == trailer.truck_id).first()
 
         if not trailer:
             raise HTTPException(
                 status_code=404,
-                detail=f"Trailer with ID {vehicle_data.id} not found or not authorized"
+                detail=f"Trailer with ID {id} not found or not authorized"
             )
+
+        # Fetch assigned truck if available
+        truck = None
+        if trailer.truck_id:
+            truck = db.query(Vehicle).filter(Vehicle.id == trailer.truck_id).first()
 
         return {
             "trailer_information": {
@@ -424,27 +428,31 @@ def get_single_trailer(
                 "left_angle": trailer.left_angle_image,
                 "right_angle": trailer.right_angle_image,
             },
-            "assigned_vehicle_information": {
-                "id": truck.id,
-                "verification_status": truck.is_verified,
-                "status": truck.status,
-                "type": truck.type,
-                "axle_configuration": truck.axle_configuration,
-                "make": truck.make,
-                "model": truck.model,
-                "year": truck.year,
-                "color": truck.color,
-                "vin": truck.vin,
-                "license_plate": truck.license_plate,
-                "license_expiry_date": truck.license_expiry_date,
-                "tare_weight": truck.tare_weight,
-                "gvm_weight": truck.gvm_weight,
-                "payload_capacity": truck.payload_capacity
-            },
+            "assigned_vehicle_information": (
+                {
+                    "id": truck.id,
+                    "verification_status": truck.is_verified,
+                    "status": truck.status,
+                    "type": truck.type,
+                    "axle_configuration": truck.axle_configuration,
+                    "make": truck.make,
+                    "model": truck.model,
+                    "year": truck.year,
+                    "color": truck.color,
+                    "vin": truck.vin,
+                    "license_plate": truck.license_plate,
+                    "license_expiry_date": truck.license_expiry_date,
+                    "tare_weight": truck.tare_weight,
+                    "gvm_weight": truck.gvm_weight,
+                    "payload_capacity": truck.payload_capacity
+                }
+                if truck else None
+            )
         }
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
     
 @router.put("/assign-trailer-to-vehicle", status_code=status.HTTP_201_CREATED) #UnTested
 def assign_trailer(
