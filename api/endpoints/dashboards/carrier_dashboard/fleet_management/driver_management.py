@@ -41,7 +41,7 @@ def fleet_create_driver_endpoint(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.get("/all-fleet-drivers", response_model=List[Drivers_Summary_Response])  # tested
+@router.get("/all-fleet-drivers")  # tested
 def get_all_fleet_drivers(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
@@ -64,7 +64,8 @@ def get_all_fleet_drivers(
             if driver.current_vehicle_id:
                 vehicle = db.query(Vehicle).filter(Vehicle.id == driver.current_vehicle_id).first()
 
-            driver_data = {
+        return {
+            "drivers": [{
                 "id": driver.id,
                 "verification_status": driver.is_verified,
                 "status": driver.status,
@@ -85,11 +86,8 @@ def get_all_fleet_drivers(
                     "trailer_type": vehicle.trailer_type if vehicle else None,
                     "trailer_length": vehicle.trailer_length if vehicle else None,
                 } if vehicle else None
-            }
-
-            results.append(driver_data)
-
-        return results
+            } for driver in drivers]
+        }
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
