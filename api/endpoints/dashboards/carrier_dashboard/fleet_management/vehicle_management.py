@@ -50,12 +50,15 @@ def create_truck_endpoint(
         raise HTTPException(status_code=400, detail=str(e))
     
 
-@router.get("/all-fleet-vehicles", response_model=List[Vehicles_Summary_Response])
-def get_all_fleet_vehicles(db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
-    assert "company_id" in current_user, "Missing company_id in current_user"
-    print(f"current_user: {current_user}")
-    
-    # Extract the company_id from the current user
+@router.get("/all-fleet-vehicles")
+def get_all_fleet_vehicles(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    # Validate company_id
+    if "company_id" not in current_user:
+        raise HTTPException(status_code=400, detail="Missing company_id in current_user")
+
     company_id = current_user.get("company_id")
     if not company_id:
         raise HTTPException(
@@ -72,28 +75,28 @@ def get_all_fleet_vehicles(db: Session = Depends(get_db), current_user: dict = D
             if vehicle.primary_driver_id:
                 driver = db.query(Driver).filter(Driver.id == vehicle.primary_driver_id).first()
 
-            vehicle_summary = Vehicles_Summary_Response(
-                id=vehicle.id,
-                status=vehicle.status,
-                current_shipment_id=vehicle.current_shipment_id,
-                location_description=vehicle.location_description,
-                make=vehicle.make,
-                model=vehicle.model,
-                year=vehicle.year,
-                color=vehicle.color,
-                license_plate=vehicle.license_plate,
-                axle_configuration=vehicle.axle_configuration,
-                license_expiry_date=vehicle.license_expiry_date,
-                type=vehicle.type,
-                equipment_type=vehicle.equipment_type,
-                trailer_type=vehicle.trailer_type,
-                trailer_length=vehicle.trailer_length,
-                driver_first_name=driver.first_name if driver else None,
-                driver_last_name=driver.last_name if driver else None
-            )
-            results.append(vehicle_summary)
+            vehicle_data = {
+                "id": vehicle.id,
+                "make": vehicle.make,
+                "model": vehicle.model,
+                "year": vehicle.year,
+                "type": vehicle.type,
+                "equipment_type": vehicle.equipment_type if vehicle.equipment_type else "N/A",
+                "trailer_type": vehicle.trailer_type if vehicle.trailer_type else "N/A",
+                "trailer_length": vehicle.trailer_length if vehicle.trailer_length else "N/A",
+                "driver_information": {
+                    "id": driver.id,
+                    "name": f"{driver.first_name} {driver.last_name}",
+                    "nationality": driver.nationality,
+                    "id_number": driver.id_number,
+                    "phone_number": driver.phone_number,
+                    "email": driver.email,
+                } if driver else None
+            }
 
-        return results
+            results.append(vehicle_data)
+
+        return {"vehicles": results}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
