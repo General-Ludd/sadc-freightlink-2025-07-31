@@ -78,13 +78,14 @@ def get_all_carrier_assigned_ftl_lanes_summary(
         raise HTTPException(status_code=500, detail=str(e))
     
 
-@router.post("/carrier/ftl-lane/id")
+@router.get("/carrier/ftl-lane/{id}")
 def carrier_get_ftl_lane_details(
-    lane_data: GetAssigned_Spot_Ftl_ShipmentRequest,
+    id: int,
     db: Session = Depends(get_db)
+    current_user: dict = Depends(get_current_user),
 ):
     try:
-        lane = db.query(Assigned_Ftl_Lanes).filter_by(lane_id=lane_data.id).first()
+        lane = db.query(Assigned_Ftl_Lanes).filter_by(lane_id=id).first()
         if not lane:
             raise HTTPException(status_code=404, detail="Contract lane not found")
 
@@ -128,8 +129,33 @@ def carrier_get_ftl_lane_details(
             "pickup_notes": lane.pickup_notes,
             "delivery_notes": lane.delivery_notes,
             "payment_terms": lane.payment_terms,
-            "contract_progress": lane.total_shipment_completed,
             "route_preview_embed": lane.route_preview_embed,
+
+            "contract_lane_details": {
+                "recurrence_frequency": lane.recurrence_frequency,
+                "recurrence_days": lane.recurrence_days,
+                "shipments_per_interval": lane.shipments_per_interval,
+                "start_date": lane.start_date,
+                "end_date": lane.end_date,
+                "total_shipments": lane.total_shipments,
+                "contract_rate": lane.contract_rate,
+                "per_shipment_rate": lane.rate_per_shipment,
+                "payment_terms": lane.payment_terms,
+                "lane_progress": lane.total_shipment_completed,
+            },
+
+            "payment_schedule": [{
+                "due_date": lane_interim_invoice.due_date,
+                "amount": lane_interim_invoice.due_amount,
+                "status": lane_interim_invoice.status,
+            } for lane_interim_invoice in lane_interim_invoices],
+
+            "lane_sub_shipments": [{
+                "shipment_id": lane_sub_shipment.shipment_id,
+                "date": lane_sub_shipment.pickup_date,
+                "route": f"{lane_sub_shipment.origin_city_province} to {lane_sub_shipment.destination_city_province}",
+                "status": lane_sub_shipment.status,
+            } for lane_sub_shipment in lane_sub_shipments],
 
             "pickup_facility": {
                 "location": lane.origin_city_province if pickup_facility else None,
@@ -149,32 +175,7 @@ def carrier_get_ftl_lane_details(
                 "email": delivery_contact.email if pickup_contact else None,
                 "contact_phone": delivery_contact.phone_number if delivery_contact else None,
                 "notes": delivery_facility.facility_notes if delivery_facility else None,
-            } if delivery_facility else None,
-
-            "contract_details": {
-                "recurrence_frequency": lane.recurrence_frequency,
-                "recurrence_days": lane.recurrence_days,
-                "shipments_per_interval": lane.shipments_per_interval,
-                "start_date": lane.start_date,
-                "end_date": lane.end_date,
-                "total_shipments": lane.total_shipments,
-                "contract_rate": lane.contract_rate,
-                "per_shipment_rate": lane.rate_per_shipment,
-                "payment_terms": lane.payment_terms,
-            },
-
-            "payment_schedule": [{
-                "due_date": lane_interim_invoice.due_date,
-                "amount": lane_interim_invoice.due_amount,
-                "status": lane_interim_invoice.status,
-            } for lane_interim_invoice in lane_interim_invoices],
-
-            "lane_sub_shipments": [{
-                "shipment_id": lane_sub_shipment.shipment_id,
-                "date": lane_sub_shipment.pickup_date,
-                "route": f"{lane_sub_shipment.origin_city_province} to {lane_sub_shipment.destination_city_province}",
-                "status": lane_sub_shipment.status,
-            } for lane_sub_shipment in lane_sub_shipments],
+            } if delivery_facility else None
         }
 
     except Exception as e:

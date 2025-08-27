@@ -80,8 +80,10 @@ def get_all_carrier_shipments_summary(
                 "rate": shipment.shipment_rate,
                 "origin": shipment.origin_city_province,
                 "pickup_date": shipment.pickup_date,
+                "pickup_start_time": shipment.pickup_start_time,
                 "destination": shipment.destination_city_province,
                 "eta_date": shipment.eta_date,
+                "eta_window": shipment.eta_window,
                 "distance": shipment.distance,
                 "vehicle": {
                     "id": vehicle.id if vehicle else None,
@@ -200,7 +202,7 @@ def carrier_get_ftl_shipment_details(
     current_user: dict = Depends(get_current_user)
 ):
     try:
-        shipment = db.query(Assigned_Spot_Ftl_Shipments).filter_by(shipment_id=shipment_data.id).first()
+        shipment = db.query(Assigned_Spot_Ftl_Shipments).filter_by(shipment_id=id).first()
         if not shipment:
             raise HTTPException(status_code=404, detail="Shipment not found")
 
@@ -212,7 +214,7 @@ def carrier_get_ftl_shipment_details(
 
         vehicle = db.query(Vehicle).filter_by(id=shipment.vehicle_id).first() if shipment.vehicle_id else None
         driver = db.query(Driver).filter_by(id=shipment.driver_id).first() if shipment.driver_id else None
-        documents = db.query(FTL_Shipment_Docs).filter_by(shipment_id=shipment.shipment_id).all()
+        documents = db.query(FTL_Shipment_Docs).filter_by(shipment_id=shipment.shipment_id).first()
         invoice = db.query(Load_Invoice).filter_by(id=shipment.invoice_id).first()
 
         return {
@@ -230,23 +232,34 @@ def carrier_get_ftl_shipment_details(
             "shipment_weight": shipment.shipment_weight,
             "origin_address": shipment.origin_address_completed,
             "destination_address": shipment.destination_address_completed,
+            "distance": shipment.distance,
+            "estimated_transit_time": shipment.estimated_transit_time,
             "pickup_date": shipment.pickup_date,
             "priority_level": shipment.priority_level,
             "customer_reference_number": shipment.customer_reference_number,
             "commodity": shipment.commodity,
             "temperature_control": shipment.temperature_control,
-            "min_git_cover": shipment.minimum_git_cover_amount,
-            "min_liability_cover": shipment.minimum_liability_cover_amount,
+            "minimum_git_cover_amount": shipment.minimum_git_cover_amount,
+            "minimum_liability_cover_amount": shipment.minimum_liability_cover_amount,
             "packaging_quantity": shipment.packaging_quantity,
             "packaging_type": shipment.packaging_type,
             "hazardous_material": shipment.hazardous_materials,
             "pickup_number": shipment.pickup_number,
             "delivery_number": shipment.delivery_number,
-            "distance": shipment.distance,
-            "estimated_transit_time": shipment.estimated_transit_time,
             "pickup_notes": shipment.pickup_notes,
             "delivery_notes": shipment.delivery_notes,
             "payment_terms": shipment.payment_terms,
+
+            "documents": {
+                "id": documents.id,
+                "commercial_invoice": documents.commercial_invoice,
+                "packaging_list": documents.packaging_list,
+                "customs_declaration_form": documents.customs_declaration_form,
+                "import_or_export_permits": documents.import_or_export_permits,
+                "certificate_of_origin": documents.certificate_of_origin,
+                "da5501orsad500": documents.da5501orsad500,
+                "pod": shipment.pod_document,
+            },
 
             "pickup_facility": {
                 "location": shipment.origin_city_province if pickup_facility else None,
@@ -273,6 +286,8 @@ def carrier_get_ftl_shipment_details(
 
             "vehicle": {
                 "id": vehicle.id,
+                "verification_status": vehicle.is_verified,
+                "status": vehicle.status,
                 "make": vehicle.make,
                 "model": vehicle.model,
                 "year": vehicle.year,
@@ -285,37 +300,30 @@ def carrier_get_ftl_shipment_details(
                 "equipment_type": vehicle.equipment_type,
                 "trailer_type": vehicle.trailer_type,
                 "trailer_length": vehicle.trailer_length,
+                "tare_weight": vehicle.tare_weight,
+                "gvm_weight": vehicle.gvm_weight,
+                "payload_capacity": vehicle.payload_capacity
             } if vehicle else None,
 
-            "driver": {
+            "driver_information": {
                 "id": driver.id,
-                "full_name": f"{driver.first_name} {driver.last_name}",
+                "availability_status": driver.service_status,
+                "verification_status": driver.verification_status,
+                "status": driver.status,
+                "first_name:" driver.first_name,
+                "last_name": driver.last_name,
+                "nationality": driver.nationality,
+                "id_number": driver.id_number,
+                "license_number": driver.license_number,
+                "license_expiry_date": driver.license_expiry_date
+                "prdp_number": driver.prdp_number,
+                "prdp_expiry_date": driver.prdp_expiry_date
                 "phone": driver.phone_number,
                 "email": driver.email,
-                "license_number": driver.license_number,
-                "license_expiry": driver.license_expiry_date,
                 "address": driver.address,
+                "distance_driven": driver.total_distance_driven,
+                "shipments_complete": driver.total_shipments_completed
             } if driver else None,
-
-            "documents": [{
-                "id": doc.id,
-                "commercial_invoice": doc.commercial_invoice,
-                "packaging_list": doc.packaging_list,
-                "customs_declaration_form": doc.customs_declaration_form,
-                "import_or_export_permits": doc.import_or_export_permits,
-                "certificate_of_origin": doc.certificate_of_origin,
-                "da5501orsad500": doc.da5501orsad500,
-                "pod": shipment.pod_document,
-            } for doc in documents],
-
-            "invoice": {
-                "id": invoice.id,
-                "status": invoice.status,
-                "issued": invoice.billing_date,
-                "due_date": invoice.due_date,
-                "subtotal": invoice.base_amount,
-                "total": invoice.due_amount,
-            },
         }
 
     except Exception as e:

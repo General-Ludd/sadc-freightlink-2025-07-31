@@ -105,6 +105,52 @@ def get_all_fleet_vehicles(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/loadboard-all-fleet-vehicles")
+def loadboard_get_all_fleet_vehicles(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    # Validate company_id
+    if "company_id" not in current_user:
+        raise HTTPException(status_code=400, detail="Missing company_id in current_user")
+
+    company_id = current_user.get("company_id")
+    if not company_id:
+        raise HTTPException(
+            status_code=400,
+            detail="User does not belong to a company"
+        )
+
+    try:
+        vehicles = db.query(Vehicle).filter(Vehicle.owner_id == company_id).all()
+        results = []
+
+        for vehicle in vehicles:
+            driver = None
+            if vehicle.primary_driver_id:
+                driver = db.query(Driver).filter(Driver.id == vehicle.primary_driver_id).first()
+
+            vehicle_data = {
+                "id": vehicle.id,
+                "status": vehicle.status,
+                "make": vehicle.make,
+                "model": vehicle.model,
+                "license_plate": vehicle.license_plate,
+                "license_expiry": vehicle.license_expiry_date,
+                "type": vehicle.type,
+                "equipment_type": vehicle.equipment_type if vehicle.equipment_type else "N/A",
+                "trailer_type": vehicle.trailer_type if vehicle.trailer_type else "N/A",
+                "trailer_length": vehicle.trailer_length if vehicle.trailer_length else "N/A",
+                "payload_capacity": vehicle.payload_capacity
+            }
+
+            results.append(vehicle_data)
+
+        return {"vehicles": results}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/carrier/vehicle/{id}") # Tested
 def carrier_get_single_truck(
     id: int,
