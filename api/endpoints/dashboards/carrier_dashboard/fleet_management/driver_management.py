@@ -193,54 +193,6 @@ def get_driver_by_id(
                 "temperature_control": shipment.temperature_control,
             } if shipment else None
         }
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.post("/driver/assignd-vehicle-summary", response_model=DriverVehicleSummaryResponse)
-def get_driver_vehicle_summary(
-    driver_request: Driver_Info,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    company_id = current_user.get("company_id")
-    if not company_id:
-        raise HTTPException(status_code=400, detail="User does not belong to a company")
-
-    try:
-        # Step 1: Get the Driver
-        driver = db.query(Driver).filter(
-            Driver.id == driver_request.id,
-            Driver.company_id == company_id
-        ).first()
-
-        if not driver:
-            raise HTTPException(status_code=404, detail="Driver not found")
-
-        if not driver.current_vehicle_id:
-            raise HTTPException(status_code=404, detail="Driver has no assigned vehicle")
-
-        # Step 2: Get the Vehicle
-        vehicle = db.query(Vehicle).filter(
-            Vehicle.id == driver.current_vehicle_id
-        ).first()
-
-        if not vehicle:
-            raise HTTPException(status_code=404, detail="Vehicle not found")
-
-        # Step 3: Get the Trailer if attached
-        trailer_id = None
-        trailer_length = None
-        trailer_type = None
-        if vehicle.trailer_id:
-            trailer = db.query(Trailer).filter(Trailer.id == vehicle.trailer_id).first()
-            if trailer:
-                trailer_id = trailer.id
-                trailer_length = trailer.trailer_length
-                trailer_type = trailer.trailer_type
-
-        return response
-
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

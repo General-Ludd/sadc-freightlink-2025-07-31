@@ -2,7 +2,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from db.database import SessionLocal
-from models.Exchange.auction import Exchange_FTL_Shipment_Bid, Exchange_POWER_Shipment_Bid
+from models.Exchange.auction import Exchange_FTL_Shipment_Bid, Exchange_POWER_Shipment_Bid, Exchange_FTL_Lane_Bid
 from models.brokerage.assigned_lanes import Assigned_Ftl_Lanes
 from models.brokerage.assigned_shipments import Assigned_Power_Shipments, Assigned_Spot_Ftl_Shipments
 from models.brokerage.finance import CarrierFinancialAccounts, Lane_Interim_Invoice, Load_Invoice
@@ -37,7 +37,7 @@ def get_db():
 #############################################################################################################
 ######################################Shipments Management###################################################
 #############################################################################################################
-@router.get("/carrier/all-shipments", response_model=List[Assigned_Shipments_SummaryResponse])
+@router.get("/carrier/shipment-management")
 def get_all_carrier_shipments_summary(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
@@ -47,75 +47,145 @@ def get_all_carrier_shipments_summary(
         raise HTTPException(status_code=400, detail="User does not belong to a company")   
 
     try:
-        shipments_summary = []
-
-        # --- 1. Assigned Spot FTL Shipments ---
+        # =========================
+        # FETCH SPOT SHIPMENTS
+        # =========================
         ftl_shipments = db.query(Assigned_Spot_Ftl_Shipments).filter(
-            Assigned_Spot_Ftl_Shipments.carrier_id == company_id
+            Assigned_Spot_Ftl_Shipments.carrier_company_id == company_id
         ).all()
 
-        for shipment in ftl_shipments:
-            vehicle = db.query(Vehicle).filter(Vehicle.id == shipment.vehicle_id).first()
-            driver = db.query(Driver).filter(Driver.id == shipment.driver_id).first()
-            facility = db.query(ShipmentFacility).filter(ShipmentFacility.id == shipment.pickup_facility_id).first()
+        power_shipments = db.query(Assigned_Power_Shipments).filter(
+            Assigned_Power_Shipments.carrier_company_id == company_id
+        ).all()
 
-            shipments_summary.append(Assigned_Shipments_SummaryResponse(
-                id=shipment.id,
-                type="FTL",
-                status=shipment.status,
-                shipment_rate=shipment.shipment_rate,
-                is_subshipment=shipment.is_subshipment,
-                lane_id=shipment.lane_id,
-                origin_city_province=shipment.origin_city_province,
-                pickup_date=shipment.pickup_date,
-                pickup_start_time=facility.start_time,
-                destination_city_province=shipment.destination_city_province,
-                eta_date=shipment.eta_date,
-                eta_window=shipment.eta_window,
-                distance=shipment.distance,
-                vehicle_id=vehicle.id if vehicle else None,
-                vehicle_make=vehicle.make if vehicle else None,
-                vehicle_model=vehicle.model if vehicle else None,
-                driver_id=driver.id if driver else None,
-                driver_first_name=driver.first_name if driver else None,
-                driver_last_name=driver.last_name if driver else None,
-                driver_phone_number=driver.phone_number if driver else None,
-            ))
+        ftl_lanes = db.query(Assigned_Ftl_Lanes).filter(
+            Assigned_Ftl_Lanes.carrier_company_id == company_id
+        ).all()
 
-        # --- 2. Assigned Power Shipments ---
-        power_shipments = (
-            db.query(Assigned_Power_Shipments)
-            .filter(Assigned_Power_Shipments.carrier_id == company_id)  # Add this filter!
-            .all()
-        )
+        # =========================
+        # FORMAT SHIPMENTS
+        # =========================
+        shipments_list = []
+        for shipment in ftl_shipments + power_shipments:
+            vehicle = db.query(Vehicle).filter(Vehicle.id == shipment.vehicle_id).first() if shipment.vehicle_id else None
+            driver = db.query(Driver).filter(Driver.id == shipment.driver_id).first() if shipment.driver_id else None
 
-        for shipment in power_shipments:
-            vehicle = db.query(Vehicle).filter(Vehicle.id == shipment.vehicle_id).first()
-            driver = db.query(Driver).filter(Driver.id == shipment.driver_id).first()
-            facility = db.query(ShipmentFacility).filter(ShipmentFacility.id == shipment.pickup_facility_id).first()
+            shipments_list.append({
+                "id": shipment.shipment_id,
+                "is_subshipment": shipment.is_subshipment,
+                "lane_id": shipment.lane_id,
+                "type": shipment.type,
+                "status": shipment.status,
+                "rate": shipment.shipment_rate,
+                "origin": shipment.origin_city_province,
+                "pickup_date": shipment.pickup_date,
+                "destination": shipment.destination_city_province,
+                "eta_date": shipment.eta_date,
+                "distance": shipment.distance,
+                "vehicle": {
+                    "id": vehicle.id if vehicle else None,
+                    "make": vehicle.make if vehicle else None,
+                    "model": vehicle.model if vehicle else None,
+                },
+                "driver": {
+                    "first_name": driver.first_name if driver else None,
+                    "last_name": driver.last_name if driver else None,
+                    "phone_number": driver.phone_number if driver else None
+                }
+            })
 
-            shipments_summary.append(Assigned_Shipments_SummaryResponse(
-                id=shipment.id,
-                type="POWER",
-                status=shipment.status,
-                shipment_rate=shipment.shipment_rate,
-                is_subshipment=shipment.is_subshipment,
-                lane_id=shipment.lane_id,
-                origin_city_province=shipment.origin_city_province,
-                pickup_date=shipment.pickup_date,
-                pickup_start_time=facility.start_time,
-                destination_city_province=shipment.destination_city_province,
-                eta_date=shipment.eta_date,
-                eta_window=shipment.eta_window,
-                distance=shipment.distance,
-                vehicle_id=vehicle.id if vehicle else None,
-                vehicle_make=vehicle.make if vehicle else None,
-                vehicle_model=vehicle.model if vehicle else None,
-                driver_id=driver.id if driver else None,
-                driver_first_name=driver.first_name if driver else None,
-                driver_last_name=driver.last_name if driver else None,
-                driver_phone_number=driver.phone_number if driver else None,
-            ))
+        lanes_list = [{
+            "id": lane.lane_id,
+            "type": "FTL Lane",
+            "status": lane.status,
+            "contract_number": lane.lane_id,
+            "rate": lane.contract_rate,
+            "origin": lane.origin_city_province,
+            "destination": lane.destination_city_province,
+            "distance": lane.distance,
+            "recurrence_frequency": lane.recurrence_frequency,
+            "shipments_per_interval": lane.shipments_per_interval,
+            "contract_start": lane.start_date,
+            "contract_end": lane.end_date,
+            "progress": f"{lane.completed_shipments} / {lane.total_shipments} completed"
+        } for lane in ftl_lanes]
+
+        # =========================
+        # FETCH EXCHANGES (via bids)
+        # =========================
+        ftl_bids = db.query(FTL_Exchange_Bids).filter(FTL_Exchange_Bids.carrier_id == company_id).all()
+        power_bids = db.query(POWER_Exchange_Bids).filter(POWER_Exchange_Bids.carrier_id == company_id).all()
+        lane_bids = db.query(FTL_Lane_Exchange_Bids).filter(FTL_Lane_Exchange_Bids.carrier_id == company_id).all()
+
+        exchanges_list = []
+
+        # Spot FTL Exchanges
+        for bid in ftl_bids:
+            exchange = db.query(Exchange_Ftl_Load_Board).filter(Exchange_Ftl_Load_Board.exchange_id == bid.exchange_id).first()
+            if exchange:
+                exchanges_list.append({
+                    "id": exchange.exchange_id,
+                    "type": "FTL",
+                    "status": exchange.status,
+                    "closing_time": exchange.exchange_end_time,
+                    "origin": exchange.origin_city_province,
+                    "destination": exchange.destination_city_province,
+                    "distance": exchange.distance,
+                    "priority": exchange.priority_level,
+                    "opening_bid": exchange.shipment_rate,
+                    "best_offer": exchange.leading_bid_amount,
+                    "allow_carrier_to_book": exchange.allow_carrier_to_book_at_current_or_lower_offer_rate,
+                })
+
+        # Spot POWER Exchanges
+        for bid in power_bids:
+            exchange = db.query(Exchange_Power_Load_Board).filter(Exchange_Power_Load_Board.exchange_id == bid.exchange_id).first()
+            if exchange:
+                exchanges_list.append({
+                    "id": exchange.exchange_id,
+                    "type": "POWER",
+                    "status": exchange.status,
+                    "closing_time": exchange.exchange_end_time,
+                    "origin": exchange.origin_city_province,
+                    "destination": exchange.destination_city_province,
+                    "distance": exchange.distance,
+                    "priority": exchange.priority_level,
+                    "opening_bid": exchange.offer_rate,
+                    "best_offer": exchange.leading_bid_amount,
+                    "allow_carrier_to_book": exchange.allow_carrier_to_book_at_current_or_lower_offer_rate,
+                })
+
+        # FTL Lane Exchanges
+        for bid in lane_bids:
+            exchange = db.query(Exchange_Power_Lane_LoadBoard).filter(Exchange_Power_Lane_LoadBoard.exchange_id == bid.exchange_id).first()
+            if exchange:
+                exchanges_list.append({
+                    "id": exchange.exchange_id,
+                    "type": "FTL Lane",
+                    "status": exchange.status,
+                    "closing_time": exchange.closing_time,
+                    "origin": exchange.origin_city_province,
+                    "destination": exchange.destination_city_province,
+                    "distance": exchange.distance,
+                    "priority": exchange.priority_level,
+                    "num_shipments": exchange.total_shipments,
+                    "best_offer_per_shipment": exchange.leading_per_shipment_offer_bid_amount,
+                    "best_contract_offer": exchange.leading_contract_offer_bid_amount
+                })
+
+        # =========================
+        # FINAL RESPONSE
+        # =========================
+        shipments_summary = {
+            "all_shipments": shipments_list,
+            "assigned_shipments": [s for s in shipments_list if s["status"] == "Assigned"],
+            "in_progress_shipments": [s for s in shipments_list if s["status"] in ["In-Progress", "In-Transit"]],
+            "completed_shipments": [s for s in shipments_list if s["status"] == "Completed"],
+            "ftl_shipments": [s for s in shipments_list if s["type"] == "FTL"],
+            "power_shipments": [s for s in shipments_list if s["type"] == "POWER"],
+            "ftl_lanes": lanes_list,
+            "exchanges": exchanges_list
+        }
 
         return shipments_summary
 
