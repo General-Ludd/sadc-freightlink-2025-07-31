@@ -51,15 +51,15 @@ def get_all_carrier_shipments_summary(
         # FETCH SPOT SHIPMENTS
         # =========================
         ftl_shipments = db.query(Assigned_Spot_Ftl_Shipments).filter(
-            Assigned_Spot_Ftl_Shipments.carrier_company_id == company_id
+            Assigned_Spot_Ftl_Shipments.carrier_id == company_id
         ).all()
 
         power_shipments = db.query(Assigned_Power_Shipments).filter(
-            Assigned_Power_Shipments.carrier_company_id == company_id
+            Assigned_Power_Shipments.carrier_id == company_id
         ).all()
 
         ftl_lanes = db.query(Assigned_Ftl_Lanes).filter(
-            Assigned_Ftl_Lanes.carrier_company_id == company_id
+            Assigned_Ftl_Lanes.carrier_id == company_id
         ).all()
 
         # =========================
