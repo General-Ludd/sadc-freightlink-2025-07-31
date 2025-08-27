@@ -199,7 +199,7 @@ def get_all_carrier_shipments_summary(
 def carrier_get_ftl_shipment_details(
     id: int,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
 ):
     try:
         shipment = db.query(Assigned_Spot_Ftl_Shipments).filter_by(shipment_id=id).first()
@@ -333,7 +333,7 @@ def carrier_get_ftl_shipment_details(
 @router.get("/carrier/all-power-assigned-shipments", response_model=List[Assigned_Shipments_SummaryResponse])
 def get_all_carrier_assigned_power_shipments_summary(
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
 ):
     company_id = current_user.get("company_id")
     if not company_id:

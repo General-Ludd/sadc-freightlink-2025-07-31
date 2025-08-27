@@ -81,7 +81,7 @@ def get_all_carrier_assigned_ftl_lanes_summary(
 @router.get("/carrier/ftl-lane/{id}")
 def carrier_get_ftl_lane_details(
     id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
     try:
