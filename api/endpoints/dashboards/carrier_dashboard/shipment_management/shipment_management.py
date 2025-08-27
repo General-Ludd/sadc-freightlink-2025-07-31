@@ -6,6 +6,7 @@ from models.Exchange.auction import Exchange_FTL_Shipment_Bid, Exchange_POWER_Sh
 from models.brokerage.assigned_lanes import Assigned_Ftl_Lanes
 from models.brokerage.assigned_shipments import Assigned_Power_Shipments, Assigned_Spot_Ftl_Shipments
 from models.brokerage.finance import CarrierFinancialAccounts, Lane_Interim_Invoice, Load_Invoice
+from models.brokerage.loadboards import Exchange_Ftl_Load_Board, Exchange_Ftl_Lane_LoadBoard, Exchange_Power_Load_Board
 from models.carrier import Carrier
 from models.spot_bookings.ftl_shipment import FTL_SHIPMENT, FTL_Shipment_Docs
 from models.spot_bookings.power_shipment import POWER_SHIPMENT
@@ -157,7 +158,7 @@ def get_all_carrier_shipments_summary(
 
         # FTL Lane Exchanges
         for bid in lane_bids:
-            exchange = db.query(Exchange_Power_Lane_LoadBoard).filter(Exchange_Power_Lane_LoadBoard.exchange_id == bid.exchange_id).first()
+            exchange = db.query(Exchange_Ftl_Lane_LoadBoard).filter(Exchange_Ftl_Lane_LoadBoard.exchange_id == bid.exchange_id).first()
             if exchange:
                 exchanges_list.append({
                     "id": exchange.exchange_id,
