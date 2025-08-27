@@ -133,6 +133,7 @@ def loadboard_get_all_fleet_vehicles(
             vehicle_data = {
                 "id": vehicle.id,
                 "status": vehicle.status,
+                "last_known_location": vehicle.location_description,
                 "make": vehicle.make,
                 "model": vehicle.model,
                 "license_plate": vehicle.license_plate,
