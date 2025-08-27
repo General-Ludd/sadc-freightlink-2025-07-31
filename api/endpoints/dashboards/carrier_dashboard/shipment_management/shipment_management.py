@@ -315,7 +315,7 @@ def carrier_get_ftl_shipment_details(
                 "nationality": driver.nationality,
                 "id_number": driver.id_number,
                 "license_number": driver.license_number,
-                "license_expiry_date": driver.license_expiry_date
+                "license_expiry_date": driver.license_expiry_date,
                 "prdp_number": driver.prdp_number,
                 "prdp_expiry_date": driver.prdp_expiry_date
                 "phone": driver.phone_number,
