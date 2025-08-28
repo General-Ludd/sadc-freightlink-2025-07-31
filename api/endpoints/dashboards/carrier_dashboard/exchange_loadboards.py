@@ -563,7 +563,8 @@ def place_power_shipment_exchange_bid(
 @router.get("/exchange/ftl-loadboard/id/all-bids", response_model=List[Exchange_FTL_Exchange_Loadboard_BidResponse]) #UnTested
 def get_all_ftl_load_exchange_bids(
     bid_data: IndividualLoadboardShipmentRequest,
-    db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)):
     assert "company_id" in current_user, "Missing company_id in current_user"
     print(f"current_user: {current_user}")
     
