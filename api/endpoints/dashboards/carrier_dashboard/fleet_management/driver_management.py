@@ -92,6 +92,46 @@ def get_all_fleet_drivers(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/all-fleet-drivers-for-assignment")  # tested
+def get_all_fleet_drivers_for_vehicle_assignement(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    # Ensure company_id exists
+    if "company_id" not in current_user:
+        raise HTTPException(status_code=400, detail="Missing company_id in current_user")
+
+    company_id = current_user.get("company_id")
+    if not company_id:
+        raise HTTPException(status_code=400, detail="User does not belong to a company")
+
+    try:
+        # Query all drivers for the current user's company
+        drivers = db.query(Driver).filter(Driver.company_id == company_id).all()
+        results = []
+
+        for driver in drivers:
+            vehicle = None
+            if driver.current_vehicle_id:
+                vehicle = db.query(Vehicle).filter(Vehicle.id == driver.current_vehicle_id).first()
+
+        return {
+            "drivers": [{
+                "id": driver.id,
+                "status": driver.status,
+                "current_vehicle_id": driver.current_vehicle_id,
+                "first_name": driver.first_name,
+                "last_name": driver.last_name,
+                "id_number": driver.id_number,
+                "license_number": driver.license_number,
+                "phone_number": driver.phone_number,
+                "email": driver.email
+            } for driver in drivers]
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/fleet-driver/{id}")
 def get_driver_by_id(
     id: int,
