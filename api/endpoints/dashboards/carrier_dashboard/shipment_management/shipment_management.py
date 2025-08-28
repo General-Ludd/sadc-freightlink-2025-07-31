@@ -261,9 +261,9 @@ def carrier_get_ftl_shipment_details(
                 "rate_per_km": shipment.rate_per_km,
                 "rate_per_ton": shipment.rate_per_ton,
                 "payment_terms": shipment.payment_terms,
-                "payment_date": shipment.invoice_due_date
+                "payment_date": shipment.invoice_due_date,
                 "invoice_status": shipment.invoice_status,
-                "invoice_id": shipment.invoice_id
+                "invoice_id": shipment.invoice_id,
             },
 
             "documents": {
