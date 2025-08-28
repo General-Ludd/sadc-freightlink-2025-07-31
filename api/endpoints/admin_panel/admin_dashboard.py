@@ -24,6 +24,8 @@ def get_db():
     finally:
         db.close()
 
+@router.post()
+
 @router.get("/all-shippers")
 def admin_get_all_shipper_accounts(
     db: Session = Depends(get_db),

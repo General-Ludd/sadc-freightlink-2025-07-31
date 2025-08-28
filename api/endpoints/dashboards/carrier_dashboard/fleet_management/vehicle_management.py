@@ -411,6 +411,45 @@ def get_all_fleet_trailers(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/all-fleet-trailers-to-assign")  # UnTested
+def get_all_fleet_trailers_for_vehicle_assignment(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    assert "company_id" in current_user, "Missing company_id in current_user"
+    print(f"current_user: {current_user}")
+
+    # Extract the company_id from the current user
+    company_id = current_user.get("company_id")
+    if not company_id:
+        raise HTTPException(
+            status_code=400,
+            detail="User does not belong to a company"
+        )
+
+    try:
+        trailers = db.query(Trailer).filter(Trailer.owner_id == company_id).all()
+
+        return {
+            "trailers": [{
+                "id": trailer.id,
+                "current_vehicle_id": trailer.truck_id,
+                "make": trailer.make,
+                "model": trailer.model,
+                "year": trailer.year,
+                "license_plate": trailer.license_plate,
+                "equipment_type": trailer.equipment_type,
+                "trailer_type": trailer.trailer_type,
+                "trailer_length": trailer.trailer_length,
+                "gvm_weight": trailer.gvm_weight,
+                "tare_weight": trailer.tare_weight,
+                "payload_capacity": trailer.payload_capacity,
+            } for trailer in trailers]
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
     
 @router.get("/fleet-trailer/{id}")  # Tested
 def get_single_trailer(
