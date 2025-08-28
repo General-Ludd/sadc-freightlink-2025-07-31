@@ -51,3 +51,14 @@ class Consignor(Base):
     profit_generated = Column(Integer)
     created_at = Column(DateTime(timezone=True), default=get_sast_time)
     updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)
+
+class Client_Notification(Base):
+    __tablename__ = "client_notifications"
+
+    id = Column(Integer, autoincrement=True, primary_key=True, index=True)
+    company_id = Column(Integer, nullable=False)   # The user ID in their respective table
+    type = Column(String, nullable=False)  # e.g. "shipment_update", "payment", "dispute"
+    message = Column(String, nullable=False)
+    is_read = Column(Boolean, default=False)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

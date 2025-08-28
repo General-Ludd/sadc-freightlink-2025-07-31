@@ -197,6 +197,22 @@ def get_single_ftl_exchange_details(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.post("/shipper/ftl-exchange/accept-bid")
+def shipper_broker_accept_ftl_exchange_bid(
+    bid_data: Accept_Bid,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    try:
+        result = accept_ftl_shipment_exchange_bid(
+            db,
+            bid_data,
+            current_user=current_user
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 @router.post("/exchange/power-exchange-cancel/{exchange_id}", status_code=status.HTTP_200_OK)
 def cancel_exchange_power_exchange_endpoint(
     exchange_id: int,
@@ -532,6 +548,45 @@ def shipper_broker_get_exchange_bids(
                 "id": bid.id,
                 "carrier_id": f"Carrier-{bid.carrier_id}",
                 "bid_amount": bid.baked_bid_amount,
+                "status": bid.status,
+                "submitted_at": bid.submitted_at
+            } for bid in bids]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/client/ftl-lane-exchange-bids/{id}")
+def shipper_broker_get_lane_exchange_bids(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    assert "company_id" in current_user, "Missing company_id in current_user"
+    print(f"current_user: {current_user}")
+    
+    # Extract the company_id from the current user
+    company_id = current_user.get("company_id")
+    if not company_id:
+        raise HTTPException(
+            status_code=400,
+            detail="User does not belong to a company"
+        )
+    try:
+        # Verify if exchange does exist and belongs to shipper or broker
+        exchange = db.query(FTL_Lane_Exchange).filter(FTL_Lane_Exchange.id == id,
+                                                          FTL_Lane_Exchange.shipper_company_id == company_id).first()
+        if not exchange:
+            raise HTTPException(status_code=404, detail="Exchange not found")
+
+        # Query all records from the "dedicated_lanes_loadboard" table
+        bids = db.query(Exchange_FTL_Lane_Bid).filter(Exchange_FTL_Lane_Bid.exchange_id == id).all()
+        return {
+            "bids": [{
+                "id": bid.id,
+                "carrier_id": f"Carrier-{bid.carrier_id}",
+                "per_shipment_bid_amount": bid.baked_per_shipment_bid_amount,
+                "contract_bid_amount": bid.baked_contract_bid_amount,
                 "status": bid.status,
                 "submitted_at": bid.submitted_at
             } for bid in bids]

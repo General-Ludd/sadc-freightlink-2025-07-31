@@ -208,7 +208,7 @@ def accept_ftl_shipment_exchange_bid(db: Session, bid_data: Accept_Bid, current_
     except HTTPException as e:
         raise e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Exhange billing process failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Exchange billing process failed: {str(e)}")
 
     # Step 1: Create the FTL shipment
     shipment = FTL_SHIPMENT(
@@ -435,6 +435,26 @@ def accept_ftl_shipment_exchange_bid(db: Session, bid_data: Accept_Bid, current_
     brokerage_transaction.load_invoice_status = load_invoice.status
     db.add(assigned_shipment)
     db.commit()
+    try:
+        carrier_notification = Carrier_Notification(
+            company_id=bid.carrier_id,
+            type=f"FTL exchange-{bid.exchange_id} bid accepted",
+            message=f"Congratulations your bid of R{bid.baked_bid_amount:.2f} on Exchange ID {bid.exchange_id} has been accepted. FTL Shipment {assigned_shipment.shipment_id} has been assigned to your company.",  
+        )
+        db.add(carrier_notification)
+        db.commit()
+    except Exception as e:
+        print(f"🚨 Failed to create notification for Carrier {bid.carrier_id}: {e}")
+    try:
+        client_notification = Client_Notification(
+            company_id=bid.carrier_id,
+            type=f"FTL exchange-{bid.exchange_id} awarded and closed",
+            message=f"Exchange ID-{bid.exchange_id} has been assigned to Carrier {bid.carrier_id} at the bid amount of R{bid.baked_bid_amount:.2f}. FTL Shipment {assigned_shipment.shipment_id} has been created from the Exchange.",  
+        )
+        db.add(client_notification)
+        db.commit()
+    except Exception as e:
+        print(f"🚨 Failed to create notification for Client {company_id}: {e}")
 
 def place_power_shipment_bid(db: Session, bid_data: Exchange_POWER_Shipment_Bid_Create, current_user: dict):
     assert "company_id" in current_user, "Missing company_id in current_user"
