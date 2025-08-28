@@ -255,6 +255,17 @@ def carrier_get_ftl_shipment_details(
             "delivery_notes": shipment.delivery_notes,
             "payment_terms": shipment.payment_terms,
 
+            "shipment_financials": {
+                "rate": shipment.shipment_rate,
+                "distance": shipment.distance,
+                "rate_per_km": shipment.rate_per_km,
+                "rate_per_ton": shipment.rate_per_ton,
+                "payment_terms": shipment.payment_terms,
+                "payment_date": shipment.invoice_due_date
+                "invoice_status": shipment.invoice_status,
+                "invoice_id": shipment.invoice_id
+            },
+
             "documents": {
                 "id": documents.id if documents else None,
                 "commercial_invoice": documents.commercial_invoice if documents else None,
