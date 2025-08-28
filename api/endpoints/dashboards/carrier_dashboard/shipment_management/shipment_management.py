@@ -195,7 +195,7 @@ def get_all_carrier_shipments_summary(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/carrier/ftl-shipment/{id}")
+@router.get("/carrier/ftl-shipment/{id}")
 def carrier_get_ftl_shipment_details(
     id: int,
     db: Session = Depends(get_db),
