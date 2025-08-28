@@ -206,16 +206,21 @@ def carrier_get_ftl_shipment_details(
         if not shipment:
             raise HTTPException(status_code=404, detail="Shipment not found")
 
-        pickup_facility = db.query(ShipmentFacility).filter_by(id=shipment.pickup_facility_id).first()
-        delivery_facility = db.query(ShipmentFacility).filter_by(id=shipment.delivery_facility_id).first()
+        # Facilities
+        pickup_facility = db.query(ShipmentFacility).filter_by(id=shipment.pickup_facility_id).first() if shipment.pickup_facility_id else None
+        delivery_facility = db.query(ShipmentFacility).filter_by(id=shipment.delivery_facility_id).first() if shipment.delivery_facility_id else None
 
-        pickup_contact = db.query(ContactPerson).filter_by(id=pickup_facility.contact_person).first() if pickup_facility else None
-        delivery_contact = db.query(ContactPerson).filter_by(id=delivery_facility.contact_person).first() if delivery_facility else None
+        # Contacts
+        pickup_contact = db.query(ContactPerson).filter_by(id=pickup_facility.contact_person).first() if pickup_facility and pickup_facility.contact_person else None
+        delivery_contact = db.query(ContactPerson).filter_by(id=delivery_facility.contact_person).first() if delivery_facility and delivery_facility.contact_person else None
 
+        # Vehicle & Driver
         vehicle = db.query(Vehicle).filter_by(id=shipment.vehicle_id).first() if shipment.vehicle_id else None
         driver = db.query(Driver).filter_by(id=shipment.driver_id).first() if shipment.driver_id else None
+
+        # Docs & Invoice
         documents = db.query(FTL_Shipment_Docs).filter_by(shipment_id=shipment.shipment_id).first()
-        invoice = db.query(Load_Invoice).filter_by(id=shipment.invoice_id).first()
+        invoice = db.query(Load_Invoice).filter_by(id=shipment.invoice_id).first() if shipment.invoice_id else None
 
         return {
             "id": shipment.shipment_id,
@@ -251,40 +256,40 @@ def carrier_get_ftl_shipment_details(
             "payment_terms": shipment.payment_terms,
 
             "documents": {
-                "id": documents.id,
-                "commercial_invoice": documents.commercial_invoice,
-                "packaging_list": documents.packaging_list,
-                "customs_declaration_form": documents.customs_declaration_form,
-                "import_or_export_permits": documents.import_or_export_permits,
-                "certificate_of_origin": documents.certificate_of_origin,
-                "da5501orsad500": documents.da5501orsad500,
+                "id": documents.id if documents else None,
+                "commercial_invoice": documents.commercial_invoice if documents else None,
+                "packaging_list": documents.packaging_list if documents else None,
+                "customs_declaration_form": documents.customs_declaration_form if documents else None,
+                "import_or_export_permits": documents.import_or_export_permits if documents else None,
+                "certificate_of_origin": documents.certificate_of_origin if documents else None,
+                "da5501orsad500": documents.da5501orsad500 if documents else None,
                 "pod": shipment.pod_document,
-            },
+            } if documents else None,
 
             "pickup_facility": {
-                "location": shipment.origin_city_province if pickup_facility else None,
+                "location": shipment.origin_city_province,
                 "address": pickup_facility.address if pickup_facility else None,
                 "date": shipment.pickup_date,
-                "time_window": f"{pickup_facility.start_time} - {pickup_facility.end_time}",
-                "contact_name": f"{pickup_contact.first_name} - {pickup_contact.last_name}" if pickup_contact else None,
+                "time_window": f"{pickup_facility.start_time} - {pickup_facility.end_time}" if pickup_facility else None,
+                "contact_name": f"{pickup_contact.first_name} {pickup_contact.last_name}" if pickup_contact else None,
                 "email": pickup_contact.email if pickup_contact else None,
                 "contact_phone": pickup_contact.phone_number if pickup_contact else None,
                 "notes": pickup_facility.facility_notes if pickup_facility else None,
             } if pickup_facility else None,
 
             "delivery_facility": {
-                "location": shipment.destination_city_province if delivery_facility else None,
+                "location": shipment.destination_city_province,
                 "address": delivery_facility.address if delivery_facility else None,
                 "date": shipment.eta_date,
-                "time_window": f"{delivery_facility.start_time} - {delivery_facility.end_time}",
+                "time_window": f"{delivery_facility.start_time} - {delivery_facility.end_time}" if delivery_facility else None,
                 "eta": shipment.eta_window,
-                "contact_name": f"{delivery_contact.first_name} - {delivery_contact.last_name}" if pickup_contact else None,
-                "email": delivery_contact.email if pickup_contact else None,
+                "contact_name": f"{delivery_contact.first_name} {delivery_contact.last_name}" if delivery_contact else None,
+                "email": delivery_contact.email if delivery_contact else None,
                 "contact_phone": delivery_contact.phone_number if delivery_contact else None,
                 "notes": delivery_facility.facility_notes if delivery_facility else None,
             } if delivery_facility else None,
 
-            "vehicle": {
+            "assigned_vehicle": {
                 "id": vehicle.id,
                 "verification_status": vehicle.is_verified,
                 "status": vehicle.status,
@@ -328,7 +333,6 @@ def carrier_get_ftl_shipment_details(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    
 
 @router.get("/carrier/all-power-assigned-shipments", response_model=List[Assigned_Shipments_SummaryResponse])
 def get_all_carrier_assigned_power_shipments_summary(
