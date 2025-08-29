@@ -544,7 +544,7 @@ class AssignTrailerRequest(BaseModel):
     vehicle_id: int
     trailer_id: int
     
-@router.post("/assign-trailer-to-vehicle", status_code=status.HTTP_200_OK)
+@router.post("/carrier/assign-trailer-to-vehicle", status_code=status.HTTP_200_OK)
 def assign_trailer(
     request: AssignTrailerRequest,
     db: Session = Depends(get_db),
