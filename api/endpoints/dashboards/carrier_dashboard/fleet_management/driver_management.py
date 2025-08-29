@@ -10,7 +10,7 @@ from schemas.carrier import CarrierCompanyResponse
 from schemas.user import CarrierUserResponse, Driver_Info, DriverCreate, DriverResponse, Drivers_Summary_Response
 from schemas.vehicle import DriverVehicleSummaryResponse, TrailerCreate, TrailerResponse, VehicleCreate, VehicleResponse, VehicleUpdate
 from services.carrier_service import fleet_create_driver
-from services.carrier_dashboards import assign_primary_driver, assign_trailer_to_vehicle
+from services.carrier_dashboards import assign_trailer_to_vehicle
 from services.vehicle_service import create_trailer, create_vehicle
 from utils.auth import get_current_user, verify_password
 from utils.jwt_handler import create_access_token
@@ -235,17 +235,3 @@ def get_driver_by_id(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.put("/assign/primary-driver", status_code=status.HTTP_201_CREATED) #Untested
-def assign_driver(
-    driver_id: int,
-    vehicle_id: int,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
-):
-    try:
-        result = assign_primary_driver(db, driver_id, vehicle_id, current_user)
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
