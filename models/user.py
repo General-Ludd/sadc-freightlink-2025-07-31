@@ -137,8 +137,9 @@ class DriverAssignmentHistory(Base):
     id = Column(Integer, primary_key=True, index=True)
     driver_id = Column(Integer)
     vehicle_id = Column(Integer)
-    assigned_by = Column(Integer)  # optional: user/admin ID
-    role = Column(String)  # "primary" or "secondary"
+    assigners_id = Column(Integer)  # optional: user/admin ID
+    assigners_first_name = Column(String)
+    assigners_last_name = Column(String)
     assigned_at = Column(DateTime, default=datetime.utcnow)
 
     @staticmethod

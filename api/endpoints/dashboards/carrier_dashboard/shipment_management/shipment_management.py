@@ -539,3 +539,65 @@ def carrier_get_power_shipment_details(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/carrier/assigned-shipments-available-for-vehicle")
+def get_assigned_shipments_available_for_vehicle_assignment(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    if "company_id" not in current_user:
+        raise HTTPException(status_code=400, detail="Missing company_id in current_user")
+    company_id = current_user["company_id"]
+
+    try:
+        # 🚛 Assigned FTL shipments with no vehicle assigned
+        ftl_shipments = db.query(Assigned_Spot_Ftl_Shipments).filter(
+            Assigned_Spot_Ftl_Shipments.carrier_id == company_id,
+            Assigned_Spot_Ftl_Shipments.status == "Assigned",
+            Assigned_Spot_Ftl_Shipments.vehicle_id.is_(None)   # 🚨 No vehicle assigned
+        ).all()
+
+        # ⚡ Assigned Power shipments with no vehicle assigned
+        power_shipments = db.query(Assigned_Power_Shipments).filter(
+            Assigned_Power_Shipments.carrier_id == company_id,
+            Assigned_Power_Shipments.status == "Assigned",
+            Assigned_Power_Shipments.vehicle_id.is_(None)  # 🚨 No vehicle assigned
+        ).all()
+
+        # 📦 Format FTL
+        ftl_results = [{
+            "id": shipment.id,
+            "type": "FTL",
+            "origin": shipment.origin,
+            "destination": shipment.destination,
+            "pickup_date": shipment.pickup_date,
+            "distance": shipment.distance,
+            "required_truck_type": shipment.required_truck_type,
+            "required_axle_configuration": None,
+            "equipment_type": shipment.equipment_type,
+            "trailer_type": shipment.trailer_type,
+            "trailer_length": shipment.trailer_length
+        } for shipment in ftl_shipments]
+
+        # ⚡ Format Power
+        power_results = [{
+            "id": shipment.id,
+            "type": "Power",
+            "origin": shipment.origin,
+            "destination": shipment.destination,
+            "pickup_date": shipment.pickup_date,
+            "distance": shipment.distance,
+            "required_truck_type": shipment.required_truck_type,
+            "required_axle_configuration": shipment.required_axle_configuration,
+            "equipment_type": None,
+            "trailer_type": None,
+            "trailer_length": None
+        } for shipment in power_shipments]
+
+        return {
+            "assigned_shipments": ftl_results + power_results
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+

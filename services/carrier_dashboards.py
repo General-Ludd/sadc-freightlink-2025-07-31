@@ -7,23 +7,19 @@ from models.spot_bookings.power_shipment import POWER_SHIPMENT
 from models.user import Driver, DriverAssignmentHistory
 from models.vehicle import Trailer, Vehicle
 
-def assign_primary_driver(
+def assign_driver_to_vehicle(
     db: Session,
-    driver_id: int,
     vehicle_id: int,
-    role: str,  # "primary" or "secondary"
+    driver_id: int,
     current_user: dict
 ):
     assert "company_id" in current_user, "Missing company_id in current_user"
     company_id = current_user["company_id"]
 
-    if role not in ["primary", "secondary"]:
-        raise HTTPException(status_code=400, detail="Role must be 'primary' or 'secondary'")
-
     # Validate carrier
     carrier = db.query(Carrier).filter(Carrier.id == company_id).first()
     if not carrier or not carrier.is_verified or carrier.status != "Active":
-        raise HTTPException(status_code=400, detail="Carrier not verified or inactive")
+        raise HTTPException(status_code=400, detail="Carrier not verified, inactive")
 
     # Validate driver
     driver = db.query(Driver).filter(Driver.id == driver_id).first()
@@ -33,7 +29,7 @@ def assign_primary_driver(
     # Validate vehicle
     vehicle = db.query(Vehicle).filter(Vehicle.id == vehicle_id).first()
     if not vehicle or not vehicle.is_verified or vehicle.owner_id != carrier.id:
-        raise HTTPException(status_code=404, detail="Vehicle not found or not verified")
+        raise HTTPException(status_code=404, detail="Vehicle not found, not verified or does not belong to this carrier company")
     
     ftl_shipments = db.query(FTL_SHIPMENT).filter(FTL_SHIPMENT.vehicle_id == vehicle.id,
                                                        FTL_SHIPMENT.shipment_status == "Assigned").all()
@@ -47,26 +43,53 @@ def assign_primary_driver(
     power_assignments = db.query(Assigned_Power_Shipments).filter(Assigned_Power_Shipments.vehicle_id == vehicle.id,
                                                        Assigned_Power_Shipments.status == "Assigned").all()
 
-    # Prevent assigning a driver already assigned to another vehicle
+    # 🚨 Check if vehicle already has a primary driver
+    if vehicle.primary_driver_id:
+        return {
+            "message": f"Vehicle-{vehicle.id} already has a primary driver assigned. "
+                       f"Please remove Driver-{vehicle.primary_driver_id} first."
+        }
+
+    # 🚨 Prevent assigning a driver already assigned to another vehicle
     if driver.current_vehicle_id and driver.current_vehicle_id != vehicle_id:
         raise HTTPException(status_code=400, detail="Driver is already assigned to another vehicle")
 
-    # Check for role conflicts
-    if role == "primary" and vehicle.primary_driver_id and vehicle.primary_driver_id != driver_id:
-        raise HTTPException(status_code=400, detail="Vehicle already has a different primary driver")
-    if role == "secondary" and vehicle.secondary_driver_id and vehicle.secondary_driver_id != driver_id:
-        raise HTTPException(status_code=400, detail="Vehicle already has a different secondary driver")
+    # 🚨 Check if vehicle currently has shipments in transit
+    in_progress_ftl = db.query(FTL_SHIPMENT).filter(
+        FTL_SHIPMENT.vehicle_id == vehicle.id,
+        FTL_SHIPMENT.shipment_status == "In-Progress"
+    ).first()
+
+    in_progress_power = db.query(POWER_SHIPMENT).filter(
+        POWER_SHIPMENT.vehicle_id == vehicle.id,
+        POWER_SHIPMENT.shipment_status == "In-Progress"
+    ).first()
+
+    if in_progress_ftl or in_progress_power:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Vehicle-{vehicle.id} has a shipment it is or should be currently In-Progress. "
+                   f"Please complete that shipment before assigning a new driver."
+        )
 
     # Assign driver to vehicle
     driver.current_vehicle_id = vehicle_id
+    vehicle.primary_driver_id = driver_id
     for shipment in ftl_shipments:
         shipment.driver_id = driver.id
-        shipment.driver_name = f"{driver.first_name}-{driver.last_name}"
+        shipment.driver_first_name = driver.first_name
+        shipment.driver_last_name = driver.last_name
+        shipment.driver_license_number = driver.license_number
+        shipment.driver_email = driver.email
+        shipment.driver_phone_number = driver.phone_number
 
     for shipment in power_shipments:
         shipment.driver_id = driver.id
         shipment.driver_first_name = driver.first_name
         shipment.driver_last_name = driver.last_name
+        shipment.driver_license_number = driver.license_number
+        shipment.driver_email = driver.email
+        shipment.driver_phone_number = driver.phone_number
 
     for assignment in ftl_assignments:
         assignment.driver_id = driver.id
@@ -74,18 +97,13 @@ def assign_primary_driver(
     for assignment in power_assignments:
         assignment.driver_id = driver.id
 
-
-    if role == "primary":
-        vehicle.primary_driver_id = driver_id
-    else:
-        vehicle.secondary_driver_id = driver_id
-
     # Track history
     assignment = DriverAssignmentHistory(
         driver_id=driver_id,
         vehicle_id=vehicle_id,
-        assigned_by=current_user.get("user_id"),
-        role=role
+        assigners_id=current_user.get("id"),
+        assigners_first_name=current_user.get("first_name"),
+        assigners_last_name=current_user.get("last_name"),
     )
     db.add(assignment)
 
@@ -93,7 +111,7 @@ def assign_primary_driver(
     db.refresh(driver)
     db.refresh(vehicle)
 
-    return {"message": f"Driver assigned as {role} driver successfully"}
+    return {"message": f"Driver successfully to Vehicle-{vehicle.id}"}
 
 
 def assign_trailer_to_vehicle(
