@@ -1,4 +1,5 @@
 from typing import List, Optional
+from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from db.database import SessionLocal
@@ -539,17 +540,19 @@ def get_single_trailer(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+class AssignTrailerRequest(BaseModel):
+    vehicle_id: int
+    trailer_id: int
     
-@router.put("/assign-trailer-to-vehicle", status_code=status.HTTP_201_CREATED) #UnTested
+@router.post("/assign-trailer-to-vehicle", status_code=status.HTTP_200_OK)
 def assign_trailer(
-    vehicle_id: int,
-    trailer_id: int,
+    request: AssignTrailerRequest,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
     try:
-        result = assign_trailer_to_vehicle(db, trailer_id, vehicle_id, current_user)
-        return result
+        result = assign_trailer_to_vehicle(db, request.trailer_id, request.vehicle_id, current_user)
+        return {"message": "Trailer assigned successfully", "data": result}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
     
