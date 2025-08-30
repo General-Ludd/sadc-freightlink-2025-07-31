@@ -15,7 +15,7 @@ class Corporation(Base):
     facility_type = Column(Enum(FacilityType), nullable=True)  # subsidiary, outpost
     legal_business_name = Column(String, nullable=False)
     country_of_incorporation = Column(String, nullable=False)
-    business_registration_number = Column(Integer, nullable=False)
+    business_registration_number = Column(String, nullable=False)
     business_address = Column(String, nullable=False)
     business_email = Column(String, nullable=False)
     business_phone_number = Column(String, nullable=False)

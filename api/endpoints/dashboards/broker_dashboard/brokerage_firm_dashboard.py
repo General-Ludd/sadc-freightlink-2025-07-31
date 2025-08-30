@@ -70,6 +70,8 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
 
     return {"access_token": token, "token_type": "bearer"}
 
+
+
 @router.get("/broker-access/company-information/id")
 def get_brokerage_company_profile_information(
     db: Session = Depends(get_db),

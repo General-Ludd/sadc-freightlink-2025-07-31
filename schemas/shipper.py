@@ -30,7 +30,7 @@ from typing import Optional
 class CorporationBase(BaseModel):
     legal_business_name: str
     country_of_incorporation: str
-    business_registration_number: int
+    business_registration_number: str
     business_address: str
     business_email: EmailStr
     business_phone_number: str
