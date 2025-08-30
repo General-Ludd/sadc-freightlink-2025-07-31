@@ -72,7 +72,7 @@ class ShipperType(str, Enum):
     ENTERPRISE = "Enterprise"
     FACILITY = "Facility"
     STANDARD = "Standard"
-    BROKER = "Broker"
+    BROKER = "Brokerage Firm"
 
 class FacilityType(str, Enum):
     SUBSIDIARY_FACILITY = "Subsidiary facility"
