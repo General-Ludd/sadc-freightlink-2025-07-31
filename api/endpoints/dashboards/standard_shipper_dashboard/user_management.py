@@ -29,7 +29,7 @@ def create_shipper_sub_user_endpoint(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.get("/all-company-users")
+@router.get("/client/all-company-users")
 def get_shipper_and_broker_users(
     status: Optional[UserStatus] = None,
     db: Session = Depends(get_db),
