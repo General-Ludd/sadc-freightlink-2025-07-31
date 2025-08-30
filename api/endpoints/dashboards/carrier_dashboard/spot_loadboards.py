@@ -13,7 +13,7 @@ from schemas.user import DriverCreate, DriverResponse
 from schemas.vehicle import TrailerCreate, TrailerResponse, VehicleCreate, VehicleResponse, VehicleUpdate
 from services.brokerage.carrier_loadboard_service import assign_spot_ftl_lane_to_carrier, assign_spot_ftl_shipment_to_carrier, assign_spot_power_shipment_to_carrier
 from services.carrier_service import fleet_create_driver
-from services.carrier_dashboards import assign_primary_driver, assign_trailer_to_vehicle
+from services.carrier_dashboards import assign_trailer_to_vehicle
 from services.vehicle_service import create_trailer, create_vehicle
 from utils.auth import get_current_user, verify_password
 from utils.jwt_handler import create_access_token

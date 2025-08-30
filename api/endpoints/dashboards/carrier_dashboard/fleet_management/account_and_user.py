@@ -152,7 +152,20 @@ def get_carrier_sub_user_accounts(
                 detail=f"User with ID {id} not found or not authorized"
             )
 
-        return users
+        return {
+            users: [{
+                "id": user.id,
+                "status": user.status,
+                "verification_status": user.is_verified,
+                "role": user.role,
+                "name": f"{user.first_name}-{user.last_name}",
+                "nationality": user.nationality,
+                "id_number": user.id_number,
+                "address": user.home_address,
+                "phone_number": user.phone_number,
+                "email": user.email,
+            } for user in users]
+        }
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
