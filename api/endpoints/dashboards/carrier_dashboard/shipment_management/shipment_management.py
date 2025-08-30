@@ -566,10 +566,10 @@ def get_assigned_shipments_available_for_vehicle_assignment(
 
         # 📦 Format FTL
         ftl_results = [{
-            "id": shipment.id,
+            "id": shipment.shipment_id,
             "type": "FTL",
-            "origin": shipment.origin,
-            "destination": shipment.destination,
+            "origin": shipment.origin_city_province,
+            "destination": shipment.destination_city_province,
             "pickup_date": shipment.pickup_date,
             "distance": shipment.distance,
             "required_truck_type": shipment.required_truck_type,
@@ -581,14 +581,14 @@ def get_assigned_shipments_available_for_vehicle_assignment(
 
         # ⚡ Format Power
         power_results = [{
-            "id": shipment.id,
-            "type": "Power",
-            "origin": shipment.origin,
-            "destination": shipment.destination,
+            "id": shipment.shipment_id,
+            "type": "POWER",
+            "origin": shipment.origin_city_province,
+            "destination": shipment.destination_city_province,
             "pickup_date": shipment.pickup_date,
             "distance": shipment.distance,
             "required_truck_type": shipment.required_truck_type,
-            "required_axle_configuration": shipment.required_axle_configuration,
+            "required_axle_configuration": shipment.axle_configuration,
             "equipment_type": None,
             "trailer_type": None,
             "trailer_length": None
