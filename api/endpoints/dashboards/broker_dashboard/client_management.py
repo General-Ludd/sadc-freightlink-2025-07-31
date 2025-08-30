@@ -31,36 +31,6 @@ def create_new_brokerage_firm_client(
 
 @router.get("/broker-access/all-clients")
 def get_all_brokerage_firm_clients(
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
-):
-    assert "company_id" in current_user, "Missing company_id in current_user"
-    company_id = current_user.get("company_id")
-
-    try:
-        clients = db.query(Consignor).filter(Consignor.brokerage_firm_id == company_id).all()
-
-        return {
-            "clients": [{
-                "company_name": client.company_name,
-                "id": client.id,
-                "status": client.status,
-                "priority_level": client.priority_level,
-                "phone_number": client.phone_number,
-                "email": client.email,
-                "client_type": client.client_type,
-                "business_sector": client.business_sector,
-                "shipments": client.shipments,
-                "contracts": client.contract_lanes,
-                "revenue_generated": client.revenue_generated,
-                "profit_generated": client.profit_generated
-            } for client in clients]
-        }
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-@router.get("/broker-access/all-clients/{status}")
-def get_all_brokerage_firm_clients_by_status(
     status: str,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user),
@@ -69,11 +39,17 @@ def get_all_brokerage_firm_clients_by_status(
     company_id = current_user.get("company_id")
 
     try:
-        clients = db.query(Consignor).filter(Consignor.brokerage_firm_id == company_id,
-                                            Consignor.status == status).all()
+        clients = db.query(Consignor).filter(
+            Consignor.brokerage_firm_id == company_id,
+        ).all()
 
-        return {
-            "clients": [{
+        # Group by priority levels
+        high_priority = []
+        medium_priority = []
+        low_priority = []
+
+        for client in clients:
+            client_data = {
                 "company_name": client.company_name,
                 "id": client.id,
                 "status": client.status,
@@ -86,8 +62,21 @@ def get_all_brokerage_firm_clients_by_status(
                 "contracts": client.contract_lanes,
                 "revenue_generated": client.revenue_generated,
                 "profit_generated": client.profit_generated
-            } for client in clients]
+            }
+
+            if client.priority_level == "High":
+                high_priority.append(client_data)
+            elif client.priority_level == "Medium":
+                medium_priority.append(client_data)
+            elif client.priority_level == "Low":
+                low_priority.append(client_data)
+
+        return {
+            "high_priority_clients": high_priority,
+            "medium_priority_clients": medium_priority,
+            "low_priority_clients": low_priority
         }
+
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
