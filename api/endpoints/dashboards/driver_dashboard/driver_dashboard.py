@@ -6,6 +6,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from db.database import SessionLocal
+from datetime import date
 
 router = APIRouter()
 
@@ -113,9 +114,6 @@ def driver_get_account_information(
         }
     except Exception as e:
         return {"error": str(e)}
-
-
-from datetime import date
 
 @router.get("/driver-summary")
 def get_driver_summary(

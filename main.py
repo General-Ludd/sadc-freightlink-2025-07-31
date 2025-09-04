@@ -20,6 +20,7 @@ from api.endpoints.dashboards.carrier_dashboard.shipment_management import dedic
 from api.endpoints.dashboards.carrier_dashboard.finance import financial_account
 from api.endpoints.dashboards.carrier_dashboard import spot_loadboards
 from api.endpoints.dashboards.carrier_dashboard import exchange_loadboards
+from api.endpoints.dashboards.driver_dashboard import driver_dashboard, driver_shipments
 from api.endpoints import gcs_upload
 
 from triggers.scheduler import start_tracking_scheduler
@@ -59,6 +60,10 @@ app.include_router(shipment_management.router, prefix="/api", tags=["Carrier Das
 app.include_router(dedicated_lanes_management.router, prefix="/api", tags=["Carrier Dashboard Dedicated Lanes Management"])
 app.include_router(spot_loadboards.router, prefix="/api", tags=["Carrier Dashboard Spot Loadboards"])
 app.include_router(exchange_loadboards.router, prefix="/api", tags=["Carrier Dashboard Exchange Loadboards"])
+
+################################################Driver Dashboard#######################################
+app.include_router(driver_dashboard.router, prefix="/api", tags=["Driver Dashboard"])
+app.include_router(driver_shipments.router, prefix="/api", tags={"Driver Shipments"})
 
 @app.on_event("startup")
 def startup_event():
