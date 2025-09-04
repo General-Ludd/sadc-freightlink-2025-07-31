@@ -2,6 +2,7 @@ from typing import List, Optional
 from datetime import date
 from sqlalchemy import desc
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from utils.auth import get_current_user
 from sqlalchemy.orm import Session
 from db.database import SessionLocal
 from models.brokerage.assigned_shipments import Assigned_Spot_Ftl_Shipments, Assigned_Power_Shipments
