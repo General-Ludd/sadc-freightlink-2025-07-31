@@ -87,7 +87,7 @@ def driver_get_account_information(
                 "prdp_number": driver.prdp_number,
                 "prdp_expiry_date": driver.prdp_expiry_date,
                 "passport_number": driver.passport_number,
-                "home_address": driver.home_address
+                "home_address": driver.home_address,
                 "email": driver.email,
                 "phone_number": driver.phone_number,
                 "total_shipments_completed": driver.total_shipments_completed,
