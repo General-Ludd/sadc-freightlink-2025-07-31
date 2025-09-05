@@ -13,10 +13,11 @@ from models.spot_bookings.shipment_facility import ContactPerson, ShipmentFacili
 from models.user import Driver
 from models.vehicle import ShipperTrailer, Vehicle
 from schemas.spot_bookings.dedicated_lanes_ftl_shipment import Ftl_Lanes_Summary_Response, Individual_FTL_Lane_Response, individual_shipment_or_lane_request
-from schemas.spot_bookings.ftl_shipment import FTL_Shipment_Response, FTL_Shipments_Summary_Response
+from schemas.spot_bookings.ftl_shipment import FTL_Shipment_Response, FTL_Shipments_Summary_Response, FTL_Shipment_Dispute_Create
 from schemas.spot_bookings.power_shipment import POWER_SHIPMENT_RESPONSE, Power_Shipments_Summary_Response
 from utils.auth import get_current_user
 from services.cancellations.spot_cancellations import cancel_spot_ftl_shipment
+from services.brokerage.disputes import shipper_dispute_ftl_shipment
 from enums import ShipperShipmentStatus
 
 router = APIRouter()
@@ -312,9 +313,24 @@ def cancel_spot_ftl_shipment_endpoint(
         result = cancel_spot_ftl_shipment(
             db=db,
             shipment_id=shipment_id,
-            cancelled_by_user_id=current_user["user_id"]  # Adjust key if needed
+            cancelled_by_user_id=current_user["id"]  # Adjust key if needed
         )
         return result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/shipper/ftl-shipment-dispute")
+def shipper_broker_dispute_ftl_shipment(
+    dispute_data: FTL_Shipment_Dispute_Create,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    try:
+        shipper_dispute_ftl_shipment(
+            db,
+            dispute_data,
+            current_user=current_user,
+        )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -572,89 +588,104 @@ def shipper_get_individual_ftl_lane_id(
         )
 
     try:
+        # Fetch lane
         lane = db.query(FTL_Lane).filter(FTL_Lane.id == id).first()
-        invoices = db.query(Interim_Invoice).filter(Interim_Invoice.contract_id == lane.id,
-                                               Interim_Invoice.contract_type == lane.type).all()
-        sub_shipments = db.query(FTL_SHIPMENT).filter(FTL_SHIPMENT.dedicated_lane_id == lane.id).all()
+        if not lane:
+            raise HTTPException(status_code=404, detail="Lane not found")
+
+        # Safe queries (will return [] instead of None if nothing found)
+        invoices = db.query(Interim_Invoice).filter(
+            Interim_Invoice.contract_id == lane.id,
+            Interim_Invoice.contract_type == lane.type
+        ).all() or []
+
+        sub_shipments = db.query(FTL_SHIPMENT).filter(
+            FTL_SHIPMENT.dedicated_lane_id == lane.id
+        ).all() or []
 
         carrier = db.query(Carrier).filter(Carrier.id == lane.carrier_id).first()
 
         pickup_facility = db.query(ShipmentFacility).filter_by(id=lane.pickup_facility_id).first()
         delivery_facility = db.query(ShipmentFacility).filter_by(id=lane.delivery_facility_id).first()
 
-        pickup_contact = db.query(ContactPerson).filter_by(id=pickup_facility.contact_person).first() if pickup_facility else None
-        delivery_contact = db.query(ContactPerson).filter_by(id=delivery_facility.contact_person).first() if delivery_facility else None
+        pickup_contact = db.query(ContactPerson).filter_by(
+            id=pickup_facility.contact_person
+        ).first() if pickup_facility and pickup_facility.contact_person else None
+
+        delivery_contact = db.query(ContactPerson).filter_by(
+            id=delivery_facility.contact_person
+        ).first() if delivery_facility and delivery_facility.contact_person else None
 
         return {
             "shipment_details": {
                 "id": lane.id,
-                "status": lane.status,
-                "type": lane.type,
-                "trip_type": lane.trip_type,
-                "load_type": lane.load_type,
-                "required_truck_type": lane.required_truck_type,
-                "equipment_type": lane.equipment_type,
-                "trailer_type": lane.trailer_type,
-                "trailer_length": lane.trailer_length,
-                "minimum_weight_bracket": lane.minimum_weight_bracket,
-                "priority_level": lane.priority_level,
-                "average_shipment_weight": lane.average_shipment_weight,
-                "commodity": lane.commodity,
-                "temperature_control": lane.temperature_control,
-                "hazardous_materials": lane.hazardous_materials,
-                "minimum_git_cover_amount": lane.minimum_git_cover_amount,
-                "minimum_liability_cover_amount": lane.minimum_liability_cover_amount,
-                "customer_referece_number": lane.customer_reference_number,
-                "packaging_type": lane.packaging_type,
-                "packaging_quantity": lane.packaging_quantity,
-                "pickup_number": lane.pickup_number,
-                "delivery_number": lane.delivery_number,
-                "distance": lane.distance,
-                "estimated_transit_time": lane.estimated_transit_time,
-                "origin_address": lane.complete_origin_address,
-                "destination_address": lane.complete_destination_address,
-                "pickup_notes": lane.pickup_notes,
-                "delivery_notes": lane.delivery_notes,
+                "status": lane.status or "N/A",
+                "type": lane.type or "N/A",
+                "trip_type": lane.trip_type or "N/A",
+                "load_type": lane.load_type or "N/A",
+                "required_truck_type": lane.required_truck_type or "N/A",
+                "equipment_type": lane.equipment_type or "N/A",
+                "trailer_type": lane.trailer_type or "N/A",
+                "trailer_length": lane.trailer_length or "N/A",
+                "minimum_weight_bracket": lane.minimum_weight_bracket or "N/A",
+                "priority_level": lane.priority_level or "N/A",
+                "average_shipment_weight": lane.average_shipment_weight or 0,
+                "commodity": lane.commodity or "N/A",
+                "temperature_control": lane.temperature_control or False,
+                "hazardous_materials": lane.hazardous_materials or False,
+                "minimum_git_cover_amount": lane.minimum_git_cover_amount or 0,
+                "minimum_liability_cover_amount": lane.minimum_liability_cover_amount or 0,
+                "customer_referece_number": lane.customer_reference_number or "N/A",
+                "packaging_type": lane.packaging_type or "N/A",
+                "packaging_quantity": lane.packaging_quantity or 0,
+                "pickup_number": lane.pickup_number or "N/A",
+                "delivery_number": lane.delivery_number or "N/A",
+                "distance": lane.distance or 0,
+                "estimated_transit_time": lane.estimated_transit_time or "N/A",
+                "origin_address": lane.complete_origin_address or "N/A",
+                "destination_address": lane.complete_destination_address or "N/A",
+                "pickup_notes": lane.pickup_notes or "N/A",
+                "delivery_notes": lane.delivery_notes or "N/A",
                 "start_date": lane.start_date,
                 "end_date": lane.end_date,
-                "route_preview_embed": lane.route_preview_embed,
+                "route_preview_embed": lane.route_preview_embed or None,
             },
 
             "contract_information": {
-                "recurrence_frequency": lane.recurrence_frequency,
-                "recurrence_days": lane.recurrence_days,
-                "skip_weekends": lane.skip_weekends,
-                "shipments_per_interval": lane.shipments_per_interval,
-                "total_shipments": lane.total_shipments,
-                "per_shipment_rate": lane.qoute_per_shipment,
-                "contract_rate": lane.contract_quote,
-                "payment_terms": lane.payment_terms,
+                "recurrence_frequency": lane.recurrence_frequency or "N/A",
+                "recurrence_days": lane.recurrence_days or [],
+                "skip_weekends": lane.skip_weekends or False,
+                "shipments_per_interval": lane.shipments_per_interval or 0,
+                "total_shipments": lane.total_shipments or 0,
+                "per_shipment_rate": lane.qoute_per_shipment or 0,
+                "contract_rate": lane.contract_quote or 0,
+                "payment_terms": lane.payment_terms or "N/A",
             },
 
             "payment_schedule": [{
                 "invoice_id": invoice.id,
                 "issue_date": invoice.billing_date,
                 "due_date": invoice.due_date,
-                "status": invoice.status,
-                "amount": invoice.due_amount,
+                "status": invoice.status or "N/A",
+                "amount": invoice.due_amount or 0,
             } for invoice in invoices],
 
             "shipment_schedule": [{
                 "id": sub_shipment.id,
-                "origin": sub_shipment.origin_city_province,
-                "destination": sub_shipment.destination_city_province,
+                "origin": sub_shipment.origin_city_province or "N/A",
+                "destination": sub_shipment.destination_city_province or "N/A",
                 "pickup_date": sub_shipment.pickup_date,
-                "status": sub_shipment.shipment_status,
-                "rate": sub_shipment.quote,
-                "invoice_status": sub_shipment.invoice_status,
+                "status": sub_shipment.shipment_status or "N/A",
+                "rate": sub_shipment.quote or 0,
+                "invoice_status": sub_shipment.invoice_status or "N/A",
             } for sub_shipment in sub_shipments],
 
             "pickup_facility": {
                 "facility_name": pickup_facility.name if pickup_facility else None,
                 "address": pickup_facility.address if pickup_facility else None,
-                "time_window": f"{pickup_facility.start_time} - {pickup_facility.end_time}",
-                "scheduling_type": pickup_facility.scheduling_type,
-                "contact_name": f"{pickup_contact.first_name} - {pickup_contact.last_name}" if pickup_contact else None,
+                "time_window": f"{pickup_facility.start_time} - {pickup_facility.end_time}" if pickup_facility else None,
+                "scheduling_type": pickup_facility.scheduling_type if pickup_facility else None,
+                "contact_name": f"{pickup_contact.first_name} {pickup_contact.last_name}" if pickup_contact else None,
                 "email": pickup_contact.email if pickup_contact else None,
                 "contact_phone": pickup_contact.phone_number if pickup_contact else None,
                 "notes": pickup_facility.facility_notes if pickup_facility else None,
@@ -663,23 +694,25 @@ def shipper_get_individual_ftl_lane_id(
             "delivery_facility": {
                 "facility_name": delivery_facility.name if delivery_facility else None,
                 "address": delivery_facility.address if delivery_facility else None,
-                "time_window": f"{delivery_facility.start_time} - {delivery_facility.end_time}",
-                "scheduling_type": delivery_facility.scheduling_type,
-                "contact_name": f"{delivery_contact.first_name} - {delivery_contact.last_name}" if pickup_contact else None,
-                "email": delivery_contact.email if pickup_contact else None,
+                "time_window": f"{delivery_facility.start_time} - {delivery_facility.end_time}" if delivery_facility else None,
+                "scheduling_type": delivery_facility.scheduling_type if delivery_facility else None,
+                "contact_name": f"{delivery_contact.first_name} {delivery_contact.last_name}" if delivery_contact else None,
+                "email": delivery_contact.email if delivery_contact else None,
                 "contact_phone": delivery_contact.phone_number if delivery_contact else None,
                 "notes": delivery_facility.facility_notes if delivery_facility else None,
             } if delivery_facility else None,
 
             "carrier_information": {
-                "id": carrier.id if carrier else "N/A",
-                "carrier_name": f"SADC FREIGHTLINK Carrier-{carrier.id}" if carrier else "N/A",
-                "carrier_git_cover": carrier.git_cover_amount if carrier else "N/A",
-                "carrier_liability_cover_amount": carrier.liability_insurance_cover_amount if carrier else "N/A",
-            },
+                "id": carrier.id if carrier else None,
+                "carrier_name": f"SADC FREIGHTLINK Carrier-{carrier.id}" if carrier else None,
+                "carrier_git_cover": carrier.git_cover_amount if carrier else 0,
+                "carrier_liability_cover_amount": carrier.liability_insurance_cover_amount if carrier else 0,
+            } if carrier else None,
         }
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 
     

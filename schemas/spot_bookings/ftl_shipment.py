@@ -205,6 +205,7 @@ class AssignedFTLShipmentsResponse(BaseModel):
 
 class FTL_Shipment_Dispute_Create(BaseModel):
     shipment_id: int
+    shipment_status: str
     dispute_reason: str
     additional_details: Optional [str] = None
 
