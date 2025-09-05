@@ -1,6 +1,7 @@
 from sqlalchemy import Integer, String, Column, Boolean, Date, DateTime, Enum, func
 from sqlalchemy.dialects.postgresql import ARRAY
 from models.base import Base
+from utils.sast_datetime import get_sast_time
 
 class FTL_Lane(Base):
     __tablename__ = "ftl_lanes"
