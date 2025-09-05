@@ -218,7 +218,7 @@ def shipper_dispute_ftl_lane(
             detail="Carrier lane not found"
         )
     
-    brokerage_ledger = db.query(Dedicated_Lane_BrokerageLedger).filter(Dedicated_Lane_BrokerageLedger.contract_id = lane.id,
+    brokerage_ledger = db.query(Dedicated_Lane_BrokerageLedger).filter(Dedicated_Lane_BrokerageLedger.contract_id == lane.id,
                                                                         Dedicated_Lane_BrokerageLedger.lane_type == lane.type).first()
 
     # 🚨 Check if dispute already exists
@@ -296,7 +296,7 @@ def carrier_dispute_ftl_lane(
             detail="Carrier lane not found"
         )
     
-    brokerage_ledger = db.query(Dedicated_Lane_BrokerageLedger).filter(Dedicated_Lane_BrokerageLedger.contract_id = lane.id,
+    brokerage_ledger = db.query(Dedicated_Lane_BrokerageLedger).filter(Dedicated_Lane_BrokerageLedger.contract_id == lane.id,
                                                                         Dedicated_Lane_BrokerageLedger.lane_type == lane.type).first()
 
     # 🚨 Check if dispute already exists
