@@ -213,8 +213,8 @@ def shipper_broker_accept_ftl_exchange_bid(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.post("/exchange/power-exchange-cancel/{exchange_id}", status_code=status.HTTP_200_OK)
-def cancel_exchange_power_exchange_endpoint(
+@router.post("/exchange/ftl-exchange-cancel/{exchange_id}", status_code=status.HTTP_200_OK)
+def cancel_exchange_ftl_exchange_endpoint(
     exchange_id: int,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user),

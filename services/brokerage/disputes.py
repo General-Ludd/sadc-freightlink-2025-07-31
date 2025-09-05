@@ -202,7 +202,7 @@ def shipper_dispute_ftl_lane(
     if lane.status == "Booked":
         raise HTTPException(
             status_code=400,
-            detail="Booked Lanes cannot be disputed, but they can be cancelled up to 48 hours prior to the comemencement date."
+            detail="Booked Lanes cannot be disputed, but they can be cancelled up to 48 hours prior to the commencement date."
         )
 
     if shipment.shipment_status not in ["In-Progress", "Completed"]:
@@ -280,7 +280,7 @@ def carrier_dispute_ftl_lane(
     if lane._status == "Assigned":
         raise HTTPException(
             status_code=400,
-            detail="Assigned Lanes cannot be disputed, but they can be cancelled up to 48 hours prior to the comemencement date."
+            detail="Assigned Lanes cannot be disputed, but they can be cancelled up to 48 hours prior to the commencement date."
         )
 
     if shipment.shipment_status not in ["In-Progress", "Completed"]:
