@@ -199,7 +199,7 @@ def shipper_dispute_ftl_lane(
         )
 
     # 🚨 Check if status allows disputes
-    if lane._status == "Booked":
+    if lane.status == "Booked":
         raise HTTPException(
             status_code=400,
             detail="Booked Lanes cannot be disputed, but they can be cancelled up to 48 hours prior to the comemencement date."
