@@ -115,3 +115,9 @@ class Individual_FTL_Lane_Response(BaseModel):
     carrier_liability_cover_amount: Optional [int] = None
     carrier_fleet_size: Optional [int] = None
     is_active: bool  # Whether the contract is active
+
+class FTL_Lane_Dispute_Create(BaseModel):
+    lane_id: int
+    lane_status: str
+    dispute_reason: str
+    additional_details: Optional[str] = None

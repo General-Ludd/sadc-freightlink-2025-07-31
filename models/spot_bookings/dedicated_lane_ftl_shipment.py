@@ -73,3 +73,19 @@ class FTL_Lane(Base):
     is_active = Column(Boolean, default=True)  # Whether the contract is active
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+class FTL_Lane_Dispute(Base):
+    __tablename__ = "ftl_lane_disputes"
+
+    id = Column(Integer, index=True, primary_key=True)
+    filed_by_shipper = Column(Boolean)
+    lane_id = Column(Integer, nullable=False)
+    lane_type = Column(String, default="FTL", nullable=False)
+    shipper_company_id = Column(Integer, nullable=False)
+    carrier_company_id = Column(Integer, nullable=False)
+    dispute_reason = Column(String, nullable=False)
+    additional_details = Column(String, nullable=True)
+    lane_status = Column(String, nullable=False)#####Update in database
+    status = Column(Enum("Open", "Closed"), default="Open")
+    created_at = Column(DateTime(timezone=True), default=get_sast_time)
+    updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)

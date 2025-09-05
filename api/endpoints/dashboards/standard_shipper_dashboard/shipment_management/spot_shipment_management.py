@@ -12,12 +12,12 @@ from models.spot_bookings.power_shipment import POWER_SHIPMENT
 from models.spot_bookings.shipment_facility import ContactPerson, ShipmentFacility
 from models.user import Driver
 from models.vehicle import ShipperTrailer, Vehicle
-from schemas.spot_bookings.dedicated_lanes_ftl_shipment import Ftl_Lanes_Summary_Response, Individual_FTL_Lane_Response, individual_shipment_or_lane_request
+from schemas.spot_bookings.dedicated_lanes_ftl_shipment import Ftl_Lanes_Summary_Response, Individual_FTL_Lane_Response, individual_shipment_or_lane_request, FTL_Lane_Dispute_Create
 from schemas.spot_bookings.ftl_shipment import FTL_Shipment_Response, FTL_Shipments_Summary_Response, FTL_Shipment_Dispute_Create
 from schemas.spot_bookings.power_shipment import POWER_SHIPMENT_RESPONSE, Power_Shipments_Summary_Response
 from utils.auth import get_current_user
 from services.cancellations.spot_cancellations import cancel_spot_ftl_shipment
-from services.brokerage.disputes import shipper_dispute_ftl_shipment
+from services.brokerage.disputes import shipper_dispute_ftl_shipment, shipper_dispute_ftl_lane
 from enums import ShipperShipmentStatus
 
 router = APIRouter()
@@ -714,5 +714,17 @@ def shipper_get_individual_ftl_lane_id(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-
-    
+@router.post("/shipper/ftl-lane-dispute")
+def shipper_broker_dispute_ftl_lane(
+    dispute_data: FTL_Lane_Dispute_Create,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    try:
+        shipper_dispute_ftl_lane(
+            db,
+            dispute_data,
+            current_user=current_user,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
