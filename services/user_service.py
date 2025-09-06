@@ -6,7 +6,7 @@ from models.user import User, Director
 from schemas.user import UserCreate, DirectorCreate, DirectorUpdate
 from utils.auth import hash_password
 
-def create_shipper_sub_user(db: Session, user_data: UserCreate, current_user=dict):
+def create_shipper_sub_user(db: Session, user_data: DirectorCreate, current_user=dict):
     assert "company_id" in current_user, "Missing company_id in current_user"
     company_id = current_user.get("company_id")
 
