@@ -155,7 +155,7 @@ class DirectorCreate(BaseModel):
     home_address: str
     phone_number: str
     email: EmailStr
-    password: str
+    password_hash: str
     id_document: str
     proof_of_address: str
 

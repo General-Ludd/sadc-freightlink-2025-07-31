@@ -3,7 +3,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from models.brokerage.finance import FinancialAccounts
 from models.user import User, Director
-from schemas.user import UserCreate, DirectorCreate, DirectorUpdate
+from schemas.user import DirectorCreate, DirectorUpdate
 from utils.auth import hash_password
 
 def create_shipper_sub_user(db: Session, user_data: DirectorCreate, current_user=dict):
