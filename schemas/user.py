@@ -9,7 +9,7 @@ class UserCreate(BaseModel):
     address: str
     email: EmailStr
     phone_number: str
-    password: str
+    password_hash: str
 
 class CarrierDirectorCreate(BaseModel):
     first_name: str
