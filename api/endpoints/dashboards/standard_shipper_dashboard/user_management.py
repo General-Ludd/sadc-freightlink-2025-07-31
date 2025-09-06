@@ -31,7 +31,6 @@ def create_shipper_sub_user_endpoint(
 
 @router.get("/client/all-company-users")
 def get_shipper_and_broker_users(
-    status: Optional[UserStatus] = None,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
@@ -42,12 +41,7 @@ def get_shipper_and_broker_users(
         raise HTTPException(status_code=400, detail="User does not belong to a company")
 
     try:
-        query = db.query(User).filter(User.company_id == company_id)
-
-        if status:
-            query = query.filter(User.status == status.value)
-
-        users = query.all()
+        users = db.query(User).filter(User.company_id == company_id).all()
 
         return [{
             "name": f"{user.first_name} {user.last_name}",
