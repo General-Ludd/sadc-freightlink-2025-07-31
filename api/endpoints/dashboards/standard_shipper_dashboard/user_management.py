@@ -43,18 +43,19 @@ def get_shipper_and_broker_users(
     try:
         users = db.query(User).filter(User.company_id == company_id).all()
 
-        return [{
-            "name": f"{user.first_name} {user.last_name}",
-            "id": user.id,
-            "status": user.status,
-            "director": user.is_director or None,
-            "verification_status": user.is_verified,
-            "nationality": user.nationality,
-            "address": user.home_address,
-            "phone_number": user.phone_number,
-            "email": user.email,
-            "company_id": user.company_id,
-        } for user in users]
+        return {
+            "users": [{
+                "name": f"{user.first_name} {user.last_name}",
+                "id": user.id,
+                "status": user.status,
+                "director": user.is_director or None,
+                "verification_status": user.is_verified,
+                "nationality": user.nationality,
+                "address": user.home_address,
+                "phone_number": user.phone_number,
+                "email": user.email,
+                "company_id": user.company_id,
+            } for user in users]}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
