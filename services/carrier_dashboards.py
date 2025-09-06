@@ -5,7 +5,7 @@ from models.carrier import Carrier
 from models.spot_bookings.ftl_shipment import FTL_SHIPMENT
 from models.spot_bookings.power_shipment import POWER_SHIPMENT
 from models.user import Driver, DriverAssignmentHistory
-from models.vehicle import Trailer, Vehicle
+from models.vehicle import Trailer, Vehicle, Vehicle_Schedule
 
 def assign_driver_to_vehicle(
     db: Session,
@@ -163,3 +163,110 @@ def assign_trailer_to_vehicle(
     db.refresh(trailer)
 
     return {"message": f"Trailer (ID: {trailer.id}) successfully assigned to Vehicle (ID: {vehicle.id})"}
+
+
+def assign_shipment_to_vehicle(
+    db: Session,
+    vehicle_id: int,
+    shipment_id: int,
+    shipment_type: str,
+    current_user: dict
+):
+    assert "company_id" in current_user, "Missing company_id in current_user"
+    company_id = current_user["company_id"]
+
+    try:
+        # -------------------
+        # FETCH SHIPMENT
+        # -------------------
+        if shipment_type == "FTL":
+            shipment = db.query(FTL_SHIPMENT).filter(FTL_SHIPMENT.id == shipment_id).first()
+            if not shipment:
+                raise HTTPException(status_code=404, detail="Client FTL shipment not found")
+            carrier_shipment = db.query(Assigned_Spot_Ftl_Shipments).filter(
+                Assigned_Spot_Ftl_Shipments.shipment_id == shipment_id
+            ).first()
+            if not carrier_shipment:
+                raise HTTPException(status_code=404, detail="Carrier assigned FTL shipment not found")
+        else:
+            shipment = db.query(POWER_SHIPMENT).filter(POWER_SHIPMENT.id == shipment_id).first()
+            if not shipment:
+                raise HTTPException(status_code=404, detail="Client Power shipment not found")
+            carrier_shipment = db.query(Assigned_Power_Shipments).filter(
+                Assigned_Power_Shipments.shipment_id == shipment_id
+            ).first()
+            if not carrier_shipment:
+                raise HTTPException(status_code=404, detail="Carrier assigned Power shipment not found")
+
+        # -------------------
+        # VALIDATE VEHICLE
+        # -------------------
+        vehicle = db.query(Vehicle).filter(Vehicle.id == vehicle_id).first()
+        if not vehicle:
+            raise HTTPException(status_code=404, detail="Vehicle not found")
+        if not vehicle.is_verified or vehicle.status != "Active":
+            raise HTTPException(status_code=400, detail="Vehicle is not verified or not active")
+        if vehicle.owner_id != company_id:
+            raise HTTPException(status_code=403, detail="Vehicle does not belong to your Fleet")
+
+        # -------------------
+        # VEHICLE REQUIREMENTS
+        # -------------------
+        if shipment_type == "FTL":
+            if vehicle.type != shipment.required_truck_type:
+                raise HTTPException(status_code=400, detail="Vehicle type does not match required truck type")
+            if vehicle.equipment_type != shipment.equipment_type:
+                raise HTTPException(status_code=400, detail="Vehicle equipment type does not match required equipment type")
+            if vehicle.trailer_type != shipment.trailer_type:
+                raise HTTPException(status_code=400, detail="Vehicle trailer type does not match required trailer type")
+            if vehicle.trailer_length != shipment.trailer_length:
+                raise HTTPException(status_code=400, detail="Vehicle trailer length does not match required trailer length")
+            if vehicle.payload_capacity < shipment.minimum_weight_bracket:
+                raise HTTPException(status_code=400, detail="Vehicle payload capacity is not sufficient")
+        else:  # POWER
+            if vehicle.type != shipment.required_truck_type:
+                raise HTTPException(status_code=400, detail="Vehicle type does not match required truck type")
+            if vehicle.axle_configuration != shipment.axle_configuration:
+                raise HTTPException(status_code=400, detail="Vehicle axle configuration does not match required axle configuration")
+            if vehicle.payload_capacity < shipment.minimum_weight_bracket:
+                raise HTTPException(status_code=400, detail="Vehicle payload capacity is not sufficient")
+
+        # -------------------
+        # ASSIGN VEHICLE
+        # -------------------
+        vehicle_schedule = Vehicle_Schedule(
+            vehicle_id=vehicle_id,
+            status="Assigned",
+            shipment_id=shipment_id,
+            shipment_type=shipment_type,
+            origin=shipment.origin_city_province,
+            destination=shipment.destination_city_province,  # ✅ fixed
+            pickup_date=shipment.pickup_date,
+            pickup_appointment=carrier_shipment.pickup_appointment,
+            eta_date=carrier_shipment.eta_date,
+            eta_window=carrier_shipment.eta_window,
+            distance=carrier_shipment.distance,
+            rate=carrier_shipment.shipment_rate,
+            commodity=carrier_shipment.commodity,
+            weight=carrier_shipment.shipment_weight,
+        )
+
+        # ✅ fixed tuple bug
+        shipment.vehicle_id = vehicle.id
+        shipment.driver_id = vehicle.driver_id
+
+        db.add(vehicle_schedule)
+        db.commit()
+        db.refresh(vehicle_schedule)
+
+        return {
+            "message": f"{shipment.type} Shipment ID-{shipment_id} successfully assigned to Vehicle {vehicle_id}",
+            "vehicle_schedule_id": vehicle_schedule.id
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+

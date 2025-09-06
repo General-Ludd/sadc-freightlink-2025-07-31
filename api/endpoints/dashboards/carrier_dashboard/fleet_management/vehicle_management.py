@@ -548,6 +548,11 @@ class AssignDriverRequest(BaseModel):
     vehicle_id: int
     driver_id: int
 
+class AssignShipmenttoVehicle(BaseModel):
+    vehicle_id: int,
+    shipment_id: int,
+    shipment_type: str
+
 @router.post("/carrier/assign-trailer-to-vehicle", status_code=status.HTTP_200_OK)
 def assign_trailer(
     request: AssignTrailerRequest,
@@ -572,6 +577,23 @@ def driver_assign_to_vehicle(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
     
+@router.post("/carrier/assigned-shipment-to-vehicle", status_code=status.HTTP_200_OK)
+def carrier_assign_shipment_to_vehicle(
+    request_data: AssignShipmenttoVehicle,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    try:
+        result = assign_shipment_to_vehicle(db,
+                                            request_data.vehicle_id,
+                                            request_data.shipment_id,
+                                            request_data.shipment_type,
+                                            current_user
+                                            )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 @router.get("/available-carrier-shipment-for-vehicle-assignement")
 def carrier_get_all_assigned_scheduled_shipment(
     db: Session = Depends(get_db),
