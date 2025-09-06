@@ -116,15 +116,26 @@ def get_all_carrier_shipments_summary(
         # =========================
         # FETCH EXCHANGES (via bids)
         # =========================
-        ftl_bids = db.query(Exchange_FTL_Shipment_Bid).filter(Exchange_FTL_Shipment_Bid.carrier_id == company_id).all()
-        power_bids = db.query(Exchange_POWER_Shipment_Bid).filter(Exchange_POWER_Shipment_Bid.carrier_id == company_id).all()
-        lane_bids = db.query(Exchange_FTL_Lane_Bid).filter(Exchange_FTL_Lane_Bid.carrier_id == company_id).all()
+        ftl_bids = db.query(Exchange_FTL_Shipment_Bid).filter(
+            Exchange_FTL_Shipment_Bid.carrier_id == company_id
+        ).all()
+        power_bids = db.query(Exchange_POWER_Shipment_Bid).filter(
+            Exchange_POWER_Shipment_Bid.carrier_id == company_id
+        ).all()
+        lane_bids = db.query(Exchange_FTL_Lane_Bid).filter(
+            Exchange_FTL_Lane_Bid.carrier_id == company_id
+        ).all()
 
         exchanges_list = []
+        seen_exchange_ids = set()  # ✅ to avoid duplicates
 
         # Spot FTL Exchanges
         for bid in ftl_bids:
-            exchange = db.query(Exchange_Ftl_Load_Board).filter(Exchange_Ftl_Load_Board.exchange_id == bid.exchange_id).first()
+            if bid.exchange_id in seen_exchange_ids:
+                continue
+            exchange = db.query(Exchange_Ftl_Load_Board).filter(
+                Exchange_Ftl_Load_Board.exchange_id == bid.exchange_id
+            ).first()
             if exchange:
                 exchanges_list.append({
                     "id": exchange.exchange_id,
@@ -139,10 +150,15 @@ def get_all_carrier_shipments_summary(
                     "best_offer": exchange.leading_bid_amount,
                     "allow_carrier_to_book": exchange.allow_carrier_to_book_at_current_or_lower_offer_rate,
                 })
+                seen_exchange_ids.add(bid.exchange_id)
 
         # Spot POWER Exchanges
         for bid in power_bids:
-            exchange = db.query(Exchange_Power_Load_Board).filter(Exchange_Power_Load_Board.exchange_id == bid.exchange_id).first()
+            if bid.exchange_id in seen_exchange_ids:
+                continue
+            exchange = db.query(Exchange_Power_Load_Board).filter(
+                Exchange_Power_Load_Board.exchange_id == bid.exchange_id
+            ).first()
             if exchange:
                 exchanges_list.append({
                     "id": exchange.exchange_id,
@@ -157,10 +173,15 @@ def get_all_carrier_shipments_summary(
                     "best_offer": exchange.leading_bid_amount,
                     "allow_carrier_to_book": exchange.allow_carrier_to_book_at_current_or_lower_offer_rate,
                 })
+                seen_exchange_ids.add(bid.exchange_id)
 
         # FTL Lane Exchanges
         for bid in lane_bids:
-            exchange = db.query(Exchange_Ftl_Lane_LoadBoard).filter(Exchange_Ftl_Lane_LoadBoard.exchange_id == bid.exchange_id).first()
+            if bid.exchange_id in seen_exchange_ids:
+                continue
+            exchange = db.query(Exchange_Ftl_Lane_LoadBoard).filter(
+                Exchange_Ftl_Lane_LoadBoard.exchange_id == bid.exchange_id
+            ).first()
             if exchange:
                 exchanges_list.append({
                     "id": exchange.exchange_id,
@@ -175,7 +196,7 @@ def get_all_carrier_shipments_summary(
                     "best_offer_per_shipment": exchange.leading_per_shipment_offer_bid_amount,
                     "best_contract_offer": exchange.leading_contract_offer_bid_amount
                 })
-
+                seen_exchange_ids.add(bid.exchange_id)
         # =========================
         # FINAL RESPONSE
         # =========================
