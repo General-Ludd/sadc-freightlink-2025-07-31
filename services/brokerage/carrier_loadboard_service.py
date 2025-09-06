@@ -673,7 +673,6 @@ def assign_spot_ftl_lane_to_carrier(db: Session, shipment_data: Individual_lane_
     try:
         assert carrier.git_cover_amount >= lane.minimum_git_cover_amount, "Carrier GIT Cover Amount does not meet shipment GIT cover amount requirement"
         assert carrier.liability_insurance_cover_amount >= lane.minimum_liability_cover_amount, "Carrier Liability Cover Amount does not meet shipment Liability cover amount requirement"
-        assert carrier.number_of_vehicles >= lane.shipments_per_interval, "Carrier fleet size does not satisfy the contract lane's required number of vehicle per interval."
     except AssertionError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
