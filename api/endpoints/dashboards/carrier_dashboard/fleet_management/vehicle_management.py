@@ -549,8 +549,8 @@ class AssignDriverRequest(BaseModel):
     driver_id: int
 
 class AssignShipmenttoVehicle(BaseModel):
-    vehicle_id: int,
-    shipment_id: int,
+    vehicle_id: int
+    shipment_id: int
     shipment_type: str
 
 @router.post("/carrier/assign-trailer-to-vehicle", status_code=status.HTTP_200_OK)
