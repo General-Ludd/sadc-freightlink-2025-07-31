@@ -370,7 +370,7 @@ def carrier_get_ftl_shipment_details(
 
 @router.post("/carrier/ftl-shipment-dispute")
 def carrier_dispute_ftl_shipment(
-    dispute_data: FTL_Lane_Dispute_Create,
+    dispute_data: FTL_Shipment_Dispute_Create,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
