@@ -156,7 +156,7 @@ def carrier_get_ftl_lane_details(
                 "date": lane_sub_shipment.pickup_date,
                 "route": f"{lane_sub_shipment.origin_city_province} to {lane_sub_shipment.destination_city_province}",
                 "status": lane_sub_shipment.status,
-                "invoice_status": lane_sub_shipment.invoice_status
+                "vehicle": lane_sub_shipment.vehicle_id
             } for lane_sub_shipment in lane_sub_shipments],
 
             "pickup_facility": {
