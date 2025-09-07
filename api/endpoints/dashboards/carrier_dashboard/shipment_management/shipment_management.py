@@ -20,7 +20,7 @@ from schemas.vehicle import Fleet_Trailer_Truck_response, TrailerCreate, Trailer
 from services.carrier_service import fleet_create_driver
 from services.carrier_dashboards import assign_trailer_to_vehicle
 from services.vehicle_service import create_trailer, create_vehicle
-from services.brokerage.dispute import carrier_dispute_ftl_shipment
+from services.brokerage.disputes import carrier_dispute_ftl_shipment
 from utils.auth import get_current_user, verify_password
 from utils.jwt_handler import create_access_token
 from models.user import CarrierUser, Driver
