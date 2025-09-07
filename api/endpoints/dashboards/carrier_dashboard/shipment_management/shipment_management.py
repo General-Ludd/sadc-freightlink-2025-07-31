@@ -110,7 +110,7 @@ def get_all_carrier_shipments_summary(
             "shipments_per_interval": lane.shipments_per_interval,
             "contract_start": lane.start_date,
             "contract_end": lane.end_date,
-            "progress": f"{lane.completed_shipments} / {lane.total_shipments} completed"
+            "progress": f"{lane.total_shipments_completed} / {lane.total_shipments} completed"
         } for lane in ftl_lanes]
 
         # =========================
