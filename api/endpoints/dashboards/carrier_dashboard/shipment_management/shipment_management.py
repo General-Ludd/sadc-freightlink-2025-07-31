@@ -26,6 +26,7 @@ from utils.jwt_handler import create_access_token
 from models.user import CarrierUser, Driver
 from models.vehicle import ShipperTrailer, Trailer, Vehicle, Vehicle_Schedule
 from schemas.auth import LoginRequest, LoginResponse
+from schemas.spot_bookings.ftl_shipment import FTL_Shipment_Dispute_Create
 
 router = APIRouter()
 
