@@ -79,6 +79,7 @@ def shipper_get_all_shipment_modes(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @router.get("/shipper/all-shipments-modes/{status}")
 def shipper_get_all_shipment_modes_booked(
     status: ShipperShipmentStatus,
@@ -96,7 +97,7 @@ def shipper_get_all_shipment_modes_booked(
 
     try:
         ftl_shipments = db.query(FTL_SHIPMENT).filter(FTL_SHIPMENT.shipper_company_id == company_id,
-                                                      POWER_SHIPMENT.shipment_status == status.value).all()
+                                                      FTL_SHIPMENT.shipment_status == status.value).all()
         power_shipments = db.query(POWER_SHIPMENT).filter(POWER_SHIPMENT.shipper_company_id == company_id,
                                                           POWER_SHIPMENT.shipment_status == status.value).all()
 
