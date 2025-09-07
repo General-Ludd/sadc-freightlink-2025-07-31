@@ -20,6 +20,7 @@ from schemas.vehicle import Fleet_Trailer_Truck_response, TrailerCreate, Trailer
 from services.carrier_service import fleet_create_driver
 from services.carrier_dashboards import assign_trailer_to_vehicle
 from services.vehicle_service import create_trailer, create_vehicle
+from services.brokerage.dispute import carrier_dispute_ftl_shipment
 from utils.auth import get_current_user, verify_password
 from utils.jwt_handler import create_access_token
 from models.user import CarrierUser, Driver
@@ -365,6 +366,21 @@ def carrier_get_ftl_shipment_details(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/carrier/ftl-shipment-dispute")
+def carrier_dispute_ftl_shipment(
+    dispute_data: FTL_Lane_Dispute_Create,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    try:
+        carrier_dispute_ftl_shipment(
+            db,
+            dispute_data,
+            current_user=current_user,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/carrier/all-power-assigned-shipments", response_model=List[Assigned_Shipments_SummaryResponse])
 def get_all_carrier_assigned_power_shipments_summary(

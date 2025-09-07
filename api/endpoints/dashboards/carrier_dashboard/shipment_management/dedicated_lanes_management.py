@@ -19,6 +19,7 @@ from schemas.vehicle import Fleet_Trailer_Truck_response, TrailerCreate, Trailer
 from services.carrier_service import fleet_create_driver
 from services.carrier_dashboards import assign_trailer_to_vehicle
 from services.vehicle_service import create_trailer, create_vehicle
+from services.brokerage.disputes import carrier_dispute_ftl_lane
 from utils.auth import get_current_user, verify_password
 from utils.jwt_handler import create_access_token
 from models.user import CarrierUser, Driver
@@ -183,3 +184,18 @@ def carrier_get_ftl_lane_details(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+@router.post("/carrier/ftl-lane-dispute")
+def carrier_dispute_ftl_lane(
+    dispute_data: FTL_Lane_Dispute_Create,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    try:
+        carrier_dispute_ftl_lane(
+            db,
+            dispute_data,
+            current_user=current_user,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
