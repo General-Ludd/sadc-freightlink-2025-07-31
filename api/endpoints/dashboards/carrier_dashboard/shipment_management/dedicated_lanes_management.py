@@ -109,7 +109,7 @@ def carrier_get_ftl_lane_details(
                 "trailer_type": lane.trailer_type,
                 "trailer_length": lane.trailer_length,
                 "minimum_weight_bracket": lane.minimum_weight_bracket,
-                "shipment_weight": lane.average_shipment_weight,
+                "average_shipment_weight": lane.average_shipment_weight,
                 "origin_address": lane.origin_address,
                 "destination_address": lane.destination_address,
                 "start_date": lane.start_date,
@@ -129,11 +129,10 @@ def carrier_get_ftl_lane_details(
                 "estimated_transit_time": lane.estimated_transit_time,
                 "pickup_notes": lane.pickup_notes,
                 "delivery_notes": lane.delivery_notes,
-                "payment_terms": lane.payment_terms,
                 "route_preview_embed": lane.route_preview_embed,
             },
 
-            "contract_lane_details": {
+            "contract_details": {
                 "recurrence_frequency": lane.recurrence_frequency,
                 "recurrence_days": lane.recurrence_days,
                 "shipments_per_interval": lane.shipments_per_interval,
