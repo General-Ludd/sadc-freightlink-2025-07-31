@@ -381,7 +381,7 @@ def admin_get_all_shipper_and_broker_users_by_status(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/all-carrier-user")
+@router.get("/all-carrier-users")
 def admin_get_all_carrier_users(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_admin),
