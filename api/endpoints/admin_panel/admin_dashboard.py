@@ -559,15 +559,6 @@ def admin_get_all_lanes(
     current_user: dict = Depends(get_current_admin),
 ):
     try:
-        ftl_lanes = db.query(FTL_Lane)all()
-        power_lanes = db.quer
-
-@router.get("/admin/all-lanes")
-def admin_get_all_lanes(
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_admin),
-):
-    try:
         lanes = db.query(FTL_Lane).all()
 
         return {
