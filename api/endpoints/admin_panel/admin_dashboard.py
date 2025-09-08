@@ -225,8 +225,8 @@ def get_all_carrier_account(
             "country_of_incorporation": carrier.country_of_incorporation,
             "email": carrier.business_email,
             "phone_number": carrier.business_phone_number,
-            "verification_status": carrier.is_verified,
-            "status": carrier.status
+            "is_verified": carrier.is_verified,
+            "status": carrier.status,
             "shipments_completed": carrier.number_of_completed_shipments,
             "fleet_size": carrier.number_of_vehicles,
         } for carrier in carriers]
@@ -354,7 +354,7 @@ def admin_get_all_shipper_and_broker_users_by_status(
             "name": f"{user.first_name} - {user.last_name}",
             "id": user.id,
             "is_verified": user.is_verified,
-            "status": user.status
+            "status": user.status,
             "id_number": user.id_number,
             "company_id": user.company_id,
             "is_director": user.is_director,
@@ -393,7 +393,7 @@ def admin_get_all_carrier_users(
             "name": f"{carrier_user.first_name} - {carrier_user.last_name}",
             "id": carrier_user.id,
             "is_verified": carrier_user.is_verified,
-            "status": carrier_user.status   
+            "status": carrier_user.status,
             "company_id": carrier_user.company_id,
             "role": carrier_user.role,
             "nationality": carrier_user.nationality,
@@ -439,7 +439,7 @@ def admin_get_all_driver_accounts(
             "name": f"{driver.first_name} - {driver.last_name}",
             "id": driver.id,
             "is_verified": driver.is_verified,
-            "status": driver.status
+            "status": driver.status,
             "company_id": driver.company_id,
             "nationality": driver.nationality,
             "id_number": driver.id_number,
@@ -477,7 +477,7 @@ def admin_get_all_driver_accounts_by_status(
 
 @router.get("/admin/all-trailers")
 def admin_get_all_trailers_by_status(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_admin),
 ):
     try:
