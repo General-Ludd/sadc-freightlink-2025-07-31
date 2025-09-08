@@ -193,7 +193,7 @@ def get_all_carrier_companies(
     try:
         carriers = db.query(Carrier).all()
 
-        return: {
+        return {
             "carriers": [{
                 company_name: carrier.legal_business_name,
                 id: carrier.id,
