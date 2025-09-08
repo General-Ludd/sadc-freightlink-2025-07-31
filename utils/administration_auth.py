@@ -19,7 +19,7 @@ def verify_admin_password(plain_password: str, hashed_password: str) -> bool:
 def get_current_admin(token: str = Depends(oauth2_admin_scheme)):
     try:
         payload = decode_admin_access_token(token)
-        admin_id = payload.get("admin_id")
+        admin_id = payload.get("id")
         email = payload.get("email")
         role = payload.get("role")  # "super" or "support"
 

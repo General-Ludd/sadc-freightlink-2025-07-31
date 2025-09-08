@@ -23,6 +23,7 @@ from api.endpoints.dashboards.carrier_dashboard import exchange_loadboards
 from api.endpoints.dashboards.driver_dashboard import driver_dashboard, driver_shipments
 from api.endpoints import gcs_upload
 from api.endpoints import financial_deposits
+from api.endpoints.admin_panel import admin_dashboard
 
 from triggers.scheduler import start_tracking_scheduler
 
@@ -65,6 +66,9 @@ app.include_router(exchange_loadboards.router, prefix="/api", tags=["Carrier Das
 ################################################Driver Dashboard#######################################
 app.include_router(driver_dashboard.router, prefix="/api", tags=["Driver Dashboard"])
 app.include_router(driver_shipments.router, prefix="/api", tags={"Driver Shipments"})
+
+################################################Admin Dashboard#######################################
+app.include_router(admin_dashboard.router, prefix="/api", tags=["Admin Dashboard"])
 
 ################################################Deposits###########################################
 app.include_router(financial_deposits.router, prefix="/api", tags=["Nedbank Deposits"])

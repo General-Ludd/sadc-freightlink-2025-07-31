@@ -7,14 +7,11 @@ SECRET_KEY_ADMIN = "super_secure_admin_secret_here"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
-def create_admin_access_token(admin) -> str:
-    """
-    Admin can be Platform_Super_Admins or Platform_Support_Admins instance
-    """
+def create_admin_access_token(admin_data: dict) -> str:
     to_encode = {
-        "admin_id": admin.id,
-        "email": admin.email,
-        "role": "super" if hasattr(admin, "Platform_Super_Admins") else "support"
+        "admin_id": admin_data["id"],
+        "email": admin_data["email"],
+        "role": admin_data["role"]
     }
     expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})

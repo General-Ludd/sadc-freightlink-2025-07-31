@@ -2,6 +2,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from requests import Session
 from db.database import SessionLocal
+from models.administration import Platform_Super_Admins, Platform_Super_and_Support_Admins_Permissions
 from models.shipper import Corporation
 from models.user import Director, CarrierUser, Driver
 from models.carrier import Carrier
@@ -12,9 +13,13 @@ from models.spot_bookings.ftl_shipment import FTL_SHIPMENT
 from models.spot_bookings.power_shipment import POWER_SHIPMENT
 from schemas.brokerage.finance import Individual_Sevice_Invoices_Request
 from schemas.vehicle import Individual_Shipper_Trailer_Response, Shipper_Trailers_Summary_Response, ShipperTrailerCreate
+from schemas.administration import CreateAdministrationUser, AdminPermissionsSchema
+from schemas.auth import LoginRequest, LoginResponse
 from services.vehicle_service import create_shipper_trailer
+from services.user_service import create_admin_super_user
 from utils.auth import get_current_user
-
+from utils.administration_auth import verify_admin_password, get_current_admin
+from utils.admin_jwt_handler import create_admin_access_token
 router = APIRouter()
 
 def get_db():
@@ -24,11 +29,64 @@ def get_db():
     finally:
         db.close()
 
-@router.post()
+@router.post("/admin/admin-user-create", status_code=status.HTTP_201_CREATED)
+def create_admin_endpoint(
+    user_data: CreateAdministrationUser,
+    permissions_data: AdminPermissionsSchema,
+    db: Session = Depends(get_db)
+):
+    try:
+        result = create_admin_super_user(db, user_data, permissions_data)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/admin-sign-in", response_model=LoginResponse)
+def login(request: LoginRequest, db: Session = Depends(get_db)):
+    print("Login request received for:", request.email)
+    
+    # Query super admin table
+    admin = db.query(Platform_Super_Admins).filter(
+        Platform_Super_Admins.email == request.email
+    ).first()
+
+    if admin:
+        role = "super"
+    else:
+        print("User not found in any database.")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Verify password
+    if not verify_admin_password(request.password, admin.password):
+        print("Password verification failed for:", request.email)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    print(f"User authenticated successfully as {role}: {admin.email}")
+
+    # Create token with role-specific information
+    token = create_admin_access_token({
+        "id": admin.id,
+        "email": admin.email,
+        "first_name": admin.first_name,
+        "last_name": admin.last_name,
+        "role": role
+    })
+    print("Generated JWT token:", token)
+
+    return {"access_token": token, "token_type": "bearer"}
 
 @router.get("/all-shippers")
 def admin_get_all_shipper_accounts(
     db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_admin),
 ):
     try:
         shippers = (
@@ -165,7 +223,7 @@ def get_all_carrier_account(
             "country_of_incorporation": carrier.country_of_incorporation,
             "email": carrier.business_email,
             "phone_number": carrier.business_phone_number,
-            "shipments_completed": carrier.number_of_completed_shipments
+            "shipments_completed": carrier.number_of_completed_shipments,
             "fleet_size": carrier.number_of_vehicles,
             "verification_status": carrier.is_verified,
             "status": carrier.status
@@ -329,7 +387,7 @@ def admin_get_all_carrier_users(
             "id": carrier_user.id,
             "company_id": carrier_user.company_id,
             "role": carrier_user.role,
-            "nationality": carrier_user.nationality
+            "nationality": carrier_user.nationality,
             "id_number": carrier_user.id_number,
             "verification_status": carrier_user.is_verified,
             "status": carrier_user.status            
@@ -354,7 +412,7 @@ def admin_get_all_carrier_users_by_status(
             "id": carrier_user.id,
             "company_id": carrier_user.company_id,
             "role": carrier_user.role,
-            "nationality": carrier_user.nationality
+            "nationality": carrier_user.nationality,
             "id_number": carrier_user.id_number,
             "verification_status": carrier_user.is_verified,
             "status": carrier_user.status            

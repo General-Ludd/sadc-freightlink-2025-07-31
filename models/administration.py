@@ -1,10 +1,13 @@
 from models.base import Base
+from sqlalchemy import DateTime, Date
+from sqlalchemy import Column, String, Integer, ForeignKey, Boolean, Enum, UniqueConstraint
 from utils.sast_datetime import get_sast_time
 
 class Platform_Super_Admins(Base):
-    __tablename__ = "platform_super_admins"
+    __tablename__ = "platform_admins"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    type = Column(String, nullable=False)
     first_name = Column(String, nullable=False)
     last_name = Column(String, nullable=False)
     id_number = Column(String, nullable=False)
@@ -12,33 +15,18 @@ class Platform_Super_Admins(Base):
     home_address = Column(String, nullable=False)
     email = Column(String, nullable=False)
     phone_number = Column(String, nullable=False)
+    proof_of_address = Column(String, nullable=False)
+    id_document = Column(String, nullable=False)
     password = Column(String, nullable=False)
     status = Column(String, nullable=False)
-    created_at = Column(DateTime(timezone=True), default=get_sast_time)
-    updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)
-
-class Platform_Support_Admins(Base):
-    __tablename__ = "platform_support_admins"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    first_name = Column(String, nullable=False)
-    last_name = Column(String, nullable=False)
-    id_number = Column(String, nullable=False)
-    nationality = Column(String, nullable=False)
-    home_address = Column(String, nullable=False)
-    email = Column(String, nullable=False)
-    phone_number = Column(String, nullable=False)
-    password = Column(String, nullable=False)
-    status = Column(String, nullable=False)
+    is_verified = Column(Boolean)
     created_at = Column(DateTime(timezone=True), default=get_sast_time)
     updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)
 
 class Platform_Super_and_Support_Admins_Permissions(Base):
-    __tablename__ = "platform_super_and_support_admins_permissions"
+    __tablename__ = "platform_administration_permissions"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    platform_support_admin_id = Column(Integer, ForeignKey("platform_support_admins.id"))
-    platform_super_admin_id = Column(Integer, ForeignKey("platform_super_admins.id"))
     cancel_shipments = Column(Boolean, default=False)
     create_shipments = Column(Boolean, default=False)
     update_shipments = Column(Boolean, default=False)
@@ -81,5 +69,15 @@ class Platform_Super_and_Support_Admins_Permissions(Base):
     credit_shipper_financial_accounts = Column(Boolean, default=False)
     debit_shipper_financial_accounts = Column(Boolean, default=False)
     manage_shipper_spending_credit_limit = Column(Boolean, default=False)
+    change_financial_account_payment_terms = Column(Boolean, default=False)
+    debit_carrier_financial_account = Column(Boolean, default=False)
+    credit_carrier_financial_account = Column(Boolean, default=False)
+    create_administrator = Column(Boolean, default=False)
+    create_support_administrator = Column(Boolean, default=False)
+    modify_administrator_permissions = Column(Boolean, default=False)
+    update_administrator = Column(Boolean, default=False)
+    delete_administrator = Column(Boolean, default=False)
+    suspend_administrator = Column(Boolean, default=False)
+    activate_administrator = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), default=get_sast_time)
     updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)

@@ -59,19 +59,28 @@ def broker_get_all_shipment_modes(
     # Format FTL response
     ftl_response = [{
         "id": shipment.id,
-        "type": shipment.type,
+        "mode": shipment.type,
         "status": shipment.shipment_status,
-        "origin": shipment.origin_city_province,
-        "pickup_date": shipment.pickup_date,
-        "pickup_window": shipment.pickup_appointment,
-        "destination": shipment.destination_city_province,
-        "eta_date": shipment.eta_date,
-        "eta_window": shipment.eta_window,
-        "equipment": f"{shipment.equipment_type} - {shipment.trailer_type} - {shipment.trailer_length}",
-        "commodity": shipment.commodity,
-        "broker_billable": shipment.quote,
-        "consignor_billable": ftl_brokerage_map.get(shipment.id, 0),
-        "priority_level": shipment.priority_level,
+        "pickup":{
+            "origin": shipment.origin_city_province,
+            "pickup_date": shipment.pickup_date,
+            "pickup_appointment": shipment.pickup_appointment,
+            },
+        "dropoff":{
+            "destination": shipment.destination_city_province,
+            "eta_date": shipment.eta_date,
+            "eta_window": shipment.eta_window,
+            },
+        "details": {
+            "equipment": f"{shipment.equipment_type} - {shipment.trailer_type} - {shipment.trailer_length}",
+            "commodity": shipment.commodity,
+            },
+        "distance": shipment.distance,
+        "rates": {
+            "broker_billable": shipment.quote,
+            "consignor_billable": ftl_brokerage_map.get(shipment.id, 0),
+            "priority_level": shipment.priority_level,
+            },
     } for shipment in ftl_shipments]
 
     # You mentioned POWER_SHIPMENT, here’s how to add that section too
