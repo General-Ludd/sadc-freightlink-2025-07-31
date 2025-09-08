@@ -185,6 +185,31 @@ def get_all_shipper_and_broker_financial_account(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/all-carriers")
+def get_all_carrier_companies(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_admin),
+):
+    try:
+        carriers = db.query(Carrier).all()
+
+        return: {
+            "carriers": [{
+                company_name: carrier.legal_business_name,
+                id: carrier.id,
+                type: carrier.type,
+                country_of_incorporation: carrier.country_of_incorporation,
+                email: carrier.business_email,
+                phone_number: carrier.business_phone_number,
+                is_verified: carrier.is_verified,
+                status: carrier.status,
+                shipments_completed: carrier.number_of_completed_shipments,
+                fleet_size: carrier.number_of_vehicles,
+            } for carrier in carriers],
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/all-financial-accounts/{status}")
 def get_all_shipper_and_broker_financial_account_by_status(
     status: str,
@@ -481,11 +506,13 @@ def admin_get_all_trailers_by_status(
     current_user: dict = Depends(get_current_admin),
 ):
     try:
-        trailer = db.query(Trailer).all()
+        trailers = db.query(Trailer).all()
         
         return [{
             "make_and_model": f"{trailer.make} - {trailer.model}",
             "id": trailer.id,
+            "is_verified": trailer.is_verified,
+            "status": trailer.status,
             "company": trailer.owner_id,
             "year": trailer.year,
             "color": trailer.color,
@@ -495,27 +522,24 @@ def admin_get_all_trailers_by_status(
             "equipment_type": trailer.equipment_type,
             "trailer_type": trailer.trailer_type,
             "length": trailer.trailer_length,
-            "verification_status": trailer.is_verified,
-            "status": trailer.status
         } for trailer in trailers]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/admin/all-shipper-trailer/{status}")
+@router.get("/admin/all-shipper-trailers")
 def admin_get_all_shipper_trailers_by_status(
     status: str = None,
     db: Session = Depends(get_db)
 ):
     try:
-        query = db.query(ShipperTrailer)
-        if status:
-            query = query.filter(ShipperTrailer.status == status)
-
-        trailers = query.all()
+        trailers = db.query(ShipperTrailer).all()
         
         return [{
             "make_and_model": f"{trailer.make} - {trailer.model}",
             "id": trailer.id,
+            "is_verified": trailer.is_verified,
+            "status": trailer.status,
+            "availability": trailer.availability_status,
             "company": trailer.owner_id,
             "year": trailer.year,
             "color": trailer.color,
@@ -525,44 +549,48 @@ def admin_get_all_shipper_trailers_by_status(
             "equipment_type": trailer.equipment_type,
             "trailer_type": trailer.trailer_type,
             "length": trailer.trailer_length,
-            "verification_status": trailer.is_verified,
-            "status": trailer.status,
-            "availability": trailer.availability_status
         } for trailer in trailers]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/admin/all-ftl-lanes/{status}")
-def admin_get_all_ftl_lanes_by_status(
-    status: str = None,
-    db: Session = Depends(get_db)
+@router.get("/admin/all-lanes")
+def admin_get_all_lanes(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_admin),
 ):
     try:
-        query = db.query(FTL_Lane)
-        if status:
-            query = query.filter(FTL_Lane.status == status)
+        ftl_lanes = db.query(FTL_Lane)all()
+        power_lanes = db.quer
 
-        lanes = query.all()
-        
-        return [{
-            "id": lane.id,
-            "status": lane.status,
-            "origin": lane.origin_city_province,
-            "distance": lane.distance,
-            "destination": lane.destination_city_province,
-            "required_truck_type": lane.required_truck_type,
-            "equipment_type": lane.equipment_type,
-            "trailer_type": lane.trailer_type,
-            "trailer_length": lane.trailer_length,
-            "weight_bracket": lane.minimum_weight_bracket,
-            "contract_period": f"{lane.start_date} to {lane.end_date}",
-            "recurrence": lane.recurrence_frequency,
-            "days": lane.recurrence_days,
-            "shipments_per_interval": lane.shipments_per_interval,
-            "per_shipment_rate": lane.qoute_per_shipment,
-            "contract_rate": lane.contract_quote,
-            "completed_shipments": lane.progress
-        } for lane in lanes]
+@router.get("/admin/all-lanes")
+def admin_get_all_lanes(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_admin),
+):
+    try:
+        lanes = db.query(FTL_Lane).all()
+
+        return {
+            "lanes": [{
+                "id": booked_lane.id,
+                "status": booked_lane.status,
+                "origin": booked_lane.origin_city_province,
+                "distance": booked_lane.distance,
+                "destination": booked_lane.destination_city_province,
+                "required_truck_type": booked_lane.required_truck_type,
+                "equipment_type": booked_lane.equipment_type,
+                "trailer_type": booked_lane.trailer_type,
+                "trailer_length": booked_lane.trailer_length,
+                "weight_bracket": booked_lane.minimum_weight_bracket,
+                "contract_period": f"{booked_lane.start_date} to {booked_lane.end_date}",
+                "recurrence": booked_lane.recurrence_frequency,
+                "days": booked_lane.recurrence_days,
+                "shipments_per_interval": booked_lane.shipments_per_interval,
+                "per_shipment_rate": booked_lane.qoute_per_shipment,
+                "contract_rate": booked_lane.contract_quote,
+                "completed_shipments": booked_lane.progress
+            } for booked_lane in booked_lanes]
+        },
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
