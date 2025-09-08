@@ -163,6 +163,7 @@ def admin_get_all_shipper_accounts_by_status(
 @router.get("/all-financial-accounts")
 def get_all_shipper_and_broker_financial_account(
     db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_admin),
 ):
     try:
         financial_accounts = db.query(FinancialAccounts).all()
@@ -177,7 +178,7 @@ def get_all_shipper_and_broker_financial_account(
             "total_spent": financial_account.total_spent,
             "average_spend": financial_account.average_spend,
             "outstanding": financial_account.total_outstanding,
-            "credit_avaialble": financial_account.credit_balance,
+            "credit_available": financial_account.credit_balance,
             "spending_limit": financial_account.spending_limit,
             "total_paid": financial_account.total_paid
         } for financial_account in financial_accounts]
@@ -211,7 +212,8 @@ def get_all_shipper_and_broker_financial_account_by_status(
 
 router.get("/all-carrier-accounts")
 def get_all_carrier_account(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_admin),
 ):
     try:
         carriers = db.query(Carrier).all
@@ -223,26 +225,27 @@ def get_all_carrier_account(
             "country_of_incorporation": carrier.country_of_incorporation,
             "email": carrier.business_email,
             "phone_number": carrier.business_phone_number,
-            "shipments_completed": carrier.number_of_completed_shipments,
-            "fleet_size": carrier.number_of_vehicles,
             "verification_status": carrier.is_verified,
             "status": carrier.status
+            "shipments_completed": carrier.number_of_completed_shipments,
+            "fleet_size": carrier.number_of_vehicles,
         } for carrier in carriers]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/all-carrier-financial-accounts")
 def admin_get_all_carrier_financial_accounts(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_admin),
 ):
     try:
         financial_accounts = db.query(CarrierFinancialAccounts).all()
 
         return [{
-            "id": financial_account.id,
-            "verification_status": financial_account.is_verified,
-            "status": financial_account.status,
             "company_name": financial_account.legal_business_name,
+            "id": financial_account.id,
+            "is_verified": financial_account.is_verified,
+            "status": financial_account.status,
             "country_of_incorporation": financial_account.business_country_of_incorporation,
             "business_registration_number": financial_account.business_registration_number,
             "total_earned": financial_account.total_earned,
@@ -280,13 +283,14 @@ def admin_get_all_carrier_financial_accounts_by_status(
 
 @router.get("/all-brokers")
 def admin_get_freight_brokers(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_admin),
 ):
     try:
         brokers = db.query(Corporation).filter(Corporation.type == "Brokerage Firm").all()
 
         result = []
-        for brokerr in brokers:
+        for broker in brokers:
             financial_account = (
                 db.query(FinancialAccounts)
                 .filter(FinancialAccounts.id == broker.id)
@@ -340,7 +344,8 @@ def admin_get_freight_brokers(
 
 @router.get("/all-users")
 def admin_get_all_shipper_and_broker_users_by_status(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_admin),
 ):
     try:
         users = db.query(Director).all()
@@ -348,10 +353,11 @@ def admin_get_all_shipper_and_broker_users_by_status(
         return [{
             "name": f"{user.first_name} - {user.last_name}",
             "id": user.id,
+            "is_verified": user.is_verified,
+            "status": user.status
             "id_number": user.id_number,
             "company_id": user.company_id,
-            "verification_status": user.is_verified,
-            "status": user.status
+            "is_director": user.is_director,
         } for user in users]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -377,7 +383,8 @@ def admin_get_all_shipper_and_broker_users_by_status(
 
 @router.get("/all-carrier-user")
 def admin_get_all_carrier_users(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_admin),
 ):
     try:
         carrier_users = db.query(CarrierUser).all()
@@ -385,12 +392,12 @@ def admin_get_all_carrier_users(
         return [{
             "name": f"{carrier_user.first_name} - {carrier_user.last_name}",
             "id": carrier_user.id,
+            "is_verified": carrier_user.is_verified,
+            "status": carrier_user.status   
             "company_id": carrier_user.company_id,
             "role": carrier_user.role,
             "nationality": carrier_user.nationality,
-            "id_number": carrier_user.id_number,
-            "verification_status": carrier_user.is_verified,
-            "status": carrier_user.status            
+            "id_number": carrier_user.id_number,         
         } for carrier_user in carrier_users]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -420,10 +427,33 @@ def admin_get_all_carrier_users_by_status(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/all-drivers")
+def admin_get_all_driver_accounts(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_admin),
+):
+    try:
+        drivers = db.query(Driver).all()
+
+        return [{
+            "name": f"{driver.first_name} - {driver.last_name}",
+            "id": driver.id,
+            "is_verified": driver.is_verified,
+            "status": driver.status
+            "company_id": driver.company_id,
+            "nationality": driver.nationality,
+            "id_number": driver.id_number,
+            "license_number": driver.license_number,
+            "current_vehicle_id": driver.current_vehicle_id if driver.current_vehicle_id else "N/A",
+        } for driver in drivers]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/all-driver/{status}")
 def admin_get_all_driver_accounts_by_status(
     status: str = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_admin),
 ):
     try:
         query = db.query(Driver)
@@ -445,17 +475,13 @@ def admin_get_all_driver_accounts_by_status(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/admin/all-trailers/{status}")
+@router.get("/admin/all-trailers")
 def admin_get_all_trailers_by_status(
-    status: str = None,
     db: Session = Depends(get_db)
+    current_user: dict = Depends(get_current_admin),
 ):
     try:
-        query = db.query(Trailer)
-        if status:
-            query = query.filter(Trailer.status == status)
-
-        trailers = query.all()
+        trailer = db.query(Trailer).all()
         
         return [{
             "make_and_model": f"{trailer.make} - {trailer.model}",
