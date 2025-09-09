@@ -167,24 +167,24 @@ def admin_get_carrier_company_information(
                     "rate": power_shipment.shipment_rate
                 } for power_shipment in power_shipments],
             },
-            "Lanes": {
+            "lanes": {
                 "ftl_lanes": [{
-                    "id": lane.lane_id,
-                    "status": lane.status,
-                    "origin": lane.origin_city_province,
-                    "destination": lane.destination_city_province,
-                    "distance": lane.distance,
-                    "required_truck_type": lane.required_truck_type,
-                    "equipment_type": lane.equipment_type,
-                    "trailer_type": lane.trailer_type,
-                    "start_date": lane.start_date,
-                    "end_date": lane.end_date,
-                    "recurrence": lane.recurrence_frequency,
-                    "days": lane.recurrence_days,
-                    "shipments_per_interval": lane.shipments_per_interval,
-                    "total_shipments": lane.total_shipments,
-                    "per_shipment_rate": lane.rate_per_shipment,
-                    "contract_rate": lane.contract_rate
+                    "id": ftl_lane.lane_id,
+                    "status": ftl_lane.status,
+                    "origin": ftl_lane.origin_city_province,
+                    "destination": ftl_lane.destination_city_province,
+                    "distance": ftl_lane.distance,
+                    "required_truck_type": ftl_lane.required_truck_type,
+                    "equipment_type": ftl_lane.equipment_type,
+                    "trailer_type": ftl_lane.trailer_type,
+                    "start_date": ftl_lane.start_date,
+                    "end_date": ftl_lane.end_date,
+                    "recurrence": ftl_lane.recurrence_frequency,
+                    "days": ftl_lane.recurrence_days,
+                    "shipments_per_interval": ftl_lane.shipments_per_interval,
+                    "total_shipments": ftl_lane.total_shipments,
+                    "per_shipment_rate": ftl_lane.rate_per_shipment,
+                    "contract_rate": ftl_lane.contract_rate
                 } for ftl_lane in ftl_lanes],
             }
         }

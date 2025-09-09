@@ -18,7 +18,7 @@ def get_db():
     finally:
         db.close()
 
-@router.get("/finance/shipper-financial-account/{id}")
+@router.get("/client-financial-account/{id}")
 def admin_fetch_shipper_financial_account_information(
     id: int,
     db: Session = Depends(get_db),
