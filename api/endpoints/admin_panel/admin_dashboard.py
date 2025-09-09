@@ -563,24 +563,24 @@ def admin_get_all_lanes(
 
         return {
             "lanes": [{
-                "id": booked_lane.id,
-                "status": booked_lane.status,
-                "origin": booked_lane.origin_city_province,
-                "distance": booked_lane.distance,
-                "destination": booked_lane.destination_city_province,
-                "required_truck_type": booked_lane.required_truck_type,
-                "equipment_type": booked_lane.equipment_type,
-                "trailer_type": booked_lane.trailer_type,
-                "trailer_length": booked_lane.trailer_length,
-                "weight_bracket": booked_lane.minimum_weight_bracket,
-                "contract_period": f"{booked_lane.start_date} to {booked_lane.end_date}",
-                "recurrence": booked_lane.recurrence_frequency,
-                "days": booked_lane.recurrence_days,
-                "shipments_per_interval": booked_lane.shipments_per_interval,
-                "per_shipment_rate": booked_lane.qoute_per_shipment,
-                "contract_rate": booked_lane.contract_quote,
-                "completed_shipments": booked_lane.progress
-            } for booked_lane in booked_lanes]
+                "id": lane.id,
+                "status": lane.status,
+                "origin": lane.origin_city_province,
+                "distance": lane.distance,
+                "destination": lane.destination_city_province,
+                "required_truck_type": lane.required_truck_type,
+                "equipment_type": lane.equipment_type,
+                "trailer_type": lane.trailer_type,
+                "trailer_length": lane.trailer_length,
+                "weight_bracket": lane.minimum_weight_bracket,
+                "contract_period": f"{lane.start_date} to {lane.end_date}",
+                "recurrence": lane.recurrence_frequency,
+                "days": lane.recurrence_days,
+                "shipments_per_interval": lane.shipments_per_interval,
+                "per_shipment_rate": lane.qoute_per_shipment,
+                "contract_rate": lane.contract_quote,
+                "completed_shipments": lane.progress
+            } for lane in lanes]
         },
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
