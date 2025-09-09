@@ -317,8 +317,8 @@ def admin_get_freight_brokers(
         result = []
         for broker in brokers:
             clients = (
-                db.query(Consignors)
-                .filter(Consignors.brokerage_firm_id == broker.id)
+                db.query(Consignor)
+                .filter(Consignor.brokerage_firm_id == broker.id)
                 .all()
             )
 
