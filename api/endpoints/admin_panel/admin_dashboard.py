@@ -329,7 +329,7 @@ def admin_get_freight_brokers(
             "registration_number": broker.business_registration_number,
             "country_of_incorporation": broker.country_of_incorporation,
             "email": broker.business_email,
-            "verification_status": broker.is_verified,
+            "is_verified": broker.is_verified,
             "status": broker.status,
             "total_client": len(clients)
         } for broker in brokers]
