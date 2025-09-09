@@ -108,7 +108,7 @@ def admin_get_carrier_company_information(
                 "is_director": user.is_director,
                 "is_verified": user.is_verified,
                 "status": user.status,
-            } for user in user],
+            } for user in users],
             "vehicles": [{
                 "make_year": f"{vehicle.make}-{vehicle.year}",
                 "id": vehicle.id,

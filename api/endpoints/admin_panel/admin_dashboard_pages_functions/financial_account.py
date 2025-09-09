@@ -18,7 +18,7 @@ def get_db():
     finally:
         db.close()
 
-@router.get("/finance/shipper-financial_account{id}")
+@router.get("/finance/shipper-financial-account/{id}")
 def admin_fetch_shipper_financial_account_information(
     id: int,
     db: Session = Depends(get_db),
@@ -123,7 +123,7 @@ def admin_fetch_shipper_financial_account_information(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/finance/carrier-financial_account/{id}")
+@router.get("/finance/carrier-financial-account/{id}")
 def admin_get_carrier_financial_account_information(
     id: int,
     db: Session = Depends(get_db),
