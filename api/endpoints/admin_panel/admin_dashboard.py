@@ -316,10 +316,10 @@ def admin_get_freight_brokers(
 
         result = []
         for broker in brokers:
-            financial_account = (
-                db.query(FinancialAccounts)
-                .filter(FinancialAccounts.id == broker.id)
-                .first()
+            clients = (
+                db.query(Consignors)
+                .filter(Consignors.brokerage_firm_id == broker.id)
+                .all()
             )
 
         return [{
@@ -331,7 +331,7 @@ def admin_get_freight_brokers(
             "email": broker.business_email,
             "verification_status": broker.is_verified,
             "status": broker.status,
-            "total_shipments": financial_account.total_shipments if financial_account else 0
+            "total_client": len(clients)
         } for broker in brokers]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
