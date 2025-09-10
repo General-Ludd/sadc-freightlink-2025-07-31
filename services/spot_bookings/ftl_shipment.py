@@ -510,11 +510,11 @@ def broker_create_ftl_shipment(
 
     shipper = db.query(Corporation).filter(Corporation.id == company_id).first()
     if not shipper:
-        raise HTTPException(status_code=400, detail="Shipper account not found or not active.")
+        raise HTTPException(status_code=400, detail="Brokerage firm account not found or not active.")
     if not shipper.is_verified:
-        raise HTTPException(status_code=403, detail="Shipper account is not verified. Please await verification to create a shipment.")
+        raise HTTPException(status_code=403, detail="Brokerage firm account is not verified. Please await verification to create a shipment.")
     if shipper.status != "Active":
-        raise HTTPException(status_code=403, detail="Shipper account is not active. Please await account activation to create a shipment.")
+        raise HTTPException(status_code=403, detail="Brokerage account is not active. Please await account activation to create a shipment.")
 
     # Step 3: Retrieve Financial Account & Generate Payment Dates Based on Terms
     financial_account = db.query(FinancialAccounts).filter(
@@ -729,7 +729,7 @@ def broker_create_ftl_shipment(
         consignor_id=shipment.consignor_id,
         consignor_billable=broker_transaction_data.consignor_billable,
         platform_booking_amount=quote_per_shipment,
-        profit=int(consignor_billable - quote_per_shipment)
+        profit=int(broker_transaction_data.consignor_billable - quote_per_shipment)
     )
 
     shipment_documents_data = FTL_Shipment_Docs(
