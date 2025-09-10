@@ -657,20 +657,11 @@ def broker_create_ftl_shipment(
     db.add(dropoff_facility)
     db.flush()
     
-    try:
-        consignor_id = get_or_create_consignor(
-            db=db,
-            shipment_data=shipment_data,
-            quote_per_shipment=quote_per_shipment,
-            consignor_billable=broker_transaction_data.consignor_billable,
-            consignor_data=consignor_data
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Shipment invoice generation failed: {e}")
+    consignor_id = get_or_create_consignor(db, shipment_data, consignor_data, current_user)
 
     # Step 1: Create the FTL shipment
     shipment = FTL_SHIPMENT(
-        consignor_id=shipment_data.consignor_id,
+        consignor_id=consignor_id,
         type="FTL",
         trip_type="1 Pickup, 1 Delivery",
         load_type="Live Loading",
@@ -731,6 +722,9 @@ def broker_create_ftl_shipment(
         platform_booking_amount=quote_per_shipment,
         profit=int(broker_transaction_data.consignor_billable - quote_per_shipment)
     )
+    db.add(broker_transaction)
+    db.commit()
+    db.refresh(broker_transaction)
 
     shipment_documents_data = FTL_Shipment_Docs(
         shipment_id=shipment.id,

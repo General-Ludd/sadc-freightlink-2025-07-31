@@ -8,71 +8,44 @@ from typing import Optional
 def get_or_create_consignor(
     db: Session,
     shipment_data: FTL_Shipment_Booking,
-    quote_per_shipment: int,
-    consignor_billable: Optional[int] = None,
-    consignor_data: Optional[ConsignorCreate] = None,
+    consignor_data: Optional[ConsignorCreate],
+    current_user: dict,
 ) -> int:
     """
-    Get existing consignor by ID, email or phone — or create new one.
-    Returns the consignor ID.
+    Decide which consignor_id to use:
+      - If shipment_data.consignor_id exists and is valid → return it
+      - Else, if consignor_data is provided → create a new consignor and return its ID
+      - Else → raise error
     """
-    profit = (consignor_billable or 0) - quote_per_shipment
-    # Use provided consignor_id directly if it exists
-    if shipment_data.consignor_id:
+    if shipment_data.consignor_id and shipment_data.consignor_id != 0:
         existing_consignor = db.query(Consignor).filter(Consignor.id == shipment_data.consignor_id).first()
         if not existing_consignor:
             raise HTTPException(status_code=404, detail="Consignor not found by ID.")
-        
-        existing_consignor.shipments += 1
-        existing_consignor.revenue_generated += quote_per_shipment
-        existing_consignor.profit_generated += profit
-        db.add(existing_consignor)
-        db.flush()
-        db.commit()
         return existing_consignor.id
 
-    # Handle consignor_data (lookup or create)
-    elif consignor_data:
-        data = consignor_data
-
-        # Try to find consignor by email or phone
-        existing_consignor = db.query(Consignor).filter(
-            (Consignor.email == data.email) | (Consignor.phone_number == data.phone_number) | (Consignor.company_website == data.company_website)
-        ).first()
-
-        if existing_consignor:
-            existing_consignor.shipments += 1
-            existing_consignor.revenue_generated += quote_per_shipment
-            existing_consignor.profit_generated += profit
-            db.add(existing_consignor)
-            db.flush()
-            db.commit()
-            return existing_consignor.id
-
-        # Create a new consignor
-        new_consignor = Consignor(
-            status=data.status,
-            priority_level=data.priority_level,
-            company_name=data.company_name,
-            client_type=data.client_type,
-            business_sector=data.business_sector,
-            company_website=data.company_website,
-            business_address=data.business_address,
-            contact_person_name=data.contact_person_name,
-            position=data.position,
-            phone_number=data.phone_number,
-            email=data.email,
-            preferred_contact_method=data.preferred_contact_method,
-            client_notes=data.client_notes,
-            shipments=1,
-            contract_lanes=0,
-            revenue_generated=quote_per_shipment,
-            profit_generated=profit,
+    if consignor_data:
+        consignor = Consignor(
+            brokerage_firm_id=current_user.get("company_id"),
+            status=consignor_data.status,
+            priority_level=consignor_data.priority_level,
+            company_name=consignor_data.company_name,
+            client_type=consignor_data.client_type,
+            business_sector=consignor_data.business_sector,
+            company_website=consignor_data.company_website,
+            business_address=consignor_data.business_address,
+            contact_person_name=consignor_data.contact_person_name,
+            position=consignor_data.position,
+            phone_number=consignor_data.phone_number,
+            email=consignor_data.email,
+            preferred_contact_method=consignor_data.preferred_contact_method,
+            client_notes=consignor_data.client_notes,
         )
-        db.add(new_consignor)
+        db.add(consignor)
         db.commit()
-        db.refresh(new_consignor)
-        return new_consignor.id
+        db.refresh(consignor)
+        return consignor.id
 
-    # If neither ID nor data is provided
-    raise HTTPException(status_code=400, detail="Consignor information is required.")
+    raise HTTPException(
+        status_code=400,
+        detail="Either a consignor_id must be provided or consignor_data to create a new one."
+    )
