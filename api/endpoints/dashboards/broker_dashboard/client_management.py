@@ -31,7 +31,6 @@ def create_new_brokerage_firm_client(
 
 @router.get("/broker-access/all-clients")
 def get_all_brokerage_firm_clients(
-    status: str,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):

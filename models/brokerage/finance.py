@@ -1,11 +1,25 @@
 from models.base import Base
 from sqlalchemy.orm import relationship
 from datetime import datetime
-from sqlalchemy import ARRAY, Date
+from sqlalchemy import ARRAY, Date, UniqueConstraint
 from sqlalchemy.sql import func
 from sqlalchemy import Column, Integer, Float, String, ForeignKey, Enum, DateTime, Boolean, Numeric
 from decimal import Decimal
 from utils.sast_datetime import get_sast_time
+
+class BankTransaction(Base):
+    __tablename__ = "bank_transactions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    transaction_id = Column(String, index=True)  # your internal tracking
+    unique_transaction_key = Column(String, unique=True, index=True)  # Nedbank’s unique key
+    reference = Column(String)
+    amount = Column(Integer)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("unique_transaction_key", name="uq_unique_transaction_key"),
+    )
 
 class BillingAnchor(Base):
     __tablename__ = "billing_anchors"
