@@ -24,7 +24,7 @@ def create_new_brokerage_firm_client(
     current_user: dict = Depends(get_current_user),
 ):
     try:
-        result = create_brokerage_firm_consignor_client(db, consignor_data, current_user=current_user)
+        result = create_brokerage_firm_consignor_client(consignor_data, db, current_user=current_user)
         return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

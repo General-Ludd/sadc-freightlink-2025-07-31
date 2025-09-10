@@ -318,5 +318,5 @@ def create_brokerage_firm_consignor_client(
     db.add(consignor)
     db.commit()
     db.refresh(consignor)
-
+    
     return {"message": "Consignor successfully created", "id": consignor.id}
