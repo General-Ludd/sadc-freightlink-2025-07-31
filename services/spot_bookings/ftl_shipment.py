@@ -493,8 +493,8 @@ def broker_create_ftl_shipment(
         pickup_contact_data: FacilityContactCreate,
         dropoff_contact_data: FacilityContactCreate,
         shipment_documents_data: FTL_Shipment_docs_create,
-        current_user: dict,
         consignor_data: Optional[ConsignorCreate] = None, # For new consignor
+        current_user: dict = None,
 ):
     assert "company_id" in current_user, "Missing company_id in current_user"
     print(f"current_user: {current_user}")

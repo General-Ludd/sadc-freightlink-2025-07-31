@@ -69,13 +69,14 @@ def broker_access_create_spot_ftl_endpoint(
             db,
             shipment_data,
             broker_transaction_data,
-            consignor_data,
             pickup_facility_data,
             dropoff_facility_data,
             pickup_contact_data,
             dropoff_contact_data,
             shipment_documents_data,
-            current_user)
+            consignor_data,
+            current_user=current_user,
+            )
         return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
