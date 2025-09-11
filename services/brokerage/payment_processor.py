@@ -21,7 +21,7 @@ def process_deposit(db: Session, transaction_id: str, unique_transaction_key: st
         return {"status": "error", "message": "Invalid reference format"}
 
     account_id = int(reference.split("-")[1])
-    account = db.query(FinancialAccount).get(account_id)
+    account = db.query(FinancialAccounts).get(account_id)
     if not account:
         return {"status": "error", "message": f"Financial account {account_id} not found"}
 

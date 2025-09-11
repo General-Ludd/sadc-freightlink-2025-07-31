@@ -718,9 +718,9 @@ def broker_create_ftl_shipment(
         shipment_id=shipment.id,
         type=shipment.type,
         consignor_id=shipment.consignor_id,
-        consignor_billable=broker_transaction_data.consignor_billable,
-        platform_booking_amount=quote_per_shipment,
-        profit=int(broker_transaction_data.consignor_billable - quote_per_shipment)
+        per_shipment_consignor_billable=broker_transaction_data.consignor_billable,
+        per_shipment_platform_booking_amount=quote_per_shipment,
+        per_shipment_profit=int(broker_transaction_data.consignor_billable - quote_per_shipment)
     )
     db.add(broker_transaction)
     db.commit()

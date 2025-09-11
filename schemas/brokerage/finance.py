@@ -198,3 +198,7 @@ class Withdrawal_Request(BaseModel):
 
 class Broker_Brokerage_TransactionCreate(BaseModel):
     consignor_billable: Optional [int] = None
+
+class Lane_Brokerage_TransactionCreate(BaseModel):
+    per_shipment_consignor_billable: Optional [int] = None
+    contract_consignor_billable: Optional [int] = None
