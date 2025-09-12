@@ -31,6 +31,35 @@ class Exchange_FTL_Shipment_Booking(BaseModel):
     automatically_accept_lower_bid: bool
     allow_carrier_to_book_at_current_or_lower_offer_rate: bool
 
+class Broker_Exchange_FTL_Shipment_Booking(BaseModel):
+    consignor_id : Optional[int] = None
+    required_truck_type: TruckType
+    equipment_type: EquipmentType
+    trailer_type: Optional[TrailerType] = None
+    trailer_length: Optional[TrailerLength] = None
+    minimum_weight_bracket: int
+    minimum_git_cover_amount: Optional[int] = None
+    minimum_liability_cover_amount: Optional[int] = None
+    origin_address: str
+    destination_address: str
+    pickup_date: date
+    priority_level: Priority_Level
+    customer_reference_number: Optional[str] = None
+    shipment_weight: int
+    commodity: str
+    temperature_control: str
+    hazardous_materials: bool
+    packaging_quantity: Optional[str] = None
+    packaging_type: Optional[str] = None
+    pickup_number: Optional[str] = None
+    pickup_notes: Optional[str] = None
+    delivery_number: Optional[str] = None
+    delivery_notes: Optional[str] = None
+    consignor_billable: Optional[int] = None
+    offer_price: int
+    automatically_accept_lower_bid: bool
+    allow_carrier_to_book_at_current_or_lower_offer_rate: bool
+
 class Exchange_Ftl_Shipments_Summary_Response(BaseModel):
     id: int
     type: str

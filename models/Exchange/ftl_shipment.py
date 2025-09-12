@@ -6,6 +6,7 @@ class FTL_SHIPMENT_EXCHANGE(Base):
     __tablename__ = "ftl_shipment_exchanges"
 
     id = Column(Integer, index=True, primary_key=True)
+    consignor_id = Column(Integer, nullable=True)
     automatically_accept_lower_bid = Column(Boolean, default=True)
     allow_carrier_to_book_at_current_or_lower_offer_rate = Column(Boolean, default=True)
     exchange_type = Column(String, default="Open", nullable=False)
@@ -48,6 +49,7 @@ class FTL_SHIPMENT_EXCHANGE(Base):
     delivery_notes = Column(String)
     distance = Column(Integer, nullable=True)
     estimated_transit_time = Column(String)
+    consignor_billable = Column(Integer, nullable=True)
     offer_price = Column(Integer)
     backed_offer_price = Column(Integer, nullable=False) ### Update in database
     suggested_price = Column(Integer)

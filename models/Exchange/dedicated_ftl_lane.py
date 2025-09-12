@@ -6,6 +6,7 @@ class FTL_Lane_Exchange(Base):
     __tablename__ = "ftl_lane_exchanges"
 
     id = Column(Integer, primary_key=True, index=True)
+    consignor_id = Column(Integer, nullable=True)
     type = Column(String)
     trip_type = Column(String, nullable=False)
     load_type = Column(String, nullable=False)
@@ -47,6 +48,8 @@ class FTL_Lane_Exchange(Base):
     route_preview_embed = Column(String)
     contract_offer_rate = Column(Integer)
     per_shipment_offer_rate = Column(Integer)
+    contract_consignor_billable = Column(Integer)
+    per_shipment_consignor_billable = Column(Integer)
     backed_contract_offer_rate = Column(Integer)
     backed_per_shipment_offer_rate = Column(Integer)
     suggested_contract_rate = Column(Integer)

@@ -8,7 +8,7 @@ from schemas.spot_bookings.power_shipment import POWER_Shipment_docs_create, Pow
 from schemas.brokerage.finance import Broker_Brokerage_TransactionCreate, Lane_Brokerage_TransactionCreate
 from schemas.shipper import ConsignorCreate
 from services.finance.finance import calculate_spot_ftl_lane_quote, calculate_spot_ftl_quote, calculate_spot_power_quote
-from services.spot_bookings.dedicated_lanes_ftl_shipment import create_dedicated_lane_ftl_shipment
+from services.spot_bookings.dedicated_lanes_ftl_shipment import create_dedicated_lane_ftl_shipment, broker_create_dedicated_lane_ftl_shipment
 from services.spot_bookings.ftl_shipment import broker_create_ftl_shipment
 from sqlalchemy.orm import Session
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -131,7 +131,7 @@ def broker_access_create_spot_ftl_endpoint(
     consignor_data: Optional[ConsignorCreate] = None,
 ):
     try:
-        result = create_dedicated_lane_ftl_shipment(
+        result = broker_create_dedicated_lane_ftl_shipment(
             db,
             shipment_data,
             broker_transaction_data,

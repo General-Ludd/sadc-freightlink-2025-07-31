@@ -38,6 +38,41 @@ class Exchange_FTL_Lane_Booking(BaseModel):
     delivery_notes: Optional[str] = None
     per_shipment_offer_rate: int
 
+class Broker_Exchange_FTL_Lane_Booking(BaseModel):
+    consignor_id: int
+    load_type: Load_Type
+    required_truck_type: TruckType
+    equipment_type: EquipmentType
+    trailer_type: Optional[TrailerType] = None
+    trailer_length: Optional[TrailerLength] = None
+    minimum_weight_bracket: int
+    minimum_git_cover_amount: Optional[int] = None
+    minimum_liability_cover_amount: Optional[int] = None
+    origin_address: str
+    destination_address: str
+
+    ##Recurrence Information##
+    start_date: date
+    end_date: date
+    recurrence_frequency: str
+    recurrence_days: List[str] = []
+    skip_weekends: bool
+    shipments_per_interval: int
+
+    priority_level: Priority_Level
+    customer_reference_number: Optional[str] = None
+    average_shipment_weight: int
+    commodity: str
+    temperature_control: str
+    hazardous_materials: bool
+    packaging_quantity: Optional[str] = None
+    packaging_type: Optional[str] = None
+    pickup_number: Optional[str] = None
+    pickup_notes: Optional[str] = None
+    delivery_number: Optional[str] = None
+    delivery_notes: Optional[str] = None
+    per_shipment_offer_rate: int
+    per_shipment_consignor_billable: Optional[int] = None
 
 class Exchange_Ftl_Lane_Summary_Response(BaseModel):
     id: int
