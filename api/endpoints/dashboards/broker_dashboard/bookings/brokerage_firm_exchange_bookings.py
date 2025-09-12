@@ -7,7 +7,7 @@ from schemas.exchange_bookings.ftl_shipment import Broker_Exchange_FTL_Shipment_
 from schemas.exchange_bookings.power_shipment import Exchange_Power_Shipment_Booking
 from schemas.shipment_facility import FacilityContactCreate, ShipmentFacilityCreate
 from schemas.shipper import ConsignorCreate
-from services.exchange.dedicated_ftl_lane import create_dedicated_ftl_lane_exchange
+from services.exchange.dedicated_ftl_lane import broker_create_dedicated_lane_ftl_shipment
 from services.exchange.ftl_shipment import broker_access_create_ftl_shipment_exchange
 from services.exchange.power_shipment import create_power_shipment_exchange
 from utils.auth import get_current_user
@@ -47,7 +47,7 @@ def create_broker_ftl_exchange_endpoint(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/broker-access/exchange/ftl-lane-create", status_code=status.HTTP_201_CREATED)
-def create_exchange_ftl_lane_endpoint(
+def create_broker_exchange_ftl_lane_endpoint(
     shipment_data: Broker_Exchange_FTL_Lane_Booking,
     pickup_facility_data: ShipmentFacilityCreate,
     dropoff_facility_data: ShipmentFacilityCreate,
@@ -58,7 +58,7 @@ def create_exchange_ftl_lane_endpoint(
     consignor_data: Optional[ConsignorCreate] = None,
 ):
     try:
-        result = create_dedicated_ftl_lane_exchange(
+        result = broker_create_dedicated_lane_ftl_shipment(
             db,
             shipment_data,
             pickup_facility_data,
