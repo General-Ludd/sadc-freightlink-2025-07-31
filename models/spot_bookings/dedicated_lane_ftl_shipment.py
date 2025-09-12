@@ -7,6 +7,7 @@ class FTL_Lane(Base):
     __tablename__ = "ftl_lanes"
 
     id = Column(Integer, primary_key=True, index=True)
+    consignor_id = Column(Integer, nullable=True)
     type = Column(String)
     trip_type = Column(String, nullable=False)
     load_type = Column(String, nullable=False)

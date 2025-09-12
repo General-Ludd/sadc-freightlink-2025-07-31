@@ -15,7 +15,7 @@ from models.spot_bookings.ftl_shipment import FTL_SHIPMENT
 from models.spot_bookings.shipment_facility import ContactPerson, ShipmentFacility
 from schemas.brokerage.loadboard import FTL_lane_LoadBoard_Entry
 from schemas.shipment_facility import FacilityContactCreate, ShipmentFacilityCreate
-from schemas.spot_bookings.dedicated_lanes_ftl_shipment import FTL_Lane_Create
+from schemas.spot_bookings.dedicated_lanes_ftl_shipment import FTL_Lane_Create, Broker_FTL_Lane_Create
 from schemas.brokerage.finance import Lane_Brokerage_TransactionCreate
 from schemas.shipper import ConsignorCreate
 from services.brokerage.brokerage_service import calculate_brokerage_details, calculate_contract_brokerage_details
@@ -624,7 +624,7 @@ def create_dedicated_lane_ftl_shipment(
 
 def broker_create_dedicated_lane_ftl_shipment(
     db: Session,
-    shipment_data: FTL_Lane_Create,
+    shipment_data: Broker_FTL_Lane_Create,
     broker_transaction_data: Lane_Brokerage_TransactionCreate,
     pickup_facility_data: ShipmentFacilityCreate,
     dropoff_facility_data: ShipmentFacilityCreate,
@@ -798,6 +798,7 @@ def broker_create_dedicated_lane_ftl_shipment(
 
     # Step 6: Create the FTL Shipment
     shipment = FTL_Lane(
+        consignor_id=shipment_data.consignor_id,
         type="FTL Lane",
         load_type=shipment_data.load_type,
         trip_type="1 Pickup, 1 Delivery",

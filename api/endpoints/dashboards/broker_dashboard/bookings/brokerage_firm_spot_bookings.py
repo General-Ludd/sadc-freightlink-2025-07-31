@@ -1,11 +1,11 @@
 from datetime import date
 from typing import Optional
 from enums import Axle_Configuration, EquipmentType, Lorry, Recurrence_Days, Recurrence_Frequency, TrailerLength, TrailerType, TruckType
-from schemas.spot_bookings.dedicated_lanes_ftl_shipment import FTL_Lane_Create
+from schemas.spot_bookings.dedicated_lanes_ftl_shipment import FTL_Lane_Create, Broker_FTL_Lane_Create
 from schemas.spot_bookings.ftl_shipment import FTL_Shipment_Booking, FTL_Shipment_docs_create
 from schemas.shipment_facility import ShipmentFacilityCreate, FacilityContactCreate
 from schemas.spot_bookings.power_shipment import POWER_Shipment_docs_create, Power_Shipment_Booking
-from schemas.brokerage.finance import Broker_Brokerage_TransactionCreate
+from schemas.brokerage.finance import Broker_Brokerage_TransactionCreate, Lane_Brokerage_TransactionCreate
 from schemas.shipper import ConsignorCreate
 from services.finance.finance import calculate_spot_ftl_lane_quote, calculate_spot_ftl_quote, calculate_spot_power_quote
 from services.spot_bookings.dedicated_lanes_ftl_shipment import create_dedicated_lane_ftl_shipment
@@ -120,22 +120,26 @@ def broker_access_get_spot_ftl_lane_qoute_endpoint(
     
 @router.post("/broker-access/spot/dedicated-ftl-lane-create", status_code=status.HTTP_201_CREATED)
 def broker_access_create_spot_ftl_endpoint(
-    shipment_data: FTL_Lane_Create,
+    shipment_data: Broker_FTL_Lane_Create,
+    broker_transaction_data: Lane_Brokerage_TransactionCreate,
     pickup_facility_data: ShipmentFacilityCreate,
     dropoff_facility_data: ShipmentFacilityCreate,
     pickup_contact_data: FacilityContactCreate,
     dropoff_contact_data: FacilityContactCreate,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user),
+    consignor_data: Optional[ConsignorCreate] = None,
 ):
     try:
         result = create_dedicated_lane_ftl_shipment(
             db,
             shipment_data,
+            broker_transaction_data,
             pickup_facility_data,
             dropoff_facility_data,
             pickup_contact_data,
             dropoff_contact_data,
+            consignor_data,
             current_user=current_user)
         return result
     except Exception as e:

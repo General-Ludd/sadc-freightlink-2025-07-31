@@ -37,6 +37,37 @@ class FTL_Lane_Create(BaseModel):
     end_date: date  # Optional end date (if known)
     priority_level: Priority_Level
 
+class Broker_FTL_Lane_Create(BaseModel):
+    consignor_id: Optional [int] = None
+    load_type: Load_Type
+    required_truck_type: TruckType
+    equipment_type: EquipmentType
+    trailer_type: Optional[TrailerType] = None
+    trailer_length: Optional[TrailerLength] = None
+    minimum_weight_bracket: int
+    minimum_git_cover_amount: Optional[int] = None
+    minimum_liability_cover_amount: Optional[int] = None
+    origin_address: str
+    destination_address: str
+    customer_reference_number: Optional[str] = None
+    average_shipment_weight: Optional[int] = None
+    commodity: str
+    temperature_control: str
+    hazardous_materials: bool
+    packaging_quantity: Optional[str] = None
+    packaging_type: Optional[str] = None
+    pickup_number: Optional[str] = None
+    pickup_notes: Optional[str] = None
+    delivery_number: Optional[str] = None
+    delivery_notes: Optional[str] = None
+    recurrence_frequency: str  # How often shipments occur
+    recurrence_days: List[str] = [] # Days (e.g., "Monday, Wednesday, Friday")
+    skip_weekends: bool
+    shipments_per_interval: int  # Number of shipments in each recurrence interval
+    start_date: date  # Start date of the contract
+    end_date: date  # Optional end date (if known)
+    priority_level: Priority_Level
+
 class Ftl_Lanes_Summary_Response(BaseModel):
     id: int
     type: str
