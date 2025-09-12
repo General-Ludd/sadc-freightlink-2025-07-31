@@ -583,7 +583,7 @@ def broker_access_create_dedicated_ftl_lane_exchange(
         route_preview_embed=route_preview_embed,
         per_shipment_offer_rate=shipment_data.per_shipment_offer_rate,
         contract_offer_rate=shipment_data.per_shipment_offer_rate * total_shipments,
-        per_shipment_consignor_billable=shipment_data.consignor_per_shipment_billable,
+        per_shipment_consignor_billable=shipment_data.per_shipment_consignor_billable,
         contract_consignor_billable=shipment_data.per_shipment_consignor_billable * total_shipments,
         backed_per_shipment_offer_rate=shipment_data.per_shipment_offer_rate * 0.90,
         backed_contract_offer_rate=shipment_data.per_shipment_offer_rate * total_shipments * 0.90,
