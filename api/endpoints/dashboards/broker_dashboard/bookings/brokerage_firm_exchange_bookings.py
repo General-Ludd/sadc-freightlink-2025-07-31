@@ -7,7 +7,7 @@ from schemas.exchange_bookings.ftl_shipment import Broker_Exchange_FTL_Shipment_
 from schemas.exchange_bookings.power_shipment import Exchange_Power_Shipment_Booking
 from schemas.shipment_facility import FacilityContactCreate, ShipmentFacilityCreate
 from schemas.shipper import ConsignorCreate
-from services.exchange.dedicated_ftl_lane import broker_create_dedicated_lane_ftl_shipment
+from services.exchange.dedicated_ftl_lane import broker_access_create_dedicated_ftl_lane_exchange
 from services.exchange.ftl_shipment import broker_access_create_ftl_shipment_exchange
 from services.exchange.power_shipment import create_power_shipment_exchange
 from utils.auth import get_current_user
@@ -58,7 +58,7 @@ def create_broker_exchange_ftl_lane_endpoint(
     consignor_data: Optional[ConsignorCreate] = None,
 ):
     try:
-        result = broker_create_dedicated_lane_ftl_shipment(
+        result = broker_access_create_dedicated_ftl_lane_exchange(
             db,
             shipment_data,
             pickup_facility_data,
