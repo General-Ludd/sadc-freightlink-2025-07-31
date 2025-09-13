@@ -77,7 +77,7 @@ def driver_get_account_information(
         return {
             "driver_information": {
                 "id": driver.id,
-                "verification_status": driver.is_verified,
+                "is_verified": driver.is_verified,
                 "status": driver.status,
                 "availability_status": driver.service_status,
                 "first_name": driver.first_name,
