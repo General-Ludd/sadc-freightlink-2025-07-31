@@ -96,21 +96,23 @@ def driver_get_account_information(
                 "rating": f"{driver.rating}/5"
                 },
             
-            "company_information": {
+            "fleet_information": {
                 "id": fleet.id,
-                "legal_business_name": fleet.legal_business_name,
+                "company_name": fleet.legal_business_name,
                 "country_of_incorporation": fleet.country_of_incorporation,
-                "business_address": fleet.business_address,
-                "business_email": fleet.business_email,
-                "business_phone_number": fleet.business_phone_number,
+                "company_address": fleet.business_address,
+                "company_email": fleet.business_email,
+                "company_phone_number": fleet.business_phone_number,
+                "fleet_size": fleet.number_of_vehicles,
+                "completed_shipments": fleet.number_of_completed_shipments
             },
 
             "documents": {
                 "id_document": driver.id_document,
                 "drivers_license": driver.license_document,
                 "prdp": driver.prdp_document,
+                "proof_of_address": driver.proof_of_address,
                 "passport": driver.passport_document,
-                "proof_of_address": driver.proof_of_address
             },
         }
     except Exception as e:
