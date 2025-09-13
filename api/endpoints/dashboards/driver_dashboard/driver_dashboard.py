@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from db.database import SessionLocal
 from datetime import date
 from models.brokerage.assigned_shipments import Assigned_Spot_Ftl_Shipments, Assigned_Power_Shipments
+from models.carrier import Carrier
 
 router = APIRouter()
 
