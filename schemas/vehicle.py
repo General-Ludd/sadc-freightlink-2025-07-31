@@ -351,3 +351,10 @@ class Fleet_Trailer_Truck_response(BaseModel):
     shipment_status: Optional [str] = None
     origin: Optional [str] = None
     destination: Optional [str] = None
+
+class Driver_Location_Update(BaseModel):
+    latitude: float
+    longitude: float
+    speed: int
+    heading: int
+    location_description: str

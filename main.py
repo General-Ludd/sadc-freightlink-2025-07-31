@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 import threading
 from fastapi.middleware.cors import CORSMiddleware
+from api.endpoints.dashboards import tracking
 from api.endpoints.dashboards.standard_shipper_dashboard import standard_facility_dashboard
 from api.endpoints.dashboards.standard_shipper_dashboard import user_management
 from api.endpoints.dashboards.standard_shipper_dashboard import equipment_management
@@ -69,6 +70,9 @@ app.include_router(exchange_loadboards.router, prefix="/api", tags=["Carrier Das
 ################################################Driver Dashboard#######################################
 app.include_router(driver_dashboard.router, prefix="/api", tags=["Driver Dashboard"])
 app.include_router(driver_shipments.router, prefix="/api", tags={"Driver Shipments"})
+
+################################################Tracking###############################################
+app.include_router(tracking.router, prefix="/api", tags=["Tracking"])
 
 ################################################Admin Dashboard#######################################
 app.include_router(admin_dashboard.router, prefix="/api", tags=["Admin Dashboard"])
