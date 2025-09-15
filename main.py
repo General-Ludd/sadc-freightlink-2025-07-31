@@ -13,6 +13,7 @@ from api.endpoints.dashboards.broker_dashboard import brokerage_firm_dashboard
 from api.endpoints.dashboards.broker_dashboard import client_management
 from api.endpoints.dashboards.broker_dashboard.bookings import brokerage_firm_spot_bookings
 from api.endpoints.dashboards.broker_dashboard.bookings import brokerage_firm_exchange_bookings
+from api.endpoints.dashboards.broker_dashboard.shipment_management import broker_spot_shipment_management
 from api.endpoints.dashboards.carrier_dashboard import carrier_dashboard
 from api.endpoints.dashboards.carrier_dashboard.fleet_management import account_and_user
 from api.endpoints.dashboards.carrier_dashboard.fleet_management import vehicle_management
