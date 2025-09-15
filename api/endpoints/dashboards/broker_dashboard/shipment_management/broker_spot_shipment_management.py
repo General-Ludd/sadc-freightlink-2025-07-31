@@ -289,7 +289,7 @@ def broker_access_get_individual_ftl_shipment(
                 "contact_person": consignor.contact_person_name if consignor else "N/A",
                 "phone_number": consignor.phone_number if consignor else "N/A",
                 "email": consignor.email if consignor else "N/A",
-                "consignor_billable": broker_transaction.per_shipment_consignor_billable if broker_transaction else "N/A",
+                "client_billable": broker_transaction.per_shipment_consignor_billable if broker_transaction else "N/A",
                 "broker_profit": (
                     broker_transaction.per_shipment_consignor_billable - shipment.quote
                 ) if broker_transaction else "N/A"
