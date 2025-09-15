@@ -7,7 +7,7 @@ from models.brokerage.finance import BrokerageLedger, CarrierFinancialAccounts, 
 from models.brokerage.loadboard import Ftl_Load_Board
 from models.carrier import Carrier
 from models.spot_bookings.dedicated_lane_ftl_shipment import FTL_Lane
-from models.spot_bookings.ftl_shipment import FTL_SHIPMENT
+from models.spot_bookings.ftl_shipment import FTL_SHIPMENT, FTL_Shipment_Docs
 from models.spot_bookings.power_shipment import POWER_SHIPMENT
 from models.Exchange.ftl_shipment import FTL_SHIPMENT_EXCHANGE
 from models.Exchange.power_shipment import POWER_SHIPMENT_EXCHANGE
@@ -290,6 +290,7 @@ def broker_access_get_individual_ftl_shipment(
                 "import_or_export_permits": documents.import_or_export_permits if documents.import_or_export_permits else "N/A",
                 "certificate_of_origin": documents.certificate_of_origin if documents.certificate_of_origin else "N/A",
                 "da5501orsad500": documents.da5501orsad500 if documents.da5501orsad500 else "N/A",
+                "pod_document": shipment.pod_document if shipment.pod_document else "N/A",
             },
 
             "consignor_information": {
