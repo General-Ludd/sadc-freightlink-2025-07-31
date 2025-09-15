@@ -657,7 +657,7 @@ class Brokers_Brokerage_Transactions(Base):
     id = Column(Integer, primary_key=True, index=True)
     brokerage_firm_id = Column(Integer, nullable=False)
     shipment_id = Column(Integer)
-    lane_Id = Column(Integer)
+    lane_id = Column(Integer)
     type = Column(String)
     consignor_id = Column(Integer)
     per_shipment_consignor_billable = Column(Integer)
