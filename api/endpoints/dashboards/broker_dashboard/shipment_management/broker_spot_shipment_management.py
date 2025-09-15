@@ -168,7 +168,7 @@ def broker_access_get_dashboard_home_data(
         return {
             "id": exchange.id,
             "type": exchange.type,
-            "status": exchange.status,  # e.g., Open
+            "status": exchange.auction_status,  # e.g., Open
             "pickup": {
                 "origin": exchange.origin_city_province,
                 "pickup_date": exchange.pickup_date,
@@ -180,21 +180,23 @@ def broker_access_get_dashboard_home_data(
             },
             "your_offer_rate": exchange.offer_price,
             "leading_bid": exchange.leading_bid_amount if exchange.leading_bid_amount else None,
-            "bids_submitted": exchange.number_of_bids_submitted
+            "bids_submitted": exchange.number_of_bids_submitted,
+            "end_time": exchange.end_time
         }
 
     def format_lane_exchange(exchange):
         return {
             "id": exchange.id,
             "type": "FTL Lane",
-            "status": exchange.status,  # e.g., Open
+            "status": exchange.auction_status,  # e.g., Open
             "bids": exchange.number_of_bids_submitted,
             "origin": exchange.origin_city_province,
             "destination": exchange.destination_city_province,
             "per_shipment_offer": exchange.per_shipment_offer_rate,
             "contract_offer": exchange.contract_offer_rate,
             "leading_bid_per_shipment": exchange.leading_per_shipment_bid_amount,
-            "leading_bid_contract_total": exchange.leading_contract_bid_amount
+            "leading_bid_contract_total": exchange.leading_contract_bid_amount,
+            "end_time": exchange.exchange_end_time
         }
 
     formatted_shipment_exchanges = [format_shipment_exchange(ex) for ex in shipment_exchanges]
