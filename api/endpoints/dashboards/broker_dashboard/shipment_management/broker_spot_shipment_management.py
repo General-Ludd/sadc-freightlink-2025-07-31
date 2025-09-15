@@ -76,8 +76,8 @@ def broker_access_get_dashboard_home_data(
             Brokers_Brokerage_Transactions.type == "POWER"
         ).all()
 
-    ftl_brokerage_map = {bt.shipment_id: bt.consignor_billable for bt in ftl_brokerage_transactions}
-    power_brokerage_map = {bt.shipment_id: bt.consignor_billable for bt in power_brokerage_transactions}
+    ftl_brokerage_map = {bt.shipment_id: bt.per_shipment_consignor_billable for bt in ftl_brokerage_transactions}
+    power_brokerage_map = {bt.shipment_id: bt.per_shipment_consignor_billable for bt in power_brokerage_transactions}
 
     loads = ftl_shipments + power_shipments
 
@@ -188,8 +188,7 @@ def broker_access_get_dashboard_home_data(
             "per_shipment_offer": exchange.per_shipment_offer_rate,
             "contract_offer": exchange.contract_offer_rate,
             "leading_bid_per_shipment": exchange.leading_per_shipment_bid_amount,
-            "leading_bid_contract_total": exchange.leading_contract_bid_amount,
-            "end_time": exchange.exchange_end_time
+            "leading_bid_contract_total": exchange.leading_contract_bid_amount
         }
 
     formatted_shipment_exchanges = [format_shipment_exchange(ex) for ex in shipment_exchanges]
