@@ -84,6 +84,7 @@ def broker_access_get_dashboard_home_data(
     def format_load(load):
         brokerage_map = ftl_brokerage_map if load.type == "FTL" else power_brokerage_map
         return {
+            "id": load.id,
             "consignor_ref": load.consignor_id,
             "type": load.type,
             "status": {
