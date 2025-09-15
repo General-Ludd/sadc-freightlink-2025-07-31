@@ -207,7 +207,7 @@ def broker_access_get_dashboard_home_data(
         }
     }
 
-@router.post("/broker-access/ftl-shipment/{id}")
+@router.get("/broker-access/ftl-shipment/{id}")
 def broker_access_get_individual_ftl_shipment(
     id: int,
     db: Session = Depends(get_db),
