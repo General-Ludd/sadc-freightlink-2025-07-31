@@ -167,7 +167,7 @@ def broker_access_get_dashboard_home_data(
     def format_shipment_exchange(exchange):
         return {
             "id": exchange.id,
-            "type": exchane.type,
+            "type": exchange.type,
             "status": exchange.status,  # e.g., Open
             "pickup": {
                 "origin": exchange.origin_city_province,
@@ -175,11 +175,11 @@ def broker_access_get_dashboard_home_data(
             },
             "dropoff": {
                 "destination": exchange.destination_city_province,
-                "eta_date": exchange.eta_date,
-                "eta_window": exchange.eta_window,
+                "eta_date": exchange.eta_date if exchange.eta_date else None,
+                "eta_window": exchange.eta_window if exchange.eta_window else None,
             },
             "your_offer_rate": exchange.offer_price,
-            "leading_bid": exchange.leading_bid_amount,
+            "leading_bid": exchange.leading_bid_amount if exchange.leading_bid_amount else None,
             "bids_submitted": exchange.number_of_bids_submitted
         }
 
