@@ -284,12 +284,12 @@ def broker_access_get_individual_ftl_shipment(
             },
 
             "shipment_documents": {
-                "commercial_invoice": documents.commercial_invoice if documents.commercial_invoice else "N/A",
-                "packaging_list": documents.packaging_list if documents.packaging_list else "N/A",
-                "customs_declaration_form": documents.customs_declaration_form if documents.customs_declaration_form else "N/A",
-                "import_or_export_permits": documents.import_or_export_permits if documents.import_or_export_permits else "N/A",
-                "certificate_of_origin": documents.certificate_of_origin if documents.certificate_of_origin else "N/A",
-                "da5501orsad500": documents.da5501orsad500 if documents.da5501orsad500 else "N/A",
+                "commercial_invoice": documents.commercial_invoice if documents and documents.commercial_invoice else "N/A",
+                "packaging_list": documents.packaging_list if documents and documents.packaging_list else "N/A",
+                "customs_declaration_form": documents.customs_declaration_form if documents and documents.customs_declaration_form else "N/A",
+                "import_or_export_permits": documents.import_or_export_permits if documents and documents.import_or_export_permits else "N/A",
+                "certificate_of_origin": documents.certificate_of_origin if documents and documents.certificate_of_origin else "N/A",
+                "da5501orsad500": documents.da5501orsad500 if documents and documents.da5501orsad500 else "N/A",
                 "pod_document": shipment.pod_document if shipment.pod_document else "N/A",
             },
 
