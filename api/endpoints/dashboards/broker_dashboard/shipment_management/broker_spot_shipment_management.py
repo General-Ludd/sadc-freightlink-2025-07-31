@@ -11,7 +11,7 @@ from models.spot_bookings.ftl_shipment import FTL_SHIPMENT
 from models.spot_bookings.power_shipment import POWER_SHIPMENT
 from models.Exchange.ftl_shipment import FTL_SHIPMENT_EXCHANGE
 from models.Exchange.power_shipment import POWER_SHIPMENT_EXCHANGE
-from models.exchange.dedicated_ftl_lane import FTL_LANE_EXCHANGE
+from models.exchange.dedicated_ftl_lane import FTL_Lane_Exchange
 from models.spot_bookings.shipment_facility import ContactPerson, ShipmentFacility
 from models.user import Driver
 from models.vehicle import ShipperTrailer, Vehicle
@@ -160,8 +160,8 @@ def broker_access_get_dashboard_home_data(
 
     shipment_exchanges = ftl_exchanges + power_exchanges
 
-    lane_exchanges = db.query(FTL_LANE_EXCHANGE).filter(
-        FTL_LANE_EXCHANGE.shipper_company_id == company_id
+    lane_exchanges = db.query(FTL_Lane_Exchange).filter(
+        FTL_Lane_Exchange.shipper_company_id == company_id
     ).all()
 
     def format_shipment_exchange(exchange):
