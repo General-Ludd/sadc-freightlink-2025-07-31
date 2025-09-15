@@ -96,12 +96,12 @@ def broker_access_get_dashboard_home_data(
                 "eta_window": f"{load.eta_date}-{load.eta_window}"
             },
             "details": {
-                "truck_type": load.required_truck_type,
-                "axle_configuration": load.axle_configuration if load.axle_configuration else None,
-                "equipment_type": load.equipment_type if load.equipment_type else None,
-                "trailer_type": load.trailer_type if load.trailer_type else None,
-                "trailer_length": load.trailer_length if load.trailer_length else None,
-                "commodity": load.commodity if load.commodity else None,
+                "truck_type": getattr(load, "required_truck_type", None),
+                "axle_configuration": getattr(load, "axle_configuration", None),
+                "equipment_type": getattr(load, "equipment_type", None),
+                "trailer_type": getattr(load, "trailer_type", None),
+                "trailer_length": getattr(load, "trailer_length", None),
+                "commodity": getattr(load, "commodity", None),
             },
             "distance": {
                 "trip_distance": load.distance,
