@@ -227,6 +227,8 @@ def broker_access_get_individual_ftl_shipment(
         if not shipment:
             raise HTTPException(status_code=404, detail="Shipment not found")
 
+        documents = db.query(FTL_Shipment_Docs).filter(FTL_Shipment_Docs.shipment_id == shipment.id).first()
+
         consignor = db.query(Consignor).filter(Consignor.id == shipment.consignor_id).first()
         broker_transaction = db.query(Brokers_Brokerage_Transactions).filter(
             Brokers_Brokerage_Transactions.shipment_id == shipment.id,
@@ -279,6 +281,15 @@ def broker_access_get_individual_ftl_shipment(
                 "distance": shipment.distance,
                 "estimated_transit_time": shipment.estimated_transit_time,
                 "route_preview_embed": shipment.route_preview_embed,
+            },
+
+            "shipment_documents": {
+                "commercial_invoice": documents.commercial_invoice if documents.commercial_invoice else "N/A",
+                "packaging_list": documents.packaging_list if documents.packaging_list else "N/A",
+                "customs_declaration_form": documents.customs_declaration_form if documents.customs_declaration_form else "N/A",
+                "import_or_export_permits": documents.import_or_export_permits if documents.import_or_export_permits else "N/A",
+                "certificate_of_origin": documents.certificate_of_origin if documents.certificate_of_origin else "N/A",
+                "da5501orsad500": documents.da5501orsad500 if documents.da5501orsad500 else "N/A",
             },
 
             "consignor_information": {
