@@ -169,19 +169,12 @@ def broker_access_get_dashboard_home_data(
             "id": exchange.id,
             "type": exchange.type,
             "status": exchange.auction_status,  # e.g., Open
-            "pickup": {
-                "origin": exchange.origin_city_province,
-                "pickup_date": exchange.pickup_date,
-            },
-            "dropoff": {
-                "destination": exchange.destination_city_province,
-                "eta_date": exchange.eta_date if exchange.eta_date else None,
-                "eta_window": exchange.eta_window if exchange.eta_window else None,
-            },
+            "origin": exchange.origin_city_province,
+            "pickup_date": exchange.pickup_date,
+            "destination": exchange.destination_city_province,
             "your_offer_rate": exchange.offer_price,
             "leading_bid": exchange.leading_bid_amount if exchange.leading_bid_amount else None,
             "bids_submitted": exchange.number_of_bids_submitted,
-            "end_time": exchange.end_time
         }
 
     def format_lane_exchange(exchange):
