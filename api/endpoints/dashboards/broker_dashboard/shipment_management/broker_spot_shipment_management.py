@@ -57,15 +57,21 @@ def broker_access_get_dashboard_home_data(
     power_shipment_ids = [shipment.id for shipment in power_shipments]
 
     # Brokerage transactions
-    ftl_brokerage_transactions = db.query(Brokers_Brokerage_Transactions).filter(
-        Brokers_Brokerage_Transactions.shipment_id.in_(ftl_shipment_ids),
-        Brokers_Brokerage_Transactions.type == "FTL"
-    ).all()
+    ftl_brokerage_transactions = []
+    power_brokerage_transactions = []
 
-    power_brokerage_transactions = db.query(Brokers_Brokerage_Transactions).filter(
-        Brokers_Brokerage_Transactions.shipment_id.in_(power_shipment_ids),
-        Brokers_Brokerage_Transactions.type == "POWER"
-    ).all()
+    # Brokerage transactions
+    if ftl_shipment_ids:
+        ftl_brokerage_transactions = db.query(Brokers_Brokerage_Transactions).filter(
+            Brokers_Brokerage_Transactions.shipment_id.in_(ftl_shipment_ids),
+            Brokers_Brokerage_Transactions.type == "FTL"
+        ).all()
+
+    if power_shipment_ids:
+        power_brokerage_transactions = db.query(Brokers_Brokerage_Transactions).filter(
+            Brokers_Brokerage_Transactions.shipment_id.in_(power_shipment_ids),
+            Brokers_Brokerage_Transactions.type == "POWER"
+        ).all()
 
     ftl_brokerage_map = {bt.shipment_id: bt.consignor_billable for bt in ftl_brokerage_transactions}
     power_brokerage_map = {bt.shipment_id: bt.consignor_billable for bt in power_brokerage_transactions}
