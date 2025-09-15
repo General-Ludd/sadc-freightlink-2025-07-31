@@ -11,7 +11,7 @@ from models.spot_bookings.ftl_shipment import FTL_SHIPMENT
 from models.spot_bookings.power_shipment import POWER_SHIPMENT
 from models.Exchange.ftl_shipment import FTL_SHIPMENT_EXCHANGE
 from models.Exchange.power_shipment import POWER_SHIPMENT_EXCHANGE
-from models.exchange.dedicated_ftl_lane import FTL_Lane_Exchange
+from models.Exchange.dedicated_ftl_lane import FTL_Lane_Exchange
 from models.spot_bookings.shipment_facility import ContactPerson, ShipmentFacility
 from models.user import Driver
 from models.vehicle import ShipperTrailer, Vehicle
