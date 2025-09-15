@@ -83,11 +83,11 @@ def broker_access_get_dashboard_home_data(
             },
             "pickup": {
                 "origin": load.origin_city_province,
-                "appointment": f"{load.pickup_date}-{getattr(load, 'pickup_appointment', "N/A")}"
+                "appointment": f"{load.pickup_date}-{load.pickup_appointment}"
             },
             "dropoff": {
                 "destination": load.destination_city_province,
-                "eta_window": f"{getattr(load, 'eta_date', "N/A")}-{getattr(load, 'eta_window', "N/A")}"
+                "eta_window": f"{load.eta_date}-{load.eta_window}"
             },
             "details": {
                 "truck_type": load.required_truck_type,
