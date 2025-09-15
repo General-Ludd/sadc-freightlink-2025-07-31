@@ -223,9 +223,15 @@ def broker_access_get_individual_ftl_shipment(
 
     try:
         shipment = db.query(FTL_SHIPMENT).filter(FTL_SHIPMENT.id == id).first()
+        if not shipment:
+            raise HTTPException(status_code=404, detail="Shipment not found")
+
         consignor = db.query(Consignor).filter(Consignor.id == shipment.consignor_id).first()
-        broker_transaction = db.query(Brokers_Brokerage_Transactions).filter(Brokers_Brokerage_Transactions.shipment_id == shipment.id,
-                                                                            Brokers_Brokerage_Transactions.type == shipment.type).first()
+        broker_transaction = db.query(Brokers_Brokerage_Transactions).filter(
+            Brokers_Brokerage_Transactions.shipment_id == shipment.id,
+            Brokers_Brokerage_Transactions.type == shipment.type
+        ).first()
+
         carrier = db.query(Carrier).filter(Carrier.id == shipment.carrier_id).first()
         vehicle = db.query(Vehicle).filter(Vehicle.id == shipment.vehicle_id).first()
         driver = db.query(Driver).filter(Driver.id == shipment.driver_id).first()
@@ -275,15 +281,17 @@ def broker_access_get_individual_ftl_shipment(
             },
 
             "consignor_information": {
-                "id": consignor.id,
-                "client_type": consignor.client_type,
-                "business_sector": consignor.business_sector,
-                "company_name": consignor.company_name,
-                "contact_person": consignor.contact_person_name,
-                "phone_number": consignor.phone_number,
-                "email": consignor.email,
+                "id": consignor.id if consignor else "N/A",
+                "client_type": consignor.client_type if consignor else "N/A",
+                "business_sector": consignor.business_sector if consignor else "N/A",
+                "company_name": consignor.company_name if consignor else "N/A",
+                "contact_person": consignor.contact_person_name if consignor else "N/A",
+                "phone_number": consignor.phone_number if consignor else "N/A",
+                "email": consignor.email if consignor else "N/A",
                 "consignor_billable": broker_transaction.per_shipment_consignor_billable if broker_transaction else "N/A",
-                "broker_profit": (broker.transaction.per_shipment_consignor_billable - shipment.quote)
+                "broker_profit": (
+                    broker_transaction.per_shipment_consignor_billable - shipment.quote
+                ) if broker_transaction else "N/A"
             },
 
             "carrier_information": {
@@ -291,12 +299,12 @@ def broker_access_get_individual_ftl_shipment(
                 "carrier_name": f"SADC FREIGHTLINK Carrier-{carrier.id}" if carrier else "N/A",
                 "carrier_git_cover": carrier.git_cover_amount if carrier else "N/A",
                 "carrier_liability_cover_amount": carrier.liability_insurance_cover_amount if carrier else "N/A",
-    
+
                 "assigned_vehicle": {
                     "id": vehicle.id if vehicle else "N/A",
                     "make": vehicle.make if vehicle else "N/A",
                     "model": vehicle.model if vehicle else "N/A",
-                    "year": vehicle.color if vehicle else "N/A",
+                    "year": vehicle.year if vehicle else "N/A",
                     "license_plate": vehicle.license_plate if vehicle else "N/A",
                     "vin": vehicle.vin if vehicle else "N/A",
                     "vehicle_type": vehicle.type if vehicle else "N/A",
@@ -306,7 +314,7 @@ def broker_access_get_individual_ftl_shipment(
                     "tare_weight": vehicle.tare_weight if vehicle else "N/A",
                     "gvm_weight": vehicle.gvm_weight if vehicle else "N/A",
                     "payload_capacity": vehicle.payload_capacity if vehicle else "N/A",
-                },
+                } if vehicle else None,
 
                 "assigned_driver": {
                     "id": driver.id if driver else "N/A",
@@ -315,41 +323,40 @@ def broker_access_get_individual_ftl_shipment(
                     "license_number": driver.license_number if driver else "N/A",
                     "email": driver.email if driver else "N/A",
                     "phone_number": driver.phone_number if driver else "N/A",
-                },
+                } if driver else None,
 
                 "financial": {
                     "rate": shipment.quote,
-                    "rate_per_kilometer": (shipment.quote / shipment.distance),
-                    "rate_per_ton": (shipment.quote / shipment.minimum_weight_bracket),
+                    "rate_per_kilometer": (shipment.quote / shipment.distance) if shipment.distance else None,
+                    "rate_per_ton": (shipment.quote / shipment.minimum_weight_bracket) if shipment.minimum_weight_bracket else None,
                     "distance": shipment.distance,
                     "payment_terms": shipment.payment_terms,
                     "invoice_due_date": shipment.invoice_due_date,
                 },
 
-            "pickup_facility": {
-                "facility_name": pickup_facility.name if pickup_facility else None,
-                "address": pickup_facility.address if pickup_facility else None,
-                "time_window": f"{pickup_facility.start_time} - {pickup_facility.end_time}",
-                "scheduling_type": pickup_facility.scheduling_type,
-                "contact_name": f"{pickup_contact.first_name} - {pickup_contact.last_name}" if pickup_contact else None,
-                "email": pickup_contact.email if pickup_contact else None,
-                "contact_phone": pickup_contact.phone_number if pickup_contact else None,
-                "notes": pickup_facility.facility_notes if pickup_facility else None,
-            } if pickup_facility else None,
+                "pickup_facility": {
+                    "facility_name": pickup_facility.name if pickup_facility else None,
+                    "address": pickup_facility.address if pickup_facility else None,
+                    "time_window": f"{pickup_facility.start_time} - {pickup_facility.end_time}" if pickup_facility else None,
+                    "scheduling_type": pickup_facility.scheduling_type if pickup_facility else None,
+                    "contact_name": f"{pickup_contact.first_name} {pickup_contact.last_name}" if pickup_contact else None,
+                    "email": pickup_contact.email if pickup_contact else None,
+                    "contact_phone": pickup_contact.phone_number if pickup_contact else None,
+                    "notes": pickup_facility.facility_notes if pickup_facility else None,
+                } if pickup_facility else None,
 
-            "delivery_facility": {
-                "facility_name": delivery_facility.name if delivery_facility else None,
-                "address": delivery_facility.address if delivery_facility else None,
-                "time_window": f"{delivery_facility.start_time} - {delivery_facility.end_time}",
-                "scheduling_type": delivery_facility.scheduling_type,
-                "contact_name": f"{delivery_contact.first_name} - {delivery_contact.last_name}" if pickup_contact else None,
-                "email": delivery_contact.email if pickup_contact else None,
-                "contact_phone": delivery_contact.phone_number if delivery_contact else None,
-                "notes": delivery_facility.facility_notes if delivery_facility else None,
-            } if delivery_facility else None,
-
+                "delivery_facility": {
+                    "facility_name": delivery_facility.name if delivery_facility else None,
+                    "address": delivery_facility.address if delivery_facility else None,
+                    "time_window": f"{delivery_facility.start_time} - {delivery_facility.end_time}" if delivery_facility else None,
+                    "scheduling_type": delivery_facility.scheduling_type if delivery_facility else None,
+                    "contact_name": f"{delivery_contact.first_name} {delivery_contact.last_name}" if delivery_contact else None,
+                    "email": delivery_contact.email if delivery_contact else None,
+                    "contact_phone": delivery_contact.phone_number if delivery_contact else None,
+                    "notes": delivery_facility.facility_notes if delivery_facility else None,
+                } if delivery_facility else None,
             }
-    }
+        }
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
