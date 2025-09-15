@@ -29,7 +29,7 @@ def get_db():
     finally:
         db.close()
 
-@router.get("/broker-access/dashboard")
+@router.get("/broker-access")
 def broker_access_get_dashboard_home_data(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
