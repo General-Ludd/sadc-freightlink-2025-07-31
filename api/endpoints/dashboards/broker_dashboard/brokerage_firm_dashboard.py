@@ -90,6 +90,12 @@ def get_brokerage_company_profile_information(
             FinancialAccounts.id == company_id
         ).first()
         return {
+            "verification": {
+                "company_information": company.is_verified,
+                "director_information": director.is_verified,
+                "financial_information": financial_account.is_verified
+            },
+            
             "company_information": {
                 "id": company.id,
                 "type": company.type,
