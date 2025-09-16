@@ -254,6 +254,8 @@ def assign_shipment_to_vehicle(
         # ✅ fixed tuple bug
         shipment.vehicle_id = vehicle.id
         shipment.driver_id = vehicle.primary_driver_id if vehicle.primary_driver_id else None
+        carrier_shipment.vehicle_id = vehicle.id,
+        carrier_shipment.driver_id = vehicle.primary_driver_id if vehicle.primary_driver_id else None
 
         db.add(vehicle_schedule)
         db.commit()
