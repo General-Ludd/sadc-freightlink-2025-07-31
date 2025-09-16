@@ -341,7 +341,7 @@ def broker_access_single_ftl_lane_exchange_detials(
                         "per_shipment_client_billable": exchange.per_shipment_consignor_billable,
                         "contract_client_billable": exchange.contract_consignor_billable,
                         "per_shipment_broker_profit": (exchange.per_shipment_consignor_billable - exchange.per_shipment_offer_rate),
-                        "contract_broker_profit": (exchange.contract_consingor_billable - exchange.contract_offer_rate)
+                        "contract_broker_profit": (exchange.contract_consignor_billable - exchange.contract_offer_rate)
                     },
 
                     "financial_information": {
