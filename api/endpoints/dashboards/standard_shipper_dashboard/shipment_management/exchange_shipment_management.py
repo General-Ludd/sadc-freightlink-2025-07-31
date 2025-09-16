@@ -232,7 +232,7 @@ def cancel_exchange_ftl_exchange_endpoint(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.get("shipper/power-exchange/{id}")
+@router.get("/shipper/power-exchange/{id}")
 def get_single_power_exchange_details(
     id: int,
     db: Session = Depends(get_db),

@@ -242,7 +242,7 @@ def assign_shipment_to_vehicle(
             origin=shipment.origin_city_province,
             destination=shipment.destination_city_province,  # ✅ fixed
             pickup_date=shipment.pickup_date,
-            pickup_appointment=carrier_shipment.pickup_appointment,
+            pickup_appointment=carrier_shipment.pickup_start_time,
             eta_date=carrier_shipment.eta_date,
             eta_window=carrier_shipment.eta_window,
             distance=carrier_shipment.distance,
