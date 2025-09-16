@@ -68,7 +68,7 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
 
     return {"access_token": token, "token_type": "bearer"}
 
-@router.get("/shipper/company-information/id")
+@router.get("/shipper/company-information")
 def get_shipper_company_profile_information(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)

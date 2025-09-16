@@ -72,7 +72,7 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
 
 
 
-@router.get("/broker-access/company-information/id")
+@router.get("/broker-access/company-information")
 def get_brokerage_company_profile_information(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
