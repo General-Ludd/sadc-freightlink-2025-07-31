@@ -317,6 +317,7 @@ def broker_access_single_ftl_lane_exchange_detials(
         return {
                 "exchange_lane_details": {
                     "id": exchange.id,
+                    "exchange_status": exchange.auction_status,
                     "type": exchange.type,
                     "trip_type": exchange.trip_type,
                     "load_type": exchange.load_type,
