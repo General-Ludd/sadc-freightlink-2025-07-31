@@ -125,7 +125,7 @@ def get_brokerage_company_profile_information(
             "financial_account_information": {
                 "id": financial_account.id,
                 "payment_terms": financial_account.payment_terms,
-                "company_name": financial_account.legal_business_name,
+                "company_name": company.legal_business_name,
                 "country_of_incorporation": financial_account.business_country_of_incorporation,
                 "company_registration_number": financial_account.business_registration_number,
                 "company_address": financial_account.business_address,
@@ -162,6 +162,7 @@ def get_brokerage_company_profile_information(
                     "average_spend": financial_account.average_spend,
                     "total_outstanding": financial_account.total_outstanding,
                     "total_paid": financial_account.total_paid,
+                    "credit_balance": financial_account.credit_balance,
                     "spending_limit": financial_account.spending_limit,
                     "number_of_paid_invoices": financial_account.num_of_paid_invoices,
                     "number_of_outstanding_invoices": financial_account.num_of_paid_invoices,
