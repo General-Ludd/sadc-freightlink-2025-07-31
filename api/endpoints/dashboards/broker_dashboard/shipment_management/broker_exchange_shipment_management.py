@@ -104,7 +104,7 @@ def broker_access_get_single_ftl_exchange_details(
                 "phone_number": consignor.phone_number,
                 "email": consignor.email,
                 "client_billable": exchange.consignor_billable,
-                "broker_profit": (exchange.consignor_billable - exchange.offer_rate)
+                "broker_profit": (exchange.consignor_billable - exchange.price)
             },
 
             "exchange_finance": {
