@@ -145,6 +145,24 @@ def broker_access_get_single_ftl_exchange_details(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.post("/broker-access/ftl-exchange-cancel/{exchange_id}", status_code=status.HTTP_200_OK)
+def broker_access_cancel_exchange_ftl_exchange_endpoint(
+    exchange_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Cancels a Spot POWER shipment by ID.
+    """
+    try:
+        result = cancel_exchange_ftl_booking(
+            db=db,
+            exchange_id=exchange_id,
+            current_user=current_user,
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("/broker-access/power-exchange/{id}")
@@ -383,12 +401,11 @@ def broker_access_single_ftl_lane_exchange_detials(
 
                         "bid": [{
                             "id": bid.id,
+                            "carrier_id": f"Carrier-{bid.carrier_id}",
+                            "per_shipment_bid_amount": bid.baked_per_shipment_bid_amount,
+                            "contract_bid_amount": bid.baked_contract_bid_amount,
                             "status": bid.status,
-                            "carrier_id": bid.carrier_id,
-                            "carrier_name": f"SADC FREIGHTLINK Carrier-{bid.carrier_id}",
-                            "per_shipment_rate": bid.baked_per_shipment_bid_amount,
-                            "contract_rate": bid.baked_contract_bid_amount,
-                            "submitted_at": bid.submitted_at,
+                            "submitted_at": bid.submitted_at
                         } for bid in bids]
                     },
                     
@@ -429,3 +446,22 @@ def broker_access_single_ftl_lane_exchange_detials(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/broker-access/ftl-lane-exchange-cancel/{exchange_id}", status_code=status.HTTP_200_OK)
+def broker_access_cancel_exchange_ftl_lane_exchange_endpoint(
+    exchange_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Cancels a Spot POWER shipment by ID.
+    """
+    try:
+        result = cancel_exchange_ftl_lane_booking(
+            db=db,
+            exchange_id=exchange_id,
+            current_user=current_user,
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
