@@ -24,49 +24,54 @@ def driver_get_all_my_upcoming_shipments(
 ):
     try:
         user_id = current_user.get("id")
-
         today = date.today()
 
-        # Fetch FTL shipments (Assigned & In-Progress only, future or today)
+        # Fetch FTL shipments
         ftl_shipments = db.query(Assigned_Spot_Ftl_Shipments).filter(
             Assigned_Spot_Ftl_Shipments.driver_id == user_id,
             Assigned_Spot_Ftl_Shipments.pickup_date >= today,
             Assigned_Spot_Ftl_Shipments.status.in_(["Assigned", "In-Progress"])
         ).all()
 
-        # Fetch Power shipments (Assigned & In-Progress only, future or today)
+        # Fetch Power shipments
         power_shipments = db.query(Assigned_Power_Shipments).filter(
             Assigned_Power_Shipments.driver_id == user_id,
             Assigned_Power_Shipments.pickup_date >= today,
             Assigned_Power_Shipments.status.in_(["Assigned", "In-Progress"])
         ).all()
 
-        # Merge shipments
+        # Merge
         shipments = ftl_shipments + power_shipments
 
-        # Sort shipments: In-Progress first, then Assigned ordered by pickup_date DESC
+        # Sort
         sorted_shipments = sorted(
             shipments,
             key=lambda s: (
-                0 if s.status == "In-Progress" else 1,   # In-Progress before Assigned
-                -s.pickup_date.toordinal()               # Newest pickup_date first
+                0 if s.status == "In-Progress" else 1,   # In-Progress first
+                -s.pickup_date.toordinal()               # Newest pickup_date
             )
         )
 
-        return {
-            "shipments": [{
+        # Build response
+        result = []
+        for shipment in sorted_shipments:
+            pickup_facility = db.query(ShipmentFacility).filter_by(id=shipment.pickup_facility_id).first()
+            delivery_facility = db.query(ShipmentFacility).filter_by(id=shipment.delivery_facility_id).first()
+
+            result.append({
                 "id": shipment.shipment_id,
                 "type": shipment.type,
                 "status": shipment.status,
                 "origin": shipment.origin_city_province,
                 "pickup_date": shipment.pickup_date,
-                "pickup_appointment": shipment.pickup_start_time,
+                "pickup_appointment": f"{pickup_facility.start_time} - {pickup_facility.end_time}" if pickup_facility else None,
                 "distance": shipment.distance,
                 "destination": shipment.destination_city_province,
                 "eta_date": shipment.eta_date,
                 "eta_window": shipment.eta_window
-            } for shipment in sorted_shipments],
-        }
+            })
+
+        return {"shipments": result}
 
     except Exception as e:
         return {"error": str(e)}
