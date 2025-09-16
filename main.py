@@ -14,6 +14,7 @@ from api.endpoints.dashboards.broker_dashboard import client_management
 from api.endpoints.dashboards.broker_dashboard.bookings import brokerage_firm_spot_bookings
 from api.endpoints.dashboards.broker_dashboard.bookings import brokerage_firm_exchange_bookings
 from api.endpoints.dashboards.broker_dashboard.shipment_management import broker_spot_shipment_management
+from api.endpoints.dashboards.broker_dashboard.shipment_management import broker_exchange_shipment_management
 from api.endpoints.dashboards.carrier_dashboard import carrier_dashboard
 from api.endpoints.dashboards.carrier_dashboard.fleet_management import account_and_user
 from api.endpoints.dashboards.carrier_dashboard.fleet_management import vehicle_management
@@ -55,6 +56,7 @@ app.include_router(exchange_bookings.router, prefix="/api", tags=["Exchange Ship
 app.include_router(brokerage_firm_dashboard.router, prefix="/api", tags=["Brokerage Firm Dashboard"])
 app.include_router(client_management.router, prefix="/api", tags=["Brokerage Firm Client Management"])
 app.include_router(broker_spot_shipment_management.router, prefix="/api", tags=["Brokerage Firm Shipment Management"])
+app.include_router(broker_exchange_shipment_management.router, prefix="/api", tags=["Brokerage Firm Exchange Management"])
 app.include_router(brokerage_firm_spot_bookings.router, prefix="/api", tags=["Brokerage Firm Spot Bookings"])
 app.include_router(brokerage_firm_exchange_bookings.router, prefix="/api", tags=["Brokerage Firm Exchange Bookings"])
 

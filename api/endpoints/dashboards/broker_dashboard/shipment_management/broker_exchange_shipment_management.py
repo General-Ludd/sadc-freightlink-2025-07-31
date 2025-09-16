@@ -2,7 +2,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from db.database import SessionLocal
-from models.shipper import consignor
+from models.shipper import Consignor
 from models.Exchange.auction import Exchange_FTL_Lane_Bid, Exchange_FTL_Shipment_Bid, Exchange_POWER_Shipment_Bid
 from models.Exchange.dedicated_ftl_lane import FTL_Lane_Exchange
 from models.Exchange.ftl_shipment import FTL_SHIPMENT_EXCHANGE
@@ -114,10 +114,10 @@ def broker_access_get_single_ftl_exchange_details(
                 "payment_terms": exchange.payment_terms,
                 "bids": [{
                     "id": bid.id,
+                    "carrier_id": f"Carrier-{bid.carrier_id}",
+                    "bid_amount": bid.baked_bid_amount,
                     "status": bid.status,
-                    "carrier": bid.carrier_id,
-                    "amount": bid.baked_bid_amount,
-                    "submitted_at": bid.submitted_at,
+                    "submitted_at": bid.submitted_at
                 } for bid in bids],
 
             "pickup_facility": {
