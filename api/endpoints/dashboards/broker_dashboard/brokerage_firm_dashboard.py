@@ -142,7 +142,7 @@ def get_brokerage_company_profile_information(
                 "nature_of_business": financial_account.nature_of_business,
                 "annual_turnover": financial_account.annual_turnover,
                 "annual_cashflow": financial_account.annual_cash_flow,
-                "business_credit_score": financial_account.business_credit_score,
+                "business_credit_score": financial_account.credit_score,
                 "bank_name": financial_account.bank_name,
                 "branch_code": financial_account.branch_code,
                 "account_number": financial_account.account_number,
@@ -152,7 +152,7 @@ def get_brokerage_company_profile_information(
                 "status": financial_account.status,
                 "account_confirmation_letter": financial_account.account_confirmation_letter,
                 "tax_clearance_certificate": financial_account.tax_clearance_certificate,
-                "audited_financial_statement": financial_account.audited_financial_statement,
+                "audited_financial_statements": financial_account.audited_financial_statement,
                 "bank_statement": financial_account.bank_statement,
                 "business_credit_score_report": financial_account.business_credit_score_report,
                 "suretyship": financial_account.suretyship,
@@ -164,10 +164,10 @@ def get_brokerage_company_profile_information(
                     "total_paid": financial_account.total_paid,
                     "credit_balance": financial_account.credit_balance,
                     "spending_limit": financial_account.spending_limit,
-                    "number_of_paid_invoices": financial_account.num_of_paid_invoices,
-                    "number_of_outstanding_invoices": financial_account.num_of_paid_invoices,
+                    "number_of_paid_invoices": financial_account.num_paid_invoices,
+                    "number_of_outstanding_invoices": financial_account.num_outstanding_invoices,
                     "number_of_overdue_invoices": financial_account.num_overdue_invoices,
-                    "number_of_ongoing_interim_invoices": financial_account.number_of_ongoing_interim_invoices,
+                    "number_of_ongoing_interim_invoices": financial_account.ongoing_interim_invoices,
                 }
             }
         }
