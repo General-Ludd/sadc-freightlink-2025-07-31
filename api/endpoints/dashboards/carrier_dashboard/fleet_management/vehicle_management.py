@@ -251,7 +251,7 @@ def carrier_get_single_truck(
                 "destination": schedule.destination,
                 "pickup_date": schedule.pickup_date,
                 "pickup_appointment": schedule.pickup_appointment,
-                "eta": schedule.eta,
+                "eta": schedule.eta_date,
                 "distance": schedule.distance,
                 "rate": schedule.rate,
             } for schedule in vehicle_schedules],
