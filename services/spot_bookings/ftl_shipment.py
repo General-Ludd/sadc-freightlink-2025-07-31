@@ -685,7 +685,7 @@ def broker_create_ftl_shipment(
         destination_country=destination_country,
         destination_region=destination_region,
         pickup_date=shipment_data.pickup_date,
-        pickup_appointment=(f"{pickup_facility_data.start_time} - {pickup_facility_data.start_time}"),
+        pickup_appointment=(f"{pickup_facility_data.start_time} - {pickup_facility_data.end_time}"),
         priority_level=shipment_data.priority_level,
         pickup_facility_id=pickup_facility.id,
         delivery_facility_id=dropoff_facility.id,

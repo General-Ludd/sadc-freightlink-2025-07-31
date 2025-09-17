@@ -20,6 +20,8 @@ from services.brokerage.carrier_loadboard_service import calculate_rates
 from utils.billing import BillingEngine
 from fastapi import HTTPException, Depends, Request
 from sqlalchemy.orm import Session
+from utils.sast_datetime import format_datetime_sast
+from utils.google_maps import AddressInput, RouteETAInput, calculate_distance, get_eta_and_polyline
 
 def place_ftl_shipment_bid(db: Session, bid_data: Exchange_FTL_Shipment_Bid_Create, current_user: dict):
     assert "company_id" in current_user, "Missing company_id in current_user"
@@ -210,6 +212,68 @@ def accept_ftl_shipment_exchange_bid(db: Session, bid_data: Accept_Bid, current_
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Exchange billing process failed: {str(e)}")
 
+    try:
+        pickup_facility = db.query(ShipmentFacility).filter(ShipmentFacility.id == exchange.pickup_facility_id).first()
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"pickup appointment query failed: {str(e)}")        
+
+    carrier = db.query(Carrier).filter(
+        Carrier.id == bid.carrier_id).first()
+    if not carrier:
+        raise ValueError("Carrier Not found")
+    if not carrier.is_verified:
+        raise ValueError("Carrier company account not verified. Please request or await verification.")
+    if carrier.status != "Active":
+        raise ValueError("Carrier account is not active.")
+    
+    carrier_financial_account = db.query(CarrierFinancialAccounts).filter(
+        CarrierFinancialAccounts.id == bid.carrier_id).first()
+    if not carrier_financial_account:
+        raise ValueError("Carrier Financial Account Not found")
+    if not carrier_financial_account.is_verified:
+        raise ValueError("Carrier company Financial Account not verified. Please request or await verification.")
+    if carrier_financial_account.status != "Active":
+        raise ValueError("Carrier Financial Account is not active.")
+
+    # Step 1: Calculate Distance and Transit Time
+    try:
+        distance_data = calculate_distance(AddressInput(
+            origin_address=exchange.origin_address,
+            destination_address=exchange.destination_address
+        ))
+        distance = distance_data["distance"]  # Distance in kilometers
+        estimated_transit_time = distance_data["duration"]  # Transit time as text
+        complete_origin_address = distance_data["complete_origin_address"]
+        origin_city_province = distance_data["origin_city_province"]
+        origin_country = distance_data["origin_country"]
+        origin_region = distance_data["origin_region"]
+        complete_destination_address = distance_data["complete_destination_address"]
+        destination_city_province = distance_data["destination_city_province"]
+        destination_country = distance_data["destination_country"]
+        destination_region = distance_data["destination_region"]
+        route_preview_embed = distance_data["google_maps_embed_url"]
+    except HTTPException as e:
+        raise HTTPException(status_code=500, detail=f"Distance calculation failed: {e.detail}")
+
+    # Step 2: get ETA Date, ETA Window, Polylines
+    try:
+        trip_data = get_eta_and_polyline(RouteETAInput(
+            origin_address=exchange.origin_address,
+            destination_address=exchange.destination_address,
+            start_date=exchange.pickup_date,
+            start_time=pickup_facility_facility.end_time,
+        ))
+        eta_date = trip_data["eta_date"]  # Distance in kilometers
+        eta_window = trip_data["eta_window"]  # Transit time as text
+        polyline = trip_data["polyline"]
+    except HTTPException as e:
+        raise HTTPException(status_code=500, detail=f"Trip info calculation failed: {e.detail}")
+
+    def safe_str(val):
+        return val.value if hasattr(val, "value") else str(val)
+
     # Step 1: Create the FTL shipment
     shipment = FTL_SHIPMENT(
         type="FTL",
@@ -254,6 +318,10 @@ def accept_ftl_shipment_exchange_bid(db: Session, bid_data: Accept_Bid, current_
         quote=bid.baked_bid_amount,
         payment_terms=exchange_loadboard.payment_terms,
         route_preview_embed=exchange.route_preview_embed,
+        eta_date=eta_date,
+        eta_window=eta_window,
+        polyline=Polyline,
+        pickup_appointment=f"{pickup_facility.start_time}-{pickup_facility.end_time}",
         shipment_status="Assigned",
         trip_status="Scheduled",
         carrier_id=carrier.id,
@@ -282,10 +350,6 @@ def accept_ftl_shipment_exchange_bid(db: Session, bid_data: Accept_Bid, current_
             billing_address=shipper.business_address,
             db=db
         )
-
-        shipment.invoice_id = shipment_invoice.id
-        shipment.invoice_due_date = shipment_invoice.due_date
-        shipment.invoice_status = shipment_invoice.status
         db.add(shipment)
 
     except Exception as e:
@@ -309,32 +373,18 @@ def accept_ftl_shipment_exchange_bid(db: Session, bid_data: Accept_Bid, current_
         payment_terms=financial_account.payment_terms,
         carrier_payable=bid.bid_amount,
     )
+    shipment.invoice_id = shipment_invoice.id
+    shipment.invoice_due_date = shipment_invoice.due_date
+    shipment.invoice_status = shipment_invoice.status
     db.add(brokerage_transaction)
     db.commit()
     db.refresh(brokerage_transaction)
-
-    carrier = db.query(Carrier).filter(
-        Carrier.id == bid.carrier_id).first()
-    if not carrier:
-        raise ValueError("Carrier Not found")
-    if not carrier.is_verified:
-        raise ValueError("Carrier company account not verified. Please request or await verification.")
-    if carrier.status != "Active":
-        raise ValueError("Carrier account is not active.")
-    
-    carrier_financial_account = db.query(CarrierFinancialAccounts).filter(
-        CarrierFinancialAccounts.id == bid.carrier_id).first()
-    if not carrier_financial_account:
-        raise ValueError("Carrier Financial Account Not found")
-    if not carrier_financial_account.is_verified:
-        raise ValueError("Carrier company Financial Account not verified. Please request or await verification.")
-    if carrier_financial_account.status != "Active":
-        raise ValueError("Carrier Financial Account is not active.")
 
         # Step 9: Update loadboard status
     exchange.auction_status="Closed"
     exchange.trip_savings = (exchange.suggested_price - bid.baked_bid_amount)
     exchange.exchange_savings = (exchange.offer_price - bid.baked_bid_amount)
+    exchange.winning_bid_price = bid.baked_bid_amount
     exchange_loadboard.status="Closed"
 
     brokerage_transaction.carrier_id=carrier.id
@@ -428,7 +478,11 @@ def accept_ftl_shipment_exchange_bid(db: Session, bid_data: Accept_Bid, current_
         delivery_notes=shipment.delivery_notes,
         pickup_facility_id=shipment.pickup_facility_id,
         delivery_facility_id=shipment.delivery_facility_id,
-        estimated_transit_time=shipment.estimated_transit_time
+        estimated_transit_time=shipment.estimated_transit_time,
+        eta_window=eta_window,
+        eta_date=eta_date,
+        pickup_start_time=pickup_facility.start_time,
+        accepted_at=format_datetime_sast(datetime.utcnow().replace(tzinfo=pytz.utc)),
     )
     brokerage_transaction.load_invoice_id = load_invoice.id
     brokerage_transaction.load_invoice_due_date = load_invoice.due_date

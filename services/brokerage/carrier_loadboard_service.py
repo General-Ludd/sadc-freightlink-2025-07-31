@@ -196,7 +196,7 @@ def assign_spot_ftl_shipment_to_carrier(
         shipment.shipment_status = "Assigned"
         shipment.trip_status = "Scheduled"
         shipment.carrier_id = carrier_id
-        shipment.carrier_name = f"SADC FREIGHTLINK Contractor {carrier.id}"
+        shipment.carrier_name = f"SADC FREIGHTLINK Carrier {carrier.id}"
         shipment.carrier_git_cover_amount = carrier.git_cover_amount
         shipment.carrier_liability_cover_amount = carrier.liability_insurance_cover_amount
         shipment.vehicle_id = vehicle.id
@@ -330,7 +330,10 @@ def assign_spot_ftl_shipment_to_carrier(
             delivery_notes=shipment.delivery_notes,
             pickup_facility_id=shipment.pickup_facility_id,
             delivery_facility_id=shipment.delivery_facility_id,
-            estimated_transit_time=shipment.estimated_transit_time
+            estimated_transit_time=shipment.estimated_transit_time,
+            eta_window=shipment.eta_window,
+            eta_date=shipment.eta_date,
+            pickup_start_time=shipment.pickup_appointment
         )
         brokerage_ledger.load_invoice_id = shipment_invoice.id
         brokerage_ledger.load_invoice_due_date = shipment_invoice.due_date
