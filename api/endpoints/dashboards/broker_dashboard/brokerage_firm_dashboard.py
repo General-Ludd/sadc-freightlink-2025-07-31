@@ -35,6 +35,17 @@ def create_brokerage_firm_endpoint(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+@router.get("/broker-access/brokerage-firm-name")
+def get_brokerage_form_name(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    try:
+        firm = db.query(Corporation).fitler(Corporation.id == current_user.get("company_id")).first()
+        return firm.legal_business_name
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 @router.post("/broker-access/-sign-in", response_model=LoginResponse)
 def login(request: LoginRequest, db: Session = Depends(get_db)):
     print("Login request received for:", request.email)
