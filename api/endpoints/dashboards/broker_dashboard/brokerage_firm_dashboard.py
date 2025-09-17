@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from db.database import SessionLocal
-from models.brokerage.finance import FinancialAccounts
+from models.brokerage.finance import FinancialAccounts, Shipment_Invoice, Interim_Invoice, Invoices
 from models.shipper import Corporation
 from schemas.brokerage.finance import Shipper_Financial_Account_Create
 from schemas.shipper import CorporationBase, CorporationResponse
