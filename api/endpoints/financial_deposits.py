@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Request, HTTPException, status, Depends
+from fastapi import APIRouter, Request, HTTPException, status, Response, Depends
 from sqlalchemy.orm import Session
 from db.database import SessionLocal
 from services.brokerage.payment_processor import process_deposit
+import xmltodict
 import os
+import math
 from pydantic import BaseModel
 from datetime import date, datetime
 
@@ -15,39 +17,85 @@ def get_db():
     finally:
         db.close()
 
-class DepositWebhook(BaseModel):
-    transaction_id: str
-    unique_transaction_key: str
-    deposit_amount: float
-    reference: str
-    timestamp: datetime
-    key: str
-
-class DepositResponse(BaseModel):
-    status: str
-    account_id: int | None = None
-    new_credit_balance: int | None = None
-    new_total_outstanding: int | None = None
-    new_total_paid: int | None = None
-    message: str | None = None
-
 NEDBANK_SECRET_KEY = os.getenv("NEDBANK_WEBHOOK_KEY")
 
-@router.post("/nedbank/deposit", response_model=DepositResponse)
-def nedbank_deposit(payload: DepositWebhook, db: Session = Depends(get_db)):
-    # Validate secret key
-    if payload.key != NEDBANK_SECRET_KEY:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid key"
+@router.post("/nedbank/deposit")
+async def nedbank_deposit(request: Request, db: Session = Depends(get_db)):
+    raw_body = await request.body()
+    xml_str = raw_body.decode("utf-8")
+
+    try:
+        # Parse the incoming SOAP XML
+        data = xmltodict.parse(xml_str)
+
+        # Navigate SOAP structure (adjust keys based on actual WSDL schema)
+        deposit = data["soap:Envelope"]["soap:Body"]["DepositNotification"]
+
+        transaction_id = deposit["TransactionId"]
+        unique_transaction_key = deposit["UniqueKey"]
+        deposit_amount = float(deposit["Amount"])
+        reference = deposit["Reference"]
+        timestamp = datetime.fromisoformat(deposit["Timestamp"])
+        key = deposit.get("Key")  # optional, depending on WSDL
+
+        # Validate secret key (if provided in payload)
+        if key and key != NEDBANK_SECRET_KEY:
+            return Response(
+                content="""
+                <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+                  <soap:Body>
+                    <soap:Fault>
+                      <faultcode>SOAP-ENV:Client</faultcode>
+                      <faultstring>Invalid key</faultstring>
+                    </soap:Fault>
+                  </soap:Body>
+                </soap:Envelope>
+                """,
+                media_type="application/xml",
+                status_code=401
+            )
+
+        # Process deposit using your existing business logic
+        result = process_deposit(
+            db=db,
+            transaction_id=transaction_id,
+            unique_transaction_key=unique_transaction_key,
+            amount=deposit_amount,
+            reference=reference,
+            timestamp=timestamp
         )
 
-    result = process_deposit(
-        db=db,
-        transaction_id=payload.transaction_id,
-        unique_transaction_key=payload.unique_transaction_key,
-        amount=payload.deposit_amount,
-        reference=payload.reference,
-        timestamp=payload.timestamp
-    )
-    return result
+        # Build SOAP response
+        response_xml = f"""
+        <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+          <soap:Body>
+            <DepositNotificationResponse>
+              <Status>{result['status']}</Status>
+              <AccountId>{result.get('account_id', '')}</AccountId>
+              <NewCreditBalance>{result.get('new_credit_balance', '')}</NewCreditBalance>
+              <NewTotalOutstanding>{result.get('new_total_outstanding', '')}</NewTotalOutstanding>
+              <NewTotalPaid>{result.get('new_total_paid', '')}</NewTotalPaid>
+              <Message>{result.get('message', '')}</Message>
+            </DepositNotificationResponse>
+          </soap:Body>
+        </soap:Envelope>
+        """
+
+        return Response(content=response_xml, media_type="application/xml")
+
+    except Exception as e:
+        # SOAP Fault on error
+        return Response(
+            content=f"""
+            <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+              <soap:Body>
+                <soap:Fault>
+                  <faultcode>SOAP-ENV:Server</faultcode>
+                  <faultstring>{str(e)}</faultstring>
+                </soap:Fault>
+              </soap:Body>
+            </soap:Envelope>
+            """,
+            media_type="application/xml",
+            status_code=500
+        )
