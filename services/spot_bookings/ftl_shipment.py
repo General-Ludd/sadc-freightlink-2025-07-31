@@ -713,18 +713,27 @@ def broker_create_ftl_shipment(
     db.commit()
     db.refresh(shipment)
 
-    broker_transaction = Brokers_Brokerage_Transactions(
-        brokerage_firm_id=company_id,
-        shipment_id=shipment.id,
-        type=shipment.type,
-        consignor_id=shipment.consignor_id,
-        per_shipment_consignor_billable=broker_transaction_data.consignor_billable,
-        per_shipment_platform_booking_amount=quote_per_shipment,
-        per_shipment_profit=int(broker_transaction_data.consignor_billable - quote_per_shipment)
-    )
-    db.add(broker_transaction)
-    db.commit()
-    db.refresh(broker_transaction)
+    try:
+        client = db.query(Consignor).filter(Consignor.id == consignor_id).first()
+
+        broker_transaction = Brokers_Brokerage_Transactions(
+            brokerage_firm_id=company_id,
+            shipment_id=shipment.id,
+            type=shipment.type,
+            consignor_id=client.id,
+            per_shipment_consignor_billable=broker_transaction_data.consignor_billable,
+            per_shipment_platform_booking_amount=quote_per_shipment,
+            per_shipment_profit=int(broker_transaction_data.consignor_billable - quote_per_shipment)
+        )
+        client.revenue_generated += broker_transaction_data.consignor_billable
+        client.profit_generated += int(broker_transaction_data.consignor_billable - quote_per_shipment)
+        db.add(broker_transaction)
+        db.commit()
+        db.refresh(broker_transaction)
+        print(f"✅ Broker transaction created with ID {broker_transaction.id}")
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Failed to create broker transaction: {e}")
 
     shipment_documents_data = FTL_Shipment_Docs(
         shipment_id=shipment.id,
