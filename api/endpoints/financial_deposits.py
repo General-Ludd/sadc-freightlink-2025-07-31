@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from db.database import SessionLocal
 from services.brokerage.payment_processor import process_deposit
 import xmltodict
+import xml.etree.ElementTree as ET
 import os
 import math
 from pydantic import BaseModel
