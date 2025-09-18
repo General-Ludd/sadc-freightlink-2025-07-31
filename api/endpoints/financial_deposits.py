@@ -20,67 +20,77 @@ def get_db():
 
 NEDBANK_SECRET_KEY = os.getenv("NEDBANK_WEBHOOK_KEY")
 
+def strip_ns(tag: str) -> str:
+    """Remove XML namespace from tag name."""
+    if "}" in tag:
+        return tag.split("}", 1)[1]
+    return tag
+
 @router.post("/nedbank/deposit", response_class=Response)
 async def nedbank_deposit(request: Request, db: Session = Depends(get_db)):
     body = await request.body()
 
     try:
         root = ET.fromstring(body.decode("utf-8"))
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid XML")
+        # SOAP Body → DistributeMsgRq
+        body_node = root.find(".//{http://schemas.xmlsoap.org/soap/envelope/}Body")
+        rq = None
+        for child in body_node:
+            if strip_ns(child.tag) == "DistributeMsgRq":
+                rq = child
+                break
 
-    ns = {
-        "soapenv": "http://schemas.xmlsoap.org/soap/envelope/",
-        "ns2": "http://contracts.it.nednet.co.za/services/business-execution/2013-11-01/TIWebDistribution",
-        "ent": "http://contracts.it.nednet.co.za/Infrastructure/2008/09/EnterpriseContext",
-    }
+        if rq is None:
+            raise ValueError("Missing DistributeMsgRq")
 
-    # Find SOAP body and DistributeMsgRq
-    body_node = root.find(".//soapenv:Body", ns)
-    if body_node is None:
-        raise HTTPException(status_code=400, detail="Missing SOAP Body")
+        # Find TransformedData
+        transformed_data_node = None
+        for elem in rq.iter():
+            if strip_ns(elem.tag) == "TransformedData":
+                transformed_data_node = elem
+                break
 
-    rq = body_node.find("ns2:DistributeMsgRq", ns)
-    if rq is None:
-        raise HTTPException(status_code=400, detail="Missing DistributeMsgRq")
+        if transformed_data_node is None or not transformed_data_node.text:
+            raise ValueError("Missing TransformedData")
 
-    # Extract TransformedData
-    transformed_data_node = rq.find(".//ns2:TransformedData", ns)
-    if transformed_data_node is None or not transformed_data_node.text:
-        raise HTTPException(status_code=400, detail="Missing TransformedData")
+        # Decode Base64 safely
+        clean_data = "".join(transformed_data_node.text.split())
+        decoded_xml = base64.b64decode(clean_data, validate=False).decode("utf-8")
 
-    # Clean + decode TransformedData
-    clean_data = "".join(transformed_data_node.text.split())
-    try:
-        decoded_xml = base64.b64decode(clean_data).decode("utf-8")
+        # Parse decoded XML, strip namespaces
         inner_root = ET.fromstring(decoded_xml)
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid TransformedData")
+        inner_data = {strip_ns(child.tag): child.text for child in inner_root.iter()}
 
-    # Extract fields from decoded XML
-    transaction_id = inner_root.findtext(".//TransactionKey")
-    unique_key = inner_root.findtext(".//ProcessKey")
-    reference = inner_root.findtext(".//UserRef")
-    amount = inner_root.findtext(".//Amount")
+        transaction_id = inner_data.get("TransactionKey", "")
+        unique_key = inner_data.get("ProcessKey", "")
+        reference = inner_data.get("UserRef", "")
+        amount = inner_data.get("Amount", "0")
 
-    # Call business logic (safe defaults if None)
-    result = process_deposit(
-        db=db,
-        transaction_id=transaction_id or "",
-        unique_transaction_key=unique_key or "",
-        amount=float(amount) if amount else 0.0,
-        reference=reference or "",
-        timestamp=None
-    )
+        # Call business logic
+        result = process_deposit(
+            db=db,
+            transaction_id=transaction_id,
+            unique_transaction_key=unique_key,
+            amount=float(amount),
+            reference=reference,
+            timestamp=None
+        )
 
-    # Build SOAP response (as per Nedbank contract)
-    response_xml = """<?xml version="1.0" encoding="UTF-8"?>
+        # Always success if we parsed
+        result_code = "R00"
+
+    except Exception as e:
+        # On ANY failure, reply with a SOAP error code instead of JSON
+        result_code = "R99"
+
+    # Build SOAP response
+    response_xml = f"""<?xml version="1.0" encoding="UTF-8"?>
 <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
                   xmlns:ns2="http://contracts.it.nednet.co.za/services/business-execution/2013-11-01/TIWebDistribution"
                   xmlns="http://contracts.it.nednet.co.za/Infrastructure/2008/09/EnterpriseContext">
   <soapenv:Body>
     <ns2:DistributeMsgRs>
-      <ns2:ResultCode>R00</ns2:ResultCode>
+      <ns2:ResultCode>{result_code}</ns2:ResultCode>
     </ns2:DistributeMsgRs>
   </soapenv:Body>
 </soapenv:Envelope>"""
