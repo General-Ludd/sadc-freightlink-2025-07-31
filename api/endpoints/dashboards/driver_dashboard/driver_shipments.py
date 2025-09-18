@@ -161,7 +161,7 @@ def driver_get_ftl_shipment_id(
     current_user: dict = Depends(get_current_user)
 ):
     try:
-        load = db.query(Assigned_Spot_Ftl_Shipments).filter(Assigned_Spot_Ftl_Shipments.id == id).first()
+        load = db.query(Assigned_Spot_Ftl_Shipments).filter(Assigned_Spot_Ftl_Shipments.shipment_id == id).first()
 
         return {
             "load_details": {
