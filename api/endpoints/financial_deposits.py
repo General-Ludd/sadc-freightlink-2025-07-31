@@ -8,6 +8,7 @@ import os
 import math
 from pydantic import BaseModel
 from datetime import date, datetime
+import base64
 
 router = APIRouter()
 
