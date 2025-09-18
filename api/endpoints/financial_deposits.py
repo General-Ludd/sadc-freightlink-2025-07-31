@@ -28,61 +28,59 @@ def strip_ns(tag: str) -> str:
 
 @router.post("/nedbank/deposit", response_class=Response)
 async def nedbank_deposit(request: Request, db: Session = Depends(get_db)):
-    body = await request.body()
-
+    result_code = "R00"  # Always return R00
     try:
+        body = await request.body()
         root = ET.fromstring(body.decode("utf-8"))
-        # SOAP Body → DistributeMsgRq
+
+        # Extract SOAP Body → DistributeMsgRq
         body_node = root.find(".//{http://schemas.xmlsoap.org/soap/envelope/}Body")
         rq = None
         for child in body_node:
             if strip_ns(child.tag) == "DistributeMsgRq":
                 rq = child
                 break
-
         if rq is None:
-            raise ValueError("Missing DistributeMsgRq")
+            raise ValueError("DistributeMsgRq not found")
 
-        # Find TransformedData
+        # Find TransformedData node
         transformed_data_node = None
         for elem in rq.iter():
             if strip_ns(elem.tag) == "TransformedData":
                 transformed_data_node = elem
                 break
-
         if transformed_data_node is None or not transformed_data_node.text:
-            raise ValueError("Missing TransformedData")
+            raise ValueError("TransformedData missing")
 
         # Decode Base64 safely
         clean_data = "".join(transformed_data_node.text.split())
         decoded_xml = base64.b64decode(clean_data, validate=False).decode("utf-8")
 
-        # Parse decoded XML, strip namespaces
+        # Parse inner XML and remove namespaces
         inner_root = ET.fromstring(decoded_xml)
         inner_data = {strip_ns(child.tag): child.text for child in inner_root.iter()}
 
+        # Map to deposit function
         transaction_id = inner_data.get("TransactionKey", "")
         unique_key = inner_data.get("ProcessKey", "")
         reference = inner_data.get("UserRef", "")
-        amount = inner_data.get("Amount", "0")
+        amount = float(inner_data.get("Amount", 0))
         timestamp = inner_data.get("Time", "")
 
-        # Call business logic
-        result = process_deposit(
+        # Call deposit function
+        deposit_result = process_deposit(
             db=db,
             transaction_id=transaction_id,
             unique_transaction_key=unique_key,
-            amount=float(amount),
+            amount=amount,
             reference=reference,
             timestamp=timestamp
         )
-
-        # Always success if we parsed
-        result_code = "R00"
+        print("Deposit result:", deposit_result)
 
     except Exception as e:
-        # On ANY failure, reply with a SOAP error code instead of JSON
-        result_code = "R00"
+        # Log errors but always return R00
+        print("Error processing Nedbank deposit:", str(e))
 
     # Build SOAP response
     response_xml = f"""<?xml version="1.0" encoding="UTF-8"?>
@@ -95,5 +93,4 @@ async def nedbank_deposit(request: Request, db: Session = Depends(get_db)):
     </ns2:DistributeMsgRs>
   </soapenv:Body>
 </soapenv:Envelope>"""
-
     return Response(content=response_xml, media_type="application/xml")
