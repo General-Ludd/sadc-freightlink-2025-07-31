@@ -46,6 +46,33 @@ def get_brokerage_form_name(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+@router.get("/broker-access/notifications")
+def get_broker_access_notification(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    try:
+        notifications = (
+            db.query(Client_Notification)
+            .filter(Client_Notification.company_id == current_user.get("company_id"))
+            .order_by(Client_Notification.created_at.desc())
+            .all()
+        )
+        return {
+            "notifications": [
+                {
+                    "id": notification.id,
+                    "subject": notification.type,
+                    "message": notification.message,
+                    "is_read": notification.is_read,
+                    "received_at": notification.created_at,
+                }
+                for notification in notifications
+            ]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 @router.post("/broker-access/-sign-in", response_model=LoginResponse)
 def login(request: LoginRequest, db: Session = Depends(get_db)):
     print("Login request received for:", request.email)

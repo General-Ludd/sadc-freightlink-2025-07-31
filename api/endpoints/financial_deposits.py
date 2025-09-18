@@ -23,41 +23,50 @@ NEDBANK_SECRET_KEY = os.getenv("NEDBANK_WEBHOOK_KEY")
 @router.post("/nedbank/deposit", response_class=Response)
 async def nedbank_deposit(request: Request, db: Session = Depends(get_db)):
     body = await request.body()
-    decoded = body.decode("utf-8", errors="replace")
-
     try:
-        root = ET.fromstring(decoded)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Invalid XML: {str(e)}")
+        root = ET.fromstring(body.decode("utf-8"))
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid XML")
 
     ns = {
         "soapenv": "http://schemas.xmlsoap.org/soap/envelope/",
         "ns2": "http://contracts.it.nednet.co.za/services/business-execution/2013-11-01/TIWebDistribution",
-        "ent": "http://contracts.it.nednet.co.za/Infrastructure/2008/09/EnterpriseContext"
+        "ec": "http://contracts.it.nednet.co.za/Infrastructure/2008/09/EnterpriseContext"
     }
 
-    # Extract fields from SOAP body
+    # Find DistributeMsgRq
     body_node = root.find(".//soapenv:Body", ns)
-    if body_node is None:
-        raise HTTPException(status_code=400, detail="SOAP Body not found")
-
     rq = body_node.find("ns2:DistributeMsgRq", ns)
+
     if rq is None:
-        raise HTTPException(status_code=400, detail="DistributeMsgRq element not found")
+        raise HTTPException(status_code=400, detail="Missing DistributeMsgRq")
 
-    transaction_id = rq.findtext("TransactionId")
-    unique_key = rq.findtext("UniqueKey")
-    amount = float(rq.findtext("Amount"))
-    reference = rq.findtext("Reference")
-    timestamp = rq.findtext("Timestamp")
-    key = rq.findtext("Key")
+    # Extract TransformedData (base64 encoded XML)
+    transformed_data_node = rq.find(".//ns2:TransformedData", ns)
+    if transformed_data_node is None or not transformed_data_node.text:
+        raise HTTPException(status_code=400, detail="Missing TransformedData")
 
-    # Validate secret key
-    if key != NEDBANK_SECRET_KEY:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid key")
+    try:
+        inner_xml = base64.b64decode(transformed_data_node.text).decode("utf-8")
+        inner_root = ET.fromstring(inner_xml)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid TransformedData")
 
-    # Process the deposit
-    process_deposit(
+    # Extract fields from inner XML
+    record = inner_root.find(".//TIRealtimeRecord")
+    if record is None:
+        raise HTTPException(status_code=400, detail="Invalid TIRealtimeRecord")
+
+    transaction_id = record.findtext("TransactionKey")
+    unique_key = record.findtext("ProcessKey")
+    amount = float(record.findtext("Amount"))
+    reference = record.findtext("UserRef")
+    date = record.findtext("Date")
+    time = record.findtext("Time")
+    timestamp = f"{date}T{time}" if date and time else None
+
+    # Call your deposit processor
+    result = process_deposit(
         db=db,
         transaction_id=transaction_id,
         unique_transaction_key=unique_key,
@@ -66,7 +75,7 @@ async def nedbank_deposit(request: Request, db: Session = Depends(get_db)):
         timestamp=timestamp
     )
 
-    # Respond **only** with ResultCode R00 (success)
+    # Build SOAP response in Nedbank's required format
     response_xml = f"""<?xml version="1.0" encoding="UTF-8"?>
 <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
                   xmlns:ns2="http://contracts.it.nednet.co.za/services/business-execution/2013-11-01/TIWebDistribution"
