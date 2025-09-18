@@ -163,12 +163,20 @@ def driver_get_ftl_shipment_id(
     try:
         load = db.query(Assigned_Spot_Ftl_Shipments).filter(Assigned_Spot_Ftl_Shipments.shipment_id == id).first()
 
+        pickup_facility = db.query(ShipmentFacility).filter_by(id=load.pickup_facility_id).first()
+        delivery_facility = db.query(ShipmentFacility).filter_by(id=load.delivery_facility_id).first()
+
+        pickup_contact = db.query(ContactPerson).filter_by(id=pickup_facility.contact_person).first() if pickup_facility else None
+        delivery_contact = db.query(ContactPerson).filter_by(id=delivery_facility.contact_person).first() if delivery_facility else None
+
+        load_documents = db.query(FTL_Shipment_Docs).filter(FTL_Shipment_Docs.shipment_id == load.shipment_id).first()
+
         return {
             "load_details": {
                 "type": load.type,
                 "trip_type": load.trip_type,
                 "load_type": load.load_type,
-                "lane_id": load.lane_id,
+                "lane_Id": load.lane_id,
                 "status": load.status,
                 "trip_status": load.trip_status,
                 "origin": load.origin_address_completed,
@@ -194,6 +202,43 @@ def driver_get_ftl_shipment_id(
                 "hazardous": load.hazardous_materials,
                 "temp_control": load.temperature_control,
             },
+            "facilities": {
+                "pickup_facility": {
+                    "name": pickup_facility.name,
+                    "address": load.origin_address_completed,
+                    "scheduling_type": pickup_facility.scheduling_type,
+                    "operating_hours": f"{pickup_facility.start_time} - {pickup_facility.end_time}",
+                    "contact_person": {
+                        "first_name": pickup_contact.first_name,
+                        "last_name": pickup_contact.last_name,
+                        "phone_number": pickup_contact.phone_number,
+                        "email": pickup_contact.email
+                    },
+                    "facility_notes": pickup_facility.facility_notes,
+                },
+
+                "delivery_facility": {
+                    "name": delivery_facility.name,
+                    "address": load.destination_address_completed,
+                    "scheduling_type": delivery_facility.scheduling_type,
+                    "operating_hours": f"{delivery_facility.start_time} - {delivery_facility.end_time}",
+                    "contact_person": {
+                        "first_name": delivery_contact.first_name,
+                        "last_name": delivery_contact.last_name,
+                        "phone_number": delivery_contact.phone_number,
+                        "email": delivery_contact.email
+                    },
+                    "facility_notes": delivery_facility.facility_notes,
+                }
+            },
+            "load_documents": {
+                "commercial_invoice": load_documents.commercial_invoice,
+                "packaging_list": load_documents.packaging_list,
+                "customs_declaration": load_documents.customs_declaration_form,
+                "import_export_permit": load_documents.import_or_export_permits,
+                "certificate_of_origin": load_documents.certificate_of_origin,
+                "da5501orsad500": load_documents.da5501orsad500,
+            }
         }
     except Exception as e:
         return {"error": str(e)}
