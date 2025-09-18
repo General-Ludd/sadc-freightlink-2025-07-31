@@ -9,7 +9,7 @@ class Assigned_Spot_Ftl_Shipments(Base):
     __tablename__ = "assigned_ftl_shipments"
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    shipment_id = Column(Integer, nullable=False)
+    shipment_id = Column(Integer, index=True, nullable=False)
     is_subshipment = Column(Boolean, default=False)
     lane_id = Column(Integer, nullable=True)
     type = Column(String, default="FTL")

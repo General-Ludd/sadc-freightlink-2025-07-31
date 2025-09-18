@@ -5,7 +5,7 @@ from utils.sast_datetime import get_sast_time
 class FTL_SHIPMENT(Base):
     __tablename__ = "ftl_shipments"
 
-    id = Column(Integer, index=True, primary_key=True)
+    id = Column(Integer, primary_key=True, index=True)
     is_subshipment = Column(Boolean, default=False, nullable=False)
     dedicated_lane_id = Column(Integer, nullable=True)
     type = Column(String, default="FTL")
