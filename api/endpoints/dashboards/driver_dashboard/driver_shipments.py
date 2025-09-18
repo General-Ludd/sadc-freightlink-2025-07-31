@@ -162,84 +162,118 @@ def driver_get_ftl_shipment_id(
     current_user: dict = Depends(get_current_user)
 ):
     try:
-        load = db.query(Assigned_Spot_Ftl_Shipments).filter(Assigned_Spot_Ftl_Shipments.shipment_id == id).first()
+        load = db.query(Assigned_Spot_Ftl_Shipments).filter(
+            Assigned_Spot_Ftl_Shipments.shipment_id == id
+        ).first()
 
-        pickup_facility = db.query(ShipmentFacility).filter_by(id=load.pickup_facility_id).first()
-        delivery_facility = db.query(ShipmentFacility).filter_by(id=load.delivery_facility_id).first()
+        if not load:
+            return {"error": f"No FTL shipment found with id {id}"}
 
-        pickup_contact = db.query(ContactPerson).filter_by(id=pickup_facility.contact_person).first() if pickup_facility else None
-        delivery_contact = db.query(ContactPerson).filter_by(id=delivery_facility.contact_person).first() if delivery_facility else None
+        # Facilities
+        pickup_facility = (
+            db.query(ShipmentFacility)
+            .filter_by(id=load.pickup_facility_id)
+            .first()
+            if load.pickup_facility_id else None
+        )
+        delivery_facility = (
+            db.query(ShipmentFacility)
+            .filter_by(id=load.delivery_facility_id)
+            .first()
+            if load.delivery_facility_id else None
+        )
 
-        load_documents = db.query(FTL_Shipment_Docs).filter(FTL_Shipment_Docs.shipment_id == load.shipment_id).first()
+        # Contacts
+        pickup_contact = (
+            db.query(ContactPerson).filter_by(id=pickup_facility.contact_person).first()
+            if pickup_facility and pickup_facility.contact_person else None
+        )
+        delivery_contact = (
+            db.query(ContactPerson).filter_by(id=delivery_facility.contact_person).first()
+            if delivery_facility and delivery_facility.contact_person else None
+        )
+
+        # Documents
+        load_documents = (
+            db.query(FTL_Shipment_Docs)
+            .filter(FTL_Shipment_Docs.shipment_id == load.shipment_id)
+            .first()
+        )
 
         return {
             "load_details": {
-                "type": load.type,
-                "trip_type": load.trip_type,
-                "load_type": load.load_type,
-                "lane_Id": load.lane_id,
-                "status": load.status,
-                "trip_status": load.trip_status,
-                "origin": load.origin_address_completed,
-                "destination": load.destination_address_completed,
-                "pickup_date": load.pickup_date,
-                "priority": load.priority_level,
-                "customer_ref": load.customer_reference_number,
-                "pickup_number": load.pickup_number,
-                "delivery_number": load.delivery_number,
-                "pickup_notes": load.pickup_notes,
-                "delivery_notes": load.delivery_notes,
+                "type": getattr(load, "type", None),
+                "trip_type": getattr(load, "trip_type", None),
+                "load_type": getattr(load, "load_type", None),
+                "lane_Id": getattr(load, "lane_id", None),
+                "status": getattr(load, "status", None),
+                "trip_status": getattr(load, "trip_status", None),
+                "origin": getattr(load, "origin_address_completed", None),
+                "destination": getattr(load, "destination_address_completed", None),
+                "pickup_date": getattr(load, "pickup_date", None),
+                "priority": getattr(load, "priority_level", None),
+                "customer_ref": getattr(load, "customer_reference_number", None),
+                "pickup_number": getattr(load, "pickup_number", None),
+                "delivery_number": getattr(load, "delivery_number", None),
+                "pickup_notes": getattr(load, "pickup_notes", None),
+                "delivery_notes": getattr(load, "delivery_notes", None),
             },
             "load_and_requirements": {
-                "required_truck": load.required_truck_type,
-                "required_equipment": load.equipment_type,
-                "required_trailer_type": load.trailer_type,
-                "required_trailer_length": load.trailer_length,
-                "min_weight_bracket": load.minimum_weight_bracket,
-                "commodity": load.commodity,
-                "weight": load.shipment_weight,
-                "packaging_type": load.packaging_type,
-                "packaging_quantity": load.packaging_quantity,
-                "hazardous": load.hazardous_materials,
-                "temp_control": load.temperature_control,
+                "required_truck": getattr(load, "required_truck_type", None),
+                "required_equipment": getattr(load, "equipment_type", None),
+                "required_trailer_type": getattr(load, "trailer_type", None),
+                "required_trailer_length": getattr(load, "trailer_length", None),
+                "min_weight_bracket": getattr(load, "minimum_weight_bracket", None),
+                "commodity": getattr(load, "commodity", None),
+                "weight": getattr(load, "shipment_weight", None),
+                "packaging_type": getattr(load, "packaging_type", None),
+                "packaging_quantity": getattr(load, "packaging_quantity", None),
+                "hazardous": getattr(load, "hazardous_materials", None),
+                "temp_control": getattr(load, "temperature_control", None),
             },
             "facilities": {
                 "pickup_facility": {
-                    "name": pickup_facility.name,
-                    "address": load.origin_address_completed,
-                    "scheduling_type": pickup_facility.scheduling_type,
-                    "operating_hours": f"{pickup_facility.start_time} - {pickup_facility.end_time}",
+                    "name": getattr(pickup_facility, "name", None),
+                    "address": getattr(load, "origin_address_completed", None),
+                    "scheduling_type": getattr(pickup_facility, "scheduling_type", None),
+                    "operating_hours": f"{getattr(pickup_facility, 'start_time', 'N/A')} - {getattr(pickup_facility, 'end_time', 'N/A')}"
+                    if pickup_facility else None,
                     "contact_person": {
-                        "first_name": pickup_contact.first_name,
-                        "last_name": pickup_contact.last_name,
-                        "phone_number": pickup_contact.phone_number,
-                        "email": pickup_contact.email
-                    },
-                    "facility_notes": pickup_facility.facility_notes,
-                },
-
-                "delivery_facility": {
-                    "name": delivery_facility.name,
-                    "address": load.destination_address_completed,
-                    "scheduling_type": delivery_facility.scheduling_type,
-                    "operating_hours": f"{delivery_facility.start_time} - {delivery_facility.end_time}",
-                    "contact_person": {
-                        "first_name": delivery_contact.first_name,
-                        "last_name": delivery_contact.last_name,
-                        "phone_number": delivery_contact.phone_number,
-                        "email": delivery_contact.email
-                    },
-                    "facility_notes": delivery_facility.facility_notes,
+                        "first_name": getattr(pickup_contact, "first_name", None),
+                        "last_name": getattr(pickup_contact, "last_name", None),
+                        "phone_number": getattr(pickup_contact, "phone_number", None),
+                        "email": getattr(pickup_contact, "email", None),
+                    }
+                    if pickup_contact else None,
+                    "facility_notes": getattr(pickup_facility, "facility_notes", None),
                 }
+                if pickup_facility else None,
+                "delivery_facility": {
+                    "name": getattr(delivery_facility, "name", None),
+                    "address": getattr(load, "destination_address_completed", None),
+                    "scheduling_type": getattr(delivery_facility, "scheduling_type", None),
+                    "operating_hours": f"{getattr(delivery_facility, 'start_time', 'N/A')} - {getattr(delivery_facility, 'end_time', 'N/A')}"
+                    if delivery_facility else None,
+                    "contact_person": {
+                        "first_name": getattr(delivery_contact, "first_name", None),
+                        "last_name": getattr(delivery_contact, "last_name", None),
+                        "phone_number": getattr(delivery_contact, "phone_number", None),
+                        "email": getattr(delivery_contact, "email", None),
+                    }
+                    if delivery_contact else None,
+                    "facility_notes": getattr(delivery_facility, "facility_notes", None),
+                }
+                if delivery_facility else None,
             },
             "load_documents": {
-                "commercial_invoice": load_documents.commercial_invoice,
-                "packaging_list": load_documents.packaging_list,
-                "customs_declaration": load_documents.customs_declaration_form,
-                "import_export_permit": load_documents.import_or_export_permits,
-                "certificate_of_origin": load_documents.certificate_of_origin,
-                "da5501orsad500": load_documents.da5501orsad500,
+                "commercial_invoice": getattr(load_documents, "commercial_invoice", None),
+                "packaging_list": getattr(load_documents, "packaging_list", None),
+                "customs_declaration": getattr(load_documents, "customs_declaration_form", None),
+                "import_export_permit": getattr(load_documents, "import_or_export_permits", None),
+                "certificate_of_origin": getattr(load_documents, "certificate_of_origin", None),
+                "da5501orsad500": getattr(load_documents, "da5501orsad500", None),
             }
+            if load_documents else None,
         }
     except Exception as e:
         return {"error": str(e)}
