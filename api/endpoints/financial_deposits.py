@@ -65,6 +65,7 @@ async def nedbank_deposit(request: Request, db: Session = Depends(get_db)):
         unique_key = inner_data.get("ProcessKey", "")
         reference = inner_data.get("UserRef", "")
         amount = inner_data.get("Amount", "0")
+        timestamp = inner_data.get("Time", "")
 
         # Call business logic
         result = process_deposit(
@@ -73,7 +74,7 @@ async def nedbank_deposit(request: Request, db: Session = Depends(get_db)):
             unique_transaction_key=unique_key,
             amount=float(amount),
             reference=reference,
-            timestamp=None
+            timestamp=timestamp
         )
 
         # Always success if we parsed
