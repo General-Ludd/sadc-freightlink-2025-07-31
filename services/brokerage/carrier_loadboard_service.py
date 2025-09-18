@@ -3,6 +3,7 @@ from typing import Optional
 import pytz
 from sqlalchemy import String, cast
 from sqlalchemy.orm import Session
+from models.spot_bookings.shipment_facility import ShipmentFacility
 from models.brokerage.assigned_lanes import Assigned_Ftl_Lanes
 from models.brokerage.assigned_shipments import Assigned_Power_Shipments, Assigned_Spot_Ftl_Shipments
 from models.brokerage.finance import BrokerageLedger, CarrierFinancialAccounts, Dedicated_Lane_BrokerageLedger, Interim_Invoice, Lane_Interim_Invoice, Lane_Invoice, Load_Invoice
@@ -130,6 +131,8 @@ def assign_spot_ftl_shipment_to_carrier(
         ).first()
         if not shipment:
             raise HTTPException(status_code=404, detail="Shipment not found")
+
+        pickup_facility = db.query(ShipmentFacility).filter(ShipmentFacility.id == shipment.pickup_facility_id).first()
 
         # Step 3: Brokerage Ledger
         brokerage_ledger = db.query(BrokerageLedger).filter(
@@ -333,7 +336,8 @@ def assign_spot_ftl_shipment_to_carrier(
             estimated_transit_time=shipment.estimated_transit_time,
             eta_window=shipment.eta_window,
             eta_date=shipment.eta_date,
-            pickup_start_time=shipment.pickup_appointment
+            pickup_start_time=pickup_facility.start_time,
+            pickup_appointment=shipment.pickup_appointment
         )
         brokerage_ledger.load_invoice_id = shipment_invoice.id
         brokerage_ledger.load_invoice_due_date = shipment_invoice.due_date

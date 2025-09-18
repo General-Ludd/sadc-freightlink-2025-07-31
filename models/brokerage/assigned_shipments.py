@@ -53,6 +53,7 @@ class Assigned_Spot_Ftl_Shipments(Base):
     route_preview_embed = Column(String, nullable=True)
     pickup_date = Column(Date)
     pickup_start_time = Column(Time)
+    pickup_appointment = Column(String)
     priority_level = Column(String, nullable=True)
     customer_reference_number = Column(String)
     shipment_weight = Column(Integer)

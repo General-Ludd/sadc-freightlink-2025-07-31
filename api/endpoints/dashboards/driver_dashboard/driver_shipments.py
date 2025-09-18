@@ -130,7 +130,7 @@ def driver_get_all_my_shipments_split(
                 "status": shipment.status,
                 "origin": shipment.origin_city_province,
                 "pickup_date": shipment.pickup_date,
-                "pickup_appointment": shipment.pickup_start_time,
+                "pickup_appointment": shipment.pickup_appointment,
                 "distance": shipment.distance,
                 "destination": shipment.destination_city_province,
                 "eta_date": shipment.eta_date,
