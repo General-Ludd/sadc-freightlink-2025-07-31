@@ -169,7 +169,7 @@ def driver_get_ftl_shipment_id(
         pickup_contact = db.query(ContactPerson).filter_by(id=pickup_facility.contact_person).first() if pickup_facility else None
         delivery_contact = db.query(ContactPerson).filter_by(id=delivery_facility.contact_person).first() if delivery_facility else None
 
-        load_documents = db.query(FTL_Shipment_Docs).filter(FTL_Shipment_Docs.shipment_id == load.id).first()
+        load_documents = db.query(FTL_Shipment_Docs).filter(FTL_Shipment_Docs.shipment_id == load.shipment_id).first()
 
         return {
             "load_details": {
