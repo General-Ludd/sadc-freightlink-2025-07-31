@@ -163,8 +163,8 @@ def driver_get_ftl_shipment_id(
     try:
         load = db.query(Assigned_Spot_Ftl_Shipments).filter(Assigned_Spot_Ftl_Shipments.shipment_id == id).first()
 
-        pickup_facility = db.query(ShipmentFacility).filter_by(id=shipment.pickup_facility_id).first()
-        delivery_facility = db.query(ShipmentFacility).filter_by(id=shipment.delivery_facility_id).first()
+        pickup_facility = db.query(ShipmentFacility).filter_by(id=load.pickup_facility_id).first()
+        delivery_facility = db.query(ShipmentFacility).filter_by(id=load.delivery_facility_id).first()
 
         pickup_contact = db.query(ContactPerson).filter_by(id=pickup_facility.contact_person).first() if pickup_facility else None
         delivery_contact = db.query(ContactPerson).filter_by(id=delivery_facility.contact_person).first() if delivery_facility else None

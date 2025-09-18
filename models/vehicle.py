@@ -57,7 +57,7 @@ class Vehicle(Base):
     right_angle_image = Column(String, nullable=False)
     is_verified = Column(Boolean, default=False)
     status = Column(Enum("Un-verified", "Active", "Under Investigation", "Suspended"), default="Un-verified") #Update in Database
-    service_status = Column(String) #################Update in database
+    service_status = Column(Enum("Available", "In Use", "Maintenance"), default="Available") #################Update in database
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 

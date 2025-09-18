@@ -26,6 +26,7 @@ def create_shipper_sub_user(db: Session, user_data: DirectorCreate, current_user
         email=user_data.email,
         password_hash=hash_password(user_data.password_hash),
         is_director=False,
+        is_verified=False,
         id_document=user_data.id_document,
         proof_of_address=user_data.proof_of_address,
     )
