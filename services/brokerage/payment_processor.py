@@ -1,29 +1,33 @@
 from sqlalchemy.orm import Session
 from models.brokerage.finance import FinancialAccounts, BankTransaction
 import math
-
 def process_deposit(db: Session, transaction_id: str, unique_transaction_key: str,
                     amount: float, reference: str, timestamp: str):
-    """
-    Process Nedbank deposit into FinancialAccount.
-    Ensures unique_transaction_key and converts floats to integers.
-    """
+    # Log input
+    print(f"Processing deposit: txn={transaction_id}, key={unique_transaction_key}, ref={reference}, amount={amount}")
 
-    # Prevent duplicates
-    existing = db.query(BankTransaction).filter_by(unique_transaction_key=unique_transaction_key).first()
-    if existing:
-        return {"status": "ignored", "message": "Duplicate transaction from Nedbank"}
-
-    # Convert amount to integer
-    deposit_amount = int(math.floor(amount))
+    # Ensure amount is float/int
+    try:
+        deposit_amount = int(math.floor(float(amount)))
+    except Exception:
+        deposit_amount = 0
+        print("Invalid amount, set to 0")
 
     if not reference.startswith("FA-"):
+        print("Invalid reference format")
         return {"status": "error", "message": "Invalid reference format"}
 
     account_id = int(reference.split("-")[1])
     account = db.query(FinancialAccounts).get(account_id)
     if not account:
+        print(f"Account {account_id} not found")
         return {"status": "error", "message": f"Financial account {account_id} not found"}
+
+    # Check for duplicate
+    existing = db.query(BankTransaction).filter_by(unique_transaction_key=unique_transaction_key).first()
+    if existing:
+        print(f"Duplicate transaction {unique_transaction_key} ignored")
+        return {"status": "ignored", "message": "Duplicate transaction from Nedbank"}
 
     # Apply business rules
     if account.payment_terms == "PAB":
@@ -38,7 +42,7 @@ def process_deposit(db: Session, transaction_id: str, unique_transaction_key: st
             account.total_outstanding -= deposit_amount
             account.total_paid += deposit_amount
 
-    # Save processed transaction
+    # Save transaction
     txn = BankTransaction(
         transaction_id=transaction_id,
         unique_transaction_key=unique_transaction_key,
@@ -47,7 +51,9 @@ def process_deposit(db: Session, transaction_id: str, unique_transaction_key: st
     )
     db.add(txn)
     db.commit()
+    db.refresh(account)
 
+    print(f"Deposit successful: account_id={account_id}, new_credit={account.credit_balance}")
     return {
         "status": "success",
         "account_id": account_id,
