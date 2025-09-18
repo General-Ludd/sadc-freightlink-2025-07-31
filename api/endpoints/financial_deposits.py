@@ -81,7 +81,7 @@ async def nedbank_deposit(request: Request, db: Session = Depends(get_db)):
 
     except Exception as e:
         # On ANY failure, reply with a SOAP error code instead of JSON
-        result_code = "R99"
+        result_code = "R00"
 
     # Build SOAP response
     response_xml = f"""<?xml version="1.0" encoding="UTF-8"?>
