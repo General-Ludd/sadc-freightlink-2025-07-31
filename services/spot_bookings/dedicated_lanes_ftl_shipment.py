@@ -160,7 +160,7 @@ def create_dedicated_lane_ftl_shipment(
         all_payment_dates = BillingEngine.get_contract_billing_dates(
              start_date=shipment_data.start_date,
              end_date=shipment_data.end_date,
-             term=payment_term
+             term=payment_terms
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Payment schedule generation failed: {str(e)}")
