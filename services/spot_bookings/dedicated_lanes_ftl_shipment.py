@@ -20,7 +20,7 @@ from schemas.brokerage.finance import Lane_Brokerage_TransactionCreate
 from schemas.shipper import ConsignorCreate
 from services.brokerage.brokerage_service import calculate_brokerage_details, calculate_contract_brokerage_details
 from services.brokerage.carrier_loadboard_service import calculate_rates
-from services.brokerage.recurrence_calculator import DedicatedLanesFtlShipmentPaymentSchedule, RecurrenceCalculator
+from services.brokerage.recurrence_calculator import ScheduleDedicatedLanesFtlShipmentPayment, RecurrenceCalculator
 from services.finance.finance import handle_30_day_pay, handle_contract_pay
 from services.shipment_service import calculate_quote_for_shipment, calculate_total_shipment_quote
 from utils.billing import BillingEngine
@@ -160,7 +160,7 @@ def create_dedicated_lane_ftl_shipment(
         all_payment_dates = BillingEngine.get_contract_billing_dates(
              start_date=shipment_data.start_date,
              end_date=shipment_data.end_date,
-             term=payment_terms
+             payment_terms=payment_terms
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Payment schedule generation failed: {str(e)}")
