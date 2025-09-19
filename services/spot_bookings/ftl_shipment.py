@@ -254,32 +254,23 @@ def create_ftl_shipment(
 
     payment_terms = financial_account.payment_terms
 
-    try:
-        shipment_invoice = BillingEngine.generate_shipment_invoice(
-            shipment_id=shipment.id,
-            shipment_type=shipment.type,
-            pickup_date=shipment.pickup_date,
-            due_date=BillingEngine.get_next_due_date(shipment.pickup_date, financial_account.payment_terms),
-            amount=quote_per_shipment,
-            company_id=company_id,
-            payment_terms=financial_account.payment_terms,
-            #New
-            description=f"FTL Shipment {shipment.id}",
-            business_name=shipper.legal_business_name,
-            contact_person_name=f"{financial_account.directors_first_name}-{financial_account.directors_last_name}",
-            business_email=shipper.business_email,
-            billing_address=shipper.business_address,
-            db=db
-        )
-        db.add(shipment_invoice)
+    # --- Generate Invoice ---
+    shipment_invoice = BillingEngine.create_shipment_invoice(
+        db=db,
+        company_id=company_id,
+        financial_account=financial_account,
+        shipment_id=shipment.id,
+        shipment_type=shipment_type,
+        pickup_date=shipment_data.pickup_date,
+        total_cost=quote_per_shipment
+    )
+    shipment.invoice_id = shipment_invoice.id
+    shipment.invoice_due_date = shipment_invoice.due_date
+    shipment.invoice_status = shipment_invoice.status
 
-        shipment.invoice_id = shipment_invoice.id
-        shipment.invoice_due_date = shipment_invoice.due_date
-        shipment.invoice_status = shipment_invoice.status
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Shipment invoice generation failed: {e}")
-
+    db.add(shipment)
+    db.commit()
+    db.refresh(shipment)
 
     # Step 4: Calculate brokerage details
     brokerage_details = calculate_brokerage_details(
@@ -331,7 +322,7 @@ def create_ftl_shipment(
         rate_per_km=int(rate_per_km),  # Convert to integer (e.g., cents)
         rate_per_ton=int(rate_per_ton),  # Convert to integer
         payment_terms=financial_account.payment_terms,  # Dynamic payout method
-        payment_date=BillingEngine.get_next_due_date(shipment.pickup_date, payment_terms),
+        payment_date=BillingEngine.get_next_billing_date(shipment.pickup_date, payment_terms) + timedelta(days=2),
         required_truck_type=shipment_data.required_truck_type,
         equipment_type=shipment_data.equipment_type,
         trailer_type=shipment_data.trailer_type,
@@ -750,31 +741,23 @@ def broker_create_ftl_shipment(
 
     payment_terms = financial_account.payment_terms
 
-    try:
-        shipment_invoice = BillingEngine.generate_shipment_invoice(
-            shipment_id=shipment.id,
-            shipment_type=shipment.type,
-            pickup_date=shipment.pickup_date,
-            due_date=BillingEngine.get_next_due_date(shipment.pickup_date, financial_account.payment_terms),
-            amount=quote_per_shipment,
-            company_id=company_id,
-            payment_terms=financial_account.payment_terms,
-            #New
-            description=f"FTL Shipment {shipment.id}",
-            business_name=shipper.legal_business_name,
-            contact_person_name=f"{financial_account.directors_first_name}-{financial_account.directors_last_name}",
-            business_email=shipper.business_email,
-            billing_address=shipper.business_address,
-            db=db
-        )
-        db.add(shipment_invoice)
+    # --- Generate Invoice ---
+    shipment_invoice = BillingEngine.create_shipment_invoice(
+        db=db,
+        company_id=company_id,
+        financial_account=financial_account,
+        shipment_id=shipment.id,
+        shipment_type=shipment_type,
+        pickup_date=shipment_data.pickup_date,
+        total_cost=quote_per_shipment
+    )
+    shipment.invoice_id = shipment_invoice.id
+    shipment.invoice_due_date = shipment_invoice.due_date
+    shipment.invoice_status = shipment_invoice.status
 
-        shipment.invoice_id = shipment_invoice.id
-        shipment.invoice_due_date = shipment_invoice.due_date
-        shipment.invoice_status = shipment_invoice.status
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Shipment invoice generation failed: {e}")
+    db.add(shipment)
+    db.commit()
+    db.refresh(shipment)
 
 
     # Step 4: Calculate brokerage details
@@ -827,7 +810,7 @@ def broker_create_ftl_shipment(
         rate_per_km=int(rate_per_km),  # Convert to integer (e.g., cents)
         rate_per_ton=int(rate_per_ton),  # Convert to integer
         payment_terms=financial_account.payment_terms,  # Dynamic payout method
-        payment_date=BillingEngine.get_next_due_date(shipment.pickup_date, payment_terms),
+        payment_date=BillingEngine.get_next_billing_date(shipment.pickup_date, payment_terms) + timedelta(days=2),
         required_truck_type=shipment_data.required_truck_type,
         equipment_type=shipment_data.equipment_type,
         trailer_type=shipment_data.trailer_type,

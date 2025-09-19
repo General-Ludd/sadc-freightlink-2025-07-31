@@ -755,7 +755,7 @@ def broker_create_dedicated_lane_ftl_shipment(
     payment_term = financial_account.payment_terms.strip().upper()
 
     try:
-        all_payment_dates = BillingEngine.get_billing_dates(
+        all_payment_dates = BillingEngine.get_contract_billing_dates(
              start_date=shipment_data.start_date,
              end_date=shipment_data.end_date,
              term=payment_term

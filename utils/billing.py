@@ -11,165 +11,138 @@ from models.brokerage.finance import FinancialAccounts, Interim_Invoice, Invoice
 class BillingEngine:
 
     @staticmethod
-    def get_next_due_date(issue_date: datetime.date, term: PaymentTerms):
-        day = issue_date.day
-        month = issue_date.month
-        year = issue_date.year
+    def get_next_billing_date(payment_terms: str, pickup_date: date) -> date:
+        # Combine get_billing_anchor + get_shipment_billing_date
+        import calendar
+        day = pickup_date.day
+        month = pickup_date.month
+        year = pickup_date.year
+        last_day = calendar.monthrange(year, month)[1]
 
-        if term == PaymentTerms.NET_7:
-            if day <= 7:
-                return datetime.date(year, month, 14)
-            elif day <= 14:
-                return datetime.date(year, month, 21)
-            elif day <= 21:
-                return datetime.date(year, month, 28)
-            else:
-                # Next month's 7th
-                next_month = issue_date + relativedelta(months=1)
-                return datetime.date(next_month.year, next_month.month, 7)
+        anchors = {
+            "NET_7": [7, 14, 21, 28],
+            "NET_10": [10, 20, last_day],
+            "NET_15": [15, last_day],
+            "EOM": [last_day],
+            "PAB": [pickup_date.day],
+        }
 
-        elif term == PaymentTerms.NET_10:
-            if day <= 10:
-                return datetime.date(year, month, 20)
-            elif day <= 20:
-                return BillingEngine.get_end_of_month(issue_date)
-            else:
-                next_month = issue_date + relativedelta(months=1)
-                return datetime.date(next_month.year, next_month.month, 10)
+        if payment_terms == "PAB":
+            return pickup_date
 
-        elif term == PaymentTerms.NET_15:
-            if day <= 15:
-                return BillingEngine.get_end_of_month(issue_date)
-            else:
-                next_month = issue_date + relativedelta(months=1)
-                return datetime.date(next_month.year, next_month.month, 15)
+        for anchor in anchors[payment_terms]:
+            if day <= anchor:
+                return date(year, month, anchor)
 
-        elif term == PaymentTerms.EOM:
-            return BillingEngine.get_end_of_month(issue_date)
-
-        elif term == PaymentTerms.PAB:
-            # Pay Before Booking – special case
-            return issue_date
+        # Pick first anchor next month
+        next_month = month + 1 if month < 12 else 1
+        next_year = year + 1 if month == 12 else year
+        next_last_day = calendar.monthrange(next_year, next_month)[1]
+        next_anchor = anchors[payment_terms][0]
+        if next_anchor > next_last_day:
+            next_anchor = next_last_day
+        return date(next_year, next_month, next_anchor)
 
     @staticmethod
-    def get_end_of_month(date_obj: datetime.date):
-        first_of_next_month = (date_obj.replace(day=1) + relativedelta(months=1))
-        return first_of_next_month - datetime.timedelta(days=1)
+    def check_spending_limit(financial_account, amount: float) -> bool:
+        return (financial_account.total_outstanding + financial_account.projected_balance + amount) <= financial_account.spending_limit
 
     @staticmethod
-    def is_within_spending_limit(financial_account: FinancialAccounts, amount: int):
-        return (financial_account.total_outstanding + amount) <= financial_account.spending_limit
-
-    @staticmethod
-    def should_allow_new_invoice(financial_account: FinancialAccounts, invoice_amount: int, pickup_date: datetime.date):
-        """Determines if a new invoice is allowed based on spending limits and due date logic."""
-        if BillingEngine.is_within_spending_limit(financial_account, invoice_amount):
-            return True
-
-        due_date = BillingEngine.get_next_due_date(datetime.date.today(), financial_account.payment_terms)
-        return pickup_date > due_date
-
-    @staticmethod
-    def get_billing_dates(start_date: datetime.date, end_date: datetime.date, term: PaymentTerms):
-        dates = []
-
-        # Include standard billing dates within contract duration
-        current = start_date
-        while current <= end_date:
-            if term == PaymentTerms.EOM:
-                billing_date = BillingEngine.get_end_of_month(current)
-                if billing_date >= start_date and billing_date <= end_date:
-                    dates.append(billing_date)
-                current = billing_date + datetime.timedelta(days=1)
-
-            elif term == PaymentTerms.NET_15:
-                mid = datetime.date(current.year, current.month, 15)
-                eom = BillingEngine.get_end_of_month(current)
-                if mid >= start_date and mid <= end_date:
-                    dates.append(mid)
-                if eom >= start_date and eom <= end_date:
-                    dates.append(eom)
-                current = eom + datetime.timedelta(days=1)
-
-            elif term == PaymentTerms.NET_10:
-                for d in [10, 20]:
-                    try:
-                        billing = datetime.date(current.year, current.month, d)
-                        if billing >= start_date and billing <= end_date:
-                            dates.append(billing)
-                    except:
-                        continue
-                eom = BillingEngine.get_end_of_month(current)
-                if eom >= start_date and eom <= end_date:
-                    dates.append(eom)
-                current = eom + datetime.timedelta(days=1)
-
-            elif term == PaymentTerms.NET_7:
-                for d in [7, 14, 21, 28]:
-                    try:
-                        billing = datetime.date(current.year, current.month, d)
-                        if billing >= start_date and billing <= end_date:
-                            dates.append(billing)
-                    except:
-                        continue
-                current = BillingEngine.get_end_of_month(current) + datetime.timedelta(days=1)
-
-            elif term == PaymentTerms.PAB:
-                return [start_date]
-
-        # ✅ Add one additional billing date AFTER end_date
-        one_day_after_end = end_date + datetime.timedelta(days=1)
-        next_due = BillingEngine.get_next_due_date(one_day_after_end, term)
-        dates.append(next_due)
-
-        return sorted(list(set(dates)))  # Remove duplicates
-    
-    @staticmethod
-    def generate_dedicated_lane_schedule_invoices(
-        contract_id: int,
-        contract_start: datetime.date,
-        contract_end: datetime.date,
-        total_amount: float,
-        payment_term: PaymentTerms,
+    def create_shipment_invoice(
         db: Session,
+        company_id: int,
+        financial_account: FinancialAccounts,
+        shipment_id: int,
+        shipment_type: str,
+        pickup_date: date,
+        total_cost: float,
+        base_amount: float = None,
+        other_surcharges: float = 0,
+        vat: float = 0,
+        contract_id: Optional[int] = None,
+        contract_type: Optional[str] = None,
+        description: Optional[str] = None
     ):
-        """
-        Generate interim invoices for a dedicated FTL contract based on duration and payment terms.
-        """
-        # 1. Get billing dates
-        billing_dates = BillingEngine.get_billing_dates(contract_start, contract_end, payment_term)
+        base_amount = base_amount or total_cost
+        billing_date = BillingEngine.get_next_billing_date(financial_account.payment_terms, pickup_date)
+        is_pab = financial_account.payment_terms == "PAB"
 
-        if not billing_dates:
-            raise ValueError("No billing dates found within the contract duration.")
+        # Check spending limit
+        if not is_pab and not BillingEngine.check_spending_limit(financial_account, total_cost):
+            raise HTTPException(
+                status_code=402,
+                detail="Booking this shipment would exceed your company's spending limit for this billing cycle."
+            )
 
-        # 2. Calculate how much each invoice should be
-        amount_per_invoice = total_amount / len(billing_dates)
-
-        # 3. Create invoices
-        invoices = BillingEngine.generate_interim_invoices(
+        invoice = Shipment_Invoice(
+            shipment_id=shipment_id,
+            shipment_type=shipment_type,
             contract_id=contract_id,
-            payment_dates=billing_dates,
-            amount_per_invoice=amount_per_invoice,
-            db=db
+            billing_date=billing_date,
+            due_date=billing_date if not is_pab else date.today(),
+            status="Paid" if is_pab else "Pending",
+            is_paid=is_pab,
+            company_id=company_id,
+            financial_account_id=financial_account.id,
+            payment_terms=financial_account.payment_terms,
+            total=total_cost,
+            base_amount=base_amount,
+            other_surcharges=other_surcharges,
+            vat=vat,
+            due_amount=0 if is_pab else total_cost,
+            description=description
         )
 
-        return invoices
+        db.add(invoice)
+
+        # Update financial account
+        if is_pab:
+            financial_account.credit_balance -= total_cost
+        else:
+            financial_account.projected_balance += total_cost
+
+        db.add(financial_account)
+        db.commit()
+        db.refresh(invoice)
+        return invoice
+
+    @staticmethod
+    def get_contract_billing_dates(start_date: date, end_date: date, payment_terms: str) -> List[date]:
+        """
+        Generate all billing dates for a contract lane between start_date and end_date
+        according to payment terms (NET_7, NET_10, NET_15, EOM, PAB)
+        """
+        billing_dates = []
+        current_date = start_date
+
+        while current_date <= end_date:
+            next_due = BillingEngine.get_next_due_date(current_date, payment_terms)
+            billing_dates.append(next_due)
+            current_date = next_due + timedelta(days=1)  # move past last due date
+
+        return billing_dates
 
     @staticmethod
     def generate_contract_invoice(
+        db: Session,
         contract_id: int,
         contract_type: str,
         financial_account_id: int,
         business_name: str,
         contact_person_name: str,
         billing_address: str,
-        shipper_company_id:int,
-        total_shipments_quote: int,
-        due_date: date,
+        shipper_company_id: int,
+        total_shipments_quote: float,
         payment_terms: str,
-        db: Session,
+        due_date: date,
     ):
-        invoice = Invoices(
+        """
+        Generates a single master contract invoice.
+        """
+        is_pab = payment_terms == "PAB"
+        billing_date = date.today() if is_pab else due_date
+
+        invoice = Contract_Invoice(
             contract_id=contract_id,
             contract_type=contract_type,
             company_id=shipper_company_id,
@@ -177,12 +150,15 @@ class BillingEngine:
             business_name=business_name,
             contact_person_name=contact_person_name,
             billing_address=billing_address,
-            due_amount=total_shipments_quote,
-            billing_date=datetime.date.today(),
-            due_date=due_date,
             payment_terms=payment_terms,
-            status="Pending",
+            billing_date=billing_date,
+            due_date=due_date,
+            total=total_shipments_quote,
+            status="Paid" if is_pab else "Pending",
+            is_paid=is_pab,
+            due_amount=0 if is_pab else total_shipments_quote,
         )
+
         db.add(invoice)
         db.commit()
         db.refresh(invoice)
@@ -190,337 +166,99 @@ class BillingEngine:
 
     @staticmethod
     def generate_interim_invoices(
+        db: Session,
+        parent_invoice_id: int,
         contract_id: int,
         contract_type: str,
-        parent_invoice_id: int,
-        payment_dates: List[date],
         company_id: int,
         business_name: str,
         contact_person_name: str,
         business_email: str,
         billing_address: str,
+        payment_dates: list[date],
+        amount_per_invoice: float,
         payment_terms: str,
-        amount_per_invoice: int,
-        db: Session
     ):
+        """
+        Splits contract invoice into interim invoices based on billing schedule.
+        """
         interim_invoices = []
+        is_pab = payment_terms == "PAB"
 
         for due_date in payment_dates:
             invoice = Interim_Invoice(
+                parent_invoice_id=parent_invoice_id,
                 contract_id=contract_id,
                 contract_type=contract_type,
-                parent_invoice_id=parent_invoice_id,
-                billing_date=date.today(),
-                due_date=due_date,
-                payment_terms=payment_terms,
-                due_amount=amount_per_invoice,
-                payment_reference=f"{contract_type}-{contract_id}-{due_date}",
                 company_id=company_id,
-                financial_account_id=company_id,
                 business_name=business_name,
                 contact_person_name=contact_person_name,
                 business_email=business_email,
                 billing_address=billing_address,
-                status="Pending"
+                payment_terms=payment_terms,
+                billing_date=date.today(),
+                due_date=due_date,
+                total=amount_per_invoice,
+                status="Paid" if is_pab else "Pending",
+                is_paid=is_pab,
+                due_amount=0 if is_pab else amount_per_invoice,
+                invoice_type="Interim"
             )
             db.add(invoice)
             interim_invoices.append(invoice)
 
         db.commit()
-        for invoice in interim_invoices:
-            db.refresh(invoice)
+        for inv in interim_invoices:
+            db.refresh(inv)
 
         return interim_invoices
 
     @staticmethod
     def generate_shipment_invoice(
         db: Session,
+        parent_invoice_id: int,
+        contract_id: int,
+        contract_type: str,
+        shipment_id: int,
+        shipment_type: str,
         pickup_date: date,
+        due_date: date,
+        amount: float,
+        company_id: int,
+        payment_terms: str,
         description: str,
         business_name: str,
         contact_person_name: str,
         business_email: str,
         billing_address: str,
-        due_date: date,
-        amount: int,
-        company_id: int,
-        payment_terms: str,
-        shipment_id: int,
-        shipment_type: str,
-        contract_id: Optional [int] = None,
-        contract_type: Optional [str] = None,
-        parent_invoice_id: Optional [int] = None,
     ):
+        """
+        Generates a shipment-level invoice tied to an interim invoice.
+        """
+        is_pab = payment_terms == "PAB"
+
         invoice = Shipment_Invoice(
-            invoice_type="Shipment",
-            shipment_id=shipment_id,
-            shipment_type=shipment_type,
             parent_invoice_id=parent_invoice_id,
             contract_id=contract_id,
-            billing_date=pickup_date,
-            due_date=due_date,
-            is_subinvoice=True,
-            status="Pending",
-            is_paid=False,
-            description=description,
+            contract_type=contract_type,
+            shipment_id=shipment_id,
+            shipment_type=shipment_type,
+            company_id=company_id,
             business_name=business_name,
+            contact_person_name=contact_person_name,
             business_email=business_email,
             billing_address=billing_address,
-            contact_person_name=contact_person_name,
-            contract_type=contract_type,
-            company_id=company_id,
-            financial_account_id=company_id,
             payment_terms=payment_terms,
+            billing_date=pickup_date,
+            due_date=due_date,
             total=amount,
-            base_amount=amount,
-            due_amount=amount,
-            vat=0,
-            other_surcharges=0,
-            paid_amount=0,
-            late_fees=0,
-            platform_name="SADC FREIGHTLINK",
-            platform_email="billing@sadcfreightlink.com",
-            platform_address="5 Feza Street, Cape Town, Harare, Khayelitsha",
-            platform_bank="First National Bank RSA (FNB)",
-            platform_bank_account="938299489018"
-        )
-        db.add(invoice)
-        db.flush()
-        db.refresh(invoice)
-        return invoice
-
-    @staticmethod
-    def is_billing_cycle_active(due_date: date, payment_terms: PaymentTerms, today: date = date.today()) -> bool:
-        """
-        Determines if an invoice should now be applied to the financial account,
-        based on current date and the payment terms.
-        """
-
-        if payment_terms == PaymentTerms.EOM:
-            # Entire month of due date is active
-            return today.month == due_date.month and today.year == due_date.year
-
-        elif payment_terms == PaymentTerms.NET_15:
-            # If due on 15th → activate from 1st to 15th
-            # If due at EOM → activate from 16th onward
-            if due_date.day == 15:
-                return today <= due_date and today.day <= 15 and today.month == due_date.month and today.year == due_date.year
-            else:
-                return today >= date(due_date.year, due_date.month, 16) and today.month == due_date.month
-
-        elif payment_terms == PaymentTerms.NET_10:
-            # Activate in the 10-day cycle where the due_date falls
-            if due_date.day == 10:
-                return today.day <= 10 and today.month == due_date.month
-            elif due_date.day == 20:
-                return 11 <= today.day <= 20 and today.month == due_date.month
-            else:  # EOM
-                return today.day >= 21 and today.month == due_date.month
-
-        elif payment_terms == PaymentTerms.NET_7:
-            # 4 cycles per month
-            if due_date.day in [7]:
-                return today.day <= 7 and today.month == due_date.month
-            elif due_date.day in [14]:
-                return 8 <= today.day <= 14 and today.month == due_date.month
-            elif due_date.day in [21]:
-                return 15 <= today.day <= 21 and today.month == due_date.month
-            elif due_date.day in [28]:
-                return 22 <= today.day <= 28 and today.month == due_date.month
-
-        elif payment_terms == PaymentTerms.PAB:
-            return True  # Immediate activation
-
-        return False  # Default fallback
-
-
-    @staticmethod
-    def get_invoice_for_date(
-        db: Session,
-        contract_id: int,
-        target_date: datetime.date,
-    ):
-        return db.query(Invoices).filter(
-            Invoices.contract_id == contract_id,
-            Invoices.due_date == target_date
-        ).first()
-
-
-##############################################Carrier Side Billing##########################################
-    @staticmethod
-    def generate_assigned_lane_invoice(
-        db: Session,
-        contract_id: int,
-        lane_type: str,
-        carrier_company_id: int,
-        carrier_company_name: str,
-        contact_person_name: str,
-        business_email: str,
-        business_address: str,
-        carrier_financial_account_id: int,
-        carrier_bank: str,
-        carrier_bank_account: str,
-        payment_terms: str,
-        total_due_amount: int,
-        toll_fees: int = 0,
-        other_surcharges: int = 0,
-        description: str = "",
-        due_date: Optional[date] = None,
-    ):
-        invoice = Lane_Invoice(
-            contract_id=contract_id,
-            lane_type=lane_type,
-            invoice_type="Lane",
-            billing_date=date.today(),
-            contract_invoice_id=None,
-            due_date=due_date,
             description=description,
-            status="Pending",
-            is_paid=False,
-            company_id=carrier_company_id,
-            carrier_company_name=carrier_company_name,
-            contact_person_name=contact_person_name,
-            business_email=business_email,
-            business_address=business_address,
-            carrier_financial_account_id=carrier_financial_account_id,
-            carrier_bank=carrier_bank,
-            carrier_bank_account=carrier_bank_account,
-            payment_terms=payment_terms,
-            base_amount=total_due_amount,
-            toll_fees=toll_fees,
-            other_surcharges=other_surcharges,
-            due_amount=total_due_amount + toll_fees + other_surcharges,
-            paid_amount=0,
-            late_fees=0,
-            payment_reference=f"{lane_type.upper()}-{contract_id}-{date.today()}",
+            status="Paid" if is_pab else "Pending",
+            is_paid=is_pab,
+            due_amount=0 if is_pab else amount,
         )
+
         db.add(invoice)
         db.commit()
-        db.refresh(invoice)
-        return invoice
-    
-    @staticmethod
-    def generate_assigned_interim_invoices(
-        db: Session,
-        contract_id: int,
-        contract_type: str,
-        carrier_company_id: int,
-        carrier_name: str,
-        contact_person_name: str,
-        carrier_email: str,
-        carrier_address: str,
-        carrier_financial_account_id: int,
-        carrier_bank: str,
-        carrier_bank_account: str,
-        invoice_payment_terms: str,
-        payment_dates: List[date],
-        amount_per_invoice: int,
-        parent_invoice_id: Optional[int] = None,
-        other_surcharges: int = 0,
-    ):
-        interim_invoices = []
-
-        for due_date in payment_dates:
-            invoice = Lane_Interim_Invoice(
-                contract_id=contract_id,
-                contract_type=contract_type,
-                invoice_type="Interim",
-                billing_date=date.today(),
-                due_date=due_date,
-                description=f"{contract_type} interim payment due {due_date}",
-                status="Pending",
-                is_paid=False,
-                is_subinvoice=True,
-                is_applied=False,
-                parent_invoice_id=parent_invoice_id,
-                carrier_company_id=carrier_company_id,
-                carrier_name=carrier_name,
-                carrier_email=carrier_email,
-                carrier_address=carrier_address,
-                carrier_financial_account_id=carrier_financial_account_id,
-                invoice_payment_terms=invoice_payment_terms,
-                carrier_bank=carrier_bank,
-                carrier_bank_account=carrier_bank_account,
-                payment_reference=f"{contract_type.upper()}-INT-{contract_id}-{due_date}",
-                base_amount=amount_per_invoice,
-                other_surcharges=other_surcharges,
-                due_amount=amount_per_invoice + other_surcharges,
-                paid_out_amount=0,
-                detention_fees=0
-            )
-            db.add(invoice)
-            interim_invoices.append(invoice)
-
-        db.commit()
-        for invoice in interim_invoices:
-            db.refresh(invoice)
-
-        return interim_invoices
-    
-
-    @staticmethod
-    def generate_assigned_shipment_invoice(
-        db: Session,
-        contract_id: int,
-        contract_type: str,
-        shipment_id: int,
-        shipment_type: str,
-        carrier_company_id: int,
-        carrier_financial_account_id: int,
-        payment_terms: str,
-        carrier_bank: str,
-        carrier_bank_account: str,
-        business_name: str,
-        contact_person_name: str,
-        business_email: str,
-        business_address: str,
-        origin_address: str,
-        destination_address: str,
-        pickup_date: date,
-        distance: int,
-        transit_time: str,
-        amount: int,
-        parent_invoice_id: Optional[int] = None,
-        other_surcharges: int = 0,
-        detention_fees: int = 0,
-        due_date: Optional[date] = None,
-    ):
-        invoice = Load_Invoice(
-            contract_id=contract_id,
-            contract_type=contract_type,
-            shipment_id=shipment_id,
-            shipment_type=shipment_type,
-            invoice_type="Load Invoice",
-            billing_date=date.today(),
-            due_date=due_date,
-            description=f"Load invoice for shipment {shipment_id}",
-            status="Pending",
-            is_paid=False,
-            is_applied=False,
-            is_subinvoice=True,
-            parent_invoice_id=parent_invoice_id,
-            carrier_company_id=carrier_company_id,
-            carrier_financial_account_id=carrier_financial_account_id,
-            payment_terms=payment_terms,
-            carrier_bank=carrier_bank,
-            carrier_bank_account=carrier_bank_account,
-            payment_reference=f"LOAD-{contract_id}-{shipment_id}",
-            business_name=business_name,
-            contact_person_name=contact_person_name,
-            business_email=business_email,
-            business_address=business_address,
-            origin_address=origin_address,
-            destination_address=destination_address,
-            pickup_date=pickup_date,
-            distance=distance,
-            transit_time=transit_time,
-            base_amount=amount,
-            other_surcharges=other_surcharges,
-            detention_fees=detention_fees,
-            due_amount=amount + other_surcharges + detention_fees,
-            paid_out_amount=0
-        )
-        db.add(invoice)
-        db.flush()
         db.refresh(invoice)
         return invoice
