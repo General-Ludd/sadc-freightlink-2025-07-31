@@ -573,6 +573,7 @@ class FinancialAccounts(Base):
     total_spent = Column(Integer, default=0)
     average_spend = Column(Integer, default=0)
     credit_balance = Column(Integer, default=0)
+    projected_balance = Column(Integer, default=0)
     total_outstanding = Column(Integer, default=0)
     total_paid = Column(Integer, default=0)
     num_paid_invoices = Column(Integer, default=0)

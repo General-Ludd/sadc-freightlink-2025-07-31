@@ -14,6 +14,12 @@ class BillingEngine:
     def get_next_billing_date(payment_terms: str, pickup_date: date) -> date:
         # Combine get_billing_anchor + get_shipment_billing_date
         import calendar
+
+        # Ensure payment_term is a string
+        if hasattr(payment_term, "value"):
+            payment_term = payment_term.value
+        payment_term = str(payment_term).upper().strip()
+
         day = pickup_date.day
         month = pickup_date.month
         year = pickup_date.year
