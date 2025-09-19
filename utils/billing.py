@@ -10,21 +10,18 @@ from models.brokerage.finance import FinancialAccounts, Interim_Invoice, Invoice
 
 class BillingEngine:
 
-    @staticmethod
     def get_next_billing_date(payment_terms: str, pickup_date: date) -> date:
-        # Combine get_billing_anchor + get_shipment_billing_date
         import calendar
 
-        # Normalize input safely
-        if payment_term is None:
-            raise ValueError("payment_term cannot be None")
+        if payment_terms is None:
+            raise ValueError("payment_terms cannot be None")
 
-        if hasattr(payment_term, "value"):  # Enum case
-            payment_term = payment_term.value
+        if hasattr(payment_terms, "value"):  # Enum case
+            payment_terms = payment_terms.value
         else:  # String case
-            payment_term = str(payment_term)
+            payment_terms = str(payment_terms)
 
-        payment_term = payment_term.upper().strip()
+        payment_terms = payment_terms.upper().strip()
 
         day = pickup_date.day
         month = pickup_date.month
@@ -39,13 +36,13 @@ class BillingEngine:
             "PAB": [pickup_date.day],
         }
 
-        if payment_term == "PAB":
+        if payment_terms == "PAB":
             return pickup_date  # Immediate billing
 
-        if payment_term not in anchors:
-            raise ValueError(f"Unknown payment term: {payment_term}")
+        if payment_terms not in anchors:
+            raise ValueError(f"Unknown payment term: {payment_terms}")
 
-        for anchor in anchors[payment_term]:
+        for anchor in anchors[payment_terms]:
             if day <= anchor:
                 return date(year, month, anchor)
 
@@ -53,10 +50,12 @@ class BillingEngine:
         next_month = month + 1 if month < 12 else 1
         next_year = year + 1 if month == 12 else year
         next_last_day = calendar.monthrange(next_year, next_month)[1]
-        next_anchor = anchors[payment_term][0]
+        next_anchor = anchors[payment_terms][0]
         if next_anchor > next_last_day:
             next_anchor = next_last_day
+
         return date(next_year, next_month, next_anchor)
+
 
     @staticmethod
     def check_spending_limit(financial_account, amount: float) -> bool:
