@@ -155,7 +155,7 @@ class BillingEngine:
         is_pab = payment_terms == "PAB"
         billing_date = date.today() if is_pab else due_date
 
-        invoice = Contract_Invoice(
+        invoice = Invoices(
             contract_id=contract_id,
             contract_type=contract_type,
             company_id=shipper_company_id,
