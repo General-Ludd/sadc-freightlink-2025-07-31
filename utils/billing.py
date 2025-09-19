@@ -15,10 +15,16 @@ class BillingEngine:
         # Combine get_billing_anchor + get_shipment_billing_date
         import calendar
 
-        # Ensure payment_term is a string
-        if hasattr(payment_term, "value"):
+        # Normalize input safely
+        if payment_term is None:
+            raise ValueError("payment_term cannot be None")
+
+        if hasattr(payment_term, "value"):  # Enum case
             payment_term = payment_term.value
-        payment_term = str(payment_term).upper().strip()
+        else:  # String case
+            payment_term = str(payment_term)
+
+        payment_term = payment_term.upper().strip()
 
         day = pickup_date.day
         month = pickup_date.month
@@ -33,18 +39,21 @@ class BillingEngine:
             "PAB": [pickup_date.day],
         }
 
-        if payment_terms == "PAB":
-            return pickup_date
+        if payment_term == "PAB":
+            return pickup_date  # Immediate billing
 
-        for anchor in anchors[payment_terms]:
+        if payment_term not in anchors:
+            raise ValueError(f"Unknown payment term: {payment_term}")
+
+        for anchor in anchors[payment_term]:
             if day <= anchor:
                 return date(year, month, anchor)
 
-        # Pick first anchor next month
+        # if no anchor left → pick first anchor next month
         next_month = month + 1 if month < 12 else 1
         next_year = year + 1 if month == 12 else year
         next_last_day = calendar.monthrange(next_year, next_month)[1]
-        next_anchor = anchors[payment_terms][0]
+        next_anchor = anchors[payment_term][0]
         if next_anchor > next_last_day:
             next_anchor = next_last_day
         return date(next_year, next_month, next_anchor)
