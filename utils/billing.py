@@ -5,7 +5,7 @@ from dateutil.relativedelta import relativedelta
 from enum import Enum
 
 from requests import Session
-from enums import PaymentTerms
+#from enums import PaymentTerms
 from models.brokerage.finance import FinancialAccounts, Interim_Invoice, Invoices, Lane_Interim_Invoice, Lane_Invoice, Load_Invoice, Shipment_Invoice
 
 class BillingEngine:
