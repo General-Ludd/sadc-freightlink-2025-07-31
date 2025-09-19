@@ -130,7 +130,7 @@ class BillingEngine:
         current_date = start_date
 
         while current_date <= end_date:
-            next_due = BillingEngine.get_next_due_date(current_date, payment_terms)
+            next_due = BillingEngine.get_next_billing_date(payment_terms, current_date)
             billing_dates.append(next_due)
             current_date = next_due + timedelta(days=1)  # move past last due date
 
