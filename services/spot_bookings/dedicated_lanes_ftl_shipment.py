@@ -20,7 +20,7 @@ from schemas.brokerage.finance import Lane_Brokerage_TransactionCreate
 from schemas.shipper import ConsignorCreate
 from services.brokerage.brokerage_service import calculate_brokerage_details, calculate_contract_brokerage_details
 from services.brokerage.carrier_loadboard_service import calculate_rates
-from services.brokerage.recurrence_calculator import DedicatedLanesFtlShipmentPayment, RecurrenceCalculator
+from services.brokerage.recurrence_calculator import DedicatedLanesFtlShipmentPaymentSchedule, RecurrenceCalculator
 from services.finance.finance import handle_30_day_pay, handle_contract_pay
 from services.shipment_service import calculate_quote_for_shipment, calculate_total_shipment_quote
 from utils.billing import BillingEngine
