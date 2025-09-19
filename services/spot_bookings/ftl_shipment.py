@@ -260,7 +260,7 @@ def create_ftl_shipment(
         company_id=company_id,
         financial_account=financial_account,
         shipment_id=shipment.id,
-        shipment_type=shipment_type,
+        shipment_type=shipment.type,
         pickup_date=shipment_data.pickup_date,
         total_cost=quote_per_shipment
     )
@@ -747,7 +747,7 @@ def broker_create_ftl_shipment(
         company_id=company_id,
         financial_account=financial_account,
         shipment_id=shipment.id,
-        shipment_type=shipment_type,
+        shipment_type=shipment.type,
         pickup_date=shipment_data.pickup_date,
         total_cost=quote_per_shipment
     )
