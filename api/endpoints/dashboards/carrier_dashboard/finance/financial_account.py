@@ -17,14 +17,15 @@ def get_db():
     finally:
         db.close()
 
-@router.get("/carrier/shipment-invoice/{id}")
+@router.get("/carrier/shipment-invoice/{shipment_id}-{shipment_type}")
 def carrier_get_carrier_shipment_invoice(
-    id: int,
+    shipment_id: int,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
     try: 
-        invoice = db.query(Load_Invoice).filter(Load_Invoice.id == id).first()
+        invoice = db.query(Load_Invoice).filter(Load_Invoice.shipment_id == shipment_id,
+                                                Load_Invoice.shipment_type == shipment_type).first()
         return {
             "invoice": {
                 "id": invoice.id,
