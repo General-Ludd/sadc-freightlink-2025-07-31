@@ -30,6 +30,17 @@ def get_db():
     finally:
         db.close()
 
+@router.get("/carrier/company-name")
+def get_carrier_company_name(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    try:
+        carrier = db.query(Carrier).filter(Carrier.id == current_user.get("company_id")).first()
+        return carrier.legal_business_name
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 @router.post("/fleet-carrier-registration")
 def process_fleet_carrier_registration(
     carrier_data: CarrierCreate,

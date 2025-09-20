@@ -22,6 +22,17 @@ def get_db():
     finally:
         db.close()
 
+@router.get("/shipper/company-name")
+def get_shipper_company_name(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    try:
+        shipper = db.query(Corporation).filter(Corporation.id == current_user.get("company_id")).first()
+        return shipper.legal_business_name
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 @router.post("/shippers/standard-registration", status_code=status.HTTP_201_CREATED)
 def create_standard_shipper_endpoint(
     shipper_data: CorporationBase,

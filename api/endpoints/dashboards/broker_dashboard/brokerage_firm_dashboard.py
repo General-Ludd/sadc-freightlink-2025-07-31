@@ -36,7 +36,7 @@ def create_brokerage_firm_endpoint(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/broker-access/brokerage-firm-name")
-def get_brokerage_form_name(
+def get_brokerage_firm_name(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
