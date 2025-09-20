@@ -20,6 +20,7 @@ def get_db():
 @router.get("/carrier/shipment-invoice/{shipment_id}-{shipment_type}")
 def carrier_get_carrier_shipment_invoice(
     shipment_id: int,
+    shipment_type: str,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
