@@ -4,6 +4,7 @@ from models.vehicle import Vehicle
 from models.user import Driver
 from models.spot_bookings.ftl_shipment import FTL_SHIPMENT
 from models.spot_bookings.power_shipment import POWER_SHIPMENT
+from models.brokerage.assigned_shipments import Assigned_Spot_Ftl_Shipments, Assigned_Power_Shipments
 from utils.auth import get_current_user
 from db.database import SessionLocal
 from schemas.vehicle import Driver_Location_Update
@@ -102,6 +103,45 @@ def get_shipment_location(shipment_id: int, shipment_type: str, db: Session = De
             shipment = db.query(POWER_SHIPMENT).filter(
                 POWER_SHIPMENT.id == shipment_id,
                 POWER_SHIPMENT.company_id == user.company_id
+            ).first()
+        else:
+            raise HTTPException(status_code=400, detail="Invalid shipment type")
+
+        if not shipment:
+            raise HTTPException(status_code=404, detail="Shipment not found or does not belong to user's company")
+        
+        if shipment.shipment_status != "In-Progress":
+            raise HTTPException(status_code=403, detail="Tracking only available for in-progress shipments")
+
+        vehicle = db.query(Vehicle).filter(Vehicle.id == shipment.vehicle_id).first()
+        if not vehicle:
+            raise HTTPException(status_code=404, detail="Vehicle not found for this shipment")
+
+        return {
+            "vehicle_location_data": {
+                "latitude": vehicle.latitude,
+                "longitude": vehicle.longitude,
+                "speed": vehicle.speed,
+                "heading": vehicle.heading,
+                "location_description": vehicle.location_description
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/tracking/carrier-shipment/{shipment_id}/{shipment_type}")
+def carrier_get_shipment_location(shipment_id: int, shipment_type: str, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    try:
+        shipment = None
+        if shipment_type.upper() == "FTL":
+            shipment = db.query(Assigned_Spot_Ftl_Shipments).filter(
+                Assigned_Spot_Ftl_Shipments.shipment_id == shipment_id,
+                Assigned_Spot_Ftl_Shipments.carrier_id == user.company_id
+            ).first()
+        elif shipment_type.upper() == "POWER":
+            shipment = db.query(Assigned_Power_Shipments).filter(
+                Assigned_Power_Shipments.shipment_id == shipment_id,
+                Assigned_Power_Shipments.carrier_id == user.company_id
             ).first()
         else:
             raise HTTPException(status_code=400, detail="Invalid shipment type")
