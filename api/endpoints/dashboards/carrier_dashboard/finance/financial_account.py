@@ -34,7 +34,7 @@ def carrier_get_carrier_shipment_invoice(
                 "billing_date": invoice.billing_date,
                 "due_date": invoice.due_date,
                 "from": {
-                    "company_name": invoice.company_name,
+                    "company_name": invoice.carrier_company_name,
                     "address": invoice.carrier_address,
                     "bank_name": invoice.bank_name,
                     "account_number": invoice.carrier_bank_account,
