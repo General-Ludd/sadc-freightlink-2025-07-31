@@ -24,7 +24,7 @@ from services.brokerage.recurrence_calculator import DedicatedLanesFtlShipmentPa
 from services.finance.finance import handle_30_day_pay, handle_contract_pay
 from services.shipment_service import calculate_quote_for_shipment, calculate_total_shipment_quote
 from utils.billing import BillingEngine
-from utils.google_maps import AddressInput, calculate_distance
+from utils.google_maps import AddressInput, RouteETAInput, calculate_distance, get_eta_and_polyline
 from datetime import datetime
 
 def create_dedicated_lane_ftl_shipment(
@@ -389,6 +389,23 @@ def create_dedicated_lane_ftl_shipment(
             db.add(sub_shipment)
             db.flush()
 
+            # Step 2: get ETA Date, ETA Window, Polylines
+            try:
+                trip_data = get_eta_and_polyline(RouteETAInput(
+                    origin_address=sub_shipment.origin_address,
+                    destination_address=sub_shipment.destination_address,
+                    start_date=sub_shipment.pickup_date,
+                    start_time=pickup_facility_data.end_time,
+                ))
+                eta_date = trip_data["eta_date"]  # Distance in kilometers
+                eta_window = trip_data["eta_window"]  # Transit time as text
+                polyline = trip_data["polyline"]
+            except HTTPException as e:
+                raise HTTPException(status_code=500, detail=f"Trip info calculation failed: {e.detail}")
+
+            def safe_str(val):
+                return val.value if hasattr(val, "value") else str(val)
+
             try:
                 shipment_invoice = BillingEngine.generate_shipment_invoice(
                     contract_id=shipment.id,
@@ -418,6 +435,9 @@ def create_dedicated_lane_ftl_shipment(
                 sub_shipment.invoice_id = shipment_invoice.id
                 sub_shipment.invoice_due_date = shipment_invoice.due_date
                 sub_shipment.invoice_status = shipment_invoice.status
+                sub_shipment.eta_date = eta_date
+                sub_shipment.eta_window = eta_window
+                sub_shipment.polyline = polyline
                 shipment.invoice_id = contract_invoice.id
                 shipment.invoice_status = contract_invoice.status
                 shipment.invoice_due_date = contract_invoice.due_date
@@ -1011,6 +1031,23 @@ def broker_create_dedicated_lane_ftl_shipment(
             db.add(sub_shipment)
             db.flush()
 
+            # Step 2: get ETA Date, ETA Window, Polylines
+            try:
+                trip_data = get_eta_and_polyline(RouteETAInput(
+                    origin_address=sub_shipment.origin_address,
+                    destination_address=sub_shipment.destination_address,
+                    start_date=sub_shipment.pickup_date,
+                    start_time=pickup_facility_data.end_time,
+                ))
+                eta_date = trip_data["eta_date"]  # Distance in kilometers
+                eta_window = trip_data["eta_window"]  # Transit time as text
+                polyline = trip_data["polyline"]
+            except HTTPException as e:
+                raise HTTPException(status_code=500, detail=f"Trip info calculation failed: {e.detail}")
+
+            def safe_str(val):
+                return val.value if hasattr(val, "value") else str(val)
+
             try:
                 shipment_invoice = BillingEngine.generate_shipment_invoice(
                     contract_id=shipment.id,
@@ -1040,6 +1077,9 @@ def broker_create_dedicated_lane_ftl_shipment(
                 sub_shipment.invoice_id = shipment_invoice.id
                 sub_shipment.invoice_due_date = shipment_invoice.due_date
                 sub_shipment.invoice_status = shipment_invoice.status
+                sub_shipment.eta_date = eta_date
+                sub_shipment.eta_window = eta_window
+                sub_shipment.polyline = polyline
                 shipment.invoice_id = contract_invoice.id
                 shipment.invoice_status = contract_invoice.status
                 shipment.invoice_due_date = contract_invoice.due_date

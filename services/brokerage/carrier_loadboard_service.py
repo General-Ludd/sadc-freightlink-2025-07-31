@@ -283,7 +283,7 @@ def assign_spot_ftl_shipment_to_carrier(
         assigned_shipment = Assigned_Spot_Ftl_Shipments(
             shipment_id=shipment.id,
             invoice_id=shipment_invoice.id,
-            invoice_due_date = shipment.invoice_due_date,
+            invoice_due_date = shipment.invoice_due_date + timedelta(days=2),
             invoice_status = shipment_invoice.status,
             trip_type=shipment.trip_type,
             load_type=shipment.load_type,
@@ -958,7 +958,9 @@ def assign_spot_ftl_lane_to_carrier(db: Session, shipment_data: Individual_lane_
             pickup_notes=sub_shipment.pickup_notes,
             delivery_number=sub_shipment.delivery_number,
             delivery_notes=sub_shipment.delivery_notes,
-            estimated_transit_time=sub_shipment.estimated_transit_time
+            estimated_transit_time=sub_shipment.estimated_transit_time,
+            eta_date=sub_shipment.eta_date,
+            eta_window=sub_shipment.eta_window
         )
         db.add(assigned)
 
