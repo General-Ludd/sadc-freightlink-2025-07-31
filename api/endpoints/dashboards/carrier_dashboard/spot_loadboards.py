@@ -110,6 +110,8 @@ def get_individual_spot_ftl_loadboard_shipment(
                 "rate_per_ton": shipment.rate_per_ton,
                 "pickup_date": shipment.pickup_date,
                 "eta_data": shipment.eta_date,
+                "payment_terms": shipment.payment_terms,
+                "payment_date": shipment.payment_date,
                 "minimum_transit_time": shipment.estimated_transit_time,
                 "route_preview": shipment.route_preview_embed,
                 "commodity": shipment.commodity,
