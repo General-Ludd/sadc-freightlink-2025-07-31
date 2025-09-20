@@ -41,7 +41,7 @@ def get_brokerage_form_name(
     current_user: dict = Depends(get_current_user)
 ):
     try:
-        firm = db.query(Corporation).fitler(Corporation.id == current_user.get("company_id")).first()
+        firm = db.query(Corporation).filter(Corporation.id == current_user.get("company_id")).first()
         return firm.legal_business_name
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

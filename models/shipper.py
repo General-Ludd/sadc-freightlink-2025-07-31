@@ -60,5 +60,5 @@ class Client_Notification(Base):
     type = Column(String, nullable=False)  # e.g. "shipment_update", "payment", "dispute"
     message = Column(String, nullable=False)
     is_read = Column(Boolean, default=False)
-    created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime(timezone=True), default=get_sast_time)
+    updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)

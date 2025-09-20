@@ -15,7 +15,7 @@ class BankTransaction(Base):
     unique_transaction_key = Column(String, unique=True, index=True)  # Nedbank’s unique key
     reference = Column(String)
     amount = Column(Integer)
-    timestamp = Column(DateTime, default=datetime.utcnow)
+    timestamp = Column(DateTime(timezone=True), default=get_sast_time)
 
     __table_args__ = (
         UniqueConstraint("unique_transaction_key", name="uq_unique_transaction_key"),
@@ -37,8 +37,8 @@ class VehicleRate(Base):
     name = Column(String, nullable=False)
     base_rate = Column(Integer, nullable=False)
     weight_factor = Column(Integer, nullable=False)
-    created_at = Column(DateTime, nullable=False, server_default=func.now())
-    updated_at = Column(DateTime, nullable=True, onupdate=func.now())
+    created_at = Column(DateTime(timezone=True), default=get_sast_time)
+    updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)
 
 class PlatformCommission(Base):
     __tablename__ = "platform_commissions"
@@ -46,8 +46,8 @@ class PlatformCommission(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False) # Spot_FTL, Exchange_FTL, PTL, LTL
     commission = Column(Integer, nullable=False) # 10.0 = 10%
-    created_at = Column(DateTime, nullable=False, server_default=func.now())
-    updated_at = Column(DateTime, nullable=True, onupdate=func.now())
+    created_at = Column(DateTime(timezone=True), default=get_sast_time)
+    updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)
 
 class PaymentMethods(Base):
     __tablename__ = "payment_methods"
@@ -55,8 +55,8 @@ class PaymentMethods(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False) # e.g Instant EFT, Credit/Debit Card
     transaction_fee = Column(Integer, nullable=False) # e.g 0.032 = 3.2%, 0.01 = 1%
-    created_at = Column(DateTime, nullable=False, server_default=func.now())
-    updated_at = Column(DateTime, nullable=True, onupdate=func.now())
+    created_at = Column(DateTime(timezone=True), default=get_sast_time)
+    updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)
     
 class BrokerageLedger(Base):
     __tablename__ = "brokerage_ledger"
@@ -99,8 +99,8 @@ class BrokerageLedger(Base):
     started_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
     brokerage_completed = Column(Boolean, default=False)
-    created_at = Column(DateTime, nullable=False, server_default=func.now())
-    updated_at = Column(DateTime, nullable=True, onupdate=func.now())
+    created_at = Column(DateTime(timezone=True), default=get_sast_time)
+    updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)
 
 class Dedicated_Lane_BrokerageLedger(Base):
     __tablename__ = "contract_lanes_brokerage_ledger"
@@ -151,8 +151,8 @@ class Dedicated_Lane_BrokerageLedger(Base):
     platform_commission_generated = Column(Integer)
     accepted_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime(timezone=True), default=get_sast_time)
+    updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)
 
 class LateFeeRates(Base):
     __tablename__ = "late_fee_rates"
@@ -160,8 +160,8 @@ class LateFeeRates(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False) #invoices, detention_time, delayed_transit_times
     rate = Column(Integer, nullable=False) # 250
-    created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime(timezone=True), default=get_sast_time)
+    updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)
 
 class Payment(Base):
     __tablename__ = "payments_ledger"
@@ -187,8 +187,8 @@ class Invoice(Base):
     due_date = Column(Date, nullable=True)
     status = Column(String)
     late_fees = Column(Integer, default=0, nullable=True)
-    created_at = Column(Date, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime(timezone=True), default=get_sast_time)
+    updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)
 
 class Invoices(Base):
     __tablename__ = "invoice"
@@ -230,8 +230,8 @@ class Invoices(Base):
     due_amount = Column(Integer, nullable=True)
     paid_amount = Column(Integer, default=0, nullable=True)
     late_fees = Column(Integer, default=0, nullable=True)
-    created_at = Column(Date, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime(timezone=True), default=get_sast_time)
+    updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)
 
 class Interim_Invoice(Base):
     __tablename__ = "interim_invoices"
@@ -274,8 +274,8 @@ class Interim_Invoice(Base):
     total = Column(Integer, default=0)
     due_amount = Column(Integer, default=0, nullable=True)
     paid_amount = Column(Integer, default=0, nullable=True)
-    created_at = Column(Date, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime(timezone=True), default=get_sast_time)
+    updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)
 
 class Shipment_Invoice(Base):
     __tablename__ = "shipment_invoices"
@@ -327,8 +327,8 @@ class Shipment_Invoice(Base):
     total = Column(Integer, default=0)
     due_amount = Column(Integer, default=0, nullable=True)
     paid_amount = Column(Integer, default=0, nullable=True)
-    created_at = Column(Date, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime(timezone=True), default=get_sast_time)
+    updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)
 
 class Lane_Invoice(Base):
     __tablename__ = "carrier_lane_invoices"
@@ -362,8 +362,8 @@ class Lane_Invoice(Base):
     due_amount = Column(Integer, nullable=True)
     paid_amount = Column(Integer, default=0, nullable=True)
     late_fees = Column(Integer, default=0, nullable=True)
-    created_at = Column(Date, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime(timezone=True), default=get_sast_time)
+    updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)
 
 class Lane_Interim_Invoice(Base):
     __tablename__ = "carrier_lane_interim_invoices"
@@ -399,8 +399,8 @@ class Lane_Interim_Invoice(Base):
     detention_fees = Column(Integer, default=0, nullable=True)
     due_amount = Column(Integer, default=0, nullable=True)
     paid_out_amount = Column(Integer, default=0, nullable=True)
-    created_at = Column(Date, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime(timezone=True), default=get_sast_time)
+    updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)
 
 class Load_Invoice(Base):
     __tablename__ = "carrier_load_invoices"
@@ -445,8 +445,8 @@ class Load_Invoice(Base):
     detention_fees = Column(Integer, default=0, nullable=True)
     due_amount = Column(Integer, default=0, nullable=True)
     paid_out_amount = Column(Integer, default=0, nullable=True)
-    created_at = Column(Date, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime(timezone=True), default=get_sast_time)
+    updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)
 
 class Invoicea(Base):
     __tablename__ = "invoicea"

@@ -262,7 +262,11 @@ def create_ftl_shipment(
         financial_account=financial_account,
         shipment_id=shipment.id,
         shipment_type=shipment.type,
-        pickup_date=shipment_data.pickup_date,
+        origin_address=shipment.origin_address,
+        destination_address=shipment.destination_address,
+        pickup_date=shipment.pickup_date,
+        distance=shipment.distance,
+        transit_time=shipment.estimated_transit_time,
         total_cost=quote_per_shipment
     )
     shipment.invoice_id = shipment_invoice.id
@@ -749,7 +753,11 @@ def broker_create_ftl_shipment(
         financial_account=financial_account,
         shipment_id=shipment.id,
         shipment_type=shipment.type,
-        pickup_date=shipment_data.pickup_date,
+        origin_address=shipment.origin_address,
+        destination_address=shipment.destination_address,
+        pickup_date=shipment.pickup_date,
+        distance=shipment.distance,
+        transit_time=shipment.estimated_transit_time,
         total_cost=quote_per_shipment
     )
     shipment.invoice_id = shipment_invoice.id

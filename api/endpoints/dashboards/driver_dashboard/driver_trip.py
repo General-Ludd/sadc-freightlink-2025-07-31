@@ -146,43 +146,70 @@ def upload_pod(
         carrier_shipment.status = "Completed"
 
         # Handle sub-shipment case
-
         if shipment.is_sub_shipment:
             lane = db.query(FTL_Lane).filter_by(id=shipment.lane_id).first()
             carrier_lane = db.query(Assigned_Ftl_Lanes).filter_by(id=shipment.lane_id).first()
             if lane and carrier_lane:
-                lane.progress = (
-                    (lane.progress or 0) + 1
-                )
-                carrier_lane.progress = (
-                    (carrier_lane.total_shipment_completed or 0) + 1
-                )
+                lane.progress = (lane.progress or 0) + 1
+                carrier_lane.progress = (carrier_lane.total_shipment_completed or 0) + 1
 
-        # Handle carrier financials
-        if shipment.carrier_id:
-            account = (
-                db.query(CarrierFinancialAccount)
-                .filter_by(carrier_id=shipment.carrier_id)
-                .first()
-            )
-            if not account:
-                return {"error": "Carrier financial account not found"}
+        # --- SHIPPER: financial account ---
+        shipper_account = db.query(FinancialAccounts).filter_by(id=shipment.shipper_company_id).first()
 
-            rate = carrier_shipment.shipment_rate
-            account.holding_balance = (account.holding_balance or 0) + rate
-            account.current_balance = (account.current_balance or 0) + rate
+        if shipper_account:
+            shipper_account.total_outstanding = (shipper_account.total_outstanding or 0) + shipment.quote
+            db.add(shipper_account)
+        else:
+            raise HTTPException(status_code=404, detail="Shipper financial account not found")
 
+        # Update related shipment invoice (if exists) to "Due"
+        shipment_invoice = db.query(Shipment_Invoice).filter_by(shipment_id=shipment.id
+                                                            shipment_type=shipment.type).first()
+        if shipment_invoice:
+            shipment_invoice.status = "Due"        # mark as due for payment
+            shipment_invoice.is_paid = False
+            db.add(shipment_invoice)
+
+        # --- CARRIER: financial account ---
+        carrier_account = db.query(CarrierFinancialAccount).filter_by(carrier_id=shipment.carrier_id).first()
+        if not carrier_account:
+            raise HTTPException(status_code=404, detail="Carrier financial account not found")
+
+        # Rate is on the assigned carrier_shipment record
+        rate = carrier_shipment.shipment_rate
+        carrier_account.holding_balance = (carrier_account.holding_balance or 0) + rate
+        db.add(carrier_account)
+
+        # Find carrier invoice (Load_Invoice) for the shipment and mark unpaid
+        carrier_invoice = db.query(Load_Invoice).filter_by(
+            shipment_id=shipment.id,
+            shipment_type=shipment.type
+        ).first()
+
+        if carrier_invoice:
+            carrier_invoice.status = "Unpaid"
+            carrier_invoice.is_paid = False
+            db.add(carrier_invoice)
+
+        # --- persist everything in one transaction ---
         db.commit()
+
+        # refresh objects for return
         db.refresh(shipment)
+        db.refresh(carrier_shipment)
+        db.refresh(shipper_account)
+        db.refresh(carrier_account)
 
         return {
-            "message": "POD uploaded successfully",
+            "message": "POD uploaded and financials updated successfully",
             "shipment_id": shipment_id,
-            "shipment_type": shipment_type,
             "shipment_status": shipment.shipment_status,
-            "trip_status": shipment.trip_status,
-            "pod_link": shipment.pod_link,
+            "shipper_total_outstanding": shipper_account.total_outstanding,
+            "carrier_holding_balance": carrier_account.holding_balance,
         }
 
+    except HTTPException as he:
+        raise he
     except Exception as e:
-        return {"error": str(e)}
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
