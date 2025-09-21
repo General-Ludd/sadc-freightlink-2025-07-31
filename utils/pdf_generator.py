@@ -1,5 +1,7 @@
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
+from reportlab.platypus import Paragraph
+from reportlab.lib.styles import getSampleStyleSheet
 from io import BytesIO
 from datetime import datetime
 
@@ -7,6 +9,13 @@ def generate_invoice_pdf(invoice: dict) -> bytes:
     buffer = BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
     width, height = A4
+
+    # === Styles for Paragraphs ===
+    styles = getSampleStyleSheet()
+    normal_style = styles["Normal"]
+    normal_style.fontName = "Helvetica"
+    normal_style.fontSize = 10
+    normal_style.leading = 12
 
     # === "LOGO" / Platform Name at Top Center ===
     c.setFont("Helvetica-Bold", 22)
@@ -26,42 +35,58 @@ def generate_invoice_pdf(invoice: dict) -> bytes:
     c.drawString(50, height - 170, f"Billing Date: {invoice['billing_date']}")
     c.drawString(50, height - 185, f"Due Date: {invoice['due_date']}")
 
-    # From
-    c.setFont("Helvetica-Bold", 12)
-    c.drawString(50, height - 220, "From:")
-    c.setFont("Helvetica", 10)
-    c.drawString(60, height - 235, invoice['from']['company_name'])
-    c.drawString(60, height - 250, invoice['from']['address'])
-    c.drawString(60, height - 265, f"Bank: {invoice['from']['bank_name']}")
-    c.drawString(60, height - 280, f"Account: {invoice['from']['account_number']}")
+    # === From & Billed To ===
+    title_y = height - 220
+    content_y = title_y - 15
 
-    # Billed To
+    # Titles
     c.setFont("Helvetica-Bold", 12)
-    c.drawString(300, height - 220, "Billed To:")
-    c.setFont("Helvetica", 10)
-    c.drawString(310, height - 235, invoice['billed_to']['platform_name'])
-    c.drawString(310, height - 250, f"Reg No: {invoice['billed_to']['registration_number']}")
-    c.drawString(310, height - 265, f"Email: {invoice['billed_to']['platform_email']}")
+    c.drawString(50, title_y, "From:")
+    c.drawString(300, title_y, "Billed To:")
 
-    # Service details
-    c.setFont("Helvetica-Bold", 12)
-    c.drawString(50, height - 310, "Service Details:")
-    c.setFont("Helvetica", 10)
-    c.drawString(60, height - 325, f"Description: {invoice['description']}")
-    c.drawString(60, height - 340, f"Services: {invoice['information']['services']}")
-    c.drawString(60, height - 355, f"Pickup Date: {invoice['information']['pickup_date']}")
-    c.drawString(60, height - 370, f"Distance: {invoice['information']['distance']:,} km")
+    # Content using Paragraph for wrapping
+    from_text = f"{invoice['from']['company_name']}<br/>{invoice['from']['address']}<br/>Bank: {invoice['from']['bank_name']}<br/>Account: {invoice['from']['account_number']}"
+    billed_to_text = f"{invoice['billed_to']['platform_name']}<br/>Reg No: {invoice['billed_to']['registration_number']}<br/>Email: {invoice['billed_to']['platform_email']}"
 
-    # Charges
+    from_para = Paragraph(from_text, normal_style)
+    billed_para = Paragraph(billed_to_text, normal_style)
+
+    from_para.wrapOn(c, 200, 100)   # width, height
+    from_para.drawOn(c, 60, content_y - 45)  # start slightly below the title
+
+    billed_para.wrapOn(c, 200, 100)
+    billed_para.drawOn(c, 310, content_y - 45)
+
+    # === Service Details ===
+    service_y = content_y - 90
     c.setFont("Helvetica-Bold", 12)
-    c.drawString(50, height - 410, "Charges:")
+    c.drawString(50, service_y, "Service Details:")
+
+    service_text_y = service_y - 15
+    description_para = Paragraph(f"Description: {invoice['description']}", normal_style)
+    services_para = Paragraph(f"Services: {invoice['information']['services']}", normal_style)
+    description_para.wrapOn(c, 480, 50)
+    services_para.wrapOn(c, 480, 50)
+    description_para.drawOn(c, 60, service_text_y)
+    services_para.drawOn(c, 60, service_text_y - 15)
+
+    # Pickup date and distance
     c.setFont("Helvetica", 10)
-    c.drawString(60, height - 425, f"Base Amount: R{invoice['information']['base_amount']:,}")
-    c.drawString(60, height - 440, f"Detention Fees: R{invoice['information']['detention_fees']:,}")
-    c.drawString(60, height - 455, f"Other Surcharges: R{invoice['information']['other_surcharges']:,}")
+    c.drawString(60, service_text_y - 40, f"Pickup Date: {invoice['information']['pickup_date']}")
+    c.drawString(60, service_text_y - 55, f"Distance: {invoice['information']['distance']:,} km")
+
+    # === Charges ===
+    charges_y = service_text_y - 85
+    c.setFont("Helvetica-Bold", 12)
+    c.drawString(50, charges_y, "Charges:")
+
+    c.setFont("Helvetica", 10)
+    c.drawString(60, charges_y - 15, f"Base Amount: R{invoice['information']['base_amount']:,}")
+    c.drawString(60, charges_y - 30, f"Detention Fees: R{invoice['information']['detention_fees']:,}")
+    c.drawString(60, charges_y - 45, f"Other Surcharges: R{invoice['information']['other_surcharges']:,}")
 
     c.setFont("Helvetica-Bold", 12)
-    c.drawString(60, height - 480, f"Total Due: R{invoice['information']['due_amount']:,}")
+    c.drawString(60, charges_y - 70, f"Total Due: R{invoice['information']['due_amount']:,}")
 
     # Footer
     c.setFont("Helvetica", 8)
