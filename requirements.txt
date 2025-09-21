@@ -24,6 +24,7 @@ h11==0.16.0
 httptools==0.6.4
 idna==3.10
 jose==1.0.0
+pillow==11.3.0
 proto-plus==1.26.1
 protobuf==6.32.0
 psycopg2-binary==2.9.10
@@ -38,6 +39,7 @@ python-jose==3.5.0
 python-multipart==0.0.20
 pytz==2025.2
 PyYAML==6.0.2
+reportlab==4.4.4
 requests==2.32.4
 rsa==4.9.1
 six==1.17.0
