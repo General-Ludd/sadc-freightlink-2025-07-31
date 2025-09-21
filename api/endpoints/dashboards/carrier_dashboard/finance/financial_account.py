@@ -66,7 +66,13 @@ def carrier_get_carrier_shipment_invoice(
         # ✅ Generate PDF
         pdf_bytes = generate_invoice_pdf(invoice_dict)
 
-        return Response(content=pdf_bytes, media_type="application/pdf")
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'attachment; filename="invoice_{invoice.id}.pdf"'
+            }
+        )
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
