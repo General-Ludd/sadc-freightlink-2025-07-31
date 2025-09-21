@@ -6,7 +6,7 @@ from models.brokerage.finance import CarrierFinancialAccounts, Load_Invoice, Lan
 from schemas.brokerage.finance import CarrierFinancialAccountResponse
 from schemas.brokerage.finance import Withdrawal_Request
 from utils.auth import get_current_user
-from app.utils.pdf_generator import generate_invoice_pdf
+from utils.pdf_generator import generate_invoice_pdf
 
 
 router = APIRouter()
