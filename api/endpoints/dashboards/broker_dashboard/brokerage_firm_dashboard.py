@@ -261,6 +261,7 @@ def get_brokerage_financial_profile_information(
                     "total_outstanding": financial_account.total_outstanding,
                     "total_paid": financial_account.total_paid,
                     "credit_balance": financial_account.credit_balance,
+                    "projected_spending": financial_account.projected_balance,
                     "spending_limit": financial_account.spending_limit,
                     "number_of_paid_invoices": financial_account.num_paid_invoices,
                     "number_of_outstanding_invoices": financial_account.num_outstanding_invoices,

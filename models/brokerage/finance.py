@@ -352,7 +352,7 @@ class Lane_Invoice(Base):
     carrier_financial_account_id = Column(Integer)
     payment_terms = Column(String, nullable=True)
     carrier_bank = Column(String) 
-    carrier_bank_account = Column(Integer)
+    carrier_bank_account = Column(String)
     payment_reference = Column(String)
 
     #Charges
