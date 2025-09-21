@@ -271,8 +271,8 @@ def get_brokerage_financial_profile_information(
             },
             
             "financial_spending": [{
-                "amount": shipment_invoice.due_amount,
-                "date": shipment_invoice.billing_date
+                "amount": service_invoice.due_amount,
+                "date": service_invoice.billing_date
             } for service_invoice in service_invoices],
 
             "invoices": {
