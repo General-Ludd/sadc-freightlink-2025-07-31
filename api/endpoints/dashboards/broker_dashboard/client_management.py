@@ -5,7 +5,7 @@ from db.database import SessionLocal
 from models.shipper import Consignor
 from models.spot_bookings.ftl_shipment import FTL_SHIPMENT
 from models.spot_bookings.power_shipment import POWER_SHIPMENT
-from models.spot_bookings.dedicated_lanes_ftl_shipment import FTL_Lane
+from models.spot_bookings.dedicated_lane_ftl_shipment import FTL_Lane
 from models.brokerage.finance import Shipment_Invoice, Brokers_Brokerage_Transactions
 from schemas.shipper import ConsignorCreate
 from services.shipper_service import create_brokerage_firm_consignor_client
