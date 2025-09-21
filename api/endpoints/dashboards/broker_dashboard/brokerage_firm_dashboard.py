@@ -282,7 +282,7 @@ def get_brokerage_financial_profile_information(
                     "billing_date": service_invoice.billing_date,
                     "status": service_invoice.status,
                     "due_date": service_invoice.due_date,
-                    "due_amount": (service_invoice.due_amount - service_invoice.paid_amount),
+                    "due_amount": (service_invoice.due_amount - service_invoice.paid_amount if service_invoice.paid_amount else service_invoice.due_amount),
                 } for service_invoice in service_invoices],
 
                 "interim_invoices": [{
@@ -293,7 +293,7 @@ def get_brokerage_financial_profile_information(
                     "description": interim_invoice.description,
                     "status": interim_invoice.status,
                     "due_date": interim_invoice.due_date,
-                    "due_amount": (interim_invoice.due_amount - paid_amount),
+                    "due_amount": (interim_invoice.due_amount - interim_invoice.paid_amount),
                     } for interim_invoice in interim_invoices],
 
                 "lane_invoices": [{
@@ -302,7 +302,7 @@ def get_brokerage_financial_profile_information(
                     "description": lane_invoice.description,
                     "status": lane_invoice.status,
                     "due_date": lane_invoice.due_date,
-                    "due_amount": (lane_invoice - paid_amount),
+                    "due_amount": (lane_invoice - lane_invoice.paid_amount),
                 } for lane_invoice in lane_invoices],
             }
         }
