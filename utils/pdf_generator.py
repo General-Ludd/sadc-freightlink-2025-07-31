@@ -10,12 +10,12 @@ def generate_invoice_pdf(invoice: dict) -> bytes:
 
     # === "LOGO" / Platform Name at Top Center ===
     c.setFont("Helvetica-Bold", 22)
-    platform_name = invoice['billed_to']['platform_name']  # "SADC FREIGHTLINK PTY LTD"
+    platform_name = invoice['billed_to']['platform_name']
     text_width = c.stringWidth(platform_name, "Helvetica-Bold", 22)
-    c.setFillColorRGB(0, 0, 0)  # black
+    c.setFillColorRGB(0, 0, 0)
     c.drawString((width - text_width) / 2, height - 60, platform_name)
 
-    # Invoice Title below the logo
+    # Invoice Title
     c.setFont("Helvetica-Bold", 16)
     c.drawString(260, height - 100, "INVOICE")
 
@@ -50,18 +50,18 @@ def generate_invoice_pdf(invoice: dict) -> bytes:
     c.drawString(60, height - 325, f"Description: {invoice['description']}")
     c.drawString(60, height - 340, f"Services: {invoice['information']['services']}")
     c.drawString(60, height - 355, f"Pickup Date: {invoice['information']['pickup_date']}")
-    c.drawString(60, height - 370, f"Distance: {invoice['information']['distance']} km")
+    c.drawString(60, height - 370, f"Distance: {invoice['information']['distance']:,} km")
 
     # Charges
     c.setFont("Helvetica-Bold", 12)
     c.drawString(50, height - 410, "Charges:")
     c.setFont("Helvetica", 10)
-    c.drawString(60, height - 425, f"Base Amount: {invoice['information']['base_amount']} ZAR")
-    c.drawString(60, height - 440, f"Detention Fees: {invoice['information']['detention_fees']} ZAR")
-    c.drawString(60, height - 455, f"Other Surcharges: {invoice['information']['other_surcharges']} ZAR")
+    c.drawString(60, height - 425, f"Base Amount: R{invoice['information']['base_amount']:,}")
+    c.drawString(60, height - 440, f"Detention Fees: R{invoice['information']['detention_fees']:,}")
+    c.drawString(60, height - 455, f"Other Surcharges: R{invoice['information']['other_surcharges']:,}")
 
     c.setFont("Helvetica-Bold", 12)
-    c.drawString(60, height - 480, f"Total Due: {invoice['information']['due_amount']} ZAR")
+    c.drawString(60, height - 480, f"Total Due: R{invoice['information']['due_amount']:,}")
 
     # Footer
     c.setFont("Helvetica", 8)
