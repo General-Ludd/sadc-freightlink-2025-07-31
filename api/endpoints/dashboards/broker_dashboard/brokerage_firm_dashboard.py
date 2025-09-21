@@ -231,6 +231,8 @@ def get_brokerage_financial_profile_information(
         service_invoices = db.query(Shipment_Invoice).filter(Shipment_Invoice.financial_account_id == financial_account.id).all()
         interim_invoices = db.query(Interim_Invoice).filter(Interim_Invoice.financial_account_id == financial_account.id).all()
         lane_invoices = db.query(Invoices).filter(Invoices.financial_account_id == financial_account.id).all()
+        ftl_shipments = db.query(FTL_SHIPMENT).filter(FTL_SHIPMENT.shipper_company_id == company_id).all()
+        power_shipments = db.query(POWER_SHIPMENT).filter(POWER_SHIPMENT.shipper_company_id == company_id).all()
 
         return {
             "financial_account_information": {
