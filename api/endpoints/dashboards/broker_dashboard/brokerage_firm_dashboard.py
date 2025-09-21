@@ -302,7 +302,7 @@ def get_brokerage_financial_profile_information(
                     "description": lane_invoice.description,
                     "status": lane_invoice.status,
                     "due_date": lane_invoice.due_date,
-                    "due_amount": (lane_invoice - lane_invoice.paid_amount),
+                    "due_amount": (lane_invoice.due_amount - lane_invoice.paid_amount),
                 } for lane_invoice in lane_invoices],
             }
         }
