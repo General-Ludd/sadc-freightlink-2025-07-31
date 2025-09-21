@@ -347,7 +347,7 @@ def carrier_get_ftl_shipment_details(
             "driver_information": {
                 "id": driver.id,
                 "availability_status": driver.service_status,
-                "verification_status": driver.verification_status,
+                "verification_status": driver.is_verified,
                 "status": driver.status,
                 "first_name": driver.first_name,
                 "last_name": driver.last_name,
