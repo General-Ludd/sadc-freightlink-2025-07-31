@@ -135,9 +135,7 @@ def get_brokerage_firm_client(
         invoice_list = []
         for shipment in shipments:
             invoices = db.query(Shipment_Invoice).filter(
-                Shipment_Invoice.shipment_id == shipment.id,
-                Shipment_Invoice.shipment_type == shipment.type,
-                Shipment_Invoice.is_applied == True
+                Shipment_Invoice.id == shipment.invoice_id
             ).order_by(desc(Shipment_Invoice.billing_date)).all()
             invoice_list.extend(invoices)
 
