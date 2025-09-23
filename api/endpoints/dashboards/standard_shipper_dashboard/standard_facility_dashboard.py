@@ -341,7 +341,7 @@ def get_unread_shipper_account_notifications(
                                                                     Client_Notification.is_read == False).all()
 
         return {
-            len(unread_notifications)
+            "unread_count": len(unread_notifications)
         }
     except Exception as e:
         return {"error": str(e)}
