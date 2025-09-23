@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from db.database import SessionLocal
-from models.brokerage.finance import FinancialAccounts
+from models.brokerage.finance import FinancialAccounts, Shipment_Invoice, Interim_Invoice, Invoices
+from models.spot_bookings.ftl_shipment import FTL_SHIPMENT
+from models.spot_bookings.power_shipment import POWER_SHIPMENT
 from models.shipper import Corporation
 from schemas.brokerage.finance import Shipper_Financial_Account_Create
 from schemas.shipper import CorporationBase, CorporationResponse
@@ -10,7 +12,6 @@ from services.shipper_service import create_standard_shipper
 from utils.auth import get_current_user, verify_password
 from utils.jwt_handler import create_access_token
 from models.user import Director, User, Driver, CarrierDirector
-from models.vehicle import Vehicle
 from schemas.auth import LoginRequest, LoginResponse
 
 router = APIRouter()
@@ -197,3 +198,95 @@ def get_shipper_company_profile_information(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/shipper/financial-account")
+def get_shipper_financial_profile_information(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    assert "company_id" in current_user, "Missing company_id in current_user"
+    company_id = current_user.get("company_id")
+    try:
+        financial_account = db.query(FinancialAccounts).filter(FinancialAccounts.id == company_id).first()
+        service_invoices = db.query(Shipment_Invoice).filter(Shipment_Invoice.financial_account_id == financial_account.id).all()
+        interim_invoices = db.query(Interim_Invoice).filter(Interim_Invoice.financial_account_id == financial_account.id).all()
+        lane_invoices = db.query(Invoices).filter(Invoices.financial_account_id == financial_account.id).all()
+        ftl_shipments = db.query(FTL_SHIPMENT).filter(FTL_SHIPMENT.shipper_company_id == company_id).all()
+        power_shipments = db.query(POWER_SHIPMENT).filter(POWER_SHIPMENT.shipper_company_id == company_id).all()
+
+        return {
+            "financial_account_information": {
+                "id": financial_account.id,
+                "payment_terms": financial_account.payment_terms,
+                "years_in_business": financial_account.years_in_business,
+                "nature_of_business": financial_account.nature_of_business,
+                "annual_turnover": financial_account.annual_turnover,
+                "annual_cashflow": financial_account.annual_cash_flow,
+                "business_credit_score": financial_account.credit_score,
+                "bank_name": financial_account.bank_name,
+                "branch_code": financial_account.branch_code,
+                "account_number": financial_account.account_number,
+                "account_type": financial_account.account_type,
+                "projected_monthly_bookings": financial_account.projected_monthly_bookings,
+                "is_verified": financial_account.is_verified,
+                "status": financial_account.status,
+                "account_confirmation_letter": financial_account.account_confirmation_letter,
+                "tax_clearance_certificate": financial_account.tax_clearance_certificate,
+                "audited_financial_statements": financial_account.audited_financial_statement,
+                "bank_statement": financial_account.bank_statement,
+                "business_credit_score_report": financial_account.business_credit_score_report,
+                "suretyship": financial_account.suretyship,
+
+                "financial_metrics": {
+                    "total_spent": financial_account.total_spent,
+                    "average_spend": financial_account.average_spend,
+                    "total_outstanding": financial_account.total_outstanding,
+                    "total_paid": financial_account.total_paid,
+                    "credit_balance": financial_account.credit_balance,
+                    "projected_spending": financial_account.projected_balance,
+                    "spending_limit": financial_account.spending_limit,
+                    "number_of_paid_invoices": financial_account.num_paid_invoices,
+                    "number_of_outstanding_invoices": financial_account.num_outstanding_invoices,
+                    "number_of_overdue_invoices": financial_account.num_overdue_invoices,
+                    "number_of_ongoing_interim_invoices": financial_account.ongoing_interim_invoices,
+                }
+            },
+            
+            "financial_spending": [{
+                "amount": service_invoice.due_amount,
+                "date": service_invoice.billing_date
+            } for service_invoice in service_invoices],
+
+            "invoices": {
+                "service_invoices": [{
+                    "id": service_invoice.id,
+                    "description": service_invoice.description,
+                    "billing_date": service_invoice.billing_date,
+                    "status": service_invoice.status,
+                    "due_date": service_invoice.due_date,
+                    "due_amount": (service_invoice.due_amount - service_invoice.paid_amount if service_invoice.paid_amount else service_invoice.due_amount),
+                } for service_invoice in service_invoices],
+
+                "interim_invoices": [{
+                    "id": interim_invoice.id,
+                    "lane_id": interim_invoice.contract_id,
+                    "lane_type": interim_invoice.contract_type,
+                    "period": f"{interim_invoice.billing_date}-{interim_invoice.due_date}",
+                    "description": interim_invoice.description,
+                    "status": interim_invoice.status,
+                    "due_date": interim_invoice.due_date,
+                    "due_amount": (interim_invoice.due_amount - interim_invoice.paid_amount),
+                    } for interim_invoice in interim_invoices],
+
+                "lane_invoices": [{
+                    "id": lane_invoice.id,
+                    "billing_date": lane_invoice.billing_date,
+                    "description": lane_invoice.description,
+                    "status": lane_invoice.status,
+                    "due_date": lane_invoice.due_date,
+                    "due_amount": (lane_invoice.due_amount - lane_invoice.paid_amount),
+                } for lane_invoice in lane_invoices],
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))

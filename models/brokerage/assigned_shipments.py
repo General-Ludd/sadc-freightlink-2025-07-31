@@ -59,7 +59,7 @@ class Assigned_Spot_Ftl_Shipments(Base):
     shipment_weight = Column(Integer)
     commodity = Column(String)
     temperature_control = Column(String)
-    hazardous_materials = Column(String, nullable=False)
+    hazardous_materials = Column(Boolean, nullable=False)
     packaging_quantity = Column(String)
     packaging_type = Column(String)
     pickup_number = Column(String)
