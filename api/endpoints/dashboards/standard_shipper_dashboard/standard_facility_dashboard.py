@@ -4,7 +4,7 @@ from db.database import SessionLocal
 from models.brokerage.finance import FinancialAccounts, Shipment_Invoice, Interim_Invoice, Invoices
 from models.spot_bookings.ftl_shipment import FTL_SHIPMENT
 from models.spot_bookings.power_shipment import POWER_SHIPMENT
-from models.shipper import Corporation
+from models.shipper import Corporation, Client_Notification
 from schemas.brokerage.finance import Shipper_Financial_Account_Create
 from schemas.shipper import CorporationBase, CorporationResponse
 from schemas.user import DirectorCreate, DirectorResponse, ShipperUserResponse
@@ -290,3 +290,33 @@ def get_shipper_financial_profile_information(
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/shipper/notifications")
+def get_shipper_account_notifications(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    assert "company_id" in current_user, "Missing company_id in current_user"
+    print(f"current_user: {current_user}")
+    
+    # Extract the company_id from the current user
+    company_id = current_user.get("company_id")
+    if not company_id:
+        raise HTTPException(
+            status_code=400,
+            detail="User does not belong to a company"
+        )
+    try:
+        notifications = db.query(Client_Notification).filter(Client_Notification.company_id == company_id).all()
+
+        return {
+            "notifications": [{
+                "id": notification.id,
+                "subject": notification.type,
+                "message": notification.message,
+                "is_read": notification.is_read,
+                "recieved_at": notification.created_at
+            } for notification in notifications]
+        }
+    except Exception as e:
+        return {"error": str(e)}
