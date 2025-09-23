@@ -337,8 +337,8 @@ def get_unread_shipper_account_notifications(
             detail="User does not belong to a company"
         )
     try:
-        unread_notifications = db.query(Client_Notification).filter(Client_Notification.company_id == company_id
-                                                             Client_Notification.is_read == False).all()
+        unread_notifications = db.query(Client_Notification).filter(Client_Notification.company_id == company_id,
+                                                                    Client_Notification.is_read == False).all()
 
         return {
             len(unread_notifications)
