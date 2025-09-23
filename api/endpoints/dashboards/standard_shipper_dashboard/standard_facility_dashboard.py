@@ -320,3 +320,28 @@ def get_shipper_account_notifications(
         }
     except Exception as e:
         return {"error": str(e)}
+
+@router.get("/shipper/unread-notifications")
+def get_unread_shipper_account_notifications(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    assert "company_id" in current_user, "Missing company_id in current_user"
+    print(f"current_user: {current_user}")
+    
+    # Extract the company_id from the current user
+    company_id = current_user.get("company_id")
+    if not company_id:
+        raise HTTPException(
+            status_code=400,
+            detail="User does not belong to a company"
+        )
+    try:
+        unread_notifications = db.query(Client_Notification).filter(Client_Notification.company_id == company_id
+                                                             Client_Notification.is_read == False).all()
+
+        return {
+            len(unread_notifications)
+        }
+    except Exception as e:
+        return {"error": str(e)}
