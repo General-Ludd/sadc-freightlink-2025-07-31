@@ -11,6 +11,8 @@ from utils.auth import get_current_user, verify_password
 from utils.jwt_handler import create_access_token
 from models.user import Director, User, Driver, CarrierDirector
 from models.vehicle import Vehicle
+from models.spot_bookings.ftl_shipment import FTL_SHIPMENT
+from models.spot_bookings.power_shipment import POWER_SHIPMENT
 from schemas.auth import LoginRequest, LoginResponse
 
 router = APIRouter()
