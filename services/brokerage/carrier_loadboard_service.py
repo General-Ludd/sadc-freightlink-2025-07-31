@@ -241,8 +241,6 @@ def assign_spot_ftl_shipment_to_carrier(
         brokerage_ledger.driver_id_number=driver.id_number
         brokerage_ledger.driver_license_number=driver.license_number
 
-        financial_account.holding_balance= (financial_account.holding_balance + brokerage_ledger.carrier_payable)
-
         try:
             shipment_invoice = Load_Invoice(
                 shipment_id = shipment.id,
@@ -287,7 +285,7 @@ def assign_spot_ftl_shipment_to_carrier(
             invoice_status = shipment_invoice.status,
             trip_type=shipment.trip_type,
             load_type=shipment.load_type,
-            carrier_id=carrier_id,
+            carrier_id=carrier.id,
             carrier_name=carrier.legal_business_name,
             vehicle_id=vehicle.id,
             driver_id=driver.id,
@@ -324,7 +322,7 @@ def assign_spot_ftl_shipment_to_carrier(
             shipment_weight=shipment.shipment_weight,
             commodity=shipment.commodity,
             temperature_control=shipment.temperature_control,
-            hazardous_materials=loadboard_entry.hazardous_metarials,
+            hazardous_materials=shipment.hazardous_materials,
             packaging_quantity=shipment.packaging_quantity,
             packaging_type=shipment.packaging_type,
             pickup_number=shipment.pickup_number,
