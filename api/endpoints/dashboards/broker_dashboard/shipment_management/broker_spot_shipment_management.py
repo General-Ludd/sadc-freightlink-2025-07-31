@@ -546,7 +546,7 @@ def broker_access_get_individual_power_shipment(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-router.get("/broker-access/ftl-contract-lane/{id}")
+@router.get("/broker-access/ftl-contract-lane/{id}")
 def broker_access_get_individual_ftl_contract_lane(
     id: int,
     db: Session = Depends(get_db),
@@ -563,6 +563,9 @@ def broker_access_get_individual_ftl_contract_lane(
 
     try:
         lane = db.query(FTL_Lane).filter(FTL_Lane.id == id).first()
+        consignor = db.query(Consignor).filter(Consignor.id = lane.consignor_id).first()
+        broker_transaction = db.query(Brokerage_Transactions).filter(Brokerage_Transactions.lane_id == lane.id
+                                                                Brokerage_Transactions.type == lane.type).first()
         invoices = db.query(Interim_Invoice).filter(Interim_Invoice.contract_id == lane.id,
                                                Interim_Invoice.contract_type == lane.type).all()
         sub_shipments = db.query(FTL_SHIPMENT).filter(FTL_SHIPMENT.dedicated_lane_id == lane.id).all()
@@ -608,6 +611,24 @@ def broker_access_get_individual_ftl_contract_lane(
                 "start_date": lane.start_date,
                 "end_date": lane.end_date,
                 "route_preview_embed": lane.route_preview_embed,
+            },
+
+            "consignor_information": {
+                "id": consignor.id if consignor else "N/A",
+                "client_type": consignor.client_type if consignor else "N/A",
+                "business_sector": consignor.business_sector if consignor else "N/A",
+                "company_name": consignor.company_name if consignor else "N/A",
+                "contact_person": consignor.contact_person_name if consignor else "N/A",
+                "phone_number": consignor.phone_number if consignor else "N/A",
+                "email": consignor.email if consignor else "N/A",
+                "per_shipment_client_billable": broker_transaction.per_shipment_consignor_billable if broker_transaction else "N/A",
+                "contract_consignor_billable": broker_transaction.contract_consignor_billable if broker_transaction else "N/A",
+                "per_shipment_broker_profit": (
+                    broker_transaction.per_shipment_consignor_billable - lane.qoute_per_shipment
+                ) if broker_transaction else "N/A",
+                "contract_broker_profit": (
+                    broker_transaction.contract_consignor_billable - lane.contract_quote
+                ) if broker_transaction else "N/A"
             },
 
             "contract_information": {
