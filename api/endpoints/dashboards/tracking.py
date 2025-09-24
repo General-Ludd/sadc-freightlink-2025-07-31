@@ -98,12 +98,12 @@ def get_shipment_location(shipment_id: int, shipment_type: str, db: Session = De
         if shipment_type.upper() == "FTL":
             shipment = db.query(FTL_SHIPMENT).filter(
                 FTL_SHIPMENT.id == shipment_id,
-                FTL_SHIPMENT.shipper_company_id == current_user.company_id
+                FTL_SHIPMENT.shipper_company_id == current_user["company_id"]
             ).first()
         elif shipment_type.upper() == "POWER":
             shipment = db.query(POWER_SHIPMENT).filter(
                 POWER_SHIPMENT.id == shipment_id,
-                POWER_SHIPMENT.shipper_company_id == currner_user.company_id
+                POWER_SHIPMENT.shipper_company_id == current_user["company_id"]
             ).first()
         else:
             raise HTTPException(status_code=400, detail="Invalid shipment type")
