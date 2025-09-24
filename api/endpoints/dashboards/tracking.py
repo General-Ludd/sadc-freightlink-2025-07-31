@@ -51,7 +51,7 @@ def update_vehicle_location(
     driver.time_stamp = datetime.utcnow()
 
     # If driver has a vehicle, update vehicle location too
-    if driver.vehicle_id:
+    if driver.current_vehicle_id:
         vehicle = db.query(Vehicle).filter(Vehicle.id == driver.current_vehicle_id).first()
         if vehicle:
             vehicle.latitude = location_data.latitude
