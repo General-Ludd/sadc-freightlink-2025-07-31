@@ -959,6 +959,7 @@ def assign_spot_ftl_lane_to_carrier(db: Session, shipment_data: Individual_lane_
             eta_date=sub_shipment.eta_date,
             eta_window=sub_shipment.eta_window
         )
+        sub_shipment.shipment_status = "Assigned"
         db.add(assigned)
 
     db.commit()

@@ -546,8 +546,8 @@ def broker_access_get_individual_power_shipment(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-router.post("/broker-access/ftl-lane/{id}")
-def broker_access_get_individual_ftl_lane(
+router.get("/broker-access/ftl-contract-lane/{id}")
+def broker_access_get_individual_ftl_contract_lane(
     id: int,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
