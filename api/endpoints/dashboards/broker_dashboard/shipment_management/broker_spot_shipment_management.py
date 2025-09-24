@@ -563,7 +563,7 @@ def broker_access_get_individual_ftl_contract_lane(
 
     try:
         lane = db.query(FTL_Lane).filter(FTL_Lane.id == id).first()
-        consignor = db.query(Consignor).filter(Consignor.id = lane.consignor_id).first()
+        consignor = db.query(Consignor).filter(Consignor.id == lane.consignor_id).first()
         broker_transaction = db.query(Brokerage_Transactions).filter(Brokerage_Transactions.lane_id == lane.id
                                                                 Brokerage_Transactions.type == lane.type).first()
         invoices = db.query(Interim_Invoice).filter(Interim_Invoice.contract_id == lane.id,
