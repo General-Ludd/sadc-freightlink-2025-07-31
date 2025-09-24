@@ -867,7 +867,7 @@ def assign_spot_ftl_lane_to_carrier(db: Session, shipment_data: Individual_lane_
 
         parent_invoice = next((
             i for i in lane_interim_invoices
-            if pickup_date <= ensure_date(i.original_due_date)
+            if pickup_date <= ensure_date(i.due_date)
         ), None)
 
         if not parent_invoice:
