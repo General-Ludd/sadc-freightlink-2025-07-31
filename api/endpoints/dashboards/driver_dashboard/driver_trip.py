@@ -19,7 +19,7 @@ def get_db():
     finally:
         db.close()
 
-@router.put("/driver/update-shipment-status")
+@router.put("/driver/update-shipment-status/{shipment_id}-{shipment_type}/{new_trip_status}")
 def driver_update_shipment_status(
     shipment_id: int,
     shipment_type: Literal["FTL", "POWER"],
