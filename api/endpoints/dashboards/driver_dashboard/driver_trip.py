@@ -163,7 +163,7 @@ def upload_pod(
             raise HTTPException(status_code=404, detail="Shipper financial account not found")
 
         # Update related shipment invoice (if exists) to "Due"
-        shipment_invoice = db.query(Shipment_Invoice).filter_by(shipment_id=shipment.id
+        shipment_invoice = db.query(Shipment_Invoice).filter_by(shipment_id=shipment.id,
                                                             shipment_type=shipment.type).first()
         if shipment_invoice:
             shipment_invoice.status = "Due",        # mark as due for payment
