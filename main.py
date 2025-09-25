@@ -24,7 +24,7 @@ from api.endpoints.dashboards.carrier_dashboard.shipment_management import dedic
 from api.endpoints.dashboards.carrier_dashboard.finance import financial_account
 from api.endpoints.dashboards.carrier_dashboard import spot_loadboards
 from api.endpoints.dashboards.carrier_dashboard import exchange_loadboards
-from api.endpoints.dashboards.driver_dashboard import driver_dashboard, driver_shipments
+from api.endpoints.dashboards.driver_dashboard import driver_dashboard, driver_shipments, driver_trip
 from api.endpoints import gcs_upload
 from api.endpoints import financial_deposits
 from api.endpoints.admin_panel import admin_dashboard
@@ -74,6 +74,7 @@ app.include_router(exchange_loadboards.router, prefix="/api", tags=["Carrier Das
 ################################################Driver Dashboard#######################################
 app.include_router(driver_dashboard.router, prefix="/api", tags=["Driver Dashboard"])
 app.include_router(driver_shipments.router, prefix="/api", tags={"Driver Shipments"})
+app.include_router(driver_trip.router, prefix="/api", tags={"Driver Trip Functions"})
 
 ################################################Tracking###############################################
 app.include_router(tracking.router, prefix="/api", tags=["Tracking"])
