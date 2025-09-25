@@ -166,7 +166,7 @@ def upload_pod(
         shipment_invoice = db.query(Shipment_Invoice).filter_by(shipment_id=shipment.id
                                                             shipment_type=shipment.type).first()
         if shipment_invoice:
-            shipment_invoice.status = "Due"        # mark as due for payment
+            shipment_invoice.status = "Due",        # mark as due for payment
             shipment_invoice.is_paid = False
             db.add(shipment_invoice)
 
@@ -187,7 +187,7 @@ def upload_pod(
         ).first()
 
         if carrier_invoice:
-            carrier_invoice.status = "Unpaid"
+            carrier_invoice.status = "Unpaid",
             carrier_invoice.is_paid = False
             db.add(carrier_invoice)
 
