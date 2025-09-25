@@ -113,7 +113,7 @@ def driver_update_shipment_status(
 
 
 
-@router.post("/driver/upload-pod")
+@router.post("/driver/upload-pod/{shipment_id}-{shipment_type}/{pod_link}")
 def upload_pod(
     shipment_id: int,
     shipment_type: Literal["FTL", "POWER"],
