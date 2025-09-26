@@ -9,7 +9,7 @@ from schemas.user import UserCreate, DirectorCreate
 from schemas.shipper import FacilityCreate
 from schemas.brokerage.finance import Shipper_Financial_Account_Create
 from utils.auth import hash_password
-from utils.notification import create_notification
+from utils.notifications import create_notification
 
 def create_enterprise_shipper(db: Session, shipper_data: CorporationBase, director_data: DirectorCreate, financial_data: Shipper_Financial_Account_Create):
     #Create Enterprise Shipper
