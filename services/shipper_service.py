@@ -9,6 +9,7 @@ from schemas.user import UserCreate, DirectorCreate
 from schemas.shipper import FacilityCreate
 from schemas.brokerage.finance import Shipper_Financial_Account_Create
 from utils.auth import hash_password
+from utils.notification import create_notification
 
 def create_enterprise_shipper(db: Session, shipper_data: CorporationBase, director_data: DirectorCreate, financial_data: Shipper_Financial_Account_Create):
     #Create Enterprise Shipper
@@ -288,6 +289,14 @@ def create_facility_shipper(db: Session, facility_data: FacilityCreate, director
         db.add(director)
         db.commit()
         db.refresh(director)
+
+        # ✅ Create notification for the new brokerage firm
+        create_notification(
+            db=db,
+            company_id=company.id,
+            notif_type="registration",
+            message=f"Brokerage firm '{company.legal_business_name}' has been successfully registered. Your company account is currently undergoing verification."
+        )
 
         return {"facility": facility, "director": director}
     except Exception as e:
