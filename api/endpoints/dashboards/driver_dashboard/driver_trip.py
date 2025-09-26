@@ -19,6 +19,14 @@ def get_db():
     finally:
         db.close()
 
+@router.get("/driver/get-shipment-status/{shipment_id}-{shipment_type}")
+def driver_get_shipment_status(
+    shipment_id: int,
+    shipment_type: Literal["FTL", "POWER"],
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+
 @router.put("/driver/update-shipment-status/{shipment_id}-{shipment_type}/{new_trip_status}")
 def driver_update_shipment_status(
     shipment_id: int,
