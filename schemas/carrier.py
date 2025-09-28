@@ -37,6 +37,11 @@ class CarrierCreate(BaseModel):
     git_insurance_certificate: str
     liability_insurance_certificate: str
 
+class CarrierAccountUpdate(BaseModel):
+    legal_business_name: Optional[str] = None
+    
+
+
 class CarrierCompanyResponse(BaseModel):
     id: int
     type: str

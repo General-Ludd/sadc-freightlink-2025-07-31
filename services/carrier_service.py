@@ -1,7 +1,7 @@
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from models.brokerage.finance import CarrierFinancialAccounts
-from models.carrier import Carrier
+from models.carrier import Carrier, Carrier_Notification
 from models.user import CarrierDirector, CarrierUser
 from models.user import Driver
 from schemas.brokerage.finance import Carrier_FinancialAccount_Create
@@ -205,5 +205,18 @@ def fleet_create_driver(db: Session, driver_data: DriverCreate, current_user: di
     db.add(driver)
     db.commit()
     db.refresh(driver)
+
+    # ✅ Create a notification for the Driver creation
+    notification = Carrier_Notification(
+        company_id=company_id,
+        type="Driver registration successful",
+        message=f"New driver {driver.first_name}-{driver.last_name}) has been added to your fleet and undergoing verification.",
+        is_read=False
+    )
+    carrier.number_of_drivers += 1
+    db.add(carrier)  # ensure change is persisted
+    db.add(notification)
+    db.commit()
+    db.refresh(notification)
 
     return {"driver": driver}

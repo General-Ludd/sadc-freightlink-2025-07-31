@@ -84,6 +84,13 @@ class CarrierFinancialAccountResponse(BaseModel):
     status: str
     is_verified: bool
 
+class CarrierFinancialAccountUpdate(BaseModel):
+    bank_name: Optional[str] = None
+    bank_country: Optional[str] = None
+    branch_code: Optional[str] = None
+    account_number: Optional[int] = None
+    account_type: Optional[str] = None
+    account_confirmation_letter: Optional[str] = None
 
 ############################################SHIPPER###########################################
 class Shipper_Financial_Account_Response(BaseModel):

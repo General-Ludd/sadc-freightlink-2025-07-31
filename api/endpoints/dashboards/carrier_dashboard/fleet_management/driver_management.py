@@ -7,7 +7,7 @@ from models.brokerage.finance import CarrierFinancialAccounts
 from models.carrier import Carrier
 from schemas.brokerage.finance import CarrierFinancialAccountResponse
 from schemas.carrier import CarrierCompanyResponse
-from schemas.user import CarrierUserResponse, Driver_Info, DriverCreate, DriverResponse, Drivers_Summary_Response
+from schemas.user import CarrierUserResponse, Driver_Info, DriverCreate, DriverUpdate, DriverResponse, Drivers_Summary_Response
 from schemas.vehicle import DriverVehicleSummaryResponse, TrailerCreate, TrailerResponse, VehicleCreate, VehicleResponse, VehicleUpdate
 from services.carrier_service import fleet_create_driver
 from services.carrier_dashboards import assign_trailer_to_vehicle
@@ -235,3 +235,27 @@ def get_driver_by_id(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.patch("/update-driver/{driver_id}", status_code=status.HTTP_200_OK)
+def partial_update_driver(
+    driver_id: int,
+    driver_data: DriverUpdate,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    company_id = current_user.get("company_id")
+    driver = db.query(Driver).filter(
+        Driver.id == driver_id,
+        Driver.company_id == company_id
+    ).first()
+
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found or not authorized")
+
+    # Apply partial updates
+    for key, value in driver_data.dict(exclude_unset=True).items():
+        setattr(driver, key, value)
+
+    db.commit()
+    db.refresh(driver)
+    return driver

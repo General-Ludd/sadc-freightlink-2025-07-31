@@ -23,6 +23,10 @@ def create_vehicle(db: Session, vehicle_data: VehicleCreate, current_user: dict)
             detail="User does not belong to a company"
         )
 
+    carrier = db.query(Carrier).filter(Carrier.id == company_id).first()
+    if not carrier:
+        raise HTTPException(status_code=400, detail="Carrier not found.")
+
     # Create a temporary Vehicle object for payload calculation
     temp_truck = Vehicle(
         type=vehicle_data.type,
@@ -71,10 +75,12 @@ def create_vehicle(db: Session, vehicle_data: VehicleCreate, current_user: dict)
     # ✅ Create a notification for the vehicle creation
     notification = Carrier_Notification(
         company_id=company_id,
-        type="vehicle_creation",
+        type="vehicle registration successful",
         message=f"New vehicle {truck.make} {truck.model} ({truck.license_plate}) has been added to your fleet and undergoing verification.",
         is_read=False
     )
+    carrier.number_of_vehicles += 1
+    db.add(carrier)  # ensure change is persisted
     db.add(notification)
     db.commit()
     db.refresh(notification)
@@ -93,8 +99,8 @@ def create_trailer(db: Session, trailer_data: TrailerCreate, current_user: dict)
         )
 
     carrier = db.query(Carrier).filter(Carrier.id == company_id).first()
-    if not carrier or not carrier.is_verified or carrier.status != "Active":
-        raise HTTPException(status_code=400, detail="Carrier not found, not verified, or not active")
+    if not carrier:
+        raise HTTPException(status_code=400, detail="Carrier not found.")
 
     # Create a temporary Vehicle object for payload calculation
     temp_truck = Trailer(
@@ -135,6 +141,20 @@ def create_trailer(db: Session, trailer_data: TrailerCreate, current_user: dict)
     db.add(trailer)
     db.commit()
     db.refresh(trailer)
+
+    # ✅ Create a notification for the Trailer creation
+    notification = Carrier_Notification(
+        company_id=company_id,
+        type="Trailer registration successful",
+        message=f"New trailer {trailer.make} {trailer.model} ({trailer.license_plate}) has been added to your fleet and undergoing verification.",
+        is_read=False
+    )
+    carrier.number_of_trailers += 1
+    db.add(carrier)  # ensure change is persisted
+    db.add(notification)
+    db.commit()
+    db.refresh(notification)
+
     return trailer
 
 def create_shipper_trailer(db: Session, trailer_data: ShipperTrailerCreate, current_user: dict):

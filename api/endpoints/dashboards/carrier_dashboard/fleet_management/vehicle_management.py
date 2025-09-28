@@ -16,7 +16,7 @@ from schemas.brokerage.assigned_shipments import Assigned_Shipments_SummaryRespo
 from schemas.brokerage.finance import CarrierFinancialAccountResponse
 from schemas.carrier import CarrierCompanyResponse
 from schemas.user import CarrierUserResponse, DriverCreate, DriverResponse
-from schemas.vehicle import Fleet_Trailer_Truck_response, TrailerCreate, TrailerResponse, Trailers_Summary_Response, Vehicle_Info, Vehicle_Schedule_Response, VehicleCreate, VehicleResponse, VehicleUpdate, Vehicles_Summary_Response
+from schemas.vehicle import Fleet_Trailer_Truck_response, TrailerCreate, TrailerUpdate, TrailerResponse, Trailers_Summary_Response, Vehicle_Info, Vehicle_Schedule_Response, VehicleCreate, VehicleResponse, VehicleUpdate, Vehicles_Summary_Response
 from services.carrier_service import fleet_create_driver
 from services.carrier_dashboards import assign_driver_to_vehicle, assign_trailer_to_vehicle, assign_shipment_to_vehicle
 from services.vehicle_service import create_trailer, create_vehicle
@@ -539,6 +539,29 @@ def get_single_trailer(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.patch("/update-trailer/{trailer_id}", status_code=status.HTTP_200_OK) #UnTested
+def partial_update_trailer(
+    trailer_id: int,
+    trailer_data: TrailerUpdate,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    company_id = current_user.get("company_id")
+    trailer = db.query(Trailer).filter(
+        Trailer.id == trailer_id,
+        Trailer.owner_id == company_id
+    ).first()
+
+    if not trailer:
+        raise HTTPException(status_code=404, detail="Trailer not found.")
+
+    for key, value in trailer_data.dict(exclude_unset=True).items():
+        setattr(trailer, key, value)
+
+    db.commit()
+    db.refresh(trailer)
+    return trailer
 
 class AssignTrailerRequest(BaseModel):
     vehicle_id: int

@@ -19,6 +19,44 @@ def get_db():
     finally:
         db.close()
 
+@router.get("/driver/get-shipment-status/{shipment_id}-{shipment_type}")
+def driver_get_shipment_status(
+    shipment_id: int,
+    shipment_type: Literal["FTL", "POWER"],
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    try:
+        # Select the correct carrier-side model
+        if shipment_type == "FTL":
+            carrier_shipment = (
+                db.query(Assigned_Spot_Ftl_Shipments)
+                .filter_by(shipment_id=shipment_id)
+                .first()
+            )
+            shipment = db.query(FTL_SHIPMENT).filter_by(id=shipment_id).first()
+        elif shipment_type == "POWER":
+            carrier_shipment = (
+                db.query(Assigned_Power_Shipments)
+                .filter_by(shipment_id=shipment_id)
+                .first()
+            )
+            shipment = db.query(POWER_SHIPMENT).filter_by(id=shipment_id).first()
+        else:
+            return {"error": "Invalid shipment type"}
+
+        if not carrier_shipment or not shipment:
+            return {"error": f"No {shipment_type} shipment found with id {shipment_id}"}
+        return {
+            "message": "Shipment status retrieved successfully",
+            "shipment_id": shipment_id,
+            "shipment_type": shipment_type,
+            "carrier_status": carrier_shipment.status,
+            "carrier_trip_status": carrier_shipment.trip_status
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
 @router.put("/driver/update-shipment-status/{shipment_id}-{shipment_type}/{new_trip_status}")
 def driver_update_shipment_status(
     shipment_id: int,

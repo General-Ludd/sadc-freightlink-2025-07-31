@@ -514,8 +514,6 @@ def assign_spot_power_shipment_to_carrier(
         brokerage_ledger.driver_id_number=driver.id_number
         brokerage_ledger.driver_license_number=driver.license_number
 
-        financial_account.holding_balance= (financial_account.holding_balance + brokerage_ledger.carrier_payable)
-
         try:
             shipment_invoice = Load_Invoice(
                 shipment_id = shipment.id,
@@ -721,8 +719,6 @@ def assign_spot_ftl_lane_to_carrier(db: Session, shipment_data: Individual_lane_
     brokerage_ledger.carrier_company_registration_number = carrier.business_registration_number
     brokerage_ledger.carrier_country_of_incorporation = carrier.country_of_incorporation
     brokerage_ledger.carrier_fleet_size = carrier.number_of_vehicles
-
-    financial_account.holding_balance += brokerage_ledger.contract_carrier_payable
 
     lane_invoice = Lane_Invoice(
         contract_id=lane.id,

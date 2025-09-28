@@ -6,7 +6,7 @@ from models.brokerage.assigned_lanes import Assigned_Ftl_Lanes
 from models.brokerage.assigned_shipments import Assigned_Spot_Ftl_Shipments, Assigned_Power_Shipments
 from models.brokerage.finance import CarrierFinancialAccounts
 from models.carrier import Carrier, Notification, Carrier_Notification
-from schemas.brokerage.finance import CarrierFinancialAccountResponse, Carrier_FinancialAccount_Create
+from schemas.brokerage.finance import CarrierFinancialAccountResponse, Carrier_FinancialAccount_Create, CarrierFinancialAccountUpdate
 from schemas.carrier import CarrierCompanyResponse, CarrierCreate
 from schemas.user import CarrierUserResponse, DriverCreate, DriverResponse, CarrierUsers
 from schemas.vehicle import TrailerCreate, TrailerResponse, VehicleCreate, VehicleResponse, VehicleUpdate
@@ -322,3 +322,24 @@ def carrier_get_account_information(
         }
     except Exception as e:
         return {"error": str(e)}
+
+@router.patch("/carrier/update-banking-details", status_code=status.HTTP_201_CREATED) #UnTested
+def partial_update_carrier_financial_account(
+    financial_data: CarrierFinancialAccountUpdate,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    company_id = current_user.get("company_id")
+    financial_account = db.query(CarrierFinancialAccounts).filter(
+        CarrierFinancialAccounts.id == company_id
+    ).first()
+
+    if not financial_account:
+        raise HTTPException(status_code=404, detail="Financial Account not found or not authorized")
+
+    for key, value in financial_data.dict(exclude_unset=True).items():
+        setattr(financial_account, key, value)
+
+    db.commit()
+    db.refresh(financial_account)
+    return financial_account

@@ -132,6 +132,7 @@ class DriverResponse(BaseModel):
 class DriverUpdate(BaseModel):
     address: Optional [str] = None
     proof_of_address: Optional [str] = None
+    id_document: Optional [str] = None
     license_number: Optional [str] = None
     license_expiry_date: Optional [date] = None
     license_document: Optional [str] = None
