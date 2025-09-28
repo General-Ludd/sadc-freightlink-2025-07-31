@@ -110,12 +110,12 @@ class DriverResponse(BaseModel):
     prdp_number: Optional [str] = None
     prdp_expiry_date: Optional [date] = None
     passport_numeber: Optional [str] = None
-    address: str
-    email: EmailStr
-    phone_number: str
-    company_id: int
-    company_name: str
-    company_type: str
+    address: Optional [str] = None
+    email: Optional [EmailStr] = None
+    phone_number: Optional [str] = None
+    company_id: Optional [int] = None
+    company_name: Optional [str] = None
+    company_type: Optional [str] = None
     current_vehicle_id: Optional[int] = None
     id_document: str
     license_document: str
