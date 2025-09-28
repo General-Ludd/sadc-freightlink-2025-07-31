@@ -4,9 +4,14 @@ from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy import Column, Date, Float, String, Integer, Boolean, ForeignKey, UniqueConstraint
 from sqlalchemy.sql import func
 from sqlalchemy import DateTime
+from datetime import datetime, timedelta
 from models.base import Base
 from sqlalchemy.orm import relationship
 from sqlalchemy import Enum
+import uuid
+from sqlalchemy.dialects.postgresql import UUID
+import sqlalchemy as sa
+from utils.sast_datetime import get_sast_time
 
 # Use Argon2 for password hashing
 ph = PasswordHasher()
@@ -192,3 +197,23 @@ class UserAuditLog(Base):
     # relationships (optional)
     user = relationship("User", foreign_keys=[user_id])
     changed_by_user = relationship("User", foreign_keys=[changed_by_user_id])
+
+
+class PasswordResetCode(Base):
+    __tablename__ = "password_reset_codes"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    email = Column(String, index=True, nullable=False)
+    code = Column(String(10), nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    used = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), default=get_sast_time)
+    updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)
+
+    @staticmethod
+    def generate_code():
+        return str(uuid.uuid4())[:6].upper()
+
+    @staticmethod
+    def expiry_time():
+        return get_sast_time() + timedelta(minutes=10)

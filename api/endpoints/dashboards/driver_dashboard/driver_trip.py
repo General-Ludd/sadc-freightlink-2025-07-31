@@ -48,13 +48,33 @@ def driver_get_shipment_status(
 
         if not carrier_shipment or not shipment:
             return {"error": f"No {shipment_type} shipment found with id {shipment_id}"}
+
+        # Define allowed trip status progression
+        trip_status_flow = [
+            "Scheduled",
+            "Carrier en route to pickup",
+            "Carrier at pickup facility",
+            "Loading",
+            "Carrier in transit",
+            "Carrier at delivery",
+            "Off-loading",
+            "Completed"
+        ]
+
+        # Determine next possible trip status
+        try:
+            current_index = trip_status_flow.index(carrier_shipment.trip_status)
+            next_trip_status = trip_status_flow[current_index + 1] if current_index + 1 < len(trip_status_flow) else None
+        except ValueError:
+            next_trip_status = None  # current status not in flow
+
         return {
             "message": "Shipment status retrieved successfully",
             "shipment_id": shipment_id,
             "shipment_type": shipment_type,
-            "carrier_status": carrier_shipment.status,
-            "carrier_trip_status": carrier_shipment.trip_status
+            "next_possible_trip_status": next_trip_status
         }
+
     except Exception as e:
         return {"error": str(e)}
 

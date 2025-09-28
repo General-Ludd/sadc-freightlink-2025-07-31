@@ -1,6 +1,7 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
+from datetime import datetime
 from db.database import SessionLocal
 from models.brokerage.assigned_lanes import Assigned_Ftl_Lanes
 from models.brokerage.assigned_shipments import Assigned_Spot_Ftl_Shipments, Assigned_Power_Shipments
@@ -8,13 +9,16 @@ from models.brokerage.finance import CarrierFinancialAccounts
 from models.carrier import Carrier, Notification, Carrier_Notification
 from schemas.brokerage.finance import CarrierFinancialAccountResponse, Carrier_FinancialAccount_Create, CarrierFinancialAccountUpdate
 from schemas.carrier import CarrierCompanyResponse, CarrierCreate
-from schemas.user import CarrierUserResponse, DriverCreate, DriverResponse, CarrierUsers
+from schemas.user import CarrierUserResponse, DriverCreate, DriverResponse, CarrierUsers, PasswordResetCodeResponse
 from schemas.vehicle import TrailerCreate, TrailerResponse, VehicleCreate, VehicleResponse, VehicleUpdate
 from services.carrier_service import fleet_create_driver, create_fleet_carrier
 from services.carrier_dashboards import assign_trailer_to_vehicle
 from services.vehicle_service import create_trailer, create_vehicle
-from utils.auth import get_current_user, verify_password
+from utils.auth import get_current_user, verify_password, hash_password
 from utils.jwt_handler import create_access_token
+from utils.mailgun_handler import send_email
+from utils.sast_datetime import get_sast_time
+from models.user import PasswordResetCode
 from models.user import CarrierUser, Driver
 from models.vehicle import Trailer, Vehicle
 from models.spot_bookings.ftl_shipment import FTL_Shipment_Dispute, FTL_SHIPMENT
@@ -86,6 +90,66 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
     print("Generated JWT token:", token)
 
     return {"access_token": token, "token_type": "bearer"}
+
+@router.post("/carrier/request-password-reset")
+def carrier_request_password_reset(email: str, db: Session = Depends(get_db)):
+    code = PasswordResetCode.generate_code()
+    reset_entry = PasswordResetCode(
+        email=email,
+        code=code,
+        expires_at=PasswordResetCode.expiry_time()
+    )
+    db.add(reset_entry)
+    db.commit()  # save record
+    db.refresh(reset_entry)  # refresh so .id is available
+
+    try:
+        send_email(
+            to_email=email,
+            subject="SADC FREIGHTLINK Carrier Password Reset",
+            text=(
+                f"Your password reset code is: {code}\n"
+                f"This code is valid until "
+                f"{reset_entry.expires_at.strftime('%Y-%m-%d %H:%M:%S %Z')} (SAST)."
+            )
+        )
+    except Exception as e:
+        import traceback
+        print("❌ Email error:", str(e))  # log readable message
+        traceback.print_exc()             # log full stacktrace
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Email sending failed: {str(e)}"
+        )
+
+    return {"message": "Password reset code sent to email"}
+    
+@router.post("/carrier/reset-password")
+def carrier_reset_password(email: str, code: str, new_password: str, new_password_confirm: str, db: Session = Depends(get_db)):
+    if new_password != new_password_confirm:
+        raise HTTPException(status_code=400, detail="Passwords do not match")
+
+    reset_entry = db.query(PasswordResetCode).filter(
+        PasswordResetCode.email == email,
+        PasswordResetCode.code == code,
+        PasswordResetCode.used == False,
+        PasswordResetCode.expires_at > get_sast_time()  # Compare with SAST
+    ).first()
+
+    if not reset_entry:
+        raise HTTPException(status_code=400, detail="Invalid or expired code")
+
+    # Update password
+    user = db.query(CarrierUser).filter(CarrierUser.email == email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.password_hash = hash_password(new_password)
+    reset_entry.used = True
+    db.commit()
+
+    return {"message": "Password reset successfully"}
 
 @router.get("/carrier-dashboard/home")
 def get_carrier_dashboard_home(

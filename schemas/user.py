@@ -17,6 +17,13 @@ class UserCreate(BaseModel):
     phone_number: str
     password_hash: str
 
+class PasswordResetCodeResponse(BaseModel):
+    email: str
+    code: str
+    expires_at: str  # formatted as string for safe JSON serialization
+
+    model_config = {"from_attributes": True}  # replaces orm_mode in V2
+
 class CarrierDirectorCreate(BaseModel):
     first_name: str
     last_name: str
