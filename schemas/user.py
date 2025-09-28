@@ -1,6 +1,12 @@
 from datetime import date, datetime
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, HttpUrl
 from typing import Optional
+from typing import Literal
+
+class UploadPODRequest(BaseModel):
+    shipment_id: int
+    shipment_type: Literal["FTL", "POWER"]
+    pod_link: HttpUrl
 
 class UserCreate(BaseModel):
     first_name: str

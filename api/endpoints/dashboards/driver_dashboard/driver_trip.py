@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from db.database import SessionLocal
 from sqlalchemy.orm import Session
 from typing import Literal
+from schemas.user import UploadPODRequest
 from models.brokerage.assigned_shipments import Assigned_Spot_Ftl_Shipments, Assigned_Power_Shipments
 from models.spot_bookings.ftl_shipment import FTL_SHIPMENT
 from models.spot_bookings.power_shipment import POWER_SHIPMENT
@@ -149,16 +150,16 @@ def driver_update_shipment_status(
     except Exception as e:
         return {"error": str(e)}
 
-
-
-@router.post("/driver/upload-pod/{shipment_id}-{shipment_type}/{pod_link}")
+@router.post("/driver/upload-pod", status_code=status.HTTP_200_OK)
 def upload_pod(
-    shipment_id: int,
-    shipment_type: Literal["FTL", "POWER"],
-    pod_link: str,
+    request: UploadPODRequest,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
+    shipment_id = request.shipment_id
+    shipment_type = request.shipment_type
+    pod_link = request.pod_link
+
     try:
         # Select correct models
         if shipment_type == "FTL":
@@ -167,20 +168,18 @@ def upload_pod(
         elif shipment_type == "POWER":
             shipment = db.query(POWER_SHIPMENT).filter_by(id=shipment_id).first()
             carrier_shipment = db.query(Assigned_Power_Shipments).filter_by(shipment_id=shipment_id).first()
-        else:
-            return {"error": "Invalid shipment type"}
 
         if not shipment or not carrier_shipment:
-            return {"error": f"No {shipment_type} shipment found with id {shipment_id}"}
+            raise HTTPException(status_code=404, detail=f"No {shipment_type} shipment found with id {shipment_id}")
 
         # Validate status
         if shipment.trip_status != "Completed" or shipment.shipment_status != "Awaiting POD":
-            return {"error": "Shipment not ready for POD upload"}
+            raise HTTPException(status_code=400, detail="Shipment not ready for POD upload")
 
         # Save POD link
-        shipment.pod_document = pod_link
-        carrier_shipment.pod = pod_link
-        shipment.shipment_status = "Completed"   # Finalize after POD is uploaded
+        shipment.pod_document = str(pod_link)
+        carrier_shipment.pod = str(pod_link)
+        shipment.shipment_status = "Completed"
         carrier_shipment.status = "Completed"
 
         # Handle sub-shipment case
@@ -193,18 +192,19 @@ def upload_pod(
 
         # --- SHIPPER: financial account ---
         shipper_account = db.query(FinancialAccounts).filter_by(id=shipment.shipper_company_id).first()
-
-        if shipper_account:
-            shipper_account.total_outstanding = (shipper_account.total_outstanding or 0) + shipment.quote
-            db.add(shipper_account)
-        else:
+        if not shipper_account:
             raise HTTPException(status_code=404, detail="Shipper financial account not found")
 
+        shipper_account.total_outstanding = (shipper_account.total_outstanding or 0) + shipment.quote
+        db.add(shipper_account)
+
         # Update related shipment invoice (if exists) to "Due"
-        shipment_invoice = db.query(Shipment_Invoice).filter_by(shipment_id=shipment.id,
-                                                            shipment_type=shipment.type).first()
+        shipment_invoice = db.query(Shipment_Invoice).filter_by(
+            shipment_id=shipment.id,
+            shipment_type=shipment.type
+        ).first()
         if shipment_invoice:
-            shipment_invoice.status = "Due",        # mark as due for payment
+            shipment_invoice.status = "Due"
             shipment_invoice.is_paid = False
             db.add(shipment_invoice)
 
@@ -213,30 +213,22 @@ def upload_pod(
         if not carrier_account:
             raise HTTPException(status_code=404, detail="Carrier financial account not found")
 
-        # Rate is on the assigned carrier_shipment record
         rate = carrier_shipment.shipment_rate
         carrier_account.holding_balance = (carrier_account.holding_balance or 0) + rate
         db.add(carrier_account)
 
-        # Find carrier invoice (Load_Invoice) for the shipment and mark unpaid
+        # Update carrier invoice
         carrier_invoice = db.query(Load_Invoice).filter_by(
             shipment_id=shipment.id,
             shipment_type=shipment.type
         ).first()
-
         if carrier_invoice:
-            carrier_invoice.status = "Unpaid",
+            carrier_invoice.status = "Unpaid"
             carrier_invoice.is_paid = False
             db.add(carrier_invoice)
 
-        # --- persist everything in one transaction ---
+        # Commit all changes
         db.commit()
-
-        # refresh objects for return
-        db.refresh(shipment)
-        db.refresh(carrier_shipment)
-        db.refresh(shipper_account)
-        db.refresh(carrier_account)
 
         return {
             "message": "POD uploaded and financials updated successfully",
