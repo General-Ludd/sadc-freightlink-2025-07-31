@@ -56,7 +56,7 @@ def driver_get_shipment_status(
             "Carrier at pickup facility",
             "Loading",
             "Carrier in transit",
-            "Carrier at delivery",
+            "Carrier at delivery facility",
             "Off-loading",
             "Completed"
         ]

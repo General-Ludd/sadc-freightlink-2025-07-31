@@ -108,7 +108,7 @@ class Assigned_Power_Shipments(Base):
     payment_terms = Column(Integer, nullable=False)
     status = Column(Enum("Assigned", "In-Progress", "Completed", "Cancelled"), default="Assigned")
     trip_status = Column(Enum("Scheduled", "Carrier En-route to pickup", " Carrier at pickup facility", "Loading",
-                              "Carrier in transit", "Carrier at delivery", "Off-loading", "Completed", "Cancelled"), default="Scheduled")
+                              "Carrier in transit", "Carrier at delivery facility", "Off-loading", "Completed", "Cancelled"), default="Scheduled")
     required_truck_type = Column(String, nullable=True)
     axle_configuration = Column(String, nullable=True)
     origin_address = Column(String)
