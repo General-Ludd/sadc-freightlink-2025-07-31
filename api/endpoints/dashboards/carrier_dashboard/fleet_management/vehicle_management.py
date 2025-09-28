@@ -306,7 +306,7 @@ def carrier_get_single_truck(
         raise HTTPException(status_code=500, detail=str(e))
 
     
-@router.patch("/update-vehicle/{vehicle_id}", response_model=VehicleResponse) #UnTested
+@router.patch("/update-vehicle/{vehicle_id}", status_code=status.HTTP_200_OK) #UnTested
 def partial_update_truck(
     vehicle_id: int,
     vehicle_data: VehicleUpdate,
