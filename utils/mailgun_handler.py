@@ -1,27 +1,32 @@
 import os
 import requests
+from dotenv import load_dotenv
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import os
+# Load environment variables
+load_dotenv()
 
-# Mailgun credentials
-MAILGUN_DOMAIN = os.getenv("MAILGUN_DOMAIN")
-MAILGUN_API_KEY = os.getenv("MAILGUN_API_KEY")
-MAILGUN_FROM = os.getenv("MAILGUN_FROM")
+GMAIL_USER = os.getenv("GMAIL_USER")
+GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD")
 
 def send_email(to_email: str, subject: str, text: str):
-    """
-    Sends an email using Mailgun's API.
-    """
-    response = requests.post(
-        f"https://api.eu.mailgun.net/v3/{MAILGUN_DOMAIN}/messages",
-        auth=("api", MAILGUN_API_KEY),
-        data={
-            "from": f"SADC FREIGHTLINK <{MAILGUN_FROM}>",
-            "to": [to_email],
-            "subject": subject,
-            "text": text,
-        },
-    )
+    try:
+        msg = MIMEMultipart()
+        msg["From"] = GMAIL_USER
+        msg["To"] = to_email
+        msg["Subject"] = subject
+        msg.attach(MIMEText(text, "plain"))
 
-    if response.status_code != 200:
-        raise Exception(f"Mailgun error: {response.text}")
+        server = smtplib.SMTP("smtp.gmail.com", 587)
+        server.starttls()
+        server.login(GMAIL_USER, GMAIL_APP_PASSWORD)
+        server.sendmail(GMAIL_USER, to_email, msg.as_string())
+        server.quit()
 
-    return response.json()
+        print(f"✅ Email sent to {to_email}")
+        return {"message": f"Email sent to {to_email}"}
+    except Exception as e:
+        print(f"❌ Email sending failed: {e}")
+        return {"error": str(e)}

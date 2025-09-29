@@ -18,6 +18,7 @@ from utils.auth import get_current_user, verify_password, hash_password
 from utils.jwt_handler import create_access_token
 from utils.mailgun_handler import send_email
 from utils.sast_datetime import get_sast_time
+from pytz import timezone, UTC
 from models.user import PasswordResetCode
 from models.user import CarrierUser, Driver
 from models.vehicle import Trailer, Vehicle
@@ -91,32 +92,35 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
 
     return {"access_token": token, "token_type": "bearer"}
 
-@router.post("/carrier/request-password-reset")
+@router.post("/carrier/request-password-reset/{email}")
 def carrier_request_password_reset(email: str, db: Session = Depends(get_db)):
     code = PasswordResetCode.generate_code()
     reset_entry = PasswordResetCode(
         email=email,
         code=code,
-        expires_at=PasswordResetCode.expiry_time()
+        expires_at=PasswordResetCode.expiry_time()  # still in UTC
     )
     db.add(reset_entry)
-    db.commit()  # save record
+    db.commit()  
     db.refresh(reset_entry)  # refresh so .id is available
 
     try:
+        # Convert UTC expires_at to SAST
+        sast_tz = timezone("Africa/Johannesburg")
+        expires_sast = reset_entry.expires_at.astimezone(sast_tz)
+
         send_email(
             to_email=email,
             subject="SADC FREIGHTLINK Carrier Password Reset",
             text=(
                 f"Your password reset code is: {code}\n"
-                f"This code is valid until "
-                f"{reset_entry.expires_at.strftime('%Y-%m-%d %H:%M:%S %Z')} (SAST)."
+                f"This code is valid until {expires_sast.strftime('%Y-%m-%d %H:%M:%S %Z')} (SAST)."
             )
         )
     except Exception as e:
         import traceback
-        print("❌ Email error:", str(e))  # log readable message
-        traceback.print_exc()             # log full stacktrace
+        print("❌ Email error:", str(e))
+        traceback.print_exc()
         db.rollback()
         raise HTTPException(
             status_code=500,
@@ -130,11 +134,14 @@ def carrier_reset_password(email: str, code: str, new_password: str, new_passwor
     if new_password != new_password_confirm:
         raise HTTPException(status_code=400, detail="Passwords do not match")
 
+    # Use UTC for comparison
+    now_utc = get_sast_time().astimezone(UTC)
+
     reset_entry = db.query(PasswordResetCode).filter(
         PasswordResetCode.email == email,
         PasswordResetCode.code == code,
         PasswordResetCode.used == False,
-        PasswordResetCode.expires_at > get_sast_time()  # Compare with SAST
+        PasswordResetCode.expires_at > now_utc  # Compare in UTC
     ).first()
 
     if not reset_entry:
