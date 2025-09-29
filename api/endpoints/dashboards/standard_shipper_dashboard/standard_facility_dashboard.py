@@ -9,9 +9,13 @@ from schemas.brokerage.finance import Shipper_Financial_Account_Create
 from schemas.shipper import CorporationBase, CorporationResponse
 from schemas.user import DirectorCreate, DirectorResponse, ShipperUserResponse
 from services.shipper_service import create_standard_shipper
-from utils.auth import get_current_user, verify_password
+from utils.auth import get_current_user, verify_password, hash_password
 from utils.jwt_handler import create_access_token
-from models.user import Director, User, Driver, CarrierDirector
+from utils.mailgun_handler import send_email
+from utils.sast_datetime import get_sast_time
+from pytz import timezone, UTC
+from models.user import Director, User, Driver, CarrierDirector, PasswordResetCode
+from models.vehicle import Vehicle
 from schemas.auth import LoginRequest, LoginResponse
 
 router = APIRouter()
@@ -90,6 +94,72 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
     print("Generated JWT token:", token)
 
     return {"access_token": token, "token_type": "bearer"}
+
+@router.post("/shipper/request-password-reset/{email}")
+def shipper_request_password_reset(email: str, db: Session = Depends(get_db)):
+    code = PasswordResetCode.generate_code()
+    reset_entry = PasswordResetCode(
+        email=email,
+        code=code,
+        expires_at=PasswordResetCode.expiry_time()  # still in UTC
+    )
+    db.add(reset_entry)
+    db.commit()  
+    db.refresh(reset_entry)  # refresh so .id is available
+
+    try:
+        # Convert UTC expires_at to SAST
+        sast_tz = timezone("Africa/Johannesburg")
+        expires_sast = reset_entry.expires_at.astimezone(sast_tz)
+
+        send_email(
+            to_email=email,
+            subject="SADC FREIGHTLINK Carrier Password Reset",
+            text=(
+                f"Your password reset code is: {code}\n"
+                f"This code is valid until {expires_sast.strftime('%Y-%m-%d %H:%M:%S %Z')} (SAST)."
+            )
+        )
+    except Exception as e:
+        import traceback
+        print("❌ Email error:", str(e))
+        traceback.print_exc()
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Email sending failed: {str(e)}"
+        )
+
+    return {"message": "Password reset code sent to email"}
+    
+@router.post("/shipper/reset-password")
+def shipper_reset_password(email: str, code: str, new_password: str, new_password_confirm: str, db: Session = Depends(get_db)):
+    if new_password != new_password_confirm:
+        raise HTTPException(status_code=400, detail="Passwords do not match")
+
+    # Use UTC for comparison
+    now_utc = get_sast_time().astimezone(UTC)
+
+    reset_entry = db.query(PasswordResetCode).filter(
+        PasswordResetCode.email == email,
+        PasswordResetCode.code == code,
+        PasswordResetCode.used == False,
+        PasswordResetCode.expires_at > now_utc  # Compare in UTC
+    ).first()
+
+    if not reset_entry:
+        raise HTTPException(status_code=400, detail="Invalid or expired code")
+
+    # Update password
+    user = db.query(Director).filter(Director.email == email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.password_hash = hash_password(new_password)
+    reset_entry.used = True
+    db.commit()
+
+    return {"message": "Password reset successfully"}
 
 @router.get("/shipper/company-information")
 def get_shipper_company_profile_information(
