@@ -72,6 +72,7 @@ def driver_get_shipment_status(
             "message": "Shipment status retrieved successfully",
             "shipment_id": shipment_id,
             "shipment_type": shipment_type,
+            "shipment_status": carrier_shipment.status,
             "next_possible_trip_status": next_trip_status
         }
 
