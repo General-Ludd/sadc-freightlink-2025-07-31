@@ -1,7 +1,7 @@
 from datetime import date
 from typing import Optional
 from enums import Axle_Configuration, EquipmentType, Lorry, Recurrence_Days, Recurrence_Frequency, TrailerLength, TrailerType, TruckType
-from schemas.spot_bookings.dedicated_lanes_ftl_shipment import FTL_Lane_Create
+from schemas.spot_bookings.dedicated_lanes_ftl_shipment import FTL_Lane_Create,  SpotFTLLaneQuoteRequest
 from schemas.spot_bookings.ftl_shipment import FTL_Shipment_Booking, FTL_Shipment_docs_create
 from schemas.shipment_facility import ShipmentFacilityCreate, FacilityContactCreate
 from schemas.spot_bookings.power_shipment import POWER_Shipment_docs_create, Power_Shipment_Booking
@@ -75,38 +75,27 @@ def create_spot_ftl_endpoint(
         raise HTTPException(status_code=400, detail=str(e))
     
 @router.post("/spot/ftl-lane-qoute", status_code=status.HTTP_200_OK)
-def get_spot_ftl_lane_qoute_endpoint(
-    start_date: date,
-    end_date: date,
-    recurrence_frequency: Recurrence_Frequency,
-    skip_weekends: bool,
-    recurrence_days: list[Recurrence_Days],
-    shipments_per_interval:int,
-    origin_address: str,
-    destination_address: str,
-    minimum_weight_bracket: int,
-    required_truck_type: TruckType,
-    equipment_type: EquipmentType,
-    trailer_type: Optional [TrailerType] = None,
-    trailer_length: Optional [TrailerLength] = None,
-    db: Session = Depends(get_db),
+def get_spot_ftl_lane_quote_endpoint(
+    request: SpotFTLLaneQuoteRequest,
+    db: Session = Depends(get_db)
 ):
     try:
         result = calculate_spot_ftl_lane_quote(
             db,
-            start_date,
-            end_date,
-            recurrence_frequency,
-            skip_weekends,
-            recurrence_days,
-            shipments_per_interval,
-            origin_address,
-            destination_address,
-            required_truck_type,
-            equipment_type,
-            trailer_type,
-            trailer_length,
-            minimum_weight_bracket)
+            start_date=request.start_date,
+            end_date=request.end_date,
+            recurrence_frequency=request.recurrence_frequency,
+            skip_weekends=request.skip_weekends,
+            recurrence_days=request.recurrence_days,
+            shipments_per_interval=request.shipments_per_interval,
+            origin_address=request.origin_address,
+            destination_address=request.destination_address,
+            required_truck_type=request.required_truck_type,
+            equipment_type=request.equipment_type,
+            trailer_type=request.trailer_type,
+            trailer_length=request.trailer_length,
+            minimum_weight_bracket=request.minimum_weight_bracket
+        )
         return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

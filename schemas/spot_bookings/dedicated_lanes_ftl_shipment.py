@@ -1,8 +1,24 @@
 from pydantic import BaseModel, EmailStr
 from typing import Optional, List
 from datetime import date
+from enums import Recurrence_Frequency, Recurrence_Days
 
 from enums import EquipmentType, Load_Type, Priority_Level, TrailerLength, TrailerType, TruckType
+
+class SpotFTLLaneQuoteRequest(BaseModel):
+    start_date: date
+    end_date: date
+    recurrence_frequency: Recurrence_Frequency
+    skip_weekends: bool
+    recurrence_days: List[Recurrence_Days]  # list works fine in schema
+    shipments_per_interval: int
+    origin_address: str
+    destination_address: str
+    minimum_weight_bracket: int
+    required_truck_type: TruckType
+    equipment_type: EquipmentType
+    trailer_type: Optional[TrailerType] = None
+    trailer_length: Optional[TrailerLength] = None
 
 class individual_shipment_or_lane_request(BaseModel):
     id: int
