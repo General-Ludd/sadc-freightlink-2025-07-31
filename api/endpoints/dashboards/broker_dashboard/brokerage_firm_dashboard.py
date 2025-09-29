@@ -7,7 +7,7 @@ from schemas.brokerage.finance import Shipper_Financial_Account_Create
 from schemas.shipper import CorporationBase, CorporationResponse
 from schemas.user import DirectorCreate, DirectorResponse, ShipperUserResponse
 from services.shipper_service import create_brokerage_firm
-from utils.auth import get_current_user, verify_password
+from utils.auth import get_current_user, verify_password, hash_password
 from utils.jwt_handler import create_access_token
 from utils.mailgun_handler import send_email
 from utils.sast_datetime import get_sast_time
