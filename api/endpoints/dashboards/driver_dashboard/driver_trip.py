@@ -73,6 +73,7 @@ def driver_get_shipment_status(
             "shipment_id": shipment_id,
             "shipment_type": shipment_type,
             "shipment_status": carrier_shipment.status,
+            "trip_status": carrier_shipment.trip_status,
             "next_possible_trip_status": next_trip_status
         }
 
