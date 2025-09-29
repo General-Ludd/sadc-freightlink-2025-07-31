@@ -45,6 +45,16 @@ class Shipper_Financial_Account_Create(BaseModel):
     bank_statement: Optional[str] = None
     business_credit_score_report: Optional[str] = None
 
+class Client_Financial_Account_Update(BaseModel):
+    credit_score: Optional[int] = None
+    nature_of_business: Optional[str] = None
+    bank_name: Optional[str] = None
+    branch_code: Optional[str] = None
+    account_number: Optional[int] = None
+    account_type: Optional[str] = None
+    business_credit_score_report: Optional[str] = None
+    account_confirmation_letter: Optional[str] = None
+
 class Carrier_FinancialAccount_Create(BaseModel):
     bank_name: str
     bank_country: str

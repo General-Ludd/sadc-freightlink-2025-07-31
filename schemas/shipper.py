@@ -38,6 +38,16 @@ class CorporationBase(BaseModel):
     business_proof_of_address: Optional[str] = None
     tax_clearence_certificate: Optional[str] = None
 
+class CorporationUpdate(BaseModel):
+    legal_business_name: Optional[str] = None
+    business_address: Optional[str] = None
+    business_email: Optional[EmailStr] = None
+    business_phone_number: Optional[str] = None
+    business_registration_certificate: Optional[str] = None
+    business_proof_of_address: Optional[str] = None
+    tax_clearence_certificate: Optional[str] = None
+
+
 class CorporationCreate(CorporationBase):
     """Schema for creating a corporation, accepting file URLs."""
     business_registration_certificate: Optional[str] = None

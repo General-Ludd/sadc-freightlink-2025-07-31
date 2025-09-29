@@ -5,8 +5,8 @@ from models.brokerage.finance import FinancialAccounts, Shipment_Invoice, Interi
 from models.spot_bookings.ftl_shipment import FTL_SHIPMENT
 from models.spot_bookings.power_shipment import POWER_SHIPMENT
 from models.shipper import Corporation, Client_Notification
-from schemas.brokerage.finance import Shipper_Financial_Account_Create
-from schemas.shipper import CorporationBase, CorporationResponse
+from schemas.brokerage.finance import Shipper_Financial_Account_Create, Client_Financial_Account_Update
+from schemas.shipper import CorporationBase, CorporationResponse, CorporationUpdate
 from schemas.user import DirectorCreate, DirectorResponse, ShipperUserResponse
 from services.shipper_service import create_standard_shipper
 from utils.auth import get_current_user, verify_password, hash_password
@@ -415,3 +415,45 @@ def get_unread_shipper_account_notifications(
         }
     except Exception as e:
         return {"error": str(e)}
+
+@router.patch("/corporation/update-company-details", status_code=status.HTTP_200_OK) #UnTested
+def partial_update_corporation_account(
+    company_data: CorporationUpdate,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    company_id = current_user.get("company_id")
+    company = db.query(Corporation).filter(
+        Corporation.id == company_id
+    ).first()
+
+    if not company:
+        raise HTTPException(status_code=404, detail="Company Account not found or not authorized")
+
+    for key, value in company_data.dict(exclude_unset=True).items():
+        setattr(company, key, value)
+
+    db.commit()
+    db.refresh(company)
+    return company
+
+@router.patch("/corporation/update-financial-details", status_code=status.HTTP_200_OK) #UnTested
+def partial_update_corporation_financial_account(
+    financial_data: Client_Financial_Account_Update,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    company_id = current_user.get("company_id")
+    financial_account = db.query(FinancialAccounts).filter(
+        FinancialAccounts.id == company_id
+    ).first()
+
+    if not financial_account:
+        raise HTTPException(status_code=404, detail="Financial Account not found or not authorized")
+
+    for key, value in financial_data.dict(exclude_unset=True).items():
+        setattr(financial_account, key, value)
+
+    db.commit()
+    db.refresh(financial_account)
+    return financial_account

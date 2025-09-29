@@ -27,6 +27,7 @@ from api.endpoints.dashboards.carrier_dashboard import exchange_loadboards
 from api.endpoints.dashboards.driver_dashboard import driver_dashboard, driver_shipments, driver_trip
 from api.endpoints import gcs_upload
 from api.endpoints import financial_deposits
+from api.endpoints.dashboards import early_access_requests
 from api.endpoints.admin_panel import admin_dashboard
 from api.endpoints.admin_panel.admin_dashboard_pages_functions import admin_financial_account, company
 
@@ -78,6 +79,9 @@ app.include_router(driver_trip.router, prefix="/api", tags={"Driver Trip Functio
 
 ################################################Tracking###############################################
 app.include_router(tracking.router, prefix="/api", tags=["Tracking"])
+
+#########################################Early Access Registration#####################################
+app.include_router(early_access_requests.router, prefix="/api", tags=["Early Access Registration"])
 
 ################################################Admin Dashboard#######################################
 app.include_router(admin_dashboard.router, prefix="/api", tags=["Admin Dashboard"])
