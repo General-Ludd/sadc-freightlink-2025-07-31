@@ -361,8 +361,8 @@ def exchange_ftl_lane(
 def place_ftl_lane_exchange_bid(
     bid_data: Exchange_FTL_Lane_Bid_Create,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)):
-
+    current_user: dict = Depends(get_current_user)
+):
     try:
         result = place_ftl_lane_bid(
             db,

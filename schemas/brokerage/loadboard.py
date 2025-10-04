@@ -6,6 +6,11 @@ class AssignShipmentRequest(BaseModel):
     shipment_id: int
     vehicle_id: int
 
+class AdminAssignShipmentRequest(BaseModel):
+    shipment_id: int
+    carrier_id: int
+    vehicle_id: int
+
 class IndividualLoadboardShipmentRequest(BaseModel):
     id: int
 

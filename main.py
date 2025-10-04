@@ -30,6 +30,7 @@ from api.endpoints import financial_deposits
 from api.endpoints.dashboards import early_access_requests
 from api.endpoints.admin_panel import admin_dashboard
 from api.endpoints.admin_panel.admin_dashboard_pages_functions import admin_financial_account, company
+from services.platform_administration_services.loadboards import admin_exchange_loadboards, admin_spot_loadboards
 
 from triggers.scheduler import start_tracking_scheduler
 
@@ -87,6 +88,8 @@ app.include_router(early_access_requests.router, prefix="/api", tags=["Early Acc
 app.include_router(admin_dashboard.router, prefix="/api", tags=["Admin Dashboard"])
 app.include_router(admin_financial_account.router, prefix="/api", tags=["Admin Financial Account Management"])
 app.include_router(company.router, prefix="/api", tags=["Admin Company Management"])
+app.include_router(admin_exchange_loadboards.router, prefix="/api", tags=["Admin Exchange Loadboards"])
+app.include_router(admin_spot_loadboards.router, prefix="/api", tags=["Admin Spot Loadboards"])
 
 ################################################Deposits###########################################
 app.include_router(financial_deposits.router, prefix="/api", tags=["Nedbank Deposits"])
