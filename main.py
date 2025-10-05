@@ -31,6 +31,7 @@ from api.endpoints.dashboards import early_access_requests
 from api.endpoints.admin_panel import admin_dashboard
 from api.endpoints.admin_panel.admin_dashboard_pages_functions import admin_financial_account, company
 from services.platform_administration_services.loadboards import admin_exchange_loadboards, admin_spot_loadboards
+from api.endpoints.dashboards import contact_us
 
 from triggers.scheduler import start_tracking_scheduler
 
@@ -43,6 +44,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+#################################################Public################################################
+app.include_router(contact_us.router, prefix="/api", tags=["Contact Us"])
 
 ################################################Shipper Dashboard######################################
 app.include_router(gcs_upload.router, prefix="/api", tags=["File Upload"])

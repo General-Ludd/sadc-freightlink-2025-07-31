@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from db.database import SessionLocal
 from utils.sast_datetime import get_sast_time
 from models.communication import Shipper_Support_Ticket, Brokerage_Firm_Support_Ticket, Carrier_Support_Ticket
-from modlels.communication import Contact_Us
+from schemas.communication import Contact_Us
 
 router = APIRouter()
 
