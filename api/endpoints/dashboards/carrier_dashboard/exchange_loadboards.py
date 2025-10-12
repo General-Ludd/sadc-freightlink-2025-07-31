@@ -233,10 +233,10 @@ def exchange_ftl_lane_loadboard(
                 "frequency": loadboard_shipment.recurrence_frequency,
                 "total_slots": loadboard_shipment.shipments_per_interval,
                 "available_slots": loadboard_shipment.available_slots,
-                "total_shipments_per_slot": loadboard_shipment.per_slot_size,
+                "total_shipments_per_slot": loadboard_shipment.each_slot_size,
                 "exchange_end_time": loadboard_shipment.exchange_end_time,
                 "number_of_bidders": loadboard_shipment.number_of_bids_submitted,
-                "per_slot_contract_offer": loadboard_shipment.per_shipment_offer_rate * loadboard_shipment.per_slot_size,
+                "per_slot_contract_offer": loadboard_shipment.per_shipment_offer_rate * loadboard_shipment.each_slot_size,
                 "per_shipment_offer": loadboard_shipment.per_shipment_offer_rate,
             } for loadboard_shipment in loadboard_shipments]
         }
