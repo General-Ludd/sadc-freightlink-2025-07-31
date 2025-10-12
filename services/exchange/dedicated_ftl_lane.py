@@ -509,11 +509,13 @@ def broker_access_create_dedicated_ftl_lane_exchange(
     except HTTPException as e:
         raise HTTPException(status_code=500, detail=f"Quote calculation failed: {e.detail}")
 
+    payment_term = financial_account.payment_terms.strip().upper()
+
     try:
         all_payment_dates = BillingEngine.get_contract_billing_dates(
              start_date=shipment_data.start_date,
              end_date=shipment_data.end_date,
-             term=financial_account.payment_terms
+             payment_terms=payment_term
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Payment schedule generation failed: {str(e)}")
