@@ -159,7 +159,7 @@ def create_dedicated_ftl_lane_exchange(
         raise HTTPException(status_code=500, detail=f"Quote calculation failed: {e.detail}")
 
     try:
-        all_payment_dates = BillingEngine.get_billing_dates(
+        all_payment_dates = BillingEngine.get_contract_billing_dates(
              start_date=shipment_data.start_date,
              end_date=shipment_data.end_date,
              term=financial_account.payment_terms
@@ -510,7 +510,7 @@ def broker_access_create_dedicated_ftl_lane_exchange(
         raise HTTPException(status_code=500, detail=f"Quote calculation failed: {e.detail}")
 
     try:
-        all_payment_dates = BillingEngine.get_billing_dates(
+        all_payment_dates = BillingEngine.get_contract_billing_dates(
              start_date=shipment_data.start_date,
              end_date=shipment_data.end_date,
              term=financial_account.payment_terms
