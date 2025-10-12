@@ -199,10 +199,11 @@ def get_all_spot_ftl_lanes_loads(db: Session = Depends(get_db), current_user: di
                 "end_date": ftl_lane.end_date,
                 "frequency": ftl_lane.recurrence_frequency,
                 "recurrence_days": ftl_lane.recurrence_days,
+                "total_slots": ftl_lane.shipments_per_interval,
                 "available_slots": ftl_lane.available_slots,
                 "total_shipments_per_slot": ftl_lane.per_slot_size,
                 "per_shipment_rate": ftl_lane.rate_per_shipment,
-                "contract_rate_per_slot": (ftl_lane.rate_per_shipment * ftl_lane.per_slot_size),
+                "per_slot_contract_rate": int(ftl_lane.rate_per_shipment * ftl_lane.per_slot_size),
             } for ftl_lane in ftl_lanes]
         }
     except Exception as e:
