@@ -34,6 +34,9 @@ class Assigned_Ftl_Lanes(Base):
     status = Column(Enum("Assigned", "In-Progress", "Completed"), default="Assigned")
     total_shipment_completed = Column(Integer, default=0)
 
+    # Slot Details
+    slots_assigned = Column(Integer, nullable=False, default=0)
+
     # Recurrence Details
     recurrence_frequency = Column(Enum("Daily", "Weekly", "Forth Nightly", "Monthly"))  # How often shipments occur
     recurrence_days = Column(String) # Days (e.g., "Monday, Wednesday, Friday")

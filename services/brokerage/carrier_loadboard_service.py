@@ -14,7 +14,7 @@ from models.spot_bookings.ftl_shipment import FTL_SHIPMENT
 from models.spot_bookings.power_shipment import POWER_SHIPMENT
 from models.user import Driver
 from models.vehicle import Vehicle
-from schemas.brokerage.loadboard import AssignShipmentRequest, Individual_lane_id, LoadBoardEntryCreate
+from schemas.brokerage.loadboard import AssignShipmentRequest, Individual_lane_id, LoadBoardEntryCreate, AssignLaneSlotRequest
 from fastapi import HTTPException, status
 
 from utils.sast_datetime import format_datetime_sast
@@ -654,7 +654,7 @@ def ensure_date(value):
 #################################################################################################################
 #################################################################################################################
 
-def assign_spot_ftl_lane_to_carrier(db: Session, shipment_data: Individual_lane_id, current_user: dict):
+def assign_spot_ftl_lane_to_carrier(db: Session, lane_data: AssignLaneSlotRequest, current_user: dict):
     assert "company_id" in current_user, "Missing company_id in current_user"
     carrier_id = current_user.get("company_id")
 
@@ -662,21 +662,25 @@ def assign_spot_ftl_lane_to_carrier(db: Session, shipment_data: Individual_lane_
         raise HTTPException(status_code=400, detail="User does not belong to a company")
 
     loadboard_entry = db.query(Dedicated_lanes_LoadBoard).filter(
-        Dedicated_lanes_LoadBoard.shipment_id == shipment_data.shipment_id
+        Dedicated_lanes_LoadBoard.shipment_id == lane_data.lane_id
     ).first()
     if not loadboard_entry or loadboard_entry.status != "Available":
         raise HTTPException(status_code=400, detail="Loadboard entry is not available for assignment")
 
-    lane = db.query(FTL_Lane).filter(FTL_Lane.id == shipment_data.shipment_id).first()
+    lane = db.query(FTL_Lane).filter(FTL_Lane.id == lane_data.lane_id).first()
     if not lane:
         raise HTTPException(status_code=404, detail="Contract Lane not found")
 
     brokerage_ledger = db.query(Dedicated_Lane_BrokerageLedger).filter(
-        Dedicated_Lane_BrokerageLedger.contract_id == shipment_data.shipment_id,
+        Dedicated_Lane_BrokerageLedger.contract_id == lane_data.lane_id,
         Dedicated_Lane_BrokerageLedger.lane_type == lane.type
-    ).first()
+    ).with_for_update().first()  # <-- concurrency-safe lock
     if not brokerage_ledger:
         raise HTTPException(status_code=404, detail="Shipment not found in Brokerage Ledger")
+
+    # Initialize carriers_assigned if empty
+    if not brokerage_ledger.carriers_assigned:
+        brokerage_ledger.carriers_assigned = []
 
     # Step 4: Carrier
     carrier = db.query(Carrier).filter(Carrier.id == carrier_id).first()
@@ -690,7 +694,7 @@ def assign_spot_ftl_lane_to_carrier(db: Session, shipment_data: Individual_lane_
     try:
         assert carrier.git_cover_amount >= lane.minimum_git_cover_amount, "Carrier GIT Cover Amount does not meet shipment GIT cover amount requirement"
         assert carrier.liability_insurance_cover_amount >= lane.minimum_liability_cover_amount, "Carrier Liability Cover Amount does not meet shipment Liability cover amount requirement"
-        assert carrier.number_of_vehicles >= lane.shipments_per_interval, "Carrier fleet size does not satisfy the contract lane's required number of vehicle per interval."
+        assert carrier.number_of_vehicles >= lane_data.requested_slots, "Carrier fleet size does not satisfy the contract lane's required number of vehicle per interval."
     except AssertionError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -705,20 +709,39 @@ def assign_spot_ftl_lane_to_carrier(db: Session, shipment_data: Individual_lane_
     if financial_account.status != "Active":
         raise HTTPException(status_code=403, detail="Financial account is not active, Please await activation to accept shipments.")
 
-    # Assign lane + ledger
-    lane.status = "Assigned"
-    lane.progress = 0
-    lane.carrier_id = carrier_id
-    lane.carrier_fleet_size = carrier.number_of_vehicles
-    lane.carrier_git_cover_amount = carrier.git_cover_amount
-    lane.carrier_liability_cover_amount = carrier.liability_insurance_cover_amount
-    loadboard_entry.status = "Assigned"
+    # Step 5: Concurrency-safe recheck for available slots
+    db.refresh(brokerage_ledger)
+    if brokerage_ledger.total_slots_available < lane_data.requested_slots:
+        raise HTTPException(status_code=409, detail="Not enough available slots remaining for assignment")
 
-    brokerage_ledger.carrier_id = carrier.id
-    brokerage_ledger.carrier_company_name = carrier.legal_business_name
-    brokerage_ledger.carrier_company_registration_number = carrier.business_registration_number
-    brokerage_ledger.carrier_country_of_incorporation = carrier.country_of_incorporation
-    brokerage_ledger.carrier_fleet_size = carrier.number_of_vehicles
+    # Check if carrier already exists in the JSON
+    existing_entry = next(
+        (c for c in brokerage_ledger.carriers_assigned if c["carrier_id"] == carrier.id), 
+        None
+    )
+
+    if existing_entry:
+        # Increment slots if carrier already assigned before
+        existing_entry["slots_assigned"] += lane_data.requested_slots
+        existing_entry["assigned_at"] = datetime.now()
+    else:
+        # Add new entry
+        brokerage_ledger.carriers_assigned.append({
+            "carrier_id": carrier.id,
+            "company_name": carrier.legal_business_name,
+            "company_registration_number": carrier.business_registration_number,
+            "country_of_incorporation": carrier.country_of_incorporation,
+            "carrier_git_cover_amount": carrier.git_cover_amount,
+            "carrier_liability_cover_amount": carrier.liability_insurance_cover_amount,
+            "fleet_size": carrier.number_of_vehicles,
+            "slots_assigned": lane_data.requested_slots,
+            "assigned_at": datetime.now()
+        })
+
+    # Update total slots
+    brokerage_ledger.total_slots_assigned += lane_data.requested_slots
+    brokerage_ledger.total_slots_available -= lane_data.requested_slots
+    loadboard_entry.available_slots -= lane_data.requested_slots
 
     lane_invoice = Lane_Invoice(
         contract_id=lane.id,
@@ -738,17 +761,21 @@ def assign_spot_ftl_lane_to_carrier(db: Session, shipment_data: Individual_lane_
         carrier_bank=financial_account.bank_name,
         carrier_bank_account=financial_account.account_number,
         payment_reference=f"{lane.type} Lane {lane.id}",
-        base_amount=brokerage_ledger.contract_carrier_payable,
-        due_amount=brokerage_ledger.contract_carrier_payable
+        base_amount=(brokerage_ledger.carrier_payable_per_shipment * len(lane.shipment_dates)),
+        due_amount=(brokerage_ledger.carrier_payable_per_shipment * len(lane.shipment_dates))
     )
     db.add(lane_invoice)
     db.flush()
 
     # Step 1: Generate Lane Interim Invoices
     booking_interim_invoices = db.query(Interim_Invoice).filter(
-        Interim_Invoice.contract_id == shipment_data.shipment_id,
+        Interim_Invoice.contract_id == lane_data.lane_id,
         Interim_Invoice.contract_type == lane.type
     ).all()
+
+    requested_slots_shipments = loadboard_entry.per_slot_size * lane_data.requested_slots
+    carrier_contract_amount = brokerage_ledger.carrier_payable_per_shipment * requested_slots_shipments
+    interim_base_amount = carrier_contract_amount / max(len(booking_interim_invoices), 1)
 
     lane_interim_invoices = []
     for booking_invoice in booking_interim_invoices:
@@ -773,8 +800,8 @@ def assign_spot_ftl_lane_to_carrier(db: Session, shipment_data: Individual_lane_
             carrier_bank=financial_account.bank_name,
             carrier_bank_account=financial_account.account_number,
             payment_reference=f"Lane Interim Invoice for Contract Invoice {lane.id}",
-            base_amount=booking_invoice.base_amount,
-            due_amount=booking_invoice.due_amount,
+            base_amount=interim_base_amount,
+            due_amount=interim_base_amount,
         )
         db.add(interim)
         lane_interim_invoices.append(interim)
@@ -840,126 +867,189 @@ def assign_spot_ftl_lane_to_carrier(db: Session, shipment_data: Individual_lane_
         pickup_facility_id=lane.pickup_facility_id,
         delivery_facility_id=lane.delivery_facility_id,
     )
-
-    brokerage_ledger.carrier_lane_invoice_id = lane_invoice.id
-    brokerage_ledger.carrier_lane_invoice_due_date = lane_invoice.due_date
-    brokerage_ledger.carrier_lane_invoice_status = lane_invoice.status
     db.add(assigned_lane)
     db.flush()
 
-    # Step 2: Assign sub-shipments + Generate Load Invoices
-    sub_shipments = db.query(FTL_SHIPMENT).filter(
-        FTL_SHIPMENT.dedicated_lane_id == shipment_data.shipment_id,
-        FTL_SHIPMENT.is_subshipment == True
-    ).all()
+    slot_ledger = Lane_Slot_Ledger(
+        lane_id = lane.id,
+        lane_type = lane.type,
+        carrier_id = carrier.id,
+        carrier_company_name = carrier.legal_business_name,
+        carrier_company_registration_number = carrier.business_registration_number,
+        carrier_country_of_incorporation=carrier.country_of_incorporation,
+        carrier_fleet_size=carrier.number_of_vehicles,
+        assigned_slots=lane_data.requested_slots,
+        slot_rate_per_shipment=brokerage_ledger.carrier_payable_per_shipment,
+        slot_total_rate=carrier_contract_amount,
+        
+    )
+    db.add(slot_ledger)
+    db.flush()
 
-    if not sub_shipments:
-        raise HTTPException(status_code=404, detail="No sub-shipments found.")
+    # -------------------------
+    # Begin: Sub-shipment assignment (append right after slot_ledger.flush())
+    # -------------------------
 
-    for sub_shipment in sub_shipments:
-        amount = brokerage_ledger.carrier_payable_per_shipment
-        due = ensure_date(sub_shipment.invoice_due_date)
-        pickup_date = ensure_date(sub_shipment.pickup_date)
+    # Ensure necessary local vars exist / compute derived values
+    requested_slots = lane_data.requested_slots
+    # how many shipments per slot (the loadboard stores this)
+    per_slot_size = loadboard_entry.per_slot_size
+    # total shipments we plan to assign to this carrier across all scheduled dates
+    total_shipments_for_carrier = requested_slots * per_slot_size
 
-        parent_invoice = next((
-            i for i in lane_interim_invoices
-            if pickup_date <= ensure_date(i.due_date)
-        ), None)
+    assigned_shipper_ids, carrier_assigned_count = [], 0
+    dates_to_iterate = list(lane.shipment_dates or [])
 
-        if not parent_invoice:
-            raise HTTPException(status_code=400, detail=f"No Lane Interim Invoice found for Sub-Shipment {sub_shipment.id}")
+    if not dates_to_iterate:
+        booked_all = db.query(FTL_SHIPMENT).filter(
+            FTL_SHIPMENT.dedicated_lane_id == lane.id,
+            FTL_SHIPMENT.is_subshipment == True,
+            FTL_SHIPMENT.shipment_status.in_([None, "Booked"])
+        ).order_by(FTL_SHIPMENT.pickup_date).all()
+        dates_to_iterate = sorted({s.pickup_date for s in booked_all if s.pickup_date})
 
-        load_invoice = Load_Invoice(
-            contract_id=lane.id,
-            contract_type=lane.type,
-            shipment_id=sub_shipment.id,
-            shipment_type=sub_shipment.type,
-            is_subinvoice=True,
-            parent_invoice_id=parent_invoice.id,
-            description=f"Load Invoice for Sub-Shipment {sub_shipment.id}",
-            billing_date=sub_shipment.pickup_date,
-            due_date=due + timedelta(days=2),
-            carrier_company_id=carrier_id,
-            carrier_financial_account_id=financial_account.id,
-            carrier_company_name=carrier.legal_business_name,
-            payment_terms=lane.payment_terms,
-            carrier_bank=financial_account.bank_name,
-            carrier_bank_account=financial_account.account_number,
-            payment_reference=f"Load {sub_shipment.id} of Lane {lane.id}",
-            contact_person_name=f"{financial_account.directors_first_name} {financial_account.directors_last_name}",
-            carrier_email=carrier.business_email,
-            carrier_address=carrier.business_address,
-            origin_address=sub_shipment.origin_address,
-            destination_address=sub_shipment.destination_address,
-            pickup_date=sub_shipment.pickup_date,
-            distance=sub_shipment.distance,
-            transit_time=sub_shipment.estimated_transit_time,
-            status="Pending",
-            base_amount=amount,
-            due_amount=amount,
-        )
-        db.add(load_invoice)
+    for sched_date in dates_to_iterate:
+        if carrier_assigned_count >= total_shipments_for_carrier:
+            break
 
-        assigned = Assigned_Spot_Ftl_Shipments(
-            is_subshipment=True,
-            lane_id=assigned_lane.lane_id,
-            shipment_id=sub_shipment.id,
-            type="FTL",
-            trip_type=sub_shipment.trip_type,
-            load_type=sub_shipment.load_type,
-            carrier_id=carrier_id,
-            carrier_name=carrier.legal_business_name,
-            vehicle_id=None,
-            driver_id=None,
-            accepted_for=None,
-            accepted_at=None,
-            minimum_weight_bracket=sub_shipment.minimum_weight_bracket,
-            minimum_git_cover_amount=sub_shipment.minimum_git_cover_amount,
-            minimum_liability_cover_amount=sub_shipment.minimum_liability_cover_amount,
-            shipment_rate=amount,
-            distance=sub_shipment.distance,
-            rate_per_km=loadboard_entry.rate_per_km,
-            rate_per_ton=loadboard_entry.rate_per_ton,
-            payment_terms=lane.payment_terms,
-            status="Assigned",
-            trip_status="Scheduled",
-            required_truck_type=sub_shipment.required_truck_type,
-            equipment_type=sub_shipment.equipment_type,
-            trailer_type=sub_shipment.trailer_type,
-            trailer_length=sub_shipment.trailer_length,
-            origin_address=sub_shipment.origin_address,
-            origin_address_completed=sub_shipment.complete_origin_address,
-            origin_city_province=sub_shipment.origin_city_province,
-            origin_country=sub_shipment.origin_country,
-            origin_region=sub_shipment.origin_region,
-            destination_address=sub_shipment.destination_address,
-            destination_address_completed=sub_shipment.complete_destination_address,
-            destination_city_province=sub_shipment.destination_city_province,
-            destination_country=sub_shipment.destination_country,
-            destination_region=sub_shipment.destination_region,
-            route_preview_embed=sub_shipment.route_preview_embed,
-            pickup_date=sub_shipment.pickup_date,
-            priority_level=sub_shipment.priority_level,
-            customer_reference_number=sub_shipment.customer_reference_number,
-            shipment_weight=sub_shipment.shipment_weight,
-            commodity=sub_shipment.commodity,
-            temperature_control=sub_shipment.temperature_control,
-            hazardous_materials=sub_shipment.hazardous_materials,
-            packaging_quantity=sub_shipment.packaging_quantity,
-            packaging_type=sub_shipment.packaging_type,
-            pickup_number=sub_shipment.pickup_number,
-            pickup_notes=sub_shipment.pickup_notes,
-            delivery_number=sub_shipment.delivery_number,
-            delivery_notes=sub_shipment.delivery_notes,
-            estimated_transit_time=sub_shipment.estimated_transit_time,
-            eta_date=sub_shipment.eta_date,
-            eta_window=sub_shipment.eta_window
-        )
-        sub_shipment.shipment_status = "Assigned"
-        db.add(assigned)
+        candidates = db.query(FTL_SHIPMENT).filter(
+            FTL_SHIPMENT.dedicated_lane_id == lane.id,
+            FTL_SHIPMENT.is_subshipment == True,
+            FTL_SHIPMENT.shipment_status == "Booked",
+            FTL_SHIPMENT.pickup_date == sched_date
+        ).order_by(FTL_SHIPMENT.id).limit(requested_slots).all()
 
+        if not candidates:
+            continue
+
+        for ship in candidates:
+            if carrier_assigned_count >= total_shipments_for_carrier:
+                break
+
+            ship.shipment_status = "Assigned"
+            ship.assigned_carrier_id = carrier_id
+            db.add(ship)
+            assigned_shipper_ids.append(ship.id)
+            carrier_assigned_count += 1
+
+            parent_invoice = next(
+                (li for li in lane_interim_invoices
+                 if li.billing_date <= ship.pickup_date <= li.due_date),
+                lane_interim_invoices[0] if lane_interim_invoices else None
+            )
+
+            amount = brokerage_ledger.carrier_payable_per_shipment
+            load_invoice = Load_Invoice(
+                contract_id=lane.id,
+                contract_type=lane.type,
+                shipment_id=ship.id,
+                shipment_type=getattr(ship, "type", None),
+                is_subinvoice=True,
+                parent_invoice_id=parent_invoice.id if parent_invoice else None,
+                description=f"Load Invoice for Sub-Shipment {ship.id}",
+                billing_date=ship.pickup_date,
+                due_date=(ensure_date(ship.invoice_due_date) + timedelta(days=2)) if getattr(ship, "invoice_due_date", None) else None,
+                carrier_company_id=carrier_id,
+                carrier_financial_account_id=financial_account.id,
+                carrier_company_name=carrier.legal_business_name,
+                payment_terms=lane.payment_terms,
+                carrier_bank=financial_account.bank_name,
+                carrier_bank_account=financial_account.account_number,
+                payment_reference=f"Load {ship.id} of Lane {lane.id}",
+                contact_person_name=f"{financial_account.directors_first_name} {financial_account.directors_last_name}",
+                carrier_email=carrier.business_email,
+                carrier_address=carrier.business_address,
+                origin_address=ship.origin_address,
+                destination_address=ship.destination_address,
+                pickup_date=ship.pickup_date,
+                distance=ship.distance,
+                transit_time=ship.estimated_transit_time,
+                status="Pending",
+                base_amount=amount,
+                due_amount=amount,
+            )
+            db.add(load_invoice)
+
+            # Create carrier-side Assigned_Spot_Ftl_Shipments linking to the shipper shipment id
+            assigned = Assigned_Spot_Ftl_Shipments(
+                is_subshipment=True,
+                lane_id=assigned_lane.lane_id,
+                shipment_id=ship.id,                      # link to shipper shipment
+                type="FTL",
+                trip_type=ship.trip_type,
+                load_type=ship.load_type,
+                carrier_id=carrier_id,
+                carrier_name=carrier.legal_business_name,
+                vehicle_id=None,
+                driver_id=None,
+                accepted_for=None,
+                accepted_at=None,
+                minimum_weight_bracket=ship.minimum_weight_bracket,
+                minimum_git_cover_amount=ship.minimum_git_cover_amount,
+                minimum_liability_cover_amount=ship.minimum_liability_cover_amount,
+                shipment_rate=amount,
+                distance=ship.distance,
+                rate_per_km=loadboard_entry.rate_per_km,
+                rate_per_ton=loadboard_entry.rate_per_ton,
+                payment_terms=lane.payment_terms,
+                status="Assigned",
+                trip_status="Scheduled",
+                required_truck_type=ship.required_truck_type,
+                equipment_type=ship.equipment_type,
+                trailer_type=ship.trailer_type,
+                trailer_length=ship.trailer_length,
+                origin_address=ship.origin_address,
+                origin_address_completed=ship.complete_origin_address,
+                origin_city_province=ship.origin_city_province,
+                origin_country=ship.origin_country,
+                origin_region=ship.origin_region,
+                destination_address=ship.destination_address,
+                destination_address_completed=ship.complete_destination_address,
+                destination_city_province=ship.destination_city_province,
+                destination_country=ship.destination_country,
+                destination_region=ship.destination_region,
+                route_preview_embed=ship.route_preview_embed,
+                pickup_date=ship.pickup_date,
+                priority_level=ship.priority_level,
+                customer_reference_number=ship.customer_reference_number,
+                shipment_weight=ship.shipment_weight,
+                commodity=ship.commodity,
+                temperature_control=ship.temperature_control,
+                hazardous_materials=ship.hazardous_materials,
+                packaging_quantity=ship.packaging_quantity,
+                packaging_type=ship.packaging_type,
+                pickup_number=ship.pickup_number,
+                pickup_notes=ship.pickup_notes,
+                delivery_number=ship.delivery_number,
+                delivery_notes=ship.delivery_notes,
+                estimated_transit_time=ship.estimated_transit_time,
+                eta_date=ship.eta_date,
+                eta_window=ship.eta_window
+            )
+            db.add(assigned)
+
+    # Step 12: Update lane statuses
+    if brokerage_ledger.total_slots_available <= 0:
+        lane.status = loadboard_entry.status = brokerage_ledger.lane_status = "Assigned"
+    else:
+        lane.status = loadboard_entry.status = brokerage_ledger.lane_status = "Partially Assigned"
+
+    db.add_all([lane, loadboard_entry, brokerage_ledger])
     db.commit()
 
+    # Return a concise result (optional)
+    return {
+        "ok": True,
+        "message": f"Assigned {requested_slots} slot(s) to carrier {carrier.id}",
+        "assigned_shipments_count": carrier_assigned_count,
+        "assigned_shipper_ids": assigned_shipper_ids,
+        "assigned_lane_id": assigned_lane.id,
+        "lane_status": lane.status,
+        "remaining_slots": brokerage_ledger.total_slots_available
+    }
+#########################################################################################################################
+#########################################################################################################################
+#########################################################################################################################
 def assign_ftl_shipment_from_loadboard_to_carrier(
     db: Session,
     shipment_id: int,

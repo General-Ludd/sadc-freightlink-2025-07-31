@@ -69,6 +69,12 @@ class FTL_Lane_Exchange(Base):
     shipments_per_interval = Column(Integer)  # Number of shipments in each recurrence interval
     total_shipments = Column(Integer)  # Total number of shipments in the contract
     start_date = Column(Date, nullable=False)  # Start date of the contract
+    # --- New Slot-Based Fields ---
+    total_slots = Column(Integer, nullable=False)  # total number of slots (mirrors shipments_per_interval)
+    available_slots = Column(Integer, nullable=False)  # dynamic: total_slots - assigned_slots
+    each_slot_size = Column(Integer, nullable=False)
+    assigned_slots = Column(Integer, default=0, nullable=False)
+
     end_date = Column(Date, nullable=True)  # Optional end date (if known)
     shipment_dates = Column(ARRAY(Date), nullable=True)
     payment_dates = Column(ARRAY(Date), nullable=True)

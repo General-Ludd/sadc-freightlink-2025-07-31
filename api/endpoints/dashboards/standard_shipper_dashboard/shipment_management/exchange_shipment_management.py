@@ -13,7 +13,7 @@ from schemas.exchange_bookings.auction import Accept_Bid, Exchange_FTL_Lane_Ship
 from schemas.exchange_bookings.dedicated_ftl_lane import Exchange_Ftl_Lane_Response, Exchange_Ftl_Lane_Summary_Response
 from schemas.exchange_bookings.ftl_shipment import Exchange_FTL_Shipment_Response, Exchange_Ftl_Shipments_Summary_Response
 from schemas.exchange_bookings.power_shipment import Exchange_Power_Shipments_Summary_Response, exchange_power_shipment_response
-from services.exchange.auction import accept_a_ftl_lane_exchange_bid, accept_ftl_shipment_exchange_bid, accept_power_shipment_exchange_bid
+from services.exchange.auction import accept_slot_based_ftl_lane_exchange_bid, accept_ftl_shipment_exchange_bid, accept_power_shipment_exchange_bid
 from services.cancellations.exchange_cancellations import cancel_exchange_ftl_booking, cancel_exchange_power_booking, cancel_exchange_ftl_lane_booking
 from utils.auth import get_current_user
 
@@ -612,3 +612,19 @@ def shipper_broker_get_lane_exchange_bids(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/shipper/ftl-lane-exchange/accept-bid")
+def shipper_broker_accept_ftl_lane_slot_exchange_bid(
+    bid_data: Accept_Bid,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    try:
+        result = accept_slot_based_ftl_lane_exchange_bid(
+            db,
+            bid_data,
+            current_user=current_user
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))

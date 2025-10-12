@@ -1,9 +1,10 @@
 from models.base import Base
+import json
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from sqlalchemy import ARRAY, Date, UniqueConstraint
 from sqlalchemy.sql import func
-from sqlalchemy import Column, Integer, Float, String, ForeignKey, Enum, DateTime, Boolean, Numeric
+from sqlalchemy import Column, Integer, Float, String, ForeignKey, Enum, DateTime, Boolean, Numeric, JSON
 from decimal import Decimal
 from utils.sast_datetime import get_sast_time
 
@@ -105,52 +106,114 @@ class BrokerageLedger(Base):
 class Dedicated_Lane_BrokerageLedger(Base):
     __tablename__ = "contract_lanes_brokerage_ledger"
 
-    # Contract-Level Details
-    id = Column(Integer, primary_key=True, index=True)  # Contract/ledger ID
+    # === Core Contract Details ===
+    id = Column(Integer, primary_key=True, index=True)
+    contract_id = Column(Integer, index=True)
+    lane_id = Column(Integer, nullable=False)
+    lane_type = Column(String, nullable=False)
+    lane_status = Column(String, default="Booked", nullable=False)
+
+    # === Shipper Contract & Invoicing ===
     shipper_company_id = Column(Integer)
     shipper_company_name = Column(String)
     shipper_type = Column(String)
     shipper_company_registration_number = Column(String)
     shipper_company_country_of_incorporation = Column(String)
-    contract_id = Column(Integer, index=True)
-    lane_type = Column(String, nullable=False)
-    lane_status = Column(String, nullable=False)
     contract_invoice_id = Column(Integer, nullable=False)
     contract_invoice_due_date = Column(Date, nullable=False)
     contract_invoice_status = Column(String, nullable=False)
-    contract_booking_amount = Column(Integer, nullable=False)  # Total booking amount for the contract
-    contract_platform_commission = Column(Integer, nullable=False)  # Total commission for the contract
-    contract_transaction_fee = Column(Integer, nullable=False)  # Total transaction fee for the contract
-    contract_true_platform_earnings = Column(Integer, nullable=False)  # Net earnings after transaction fees
-    contract_carrier_payable = Column(Integer, nullable=False)  # Total payout to carrier
-    payment_terms = Column(String, nullable=False)  # Payment method for the contract
-    # Shipment-Level Breakdown (Contract broken into shipments)
-    total_shipments = Column(Integer, nullable=False)  # Number of shipments in the contract
-    booking_amount_per_shipment = Column(Integer, nullable=False)  # Booking amount per shipment
-    platform_commission_per_shipment = Column(Integer, nullable=False)  # Commission per shipment
-    transaction_fee_per_shipment = Column(Integer, nullable=False)  # Transaction fee per shipment
-    true_platform_earnings_per_shipment = Column(Integer, nullable=False)  # Net earnings per shipment
-    carrier_payable_per_shipment = Column(Integer, nullable=False)  # Payout to carrier per shipment
-    lane_minimum_git_cover_amount = Column(Integer, nullable=True)
-    lane_minimum_liability_cover_amount = Column(Integer, nullable=True)
-    payment_dates = Column(ARRAY(Date))
+    payment_terms = Column(String, nullable=False)
+
+    # === Financial Overview ===
+    contract_booking_amount = Column(Integer, nullable=False)      # total shipper-side contract value
+    contract_platform_commission = Column(Integer, nullable=True)  # platform gross commission
+    contract_transaction_fee = Column(Integer, nullable=True)
+    contract_true_platform_earnings = Column(Integer, nullable=True)  # after transaction fees
+    contract_carrier_payable = Column(Integer, nullable=True)      # total payable to all carriers combined
+    contract_amount_paid = Column(Integer, default=0)
+    carrier_payable_paid = Column(Integer, default=0)
+    platform_commission_generated = Column(Integer, nullable=True)
+
+    # === Shipment and Capacity Overview ===
+    total_shipments = Column(Integer, nullable=False)
+    booking_amount_per_shipment = Column(Integer, nullable=False)
+    platform_commission_per_shipment = Column(Integer, nullable=False)
+    transaction_fee_per_shipment = Column(Integer, nullable=False)
+    true_platform_earnings_per_shipment = Column(Integer, nullable=False)
+    carrier_payable_per_shipment = Column(Integer, nullable=False)
+    num_shipments_completed = Column(Integer, default=0)
+
+    # === Slot and Sub-Ledger Relations ===
+    num_sub_assignments = Column(Integer, default=0)
+    carriers_assigned = Column(JSON, nullable=True)  # optional quick summary list
+    sub_ledger_ids = Column(ARRAY(Integer))     # list of related Lane_Slot_Ledger IDs
+    total_slots_assigned = Column(Integer, default=0)
+    total_slots_available = Column(Integer, default=0)
+
+    # === Bidding / Exchange Future-Proofing ===
+    # for when you implement exchanges and competitive bidding
+    exchange_enabled = Column(Boolean, default=False)
+    bidding_mode = Column(Enum("Fixed", "Bid"), default="Fixed")
+    accepted_bid_rates = Column(JSON, nullable=True)  
+    # Example: {"carrier_1": 1500, "carrier_2": 1400, "carrier_3": 1550}
+    # lets you track what each carrier agreed to during bidding
+
+    # === Timeline ===
     contract_start_date = Column(Date)
     contract_end_date = Column(Date)
-    carrier_id = Column(Integer, nullable=False)
-    carrier_company_name = Column(String)
-    carrier_company_registration_number = Column(String)
-    carrier_country_of_incorporation = Column(String)
-    carrier_fleet_size = Column(Integer, nullable=True)
+    payment_dates = Column(ARRAY(Date))
+    accepted_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=get_sast_time)
+    updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)
+
+class Lane_Slot_Ledger(Base):
+    __tablename__ = "lane_slot_ledger"
+
+    id = Column(Integer, primary_key=True, index=True)
+    lane_id = Column(Integer, nullable=False, index=True)
+    lane_type = Column(String, nullable=False, index=True)
+    carrier_id = Column(Integer, nullable=False, index=True)
+    carrier_company_name = Column(String, nullable=False)
+    carrier_company_registration_number = Column(String, nullable=False)
+    carrier_country_of_incorporation = Column(String, nullable=False)
+    carrier_fleet_size = Column(Integer, nullable=False)
+    assigned_slots = Column(Integer, nullable=False, default=0)  # number of slots accepted
+    shipments_per_slot = Column(Integer, nullable=False, default=1)  # how many shipments each slot represents
+    slot_rate_per_shipment = Column(Integer, nullable=False)  # carrier rate per shipment
+    slot_total_rate = Column(Integer, nullable=False)  # assigned_slots * shipments_per_slot * rate_per_shipment
+    platform_commission = Column(Integer, nullable=True)
+    per_shipment_carrier_payable = Column(Integer, nullable=True)
+    total_carrier_payable = Column(Integer, nullable=False)
     num_shipments_completed = Column(Integer, default=0)
-    carrier_lane_invoice_id = Column(Integer, nullable=False)
-    carrier_lane_invoice_due_date = Column(Date, nullable=False)
-    carrier_lane_invoice_status = Column(String, nullable=False)
+    carrier_lane_invoice_id = Column(Integer, nullable=True)
+    carrier_lane_invoice_due_date = Column(Date, nullable=True)
+    carrier_lane_invoice_status = Column(String, nullable=True)
     num_of_invoices_paid = Column(Integer, default=0)
     contract_amount_paid = Column(Integer, default=0)
     carrier_payable_paid = Column(Integer,  default=0)
     platform_commission_generated = Column(Integer)
-    accepted_at = Column(DateTime, nullable=True)
-    completed_at = Column(DateTime, nullable=True)
+    status = Column(Enum("Active", "Completed", "Cancelled", "Partial"), default="Active")
+    created_at = Column(DateTime(timezone=True), default=get_sast_time)
+    updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)
+
+class Exchange_Lane_Slot_Assignment(Base):
+    __tablename__ = "exchange_lane_slot_assignments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    exchange_id = Column(Integer)
+    lane_id = Column(Integer)
+    lane_type = Column(String)
+    shipper_company_id = Column(Integer, nullable=False)
+    carrier_lane_id = Column(Integer, nullable=False)
+    carrier_company_id = Column(Integer, nullable=False)
+    carrier_user_id = Column(Integer, nullable=False)
+    bid_id = Column(Integer, nullable=True)
+    number_of_slots_assigned = Column(Integer, nullable=False)
+    assigned_rate_per_slot = Column(Integer, nullable=False)
+    total_contract_value = Column(Integer, nullable=False)
+    assignment_date = Column(DateTime(timezone=True), default=get_sast_time)
+    status = Column(Enum("Assigned", "Cancelled", default="Assigned"), nullable=False)
     created_at = Column(DateTime(timezone=True), default=get_sast_time)
     updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)
 

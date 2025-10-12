@@ -44,11 +44,12 @@ class Exchange_FTL_Lane_Bid(Base):
     carrier_type = Column(String, nullable=False)
     carrier_name = Column(String, nullable=False)
     user_id = Column(Integer, index=True)
+    requested_slots = Column(Integer, nullable=True)  # Number of slots the carrier wants
     per_shipment_bid_amount = Column(Integer,index=True, nullable=False)
     contract_bid_amount = Column(Integer, index=True)
     baked_per_shipment_bid_amount = Column(Integer, nullable=False)
     baked_contract_bid_amount = Column(Integer, nullable=False)
     bid_notes = Column(String, nullable=True)
-    status = Column(String, default="Placed", nullable=True, index=True)
+    status = Column(Enum("Placed", "Outbidded", "Accepted", "Rejected", default="Placed"))
     submitted_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

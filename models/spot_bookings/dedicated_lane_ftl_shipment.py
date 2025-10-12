@@ -7,6 +7,7 @@ class FTL_Lane(Base):
     __tablename__ = "ftl_lanes"
 
     id = Column(Integer, primary_key=True, index=True)
+    exchange_id = Column(Integer, nullable=True)
     consignor_id = Column(Integer, nullable=True)
     type = Column(String)
     trip_type = Column(String, nullable=False)
@@ -75,6 +76,19 @@ class FTL_Lane(Base):
     is_active = Column(Boolean, default=True)  # Whether the contract is active
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+class Lane_Assignment_Summary(Base):
+    __tablename__ = "lane_assignment_summary"
+
+    id = Column(Integer, primary_key=True, index=True)
+    lane_id = Column(Integer, nullable=False, index=True)
+    lane_type = Column(String, nullable=False, index=True)
+    total_slots = Column(Integer, nullable=False)
+    total_assigned_slots = Column(Integer, nullable=False, default=0)
+    unique_carriers_assigned = Column(Integer, nullable=False, default=0)
+    status = Column(Enum("Booked", "Partially Assigned", "Fully Assigned", "Closed"), default="Booked")
+    created_at = Column(DateTime(timezone=True), default=get_sast_time)
+    updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)
 
 class FTL_Lane_Dispute(Base):
     __tablename__ = "ftl_lane_disputes"

@@ -7,7 +7,7 @@ from models.brokerage.loadboard import Dedicated_lanes_LoadBoard, Ftl_Load_Board
 from models.brokerage.loadboards.exchange_loadboards import Exchange_Ftl_Lane_LoadBoard, Exchange_Ftl_Load_Board, Exchange_Power_Load_Board
 from models.carrier import Carrier
 from models.spot_bookings.shipment_facility import ContactPerson, ShipmentFacility
-from schemas.brokerage.loadboard import AssignShipmentRequest, FTL_Lane_LoadBoard_Summary_Response, FTL_Lane_Loadboard_Individual_Shipment_Response, Individual_lane_id, IndividualLoadboardShipmentRequest, IndividualSpotPowerLoadboardShipmentResponse, SpotFTLLoadBoardSummaryResponse, SpotPowerLoadBoardSummaryResponse
+from schemas.brokerage.loadboard import AssignShipmentRequest, FTL_Lane_LoadBoard_Summary_Response, FTL_Lane_Loadboard_Individual_Shipment_Response, Individual_lane_id, AssignLaneSlotRequest, IndividualLoadboardShipmentRequest, IndividualSpotPowerLoadboardShipmentResponse, SpotFTLLoadBoardSummaryResponse, SpotPowerLoadBoardSummaryResponse
 from schemas.shipment_facility import FacilityContactPersonResponse
 from schemas.user import DriverCreate, DriverResponse
 from schemas.vehicle import TrailerCreate, TrailerResponse, VehicleCreate, VehicleResponse, VehicleUpdate
@@ -199,10 +199,10 @@ def get_all_spot_ftl_lanes_loads(db: Session = Depends(get_db), current_user: di
                 "end_date": ftl_lane.end_date,
                 "frequency": ftl_lane.recurrence_frequency,
                 "recurrence_days": ftl_lane.recurrence_days,
-                "shipment_per_interval": ftl_lane.shipments_per_interval,
-                "total_shipments": ftl_lane.total_shipments,
+                "available_slots": ftl_lane.available_slots,
+                "total_shipments_per_slot": ftl_lane.per_slot_size,
                 "per_shipment_rate": ftl_lane.rate_per_shipment,
-                "contract_rate": ftl_lane.contract_rate,
+                "contract_rate_per_slot": (ftl_lane.rate_per_shipment * ftl_lane.per_slot_size),
             } for ftl_lane in ftl_lanes]
         }
     except Exception as e:
@@ -258,12 +258,15 @@ def get_individual_loadboard_ftl_lane(
                 "shipments_per_interval": lane.shipments_per_interval,
                 "total_shipments": lane.total_shipments,
                 "per_shipment_rate": lane.rate_per_shipment,
-                "total_contract_rate": lane.contract_rate,
+                "per_slot_contract_rate": (lane.rate_per_shipment * lane.per_slot_size),
                 "distance_per_shipment": lane.distance,
                 "rate_per_km": lane.rate_per_km,
                 "rate_per_ton": lane.rate_per_ton,
                 "shipment_dates": lane.shipment_dates,
                 "payment_dates": lane.payment_dates,
+                "total_slots": lane.total_slots,
+                "available_slots": lane.available_slots,
+                "total_shipments_per_slot": lane.per_slot_size,
             },
             "pickup_facility": {
                 "name": lane.pickup_facility_name,
@@ -287,40 +290,15 @@ def get_individual_loadboard_ftl_lane(
     except Exception as e:
         return {"error": str(e)}
 
-@router.get("/spot/ftl-lane-loadboard/id", response_model=FTL_Lane_Loadboard_Individual_Shipment_Response) #UnTested
-def loadboard_get_individual_ftl_lane(
-    loadboard_data: IndividualLoadboardShipmentRequest,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)):
-    assert "company_id" in current_user, "Missing company_id in current_user"
-    print(f"current_user: {current_user}")
-    
-    # Extract the company_id from the current user
-    company_id = current_user.get("company_id")
-    if not company_id:
-        raise HTTPException(
-            status_code=400,
-            detail="User does not belong to a company"
-        )
-    carrier = db.query(Carrier).filter(Carrier.id == company_id).first()
-    if not carrier or not carrier.is_verified or carrier.status != "Active":
-        raise HTTPException(status_code=400, detail="Carrier not found, not verified, or not active")
-        
-    try:
-        # Query all records from the "dedicated_lanes_loadboard" table
-        lane = db.query(Dedicated_lanes_LoadBoard).filter(Dedicated_lanes_LoadBoard.shipment_id == loadboard_data.id).first()
-        return lane
-    except Exception as e:
-        return {"error": str(e)}
 
 @router.post("/spot/loadboard/accept-ftl-lane", status_code=status.HTTP_202_ACCEPTED) #UnTested
 def accept_spot_ftl_lane_from_loadboard(
-    shipment_data: Individual_lane_id,
+    lane_data: AssignLaneSlotRequest,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
     try:
-        result = assign_spot_ftl_lane_to_carrier(db, shipment_data, current_user)
+        result = assign_spot_ftl_lane_to_carrier(db, lane_data, current_user)
         return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

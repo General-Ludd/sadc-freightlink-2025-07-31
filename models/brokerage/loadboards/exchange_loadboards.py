@@ -128,6 +128,12 @@ class Exchange_Ftl_Lane_LoadBoard(Base):
     recurrence_days = Column(String, nullable=False)
     shipments_per_interval = Column(Integer)
     total_shipments = Column(Integer)
+    # --- New Slot Fields ---
+    total_slots = Column(Integer, nullable=False)
+    available_slots = Column(Integer, nullable=False)
+    each_slot_size = Column(Integer, nullable=True)
+    assigned_slots = Column(Integer, default=0, nullable=False)
+
     shipment_dates = Column(ARRAY(Date), nullable=False)
     priority_level = Column(String, nullable=True)
     customer_reference_number = Column(String)

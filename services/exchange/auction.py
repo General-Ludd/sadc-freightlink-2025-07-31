@@ -7,7 +7,7 @@ from models.Exchange.auction import Exchange_FTL_Lane_Bid, Exchange_FTL_Shipment
 from models.Exchange.power_shipment import POWER_SHIPMENT_EXCHANGE
 from models.brokerage.assigned_lanes import Assigned_Ftl_Lanes
 from models.brokerage.assigned_shipments import Assigned_Power_Shipments, Assigned_Spot_Ftl_Shipments
-from models.brokerage.finance import BrokerageLedger, CarrierFinancialAccounts, Dedicated_Lane_BrokerageLedger, FinancialAccounts, Interim_Invoice, Lane_Interim_Invoice, Lane_Invoice, Load_Invoice
+from models.brokerage.finance import BrokerageLedger, CarrierFinancialAccounts, Dedicated_Lane_BrokerageLedger, Lane_Slot_Ledger, Exchange_Lane_Slot_Assignment, FinancialAccounts, Interim_Invoice, Lane_Interim_Invoice, Lane_Invoice, Load_Invoice
 from models.brokerage.loadboards.exchange_loadboards import Exchange_Ftl_Lane_LoadBoard, Exchange_Ftl_Load_Board, Exchange_Power_Load_Board
 from models.carrier import Carrier, Carrier_Notification
 from models.shipper import Corporation, Client_Notification
@@ -925,157 +925,183 @@ def place_ftl_lane_bid(db: Session, bid_data: Exchange_FTL_Lane_Bid_Create, curr
     
     company_id = current_user.get("company_id")
     user_id = current_user.get("id")
-    if not company_id:
-        raise HTTPException(
-            status_code=400,
-            detail="User does not belong to a company"
-        )
 
+    if not company_id:
+        raise HTTPException(status_code=400, detail="User does not belong to a company")
+
+    # === Step 1: Verify Exchange and Loadboard ===
     exchange = db.query(FTL_Lane_Exchange).filter(
         FTL_Lane_Exchange.id == bid_data.exchange_id,
         FTL_Lane_Exchange.auction_status == "Open"
     ).first()
     if not exchange:
-        raise ValueError("Exchange not found, or Exchange bidding closed")
-    if exchange.auction_status !="Open":
-        raise ValueError("Exchange bidding closed")
+        raise HTTPException(status_code=404, detail="Exchange not found or bidding closed")
 
     exchange_loadboard = db.query(Exchange_Ftl_Lane_LoadBoard).filter(
         Exchange_Ftl_Lane_LoadBoard.exchange_id == bid_data.exchange_id,
         Exchange_Ftl_Lane_LoadBoard.status == "Open"
     ).first()
     if not exchange_loadboard:
-        raise ValueError("Exchange board not found.")
-    if exchange_loadboard.status !="Open":
-        raise ValueError("Exchange bidding closed")
+        raise HTTPException(status_code=404, detail="Exchange loadboard not found or closed")
 
-    carrier = db.query(Carrier).filter(
-        Carrier.id == company_id).first()
+    # === Step 2: Fetch Platform Commission ===
+    platform_commission = (
+        db.query(PlatformCommission)
+        .filter(PlatformCommission.name == "FTL Lane Exchange")
+        .first()
+    )
+
+    if not platform_commission:
+        raise HTTPException(status_code=404, detail="Platform commission entry not found")
+
+    try:
+        commission_percentage = float(platform_commission.commission)
+    except (ValueError, TypeError):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid commission format: {platform_commission.commission}"
+        )
+
+    # === Step 3: Carrier Validation ===
+    carrier = db.query(Carrier).filter(Carrier.id == company_id).first()
     if not carrier:
-        raise ValueError("Carrier Not found")
+        raise HTTPException(status_code=404, detail="Carrier not found")
     if not carrier.is_verified:
-        raise ValueError("Carrier company account not verified. Please request or await verification.")
+        raise HTTPException(status_code=403, detail="Carrier company account not verified")
     if carrier.status != "Active":
-        raise ValueError("Carrier account is not active.")
+        raise HTTPException(status_code=403, detail="Carrier account is not active")
 
-    try:
-        assert carrier.git_cover_amount >= exchange.minimum_git_cover_amount, "Carrier GIT Cover Amount does not meet exchange GIT cover amount requirement"
-        assert carrier.liability_insurance_cover_amount >= exchange.minimum_liability_cover_amount, "Carrier Liability Cover Amount does not meet exchange Liability cover amount requirement"
-    except AssertionError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    # === Step 4: Validate Carrier Insurance ===
+    if carrier.git_cover_amount < exchange.minimum_git_cover_amount:
+        raise HTTPException(
+            status_code=400,
+            detail="Carrier GIT cover amount below required minimum"
+        )
+    if carrier.liability_insurance_cover_amount < exchange.minimum_liability_cover_amount:
+        raise HTTPException(
+            status_code=400,
+            detail="Carrier liability cover amount below required minimum"
+        )
 
-    fleet_size_verification = db.query(Vehicle).filter(Vehicle.owner_id == company_id,
-                                                  Vehicle.type == exchange.required_truck_type,
-                                                  Vehicle.equipment_type == exchange.equipment_type,
-                                                  Vehicle.trailer_type == exchange.trailer_type,
-                                                  Vehicle.trailer_length == exchange.trailer_length,
-                                                  Vehicle.payload_capacity >= exchange.minimum_weight_bracket,
-                                                  Vehicle.is_verified.is_(True)).count()
-    try:
-        assert fleet_size_verification >= exchange.shipments_per_interval, f"Carrier fleet size of (fleet_size_verification) does not meet the exchange lane's fleet size requirement of {exchange.shipments_per_interval} ({exchange.required_truck_type}-{exchange.trailer_length}-{exchange.trailer_type}-{exchange.equipment_type}'s) to be provided on a per interval basis"
-    except AssertionError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    # === Step 5: Validate Fleet Capacity ===
+    fleet_size_verification = db.query(Vehicle).filter(
+        Vehicle.owner_id == company_id,
+        Vehicle.type == exchange.required_truck_type,
+        Vehicle.equipment_type == exchange.equipment_type,
+        Vehicle.trailer_type == exchange.trailer_type,
+        Vehicle.trailer_length == exchange.trailer_length,
+        Vehicle.payload_capacity >= exchange.minimum_weight_bracket,
+        Vehicle.is_verified.is_(True)
+    ).count()
 
-    # Step 3: Retrieve Financial Account & Generate Payment Dates Based on Terms
+    if fleet_size_verification < exchange.shipments_per_interval:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Carrier fleet size ({fleet_size_verification}) does not meet "
+                f"the required {exchange.shipments_per_interval} vehicles "
+                f"({exchange.required_truck_type}-{exchange.trailer_length}-"
+                f"{exchange.trailer_type}-{exchange.equipment_type}) per interval."
+            )
+        )
+
+    # === Step 6: Financial Account Verification ===
     financial_account = db.query(CarrierFinancialAccounts).filter(
-        CarrierFinancialAccounts.id == company_id
+        CarrierFinancialAccounts.carrier_company_id == company_id
     ).first()
+
     if not financial_account:
         raise HTTPException(status_code=404, detail="Financial account not found.")
     if not financial_account.is_verified:
-        raise HTTPException(status_code=403, detail="Financial account is not verified, Please await verification to accept shipments.")
+        raise HTTPException(status_code=403, detail="Financial account is not verified.")
     if financial_account.status != "Active":
-        raise HTTPException(status_code=403, detail="Financial account is not active, Please await activation to accept shipments.")
+        raise HTTPException(status_code=403, detail="Financial account is not active.")
 
-
-    # Fetch existing bids for comparison
+    # === Step 7: Existing Bid Comparison ===
     existing_bids = db.query(Exchange_FTL_Lane_Bid).filter(
         Exchange_FTL_Lane_Bid.exchange_id == bid_data.exchange_id
     ).all()
 
-    baked_bid = bid_data.per_shipment_bid_amount * 1.10
+    # === Step 8: Commissioned Bid Calculation ===
+    # If your commission is stored as a multiplier (e.g. 1.10), use it directly.
+    # If stored as a percent (e.g. "10"), divide by 100.
+    if commission_percentage > 1:
+        baked_bid = bid_data.per_shipment_bid_amount * (1 + commission_percentage / 100)
+    else:
+        baked_bid = bid_data.per_shipment_bid_amount * commission_percentage
 
-    # Determine if this bid is the lowest
-    is_lowest_bid = all(bid_data.per_shipment_bid_amount < existing_bid.per_shipment_bid_amount for existing_bid in existing_bids)
+    # === Step 9: Determine Lowest Bid ===
+    is_lowest_bid = all(
+        bid_data.per_shipment_bid_amount < existing_bid.per_shipment_bid_amount
+        for existing_bid in existing_bids
+    )
 
-    # Set status based on comparison
     new_bid_status = "Placed" if is_lowest_bid else "Outbidded"
 
-    # Create the new bid
+    # === Step 10: Create the New Bid Record ===
     bid = Exchange_FTL_Lane_Bid(
         exchange_id=bid_data.exchange_id,
         carrier_id=company_id,
         carrier_type=carrier.type,
         carrier_name=carrier.legal_business_name,
         user_id=user_id,
+        requested_slots=bid_data.requested_slots,
         per_shipment_bid_amount=bid_data.per_shipment_bid_amount,
-        contract_bid_amount=(bid_data.per_shipment_bid_amount * exchange.total_shipments),
+        contract_bid_amount=bid_data.per_shipment_bid_amount * exchange.each_slot_size * bid.requested_slots,
         baked_per_shipment_bid_amount=baked_bid,
-        baked_contract_bid_amount=(baked_bid * exchange.total_shipments),
+        baked_contract_bid_amount=(baked_bid * exchange.each_slot_size * bid.requested_slots),
         bid_notes=bid_data.bid_notes,
         status=new_bid_status
     )
+
     exchange.number_of_bids_submitted = (exchange.number_of_bids_submitted or 0) + 1
+
     db.add(bid)
     db.commit()
     db.refresh(bid)
 
-    # If this is the new lowest bid, update all other bids to Outbidded
+    # === Step 11: Update Competing Bids if This One is Lowest ===
     if is_lowest_bid:
         db.query(Exchange_FTL_Lane_Bid).filter(
             Exchange_FTL_Lane_Bid.exchange_id == bid_data.exchange_id,
-            Exchange_FTL_Lane_Bid.id != bid.id  # exclude the new bid itself
-        ).update(
-            {"status": "Outbidded"},
-            synchronize_session=False
-        )
+            Exchange_FTL_Lane_Bid.id != bid.id
+        ).update({"status": "Outbidded"}, synchronize_session=False)
+
         exchange.leading_bid_id = bid.id
-        exchange.leading_per_shipment_bid_amount = baked_bid
-        exchange.leading_contract_bid_amount = (baked_bid * exchange.total_shipments)
+        exchange.leading_per_shipment_bid_amount = bid_data.per_shipment_bid_amount
+        exchange.leading_contract_bid_amount = bid_data.per_shipment_bid_amount * exchange.total_shipments
+
         db.commit()
 
     return bid
 
+############################################################################################################################
+############################################################################################################################
+#################################################New Accept Exchange FTL Lane Slot Bid################################################
+def accept_slot_based_ftl_lane_exchange_bid(
+    db: Session,
+    bid_data: Accept_Bid,
+    current_user: dict
+):
+    """
+    Accept a slot-based exchange bid.
+    Creates a new FTL Lane for the accepted slots,
+    deducts available slots, and closes the exchange when full.
+    """
 
-def accept_a_ftl_lane_exchange_bid(db: Session, bid_data: Accept_Bid, current_user:dict):
-    assert "company_id" in current_user, "Missing company_id in current_user"
-    print(f"current_user: {current_user}")
-    
-    company_id = current_user.get("company_id")
-    user_id = current_user.get("id")
-    if not company_id:
-        raise ValueError("User does not belong to a company")
-    
-    shipper = db.query(Corporation).filter(Corporation.id == company_id).first()
-    if not shipper:
-        raise ValueError("Shipper Account not verified, or not Active")
-    if shipper.status != "Active":
-        raise ValueError("Shipper Account is not activated")
-    if not shipper.is_verified:
-        raise ValueError("Shipper Account is not verified")
+    # 2️⃣ Fetch bid and exchange
+    bid = db.query(FTL_Lane_Exchange_Bid).filter(FTL_Lane_Exchange_Bid.id == bid_data.bid_id).first()
+    if not bid:
+        raise HTTPException(status_code=404, detail="Bid not found.")
 
-    # Fetch existing bids for comparison
-    bid = db.query(Exchange_FTL_Lane_Bid).filter(
-        Exchange_FTL_Lane_Bid.id == bid_data.bid_id
-    ).first()
-
-    # Fetch existing bids for comparison
-    bid_verification = db.query(Exchange_FTL_Lane_Bid).filter(
-        Exchange_FTL_Lane_Bid.exchange_id == bid.exchange_id
-    ).all()
-
-    carrier = db.query(Carrier).filter(Carrier.id == bid.carrier_id).first()
-    if not carrier:
-        raise ValueError("Carrier account not found")
-
-    exchange = db.query(FTL_Lane_Exchange).filter(
-        FTL_Lane_Exchange.id == bid.exchange_id,
-    ).first()
+    exchange = db.query(FTL_Lane_Exchange).filter(FTL_Lane_Exchange.id == bid.exchange_id).first()
     if not exchange:
-        raise ValueError("Exchange not found.")
-    if exchange.auction_status !="Open":
-        raise ValueError("Exchange bidding closed.")
-    
+        raise HTTPException(status_code=404, detail="Exchange not found.")
+
+    # Check exchange is open
+    if exchange.auction_status != "Open":
+        raise HTTPException(status_code=400, detail="Exchange is not open for new assignments.")
+
     exchange_loadboard = db.query(Exchange_Ftl_Lane_LoadBoard).filter(
         Exchange_Ftl_Lane_LoadBoard.exchange_id == bid.exchange_id
     ).first()
@@ -1084,13 +1110,27 @@ def accept_a_ftl_lane_exchange_bid(db: Session, bid_data: Accept_Bid, current_us
     if exchange_loadboard.status !="Open":
         raise ValueError("Exchange Loadboard bidding closed.")
 
-   # Step 2: Retrieve financial account and payment type
-    financial_account = db.query(FinancialAccounts).filter(
-        FinancialAccounts.id == company_id
-    ).first()
+    # 3️⃣ Check available slots
+    if exchange.available_slots < bid_data.requested_slots:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Not enough slots available. Remaining: {exchange.available_slots}."
+        )
 
-    if not financial_account:
-        raise Exception("Financial account not found")
+    financial_account = db.query(FinancialAccounts).filter(FinancialAccounts.id == exchange.shipper_company_id).first()
+
+    shipper = db.query(Corporation).filter(Corporation.id == exchange.shipper_company_id).first()
+
+    # 4️⃣ Fetch carrier & verify eligibility
+    carrier = db.query(Carrier).filter(Carrier.id == bid.carrier_company_id).first()
+    if not carrier or carrier.verification_status != "Verified":
+        raise HTTPException(status_code=400, detail="Carrier is not verified or unavailable.")
+
+    carrier_financials = db.query(CarrierFinancialAccounts).filter(
+        CarrierFinancialAccounts.carrier_company_id == carrier.id
+    ).first()
+    if not carrier_financials or carrier_financials.status != "Active":
+        raise HTTPException(status_code=400, detail="Carrier's financial account inactive.")
     
     try:
         all_payment_dates = BillingEngine.get_billing_dates(
@@ -1106,13 +1146,13 @@ def accept_a_ftl_lane_exchange_bid(db: Session, bid_data: Accept_Bid, current_us
         type="FTL Lane",
         load_type=exchange.load_type,
         trip_type="1 Pickup, 1 Delivery",
-        shipper_company_id=company_id,
-        shipper_user_id=user_id,
+        shipper_company_id=shipper.id,
+        shipper_user_id=exchange.shipper_user_id if exchange.shipper_user_id else None,
         payment_terms=exchange.payment_terms,
         required_truck_type=exchange.required_truck_type,
         equipment_type=exchange.equipment_type,
-        trailer_type=exchange.trailer_type,
-        trailer_length=exchange.trailer_length,
+        trailer_type=exchange.trailer_type if exchange.trailer_type else None,
+        trailer_length=exchange.trailer_length if exchange.trailer_length else None,
         minimum_weight_bracket=exchange.minimum_weight_bracket,
         minimum_git_cover_amount=exchange.minimum_git_cover_amount,
         minimum_liability_cover_amount=exchange.minimum_liability_cover_amount,
@@ -1127,8 +1167,8 @@ def accept_a_ftl_lane_exchange_bid(db: Session, bid_data: Accept_Bid, current_us
         destination_country=exchange.destination_country,
         destination_region=exchange.destination_region,
         priority_level=exchange.priority_level,
-        pickup_facility_id=exchange.id,
-        delivery_facility_id=exchange.id,
+        pickup_facility_id=exchange.pickup_facility_id,
+        delivery_facility_id=exchange.delivery_facility_id,
         customer_reference_number=exchange.customer_reference_number,
         average_shipment_weight=exchange.average_shipment_weight,
         commodity=exchange.commodity,
@@ -1148,10 +1188,10 @@ def accept_a_ftl_lane_exchange_bid(db: Session, bid_data: Accept_Bid, current_us
         recurrence_frequency=exchange.recurrence_frequency,
         recurrence_days=exchange.recurrence_days,
         skip_weekends=exchange.skip_weekends,
-        shipments_per_interval=exchange.shipments_per_interval,
+        shipments_per_interval=bid.requested_slots,
         start_date=exchange.start_date,
         end_date=exchange.end_date,
-        total_shipments=exchange.total_shipments,  # Add total shipments to the shipment record
+        total_shipments=(exchange_loadboard.each_slot_size * bid.requested_slots),  # Add total shipments to the shipment record
         payment_dates=exchange.payment_dates,  # Add payment dates to the shipment record
         shipment_dates=exchange.shipment_dates,
         status="Booked",
@@ -1160,6 +1200,26 @@ def accept_a_ftl_lane_exchange_bid(db: Session, bid_data: Accept_Bid, current_us
     db.add(shipment)
     db.commit()
     db.refresh(shipment)
+
+    # 7️⃣ Create Exchange Lane Slot Assignment record
+    assignment = Exchange_Lane_Slot_Assignment(
+        exchange_id=exchange.id,
+        lane_id=shipment.id,
+        lane_type="FTL",
+        shipper_company_id=current_user["company_id"],
+        carrier_lane_id=None,
+        carrier_company_id=carrier.id,
+        carrier_user_id=bid.user_id,
+        bid_id=bid.id,
+        number_of_slots_assigned=bid_data.requested_slots,
+        assigned_rate_per_slot=bid.per_shipment_bid_amount,
+        total_contract_value=bid.contract_bid_amount,
+        assignment_date=get_sast_time(),
+        status="Assigned"
+    )
+    db.add(assignment)
+    db.commit()
+    db.refresh(assignment)
 
 ################Create Contract Invoice###################
     try:
@@ -1216,7 +1276,7 @@ def accept_a_ftl_lane_exchange_bid(db: Session, bid_data: Accept_Bid, current_us
 
     # ✅ Create sub-shipments and assign them to the correct interim invoice
     for pickup_date in exchange.shipment_dates:
-        for _ in range(exchange.shipments_per_interval):
+        for _ in range(bid.requested_slots):
             # Find matching interim invoice (first due_date >= pickup_date)
             parent_invoice = next(
                 (
@@ -1244,8 +1304,8 @@ def accept_a_ftl_lane_exchange_bid(db: Session, bid_data: Accept_Bid, current_us
                 type="FTL",
                 trip_type="1 Pickup - 1 Drop Off",
                 load_type=exchange.load_type,
-                shipper_company_id=company_id,
-                shipper_user_id=user_id,
+                shipper_company_id=shipper.id,
+                shipper_user_id=exchange.shipper_user_id if exchange.shipper_user_id else None,
                 payment_terms=financial_account.payment_terms,
                 invoice_id=None,  # Set after invoice is created
                 invoice_status="Pending",
@@ -1253,8 +1313,8 @@ def accept_a_ftl_lane_exchange_bid(db: Session, bid_data: Accept_Bid, current_us
                 minimum_liability_cover_amount=exchange.minimum_liability_cover_amount,
                 required_truck_type=exchange.required_truck_type,
                 equipment_type=exchange.equipment_type,
-                trailer_type=exchange.trailer_type,
-                trailer_length=exchange.trailer_length,
+                trailer_type=exchange.trailer_type if exchange.trailer_type else None,
+                trailer_length=exchange.trailer_length if exchange.trailer_length else None,
                 minimum_weight_bracket=exchange.minimum_weight_bracket,
                 origin_address=exchange.origin_address,
                 complete_origin_address=exchange.complete_origin_address,
@@ -1268,19 +1328,19 @@ def accept_a_ftl_lane_exchange_bid(db: Session, bid_data: Accept_Bid, current_us
                 destination_region=exchange.destination_region,
                 pickup_date=pickup_date,
                 priority_level=exchange.priority_level,
-                pickup_facility_id=exchange.id,
-                delivery_facility_id=exchange.id,
-                customer_reference_number=exchange.customer_reference_number,
+                pickup_facility_id=exchange.pickup_facility_id,
+                delivery_facility_id=exchange.pickup_facility_id,
+                customer_reference_number=exchange.customer_reference_number if exchange.customer_reference_number else None,
                 shipment_weight=exchange.average_shipment_weight,
-                commodity=exchange.commodity,
-                temperature_control=exchange.temperature_control,
+                commodity=exchange.commodity if exchange.commodity else None,
+                temperature_control=exchange.temperature_control if exchange.temperature_control else None,
                 hazardous_materials=exchange.hazardous_materials,
-                packaging_quantity=exchange.packaging_quantity,
+                packaging_quantity=exchange.packaging_quantity if exchange.packaging_quantity else None,
                 packaging_type=exchange.packaging_type,
-                pickup_number=exchange.pickup_number,
-                pickup_notes=exchange.pickup_notes,
-                delivery_number=exchange.delivery_number,
-                delivery_notes=exchange.delivery_notes,
+                pickup_number=exchange.pickup_number if exchange.pickup_number else None,
+                pickup_notes=exchange.pickup_notes if exchange.pickup_notes else None,
+                delivery_number=exchange.delivery_number if exchange.delivery_number else None,
+                delivery_notes=exchange.delivery_notes if exchange.delivery_notes else None,
                 distance=exchange.distance,
                 estimated_transit_time=exchange.estimated_transit_time,
                 quote=bid.baked_per_shipment_bid_amount,
@@ -1329,37 +1389,55 @@ def accept_a_ftl_lane_exchange_bid(db: Session, bid_data: Accept_Bid, current_us
     # Step 8: Create Brokerage Ledger Entry
     brokerage_ledger_entry = Dedicated_Lane_BrokerageLedger(
         contract_id=shipment.id,
-        contract_invoice_id=contract_invoice.id,
-        contract_invoice_due_date=contract_invoice.due_date,
-        contract_invoice_status=contract_invoice.status,
+        lane_type=shipment.type,
+        lane_status="Assigned",
         shipper_company_id=company_id,
         shipper_company_name=financial_account.company_name,
         shipper_type=shipper.type,
-        lane_type=shipment.type,
         shipper_company_registration_number=financial_account.business_registration_number,
         shipper_company_country_of_incorporation=financial_account.business_country_of_incorporation,
+        contract_invoice_id=contract_invoice.id,
+        contract_invoice_due_date=contract_invoice.due_date,
+        contract_invoice_status=contract_invoice.status,
+        payment_terms=financial_account.payment_terms,
         contract_booking_amount=bid.baked_contract_bid_amount,
         contract_platform_commission=(bid.baked_contract_bid_amount - bid.contract_bid_amount),
         contract_transaction_fee=0,
         contract_true_platform_earnings=(bid.baked_contract_bid_amount - bid.contract_bid_amount),
         contract_carrier_payable=bid.contract_bid_amount,
-        payment_terms=financial_account.payment_terms,
         payment_dates=all_payment_dates,
-        lane_status="Assigned",
         lane_minimum_git_cover_amount=shipment.minimum_git_cover_amount,
         lane_minimum_liability_cover_amount=shipment.minimum_liability_cover_amount,
         contract_start_date=shipment.start_date,
         contract_end_date=shipment.end_date,
-        total_shipments=exchange.total_shipments,
+        total_shipments=(bid.requested_slots * len(exchange.shipment_dates)),
         booking_amount_per_shipment=bid.baked_per_shipment_bid_amount,
         platform_commission_per_shipment=(bid.baked_per_shipment_bid_amount - bid.per_shipment_bid_amount),
         transaction_fee_per_shipment=0,
         true_platform_earnings_per_shipment=(bid.baked_per_shipment_bid_amount - bid.per_shipment_bid_amount),
         carrier_payable_per_shipment=bid.per_shipment_bid_amount,
+        num_sub_assignments=1,
+        total_slots_assigned=bid.requested_slots
     )
-    exchange.auction_status="Closed"
-    exchange_loadboard.status="Closed"
-    db.add(brokerage_ledger_entry)
+    exchange.available_slots -= bid.requested_slots
+    exchange.assigned_slots += bid.requested_slots
+    exchange_loadboard.available_slots -= bid.requested_slots
+    exchange_loadboard.assigned_slots += bid.requested_slots
+
+    # Check how many slots are left
+    if exchange.available_slots - bid.requested_slots <= 0:
+        # All slots have been assigned — close the exchange
+        exchange.auction_status = "Closed"
+        exchange_loadboard.status = "Closed"
+        exchange.available_slots = 0  # ensure no negative value
+        exchange_loadboard.available_slots = 0
+    else:
+        # Some slots still available
+        exchange.auction_status = "Partially Assigned"
+        exchange_loadboard.status = "Partially Assigned"
+
+    # Save and commit
+    db.add_all([exchange, exchange_loadboard, brokerage_ledger_entry])
     db.commit()
     db.refresh(brokerage_ledger_entry)
 
@@ -1391,16 +1469,42 @@ def accept_a_ftl_lane_exchange_bid(db: Session, bid_data: Accept_Bid, current_us
         raise HTTPException(status_code=403, detail="Financial account is not active, Please await activation to accept shipments.")
 
     # Assign lane + ledger
-    shipment.carrier_id = carrier.id
-    shipment.carrier_fleet_size = carrier.number_of_vehicles
-    shipment.carrier_git_cover_amount = carrier.git_cover_amount
-    shipment.carrier_liability_cover_amount = carrier.liability_insurance_cover_amount
+###############################################################################################################################
+###############################################################################################################################
+##############################################################FIX Brokerage Ledger Patching here###############################
+###############################################################################################################################
+###############################################################################################################################
+    brokerage_ledger_entry.carriers_assigned.append({
+            "carrier_id": carrier.id,
+            "company_name": carrier.legal_business_name,
+            "company_registration_number": carrier.business_registration_number,
+            "country_of_incorporation": carrier.country_of_incorporation,
+            "carrier_git_cover_amount": carrier.git_cover_amount,
+            "carrier_liability_cover_amount": carrier.liability_insurance_cover_amount,
+            "fleet_size": carrier.number_of_vehicles,
+            "slots_assigned": bid_data.requested_slots,
+            "assigned_at": datetime.now()
+        })
 
-    brokerage_ledger_entry.carrier_id = carrier.id
-    brokerage_ledger_entry.carrier_company_name = carrier.legal_business_name
-    brokerage_ledger_entry.carrier_company_registration_number = carrier.business_registration_number
-    brokerage_ledger_entry.carrier_country_of_incorporation = carrier.country_of_incorporation
-    brokerage_ledger_entry.carrier_fleet_size = carrier.number_of_vehicles
+    slot_ledger = Lane_Slot_Ledger(
+        lane_id=shipment.id,
+        lane_type=shipment.type,
+        carrier_id=carrier.id,
+        carrier_company_name=carrier.legal_business_name,
+        carrier_company_registration_number=carrier.business_registration_number,
+        carrier_country_of_incorporation=carrier.country_of_incorporation,
+        carrier_fleet_size=carrier.number_of_vehicles,
+        assigned_slots=bid.requested_slots,
+        shipments_per_slot=(bid.requested_slots * len(exchange.shipment_dates)),
+        slot_rate_per_shipment=bid.baked_per_shipment_bid_amount,
+        slot_total_rate=bid.baked_contract_bid_amount,
+        platform_commission=(bid.baked_contract_bid_amount - bid.contract_bid_amount),
+        per_shipment_carrier_payable=bid.per_shipment_bid_amount,
+        total_carrier_payable=bid.contract_bid_amount,
+        num_shipments_completed=0
+    )
+    db.add(slot_ledger)
+    db.flush()
 
     # Step 6: Calculate rates for LoadBoardEntry
     rate_per_km, rate_per_ton = calculate_rates(
@@ -1438,8 +1542,8 @@ def accept_a_ftl_lane_exchange_bid(db: Session, bid_data: Accept_Bid, current_us
         shipment_dates=exchange.shipment_dates,
         required_truck_type=exchange.required_truck_type,
         equipment_type=exchange.equipment_type,
-        trailer_type=exchange.trailer_type,
-        trailer_length=exchange.trailer_length,
+        trailer_type=exchange.trailer_type if exchange.trailer_type else None,
+        trailer_length=exchange.trailer_length if exchange.trailer_length else None,
         minimum_weight_bracket=exchange.minimum_weight_bracket,
         pickup_appointment=f"{exchange_loadboard.pickup_start_time} - {exchange_loadboard.pickup_end_time}",
         origin_address=exchange.origin_address,
@@ -1450,7 +1554,7 @@ def accept_a_ftl_lane_exchange_bid(db: Session, bid_data: Accept_Bid, current_us
         destination_address=exchange.destination_address,
         destination_city_province=exchange.destination_city_province,
         destination_country=exchange.destination_country,
-        destinationn_region=exchange.destination_country,
+        destination_region=exchange.destination_region,
         route_preview_embed=exchange.route_preview_embed,
         priority_level=exchange.priority_level,
         customer_reference_number=exchange.customer_reference_number,
@@ -1483,7 +1587,7 @@ def accept_a_ftl_lane_exchange_bid(db: Session, bid_data: Accept_Bid, current_us
         lane_type=assigned_lane.type,
         invoice_type="Lane Invoice",
         billing_date=assigned_lane.start_date,
-        due_date=assigned_lane.end_date,
+        due_date=brokerage_ledger_entry.contract_invoice_due_date + timedelta(days=2),
         description=f"{assigned_lane.type} Lane {assigned_lane.id}",
         status="Pending",
         company_id=carrier.id,
@@ -1521,7 +1625,7 @@ def accept_a_ftl_lane_exchange_bid(db: Session, bid_data: Accept_Bid, current_us
             status="Pending",
             billing_date=booking_invoice.billing_date,
             original_due_date=original_due,
-            due_date=new_due,
+            due_date=new_due + timedelta(days=2),
             carrier_company_id=carrier.id,
             carrier_name=carrier.legal_business_name,
             carrier_email=carrier.business_email,
@@ -1534,10 +1638,9 @@ def accept_a_ftl_lane_exchange_bid(db: Session, bid_data: Accept_Bid, current_us
             base_amount=(bid.contract_bid_amount / len(all_payment_dates)),
             due_amount=(bid.contract_bid_amount / len(all_payment_dates)),
         )
-        brokerage_ledger_entry.carrier_lane_invoice_id = lane_invoice.id
-        brokerage_ledger_entry.carrier_lane_invoice_due_date = lane_invoice.due_date
-        brokerage_ledger_entry.carrier_lane_invoice_status = lane_invoice.status
-        carrier_financial_account.holding_balance += bid.contract_bid_amount
+        slot_ledger.carrier_lane_invoice_id = lane_invoice.id
+        slot_ledger.carrier_lane_invoice_due_date = lane_invoice.due_date
+        slot_ledger.carrier_lane_invoice_status = lane_invoice.status
         db.add(interim)
         lane_interim_invoices.append(interim)
 
@@ -1555,7 +1658,7 @@ def accept_a_ftl_lane_exchange_bid(db: Session, bid_data: Accept_Bid, current_us
     for sub in sub_shipments:
         pickup_date = sub.pickup_date
         due_date = sub.invoice_due_date
-        amount = brokerage_ledger.carrier_payable_per_shipment
+        amount = bid.per_shipment_bid_amount
 
         # Find matching interim invoice
         carrier_parent_invoice = None
@@ -1577,7 +1680,7 @@ def accept_a_ftl_lane_exchange_bid(db: Session, bid_data: Accept_Bid, current_us
             parent_invoice_id=carrier_parent_invoice.id,
             description=f"Load Invoice for Sub-Shipment {sub.id}",
             billing_date=pickup_date,
-            due_date=due_date,
+            due_date=due_date + timedelta(days=2),
             carrier_company_id=carrier.id,
             carrier_financial_account_id=financial_account.id,
             carrier_company_name=carrier.legal_business_name,

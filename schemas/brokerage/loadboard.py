@@ -2,6 +2,10 @@ from pydantic import BaseModel, EmailStr
 from typing import Dict, Any, Optional, List
 from datetime import datetime, date, time
 
+class AssignLaneSlotRequest(BaseModel):
+    lane_id: int
+    requested_slots: int
+
 class AssignShipmentRequest(BaseModel):
     shipment_id: int
     vehicle_id: int
