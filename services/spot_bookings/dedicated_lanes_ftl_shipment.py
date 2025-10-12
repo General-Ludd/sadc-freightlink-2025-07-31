@@ -423,7 +423,7 @@ def create_dedicated_lane_ftl_shipment(
                     origin_address=sub_shipment.origin_address,
                     destination_address=sub_shipment.destination_address,
                     pickup_date=sub_shipment.pickup_date,
-                    distance=sub_shipment.pickup_date,
+                    distance=sub_shipment.distance,
                     transit_time=sub_shipment.estimated_transit_time,
                     business_name=shipper.legal_business_name,
                     contact_person_name=f"{financial_account.directors_first_name}-{financial_account.directors_last_name}",
@@ -1070,7 +1070,7 @@ def broker_create_dedicated_lane_ftl_shipment(
                     origin_address=sub_shipment.origin_address,
                     destination_address=sub_shipment.destination_address,
                     pickup_date=sub_shipment.pickup_date,
-                    distance=sub_shipment.pickup_date,
+                    distance=sub_shipment.distance,
                     transit_time=sub_shipment.estimated_transit_time,
                     business_name=shipper.legal_business_name,
                     contact_person_name=f"{financial_account.directors_first_name}-{financial_account.directors_last_name}",
@@ -1096,7 +1096,6 @@ def broker_create_dedicated_lane_ftl_shipment(
 
     db.commit()
 
-    # Step 8: Create Brokerage Ledger Entry
     brokerage_ledger_entry = Dedicated_Lane_BrokerageLedger(
         contract_id=shipment.id,
         lane_type=shipment.type,
