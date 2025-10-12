@@ -263,6 +263,7 @@ def get_individual_loadboard_ftl_lane(
                 "distance_per_shipment": lane.distance,
                 "rate_per_km": lane.rate_per_km,
                 "rate_per_ton": lane.rate_per_ton,
+                "payment_terms": lane.payment_terms.
                 "shipment_dates": lane.shipment_dates,
                 "payment_dates": lane.payment_dates,
                 "total_slots": lane.total_slots,
