@@ -305,7 +305,7 @@ def exchange_ftl_lane(
 
                 "exchange_information": {
                     "per_shipment_offer_rate": loadboard_lane.per_shipment_offer_rate,
-                    "contract_offer_rate": loadboard_lane.contract_offer_rate,
+                    "per_slot_contract_offer_rate": loadboard_lane.contract_offer_rate / loadboard_lane.shipments_per_interval,
                     "per_shipment_leading_bid": loadboard_lane.leading_per_shipment_offer_bid_amount,
                     "per_slot_contract_leading_bid": loadboard_lane.leading_per_shipment_offer_bid_amount * loadboard_lane.each_slot_size if loadboard_lane.leading_per_shipment_offer_bid_amount else None,
                     "active_bidders": loadboard_lane.number_of_bids_submitted,
