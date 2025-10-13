@@ -304,17 +304,18 @@ def exchange_ftl_lane(
                 "auction_status": loadboard_lane.status,
 
                 "exchange_information": {
-                    "opening_per_shipment_offer": loadboard_lane.per_shipment_offer_rate,
-                    "opening_contract_offer": loadboard_lane.contract_offer_rate,
-                    "leading_per_shipment_bid": loadboard_lane.leading_per_shipment_offer_bid_amount,
-                    "leading_contract_bid": loadboard_lane.leading_contract_offer_bid_amount,
+                    "per_shipment_offer_rate": loadboard_lane.per_shipment_offer_rate,
+                    "contract_offer_rate": loadboard_lane.contract_offer_rate,
+                    "per_shipment_leading_bid": loadboard_lane.leading_per_shipment_offer_bid_amount,
+                    "per_slot_contract_leading_bid": loadboard_lane.leading_per_shipment_offer_bid_amount * loadboard_lane.each_slot_size,
                     "active_bidders": loadboard_lane.number_of_bids_submitted,
                     "auction_end_time": loadboard_lane.exchange_end_time,
                 
                 "your_bids": [{
                     "bid_id": bid.id,
                     "per_shipment_bid": bid.per_shipment_bid_amount,
-                    "total_contract_amount_bid": bid.contract_bid_amount,
+                    "per_slot_contract_bid": bid.per_shipment_bid_amount * loadboard_lane.each_slot_size,
+                    "requested_slots": bid.requested_slots,
                     "bid_status": bid.status,
                     "submitted_at": bid.submitted_at,
                 } for bid in bids]
@@ -325,10 +326,9 @@ def exchange_ftl_lane(
                     "contract_end_date": loadboard_lane.end_date,
                     "recurrence_frequency": loadboard_lane.recurrence_frequency,
                     "recurrence_days": loadboard_lane.recurrence_days,
-                    "shipments_per_interval": loadboard_lane.shipments_per_interval,
-                    "total_shipments": loadboard_lane.total_shipments,
+                    "slots_per_interval": loadboard_lane.shipments_per_interval,
+                    "total_shipments_per_slot": loadboard_lane.total_shipments / loadboard_lane.shipments_per_interval,
                     "payment_terms": loadboard_lane.payment_terms,
-                    "current_contract_price": loadboard_lane.contract_offer_rate,
                     "shipment_schedule": loadboard_lane.shipment_dates,
                     "payment_schedule": loadboard_lane.payment_dates,
                 },
