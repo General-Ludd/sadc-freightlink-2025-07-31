@@ -314,7 +314,7 @@ def exchange_ftl_lane(
                 "your_bids": [{
                     "bid_id": bid.id,
                     "per_shipment_bid": bid.per_shipment_bid_amount,
-                    "per_slot_contract_bid": bid.per_shipment_bid_amount * loadboard_lane.each_slot_size,
+                    "per_slot_contract_bid": bid.per_shipment_bid_amount * loadboard_lane.each_slot_size if bid.per_shipment_bid_amount else None,
                     "requested_slots": bid.requested_slots,
                     "bid_status": bid.status,
                     "submitted_at": bid.submitted_at,
