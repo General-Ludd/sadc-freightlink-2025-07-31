@@ -327,6 +327,7 @@ def exchange_ftl_lane(
                     "recurrence_frequency": loadboard_lane.recurrence_frequency,
                     "recurrence_days": loadboard_lane.recurrence_days,
                     "slots_per_interval": loadboard_lane.shipments_per_interval,
+                    "available_slots": loadboard_lane.available_slots,
                     "total_shipments_per_slot": loadboard_lane.total_shipments / loadboard_lane.shipments_per_interval,
                     "payment_terms": loadboard_lane.payment_terms,
                     "shipment_schedule": loadboard_lane.shipment_dates,
