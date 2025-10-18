@@ -6,7 +6,7 @@ from models.administration import Platform_Super_Admins, Platform_Super_and_Supp
 from models.shipper import Corporation, Consignor
 from models.user import Director, CarrierUser, Driver
 from models.carrier import Carrier
-from models.vehicle import Trailer, ShipperTrailer
+from models.vehicle import Vehicle, Trailer, ShipperTrailer
 from models.brokerage.finance import FinancialAccounts, CarrierFinancialAccounts, Withdrawal_Request
 from models.spot_bookings.dedicated_lane_ftl_shipment import FTL_Lane
 from models.spot_bookings.ftl_shipment import FTL_SHIPMENT
@@ -496,6 +496,33 @@ def admin_get_all_driver_accounts_by_status(
             "verification_status": driver.is_verified,
             "status": driver.status
         } for driver in drivers]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/admin/all-vehicles")
+def admin_get_all_platform_vehicles(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_admin),
+):
+    try:
+        vehicles = db.query(vehicle).all()
+
+        return [{
+            "make_model": f"{vehicle.make} - {vehicle.model}",
+            "id": vehicle.id,
+            "is_verified": vehicle.is_verified,
+            "status": vehicle.status,
+            "company": vehicle.owner_id,
+            "year": vehicle.year,
+            "color": vehicle.color,
+            "license_plate": vehicle.license_plate,
+            "license_expiry_date": vehicle.license_expiry_date,
+            "type": vehicle.type,
+            "equipment_type": vehicle.equipment_type,
+            "trailer_type": vehicle.trailer_type if vehicle.trailer_type else None,
+            "trailer_length": vehicle.trailer_length if vehicle.trailer_length else None,
+            "payload_capacity": vehicle.payload_capacity
+        } for vehicle in vehicles]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
