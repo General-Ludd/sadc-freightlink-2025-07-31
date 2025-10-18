@@ -14,6 +14,7 @@ from schemas.brokerage.finance import Individual_Sevice_Invoices_Request
 from schemas.vehicle import Individual_Shipper_Trailer_Response, Shipper_Trailers_Summary_Response, ShipperTrailerCreate
 from services.vehicle_service import create_shipper_trailer
 from utils.auth import get_current_user
+from utils.administration_auth import get_current_admin
 
 router = APIRouter()
 
@@ -27,7 +28,8 @@ def get_db():
 @router.get("/admin/shipper-company/{id}")
 def admin_get_shipper_company_id(
     id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_admin),
 ):
     try:
         shipper_company = db.query(Corporation).filter(Corporation.id == id).first()
@@ -107,7 +109,8 @@ def admin_get_shipper_company_id(
 @router.get("/admin/financial-account/{id}")
 def admin_get_shipper_and_broker_financial_account_id(
     id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_admin),
 ):
     try:
         financial_account = db.query(FinancialAccounts).filter(FinancialAccounts.id == id).first()
@@ -209,7 +212,8 @@ def admin_get_shipper_and_broker_financial_account_id(
 @router.get("/admin/carrier-company/{id}")
 def admin_get_carrier_company_id(
     id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_admin),
 ):
     try:
         carrier = db.query(Carrier).filter(Carrier.id == id).first()
@@ -326,7 +330,8 @@ def admin_get_carrier_company_id(
 @router.get("/admin/carrier-financial-account/{id}")
 def admin_get_carrier_financial_account(
     id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_admin)
 ):
     try:
         financial_account = db.query(CarrierFinancialAccounts).filter(CarrierFinancialAccounts.id == id).first()
