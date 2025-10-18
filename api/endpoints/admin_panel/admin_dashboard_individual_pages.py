@@ -288,7 +288,7 @@ def admin_get_carrier_company_id(
                 "role": carrier_user.role,
                 "nationality": carrier_user.nationality,
                 "id_number": carrier_user.id_number,
-                "position": carrier_user.is_director,
+                "is_director": carrier_user.is_director,
                 "verification_status": carrier_user.is_verified,
                 "status": carrier_user.status,
             } for carrier_user in carrier_users],
