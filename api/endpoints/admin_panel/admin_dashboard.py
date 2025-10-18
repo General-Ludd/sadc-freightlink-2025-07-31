@@ -505,7 +505,7 @@ def admin_get_all_platform_vehicles(
     current_user: dict = Depends(get_current_admin),
 ):
     try:
-        vehicles = db.query(vehicle).all()
+        vehicles = db.query(Vehicle).all()
 
         return [{
             "make_model": f"{vehicle.make} - {vehicle.model}",
