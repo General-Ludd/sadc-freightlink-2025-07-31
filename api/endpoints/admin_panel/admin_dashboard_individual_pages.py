@@ -93,7 +93,7 @@ def admin_get_shipper_company_id(
             },
 
             "users": [{
-                "name": f"{shipper_user.first_name} - {shipper_user.last_name}"
+                "name": f"{shipper_user.first_name} - {shipper_user.last_name}",
                 "id": shipper_user.id,
                 "id_number": shipper_user.id_number,
                 "is_director": shipper_user.is_director,
@@ -176,7 +176,7 @@ def admin_get_shipper_and_broker_financial_account_id(
 
             "service_invoices": [{
                 "id": service_invoice.id,
-                "shipment" f"{service_invoice.shipment_type}-{service_invoice.shipment_id}",
+                "shipment": f"{service_invoice.shipment_type}-{service_invoice.shipment_id}",
                 "is_sub_invoice": service_invoice.is_subinvoice,
                 "billing_date": service_invoice.billing_date,
                 "due_date": service_invoice.due_date,
@@ -397,11 +397,11 @@ def admin_get_carrier_financial_account(
             "service_invoices": [{
                 "id": service_invoice.id,
                 "status": service_invoice.status,
-                "shipment" f"{service_invoice.shipment_type} - {service_invoice.shipment_id}",
+                "shipment": f"{service_invoice.shipment_type} - {service_invoice.shipment_id}",
                 "is_sub_invoice": service_invoice.is_subinvoice,
                 "billing_date": service_invoice.billing_date,
                 "due_date": service_invoice.due_date,
-                "due_amount": service_invoice.due_amount
+                "due_amount": service_invoice.due_amount,
                 "description": service_invoice.description,
             } for service_invoice in service_invoices],
 
@@ -427,18 +427,3 @@ def admin_get_carrier_financial_account(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-@router.get("/admin/user/{id}")
-def admin_get_shipper_and_broker_user_id(
-    id: int,
-    db: Session = Depends(get_db)
-):
-    try:
-        user = db.query(Director).filter(Director.id == id).first()
-        company = db.query(Corporation).filter(Corporation.id == user.company_id).first()
-        
-        return {
-            "user_information": {
-                
-            }
-        }
