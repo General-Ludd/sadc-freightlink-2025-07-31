@@ -84,42 +84,41 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
     return {"access_token": token, "token_type": "bearer"}
 
 @router.get("/all-shippers")
-def admin_get_all_shipper_accounts(
+def admin_get_all_shipper_companies(
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_admin),
 ):
     try:
+        # Fetch all Enterprise and Standard corporations
         shippers = (
             db.query(Corporation)
-            .filter(
-                Corporation.type.in_(["Enterprise", "Standard"])
-            )
+            .filter(Corporation.type.in_(["Enterprise", "Standard"]))
             .all()
         )
 
-        result = []
-        for shipper in shippers:
-            financial_account = (
-                db.query(FinancialAccounts)
-                .filter(FinancialAccounts.id == shipper.id)
-                .first()
-            )
+        # Build response list
+        shipper_list = []
+        for s in shippers:
+            # Fetch all shipments for this shipper
+            ftl_shipments = db.query(FTL_SHIPMENT).filter(FTL_SHIPMENT.shipper_company_id == s.id).count()
+            power_shipments = db.query(POWER_SHIPMENT).filter(POWER_SHIPMENT.shipper_company_id == s.id).count()
+            total_shipments = ftl_shipments + power_shipments
 
-            result.append({
-                "name": shipper.legal_business_name,
-                "id": shipper.id,
-                "type": shipper.type,
-                "registration_no": shipper.business_registration_number,
-                "country_of_incorporation": shipper.country_of_incorporation,
-                "email": shipper.business_email,
-                "verification_status": shipper.is_verified,
-                "status": shipper.status,
-                "total_shipments": financial_account.total_shipments if financial_account else 0
+            shipper_list.append({
+                "id": s.id,
+                "name": s.legal_business_name,
+                "type": s.type,
+                "business_registration_number": s.business_registration_number,
+                "country_of_incoporation": s.country_of_incoporation,
+                "email": s.business_email,
+                "verification": s.is_verified,
+                "status": s.status,
+                "total_shipments": total_shipments,
             })
 
-        return result
+        return {"shippers": shipper_list}
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return {"error": str(e)}
 
 @router.get("/all-shippers/{status}")
 def admin_get_all_shipper_accounts_by_status(
@@ -585,63 +584,60 @@ def admin_get_all_lanes(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/admin/all-ftl-shipments/{status}")
-def admin_get_all_ftl_shipments_by_status(
-    status: str = None,
-    db: Session = Depends(get_db)
+@router.get("/admin/all-shipments")
+def admin_get_all_shipments(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_admin),
 ):
     try:
-        query = db.query(FTL_SHIPMENT)
-        if status:
-            query = query.filter(FTL_SHIPMENT.status == status)
+        # --- Fetch all FTL Shipments ---
+        ftl_shipments = db.query(FTL_SHIPMENT).all()
 
-        shipments = query.all()
-        
-        return [{
-            "id": shipment.id,
-            "status": shipment.shipment_status,
-            "origin": shipment.origin_city_province,
-            "distance": shipment.distance,
-            "destination": shipment.destination_city_province,
-            "pickup_date": shipment.pickup_date,
-            "required_truck_type": shipment.required_truck_type,
-            "equipment_type": shipment.equipment_type,
-            "trailer_type": shipment.trailer_type,
-            "trailer_length": shipment.trailer_length,
-            "weight_bracket": shipment.minimum_weight_bracket,
-            "shipment_weight": shipment.shipment_weight,
-            "hazardous_materials": shipment.hazardous_materials,
-            "rate": shipment.quote,
-        } for shipment in shipments]
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # --- Fetch all POWER Shipments ---
+        power_shipments = db.query(POWER_SHIPMENT).all()
 
-@router.get("/admin/all-power-shipments/{status}")
-def admin_get_all_power_shipments_by_status(
-    status: str = None,
-    db: Session = Depends(get_db)
-):
-    try:
-        query = db.query(POWER_SHIPMENT)
-        if status:
-            query = query.filter(POWER_SHIPMENT.status == status)
+        all_shipments = []
 
-        shipments = query.all()
-        
-        return [{
-            "id": shipment.id,
-            "status": shipment.shipment_status,
-            "origin": shipment.origin_city_province,
-            "distance": shipment.distance,
-            "destination": shipment.destination_city_province,
-            "pickup_date": shipment.pickup_date,
-            "required_truck_type": shipment.required_truck_type,
-            "axle_configuration": shipment.axle_configuration,
-            "weight_bracket": shipment.minimum_weight_bracket,
-            "shipment_weight": shipment.shipment_weight,
-            "hazardous_materials": shipment.hazardous_materials,
-            "rate": shipment.quote,
-        } for shipment in shipments]
+        # --- Add FTL Shipments ---
+        for shipment in ftl_shipments:
+            all_shipments.append({
+                "id": shipment.id,
+                "type": "FTL",
+                "status": shipment.shipment_status,
+                "origin": shipment.origin_city_province,
+                "distance": shipment.distance,
+                "destination": shipment.destination_city_province,
+                "pickup_date": shipment.pickup_date,
+                "required_truck_type": shipment.required_truck_type,
+                "equipment_type": shipment.equipment_type,
+                "trailer_type": shipment.trailer_type,
+                "trailer_length": shipment.trailer_length,
+                "weight_bracket": shipment.minimum_weight_bracket,
+                "shipment_weight": shipment.shipment_weight,
+                "hazardous_materials": shipment.hazardous_materials,
+                "rate": shipment.quote,
+            })
+
+        # --- Add POWER Shipments ---
+        for shipment in power_shipments:
+            all_shipments.append({
+                "id": shipment.id,
+                "type": "POWER",
+                "status": shipment.shipment_status,
+                "origin": shipment.origin_city_province,
+                "distance": shipment.distance,
+                "destination": shipment.destination_city_province,
+                "pickup_date": shipment.pickup_date,
+                "required_truck_type": shipment.required_truck_type,
+                "axle_configuration": shipment.axle_configuration,
+                "weight_bracket": shipment.minimum_weight_bracket,
+                "shipment_weight": shipment.shipment_weight,
+                "hazardous_materials": shipment.hazardous_materials,
+                "rate": shipment.quote,
+            })
+
+        return {"shipments": all_shipments}
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
