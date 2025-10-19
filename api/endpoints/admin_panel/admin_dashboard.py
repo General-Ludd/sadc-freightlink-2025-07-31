@@ -668,6 +668,201 @@ def admin_get_all_shipments(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/admin/exchange-loadboards")
+def admin_get_exchange_loadboards(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_admin),
+):
+    try:
+        ftl_shipment_exchanges = db.query(Exchange_Ftl_Load_Board).filter(Exchange_Ftl_Load_Board.status == "Open").all()
+        power_shipment_exchanges = db.query(Exchange_Power_Load_Board).filter(Exchange_Power_Load_Board.status == "Open").all()
+        ftl_lane_exchanges = db.query(Exchange_Ftl_Lane_LoadBoard).filter(Exchange_Ftl_Lane_LoadBoard.status == "Open").all()
+
+        return {
+            ftl_exchanges: [{
+                "id": load.exchange_id,
+                "rate": load.shipment_rate,
+                "trip_type": load.trip_type,
+                "status": load.status,
+                "end_time": load.exchange_end_time,
+                "origin": load.origin_city_province,
+                "pickup_date": load.pickup_date,
+                "pickup_window": load.pickup_appointment,
+                "destination": load.destination_city_province,
+                "route": load.route_preview_embed,
+                "eta_date": load.eta_date,
+                "eta_window": load.eta_window,
+                "provider": "SADC FREIGHTLINK",
+                "distance": load.distance,
+                "minimum_transit_time": load.estimated_transit_time,
+                "truck": load.required_truck_type,
+                "equipment": load.equipment_type,
+                "trailer_type": load.trailer_type,
+                "trailer_length": load.trailer_length,
+                "minimum_weight_bracket": load.minimum_weight_bracket,
+                "commodity": load.commodity,
+                "hazardous_materials": load.hazardous_materials,
+                "leading_bid_amount": load.leading_bid_amount,
+                "allow_carrier_to_book_at_current_or_lower_offer_rate": load.allow_carrier_to_book_at_current_or_lower_offer_rate,
+            } for load in ftl_shipment_exchanges],
+            
+            power_exchanges: [{
+                "id": loadboard_shipment.exchange_id,
+                "rate": loadboard_shipment.offer_rate,
+                "trip_type": loadboard_shipment.trip_type,
+                "origin": loadboard_shipment.origin_city_province,
+                "pickup_date": loadboard_shipment.pickup_date,
+                "pickup_window": loadboard_shipment.pickup_appointment,
+                "route": loadboard_shipment.route_preview_embed,
+                "destination": loadboard_shipment.destination_city_province,
+                "eta_date": loadboard_shipment.eta_date,
+                "eta_window": loadboard_shipment.eta_window,
+                "provider": "SADC FREIGHTLINK",
+                "distance": loadboard_shipment.distance,
+                "transit_time": loadboard_shipment.estimated_transit_time,
+                "truck_type": loadboard_shipment.required_truck_type,
+                "axle_configuration": loadboard_shipment.axle_configuration,
+                "minimum_weight_bracket": loadboard_shipment.minimum_weight_bracket,
+                "equipment_type": trailer.equipment_type,
+                "trailer_type": trailer.trailer_type,
+                "trailer_length": trailer.trailer_length,
+                "shipment_weight": loadboard_shipment.shipment_weight,
+                "commodity": loadboard_shipment.commodity,
+                "status": loadboard_shipment.status,
+                "end_time": loadboard_shipment.exchange_end_time,
+                "best bid": loadboard_shipment.leading_bid_amount,
+                "allow_carrier_to_book_at_current_or_lower_offer_rate": loadboard_shipment.allow_carrier_to_book_at_current_or_lower_offer_rate,
+            } for loadboard_shipment in power_shipment_exchanges],
+
+            ftl_lane_exchanges: [{
+                "id": loadboard_shipment.exchange_id,
+                "status": loadboard_shipment.status,
+                "trip_type": loadboard_shipment.trip_type,
+                "load_type": loadboard_shipment.load_type,
+                "origin": loadboard_shipment.origin_city_province,
+                "destination": loadboard_shipment.destination_city_province,
+                "distance": loadboard_shipment.distance,
+                "route": loadboard_shipment.route_preview_embed,
+                "truck_type": loadboard_shipment.required_truck_type,
+                "equipment_type": loadboard_shipment.equipment_type,
+                "trailer_type": loadboard_shipment.trailer_type,
+                "trailer_length": loadboard_shipment.trailer_length,
+                "minimum_weight_bracket": loadboard_shipment.minimum_weight_bracket,
+                "commodity": loadboard_shipment.commodity,
+                "packaging_type": loadboard_shipment.packaging_type,
+                "average_shipment_weight": loadboard_shipment.average_shipment_weight,
+                "start_date": loadboard_shipment.start_date,
+                "end_date": loadboard_shipment.end_date,
+                "frequency": loadboard_shipment.recurrence_frequency,
+                "total_slots": loadboard_shipment.shipments_per_interval,
+                "available_slots": loadboard_shipment.available_slots,
+                "total_shipments_per_slot": loadboard_shipment.each_slot_size,
+                "exchange_end_time": loadboard_shipment.exchange_end_time,
+                "number_of_bidders": loadboard_shipment.number_of_bids_submitted,
+                "per_slot_contract_offer": loadboard_shipment.per_shipment_offer_rate * loadboard_shipment.each_slot_size,
+                "per_shipment_offer": loadboard_shipment.per_shipment_offer_rate,
+            } for loadboard_shipment in ftl_lane_exchanges]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/admin/spot-loadboards")
+def admin_get_loadboards(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_admin),
+):
+    try:
+        # --- Query all available loads ---
+        ftl_shipments_loadboard = db.query(Ftl_Load_Board).filter(Ftl_Load_Board.status == "Available").all()
+        power_shipments_loadboard = db.query(Power_Load_Board).filter(Power_Load_Board.status == "Available").all()
+        ftl_lanes_loadboard = db.query(Dedicated_lanes_LoadBoard).filter(Dedicated_lanes_LoadBoard.status == "Available").all()
+
+        # --- Return combined JSON ---
+        return {
+            "ftl_loadboard": [
+                {
+                    "id": ftl_load.shipment_id,
+                    "trip_type": ftl_load.trip_type,
+                    "rate": ftl_load.shipment_rate,
+                    "distance": ftl_load.distance,
+                    "route_preview_embed": ftl_load.route_preview_embed,
+                    "rate_per_kilometer": ftl_load.rate_per_km,
+                    "origin": ftl_load.origin_city_province,
+                    "pickup_date": ftl_load.pickup_date,
+                    "pickup_appointment": ftl_load.pickup_appointment,
+                    "destination": ftl_load.destination_city_province,
+                    "eta_date": ftl_load.eta_date,
+                    "eta_window": ftl_load.eta_window,
+                    "required_truck_type": ftl_load.required_truck_type,
+                    "equipment_type": ftl_load.equipment_type,
+                    "trailer_type": ftl_load.trailer_type,
+                    "trailer_length": ftl_load.trailer_length,
+                    "minimum_weight_bracket": ftl_load.minimum_weight_bracket,
+                    "commodity": ftl_load.commodity,
+                    "hazardous_materials": ftl_load.hazardous_metarials
+                }
+                for ftl_load in ftl_shipments_loadboard
+            ],
+
+            "power_loadboard": [
+                {
+                    "id": power_load.shipment_id,
+                    "trip_type": power_load.trip_type,
+                    "load_type": power_load.load_type,
+                    "rate": power_load.shipment_rate,
+                    "distance": power_load.distance,
+                    "route_preview_embed": power_load.route_preview_embed,
+                    "rate_per_kilometer": power_load.rate_per_kilometer,
+                    "origin": power_load.origin_city_province,
+                    "pickup_date": power_load.pickup_date,
+                    "pickup_appointment": power_load.pickup_appointment,
+                    "destination": power_load.destination_city_province,
+                    "eta_date": power_load.eta_date,
+                    "eta_window": power_load.eta_window,
+                    "required_truck_type": power_load.required_truck_type,
+                    "axle_configuration": power_load.axle_configuration,
+                    "minimum_weight_bracket": power_load.minimum_weight_bracket,
+                    "commodity": power_load.commodity,
+                    "hazardous_materials": power_load.hazardous_materials,
+                }
+                for power_load in power_shipments_loadboard
+            ],
+
+            "ftl_lanes_loadboard": [
+                {
+                    "id": ftl_lane.shipment_id,
+                    "status": ftl_lane.status,
+                    "trip_type": ftl_lane.trip_type,
+                    "load_type": ftl_lane.load_type,
+                    "origin": ftl_lane.origin_city_province,
+                    "destination": ftl_lane.destination_city_province,
+                    "distance": ftl_lane.distance,
+                    "full_route": ftl_lane.route_preview_embed,
+                    "truck_type": ftl_lane.required_truck_type,
+                    "equipment_type": ftl_lane.equipment_type or "N/A",
+                    "trailer_type": ftl_lane.trailer_type or "N/A",
+                    "trailer_length": ftl_lane.trailer_length or "N/A",
+                    "minimum_weight_bracket": ftl_lane.minimum_weight_bracket,
+                    "commodity": ftl_lane.commodity,
+                    "packaging_type": ftl_lane.packaging_type,
+                    "average_shipment_weight": ftl_lane.average_shipment_weight,
+                    "start_date": ftl_lane.start_date,
+                    "end_date": ftl_lane.end_date,
+                    "frequency": ftl_lane.recurrence_frequency,
+                    "recurrence_days": ftl_lane.recurrence_days,
+                    "total_slots": ftl_lane.shipments_per_interval,
+                    "available_slots": ftl_lane.available_slots,
+                    "total_shipments_per_slot": ftl_lane.per_slot_size,
+                    "per_shipment_rate": ftl_lane.rate_per_shipment,
+                    "per_slot_contract_rate": int(ftl_lane.rate_per_shipment * ftl_lane.per_slot_size),
+                }
+                for ftl_lane in ftl_lanes_loadboard
+            ]
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/admin/all-withdrawal-requests/status")
 def admin_get_all_withdrawal_requests_by_status(
     status: str = None,
