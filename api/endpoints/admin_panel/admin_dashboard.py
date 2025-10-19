@@ -681,7 +681,7 @@ def admin_get_exchange_loadboards(
         ftl_lane_exchanges = db.query(Exchange_Ftl_Lane_LoadBoard).filter(Exchange_Ftl_Lane_LoadBoard.status == "Open").all()
 
         return {
-            ftl_exchanges: [{
+            "ftl_exchanges": [{
                 "id": load.exchange_id,
                 "rate": load.shipment_rate,
                 "trip_type": load.trip_type,
@@ -708,7 +708,7 @@ def admin_get_exchange_loadboards(
                 "allow_carrier_to_book_at_current_or_lower_offer_rate": load.allow_carrier_to_book_at_current_or_lower_offer_rate,
             } for load in ftl_shipment_exchanges],
 
-            power_exchanges: [{
+            "power_exchanges": [{
                 "id": loadboard_shipment.exchange_id,
                 "rate": loadboard_shipment.offer_rate,
                 "trip_type": loadboard_shipment.trip_type,
@@ -736,7 +736,7 @@ def admin_get_exchange_loadboards(
                 "allow_carrier_to_book_at_current_or_lower_offer_rate": loadboard_shipment.allow_carrier_to_book_at_current_or_lower_offer_rate,
             } for loadboard_shipment in power_shipment_exchanges],
 
-            ftl_lane_exchanges: [{
+            "ftl_lane_exchanges": [{
                 "id": loadboard_shipment.exchange_id,
                 "status": loadboard_shipment.status,
                 "trip_type": loadboard_shipment.trip_type,
