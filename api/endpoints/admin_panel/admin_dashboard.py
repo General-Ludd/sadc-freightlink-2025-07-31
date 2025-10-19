@@ -110,7 +110,7 @@ def admin_get_all_shipper_companies(
                 "name": s.legal_business_name,
                 "type": s.type,
                 "business_registration_number": s.business_registration_number,
-                "country_of_incoporation": s.country_of_incoporation,
+                "country_of_incorporation": s.country_of_incorporation,
                 "email": s.business_email,
                 "verification": s.is_verified,
                 "status": s.status,
