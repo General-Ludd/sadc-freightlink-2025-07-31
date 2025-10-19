@@ -11,6 +11,8 @@ from models.brokerage.finance import FinancialAccounts, CarrierFinancialAccounts
 from models.spot_bookings.dedicated_lane_ftl_shipment import FTL_Lane
 from models.spot_bookings.ftl_shipment import FTL_SHIPMENT
 from models.spot_bookings.power_shipment import POWER_SHIPMENT
+from models.brokerage.loadboards.exchange_loadboards import Exchange_Ftl_Load_Board, Exchange_Ftl_Lane_LoadBoard, Exchange_Power_Load_Board
+from models.brokerage.loadboard import Dedicated_lanes_LoadBoard, Ftl_Load_Board, Power_Load_Board
 from schemas.brokerage.finance import Individual_Sevice_Invoices_Request
 from schemas.vehicle import Individual_Shipper_Trailer_Response, Shipper_Trailers_Summary_Response, ShipperTrailerCreate
 from schemas.administration import CreateAdministrationUser, AdminPermissionsSchema
@@ -705,7 +707,7 @@ def admin_get_exchange_loadboards(
                 "leading_bid_amount": load.leading_bid_amount,
                 "allow_carrier_to_book_at_current_or_lower_offer_rate": load.allow_carrier_to_book_at_current_or_lower_offer_rate,
             } for load in ftl_shipment_exchanges],
-            
+
             power_exchanges: [{
                 "id": loadboard_shipment.exchange_id,
                 "rate": loadboard_shipment.offer_rate,
