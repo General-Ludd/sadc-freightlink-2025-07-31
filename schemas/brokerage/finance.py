@@ -28,22 +28,6 @@ class BrokerageTransactionResponse(BrokerageTransactionCreate):
 
 class Shipper_Financial_Account_Create(BaseModel):
     payment_terms: PaymentTerms
-    years_in_business: Optional[str] = None
-    nature_of_business: Optional[str] = None
-    annual_turnover: Optional[int] = None
-    annual_cash_flow: Optional[int] = None
-    credit_score: Optional[int] = None
-    bank_name: Optional[str] = None
-    branch_code: Optional[str] = None
-    account_number: Optional[int] = None
-    account_type: Optional[str] = None
-    projected_monthly_bookings: Optional[int] = None
-    account_confirmation_letter: Optional[str] = None
-    suretyship: Optional[str] = None
-    tax_clearance_certificate: Optional[str] = None
-    audited_financial_statement: Optional[str] = None
-    bank_statement: Optional[str] = None
-    business_credit_score_report: Optional[str] = None
 
 class Client_Financial_Account_Update(BaseModel):
     credit_score: Optional[int] = None
