@@ -1026,7 +1026,7 @@ def place_ftl_lane_bid(db: Session, bid_data: Exchange_FTL_Lane_Bid_Create, curr
 
     # === Step 6: Financial Account Verification ===
     financial_account = db.query(CarrierFinancialAccounts).filter(
-        CarrierFinancialAccounts.carrier_company_id == company_id
+        CarrierFinancialAccounts.id == company_id
     ).first()
 
     if not financial_account:
