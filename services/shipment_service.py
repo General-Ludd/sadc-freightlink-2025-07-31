@@ -81,7 +81,7 @@ def calculate_total_shipment_quote(
     """
     return (qoute_per_shipment * 1.5) * total_shipments
 
-def calculate_quote_for_power_shipment(
+def calculate_qoute_for_power_shipment(
     required_truck_type: str,
     axle_configuration: str,
     distance: int,
