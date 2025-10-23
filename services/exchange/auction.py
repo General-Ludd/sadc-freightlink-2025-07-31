@@ -1007,7 +1007,7 @@ def place_ftl_lane_bid(db: Session, bid_data: Exchange_FTL_Lane_Bid_Create, curr
         Vehicle.is_verified.is_(True)
     ).count()
 
-    if fleet_size_verification < exchange.shipments_per_interval:
+    if fleet_size_verification < bid_data.requested_slots:
         raise HTTPException(
             status_code=400,
             detail=(
