@@ -489,6 +489,8 @@ def shipper_single_ftl_lane_exchange_detials(
                         "recurrence_days": exchange.recurrence_days,
                         "shipments_per_interval": exchange.shipments_per_interval,
                         "total_shipments": exchange.total_shipments,
+                        "available_slots": exchange.available_slots,
+                        "total_shipment_per_slot": exchange.each_slot_size,
                         "per_shipment_offer_rate": exchange.per_shipment_offer_rate,
                         "contract_offer_rate": exchange.contract_offer_rate,
                         "payment_terms": exchange.payment_terms,
