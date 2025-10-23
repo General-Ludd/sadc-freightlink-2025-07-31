@@ -7,7 +7,7 @@ from models.Exchange.auction import Exchange_FTL_Lane_Bid, Exchange_FTL_Shipment
 from models.Exchange.power_shipment import POWER_SHIPMENT_EXCHANGE
 from models.brokerage.assigned_lanes import Assigned_Ftl_Lanes
 from models.brokerage.assigned_shipments import Assigned_Power_Shipments, Assigned_Spot_Ftl_Shipments
-from models.brokerage.finance import BrokerageLedger, CarrierFinancialAccounts, Dedicated_Lane_BrokerageLedger, Lane_Slot_Ledger, Exchange_Lane_Slot_Assignment, FinancialAccounts, Interim_Invoice, Lane_Interim_Invoice, Lane_Invoice, Load_Invoice
+from models.brokerage.finance import BrokerageLedger, CarrierFinancialAccounts, Dedicated_Lane_BrokerageLedger, Lane_Slot_Ledger, Exchange_Lane_Slot_Assignment, FinancialAccounts, Interim_Invoice, Lane_Interim_Invoice, Lane_Invoice, Load_Invoice, PlatformCommission
 from models.brokerage.loadboards.exchange_loadboards import Exchange_Ftl_Lane_LoadBoard, Exchange_Ftl_Load_Board, Exchange_Power_Load_Board
 from models.carrier import Carrier, Carrier_Notification
 from models.shipper import Corporation, Client_Notification
@@ -943,6 +943,19 @@ def place_ftl_lane_bid(db: Session, bid_data: Exchange_FTL_Lane_Bid_Create, curr
     ).first()
     if not exchange_loadboard:
         raise HTTPException(status_code=404, detail="Exchange loadboard not found or closed")
+
+    # === Step 9.1: Validate Requested Slots Against Exchange and Loadboard Availability ===
+    if bid_data.requested_slots > exchange.available_slots:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Requested slots ({bid_data.requested_slots}) exceed available slots on the exchange ({exchange.available_slots})."
+        )
+
+    if bid_data.requested_slots > exchange_loadboard.available_slots:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Requested slots ({bid_data.requested_slots}) exceed available slots on the exchange loadboard ({exchange_loadboard.available_slots})."
+        )
 
     # === Step 2: Fetch Platform Commission ===
     platform_commission = (
