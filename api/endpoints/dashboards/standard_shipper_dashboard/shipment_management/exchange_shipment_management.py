@@ -474,8 +474,11 @@ def shipper_single_ftl_lane_exchange_detials(
                             "status": bid.status,
                             "carrier_id": bid.carrier_id,
                             "carrier_name": f"SADC FREIGHTLINK Carrier-{bid.carrier_id}",
+                            "requested_slots": bid.requested_slots,
+                            "per_slot_size": f"{bid.each_slot_size} total shipments"
                             "per_shipment_rate": bid.baked_per_shipment_bid_amount,
-                            "contract_rate": bid.baked_contract_bid_amount,
+                            "per_slot_contract_bid": bid.baked_contract_bid_amount,
+                            "total_contract_bid_rate": bid.baked_contract_bid_amount * bid.requested_slots,
                             "submitted_at": bid.submitted_at,
                         } for bid in bids]
                     },

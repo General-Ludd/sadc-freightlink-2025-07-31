@@ -1065,6 +1065,7 @@ def place_ftl_lane_bid(db: Session, bid_data: Exchange_FTL_Lane_Bid_Create, curr
         carrier_name=carrier.legal_business_name,
         user_id=user_id,
         requested_slots=bid_data.requested_slots,
+        each_slot_size=exchange_loadboard.each_slot_size,
         per_shipment_bid_amount=bid_data.per_shipment_bid_amount,
         contract_bid_amount=bid_data.per_shipment_bid_amount * exchange.each_slot_size * bid_data.requested_slots,
         baked_per_shipment_bid_amount=baked_bid,

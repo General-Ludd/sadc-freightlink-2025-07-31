@@ -45,6 +45,7 @@ class Exchange_FTL_Lane_Bid(Base):
     carrier_name = Column(String, nullable=False)
     user_id = Column(Integer, index=True)
     requested_slots = Column(Integer, nullable=True)  # Number of slots the carrier wants
+    each_slot_size = Column(Integer, nullable=True)
     per_shipment_bid_amount = Column(Integer,index=True, nullable=False)
     contract_bid_amount = Column(Integer, index=True)
     baked_per_shipment_bid_amount = Column(Integer, nullable=False)
