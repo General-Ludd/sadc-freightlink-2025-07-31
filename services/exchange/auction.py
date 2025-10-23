@@ -980,9 +980,9 @@ def place_ftl_lane_bid(db: Session, bid_data: Exchange_FTL_Lane_Bid_Create, curr
     if not carrier:
         raise HTTPException(status_code=404, detail="Carrier not found")
     if not carrier.is_verified:
-        raise HTTPException(status_code=403, detail="Carrier company account not verified")
+        raise HTTPException(status_code=403, detail="Carrier company account not verified, please request account verification")
     if carrier.status != "Active":
-        raise HTTPException(status_code=403, detail="Carrier account is not active")
+        raise HTTPException(status_code=403, detail="Carrier account is not Active, please request account activation.")
 
     # === Step 4: Validate Carrier Insurance ===
     if carrier.git_cover_amount < exchange.minimum_git_cover_amount:
@@ -1001,8 +1001,8 @@ def place_ftl_lane_bid(db: Session, bid_data: Exchange_FTL_Lane_Bid_Create, curr
         Vehicle.owner_id == company_id,
         Vehicle.type == exchange.required_truck_type,
         Vehicle.equipment_type == exchange.equipment_type,
-        Vehicle.trailer_type == exchange.trailer_type,
-        Vehicle.trailer_length == exchange.trailer_length,
+        Vehicle.trailer_type == exchange.trailer_type if exchange.trailer_type else "",
+        Vehicle.trailer_length == exchange.trailer_length if exchange.trailer_length else "",
         Vehicle.payload_capacity >= exchange.minimum_weight_bracket,
         Vehicle.is_verified.is_(True)
     ).count()
@@ -1012,9 +1012,9 @@ def place_ftl_lane_bid(db: Session, bid_data: Exchange_FTL_Lane_Bid_Create, curr
             status_code=400,
             detail=(
                 f"Carrier fleet size ({fleet_size_verification}) does not meet "
-                f"the required {exchange.shipments_per_interval} vehicles "
-                f"({exchange.required_truck_type}-{exchange.trailer_length}-"
-                f"{exchange.trailer_type}-{exchange.equipment_type}) per interval."
+                f"the required {exchange.bid_data.requested_slots} vehicles "
+                f"({exchange.required_truck_type}-{exchange.equipment_type}-"
+                f"{exchange.trailer_type if exchange.trailer_length else ""}-{exchange.trailer_length if exchange.trailer_length else ""}) per interval."
             )
         )
 
