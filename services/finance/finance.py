@@ -209,8 +209,8 @@ def calculate_spot_ftl_quote(
     required_truck_type,
     equipment_type,
     minimum_weight_bracket: int,
-    trailer_type=None,
-    trailer_length=None
+    trailer_type: Optional[str] = None,
+    trailer_length: Optional[str] = None,
 ):
     # Step 1: Calculate Distance and Transit Time
     try:
@@ -243,8 +243,8 @@ def calculate_spot_ftl_quote(
             db=db,
             required_truck_type=safe_str(required_truck_type).strip().lower(),
             equipment_type=safe_str(equipment_type).strip().lower(),
-            trailer_type=trailer_type_clean or "",
-            trailer_length=trailer_length_clean or "",
+            trailer_type=trailer_type_clean or None,
+            trailer_length=trailer_length_clean or None,
             distance=distance,
             minimum_weight_bracket=minimum_weight_tons
         )
@@ -266,15 +266,15 @@ def calculate_spot_ftl_lane_quote(
     destination_address: str,
     required_truck_type,
     equipment_type,
-    trailer_type,
-    trailer_length,
     minimum_weight_bracket: int,
     recurrence_frequency,
     recurrence_days: list[Recurrence_Days],
     start_date: date,
     end_date: date,
     shipments_per_interval:int,
-    skip_weekends: bool
+    skip_weekends: bool,
+    trailer_type: Optional[str] = None,
+    trailer_length: Optional[str] = None,
 ):
     # Step 1: Calculate Distance and Transit Time
     try:
@@ -292,15 +292,17 @@ def calculate_spot_ftl_lane_quote(
     def safe_str(val):
         return val.value if hasattr(val, "value") else str(val)
 
+    weight_bracket = minimum_weight_bracket / 1000
+
     try:
         quote_per_shipment = calculate_quote_for_shipment(
             db=db,
             required_truck_type=safe_str(required_truck_type),
             equipment_type=safe_str(equipment_type),
-            trailer_type=safe_str(trailer_type),
-            trailer_length=safe_str(trailer_length),
+            trailer_type=safe_str(trailer_type if trailer_type else ''),
+            trailer_length=safe_str(trailer_length if trailer_length else ''),
             distance=distance,
-            minimum_weight_bracket=minimum_weight_bracket
+            minimum_weight_bracket=weight_bracket
         )
     except HTTPException as e:
         raise HTTPException(status_code=500, detail=f"Distance calculation failed: {e.detail}")
@@ -325,10 +327,25 @@ def calculate_spot_ftl_lane_quote(
             total_shipments=total_shipments
         )
         return {
-            "quote_amount_per_shipment": f"R{quote_per_shipment}",
-            "total_contract_qoute": f"R{total_shipments_quote}",
-            "distance_km": distance,
-            "estimated_transit_time": estimated_transit_time,
+            "lane_type": "FTL Lane",
+            "required_truck_type": required_truck_type,
+            "equipment_type": equipment_type,
+            "trailer_type": trailer_type if trailer_type else None,
+            "trailer_length": trailer_length if trailer_length else None,
+            "minimum_weight_bracket": minimum_weight_bracket,
+            "start_date": start_date,
+            "end_date": end_date,
+            "recurrence_frequency": recurrence_frequency,
+            "recurrence_days": recurrence_days,
+            "shipments_per_interval": shipments_per_interval,
+            "total_shipments": total_shipments,
+            "origin_address": origin_address,
+            "destination_address": destination_address,
+            "distance": distance,
+            "trip_transit_time": estimated_transit_time,
+            "rate_per_km": quote_per_shipment / distance,
+            "rate_per_shipment": quote_per_shipment,
+            "contract_rate": total_shipments_quote,
             "route_preview_embed": route_preview_embed
             }
     except HTTPException as e:

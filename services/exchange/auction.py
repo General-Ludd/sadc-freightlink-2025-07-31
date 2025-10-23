@@ -1017,10 +1017,10 @@ def place_ftl_lane_bid(db: Session, bid_data: Exchange_FTL_Lane_Bid_Create, curr
         raise HTTPException(
             status_code=400,
             detail=(
-                f"Carrier fleet size ({fleet_size_verification}) does not meet "
-                f"the required {bid_data.requested_slots} vehicles "
+                f"Carrier fleet size ({fleet_size_verification}) does not meet"
+                f"the required {bid_data.requested_slots} vehicles"
                 f"({exchange.required_truck_type}-{exchange.equipment_type}-"
-                f"{exchange.trailer_type if exchange.trailer_length else ""}-{exchange.trailer_length if exchange.trailer_length else ""}) per interval."
+                f"{exchange.trailer_type if exchange.trailer_length else ''}-{exchange.trailer_length if exchange.trailer_length else ''}) per interval."
             )
         )
 

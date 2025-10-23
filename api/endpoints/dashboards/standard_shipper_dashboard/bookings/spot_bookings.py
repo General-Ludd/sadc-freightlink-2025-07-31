@@ -82,19 +82,19 @@ def get_spot_ftl_lane_quote_endpoint(
     try:
         result = calculate_spot_ftl_lane_quote(
             db,
-            start_date=request.start_date,
-            end_date=request.end_date,
-            recurrence_frequency=request.recurrence_frequency,
-            skip_weekends=request.skip_weekends,
-            recurrence_days=request.recurrence_days,
-            shipments_per_interval=request.shipments_per_interval,
             origin_address=request.origin_address,
             destination_address=request.destination_address,
             required_truck_type=request.required_truck_type,
             equipment_type=request.equipment_type,
+            minimum_weight_bracket=request.minimum_weight_bracket,
+            recurrence_frequency=request.recurrence_frequency,
+            recurrence_days=request.recurrence_days,
+            start_date=request.start_date,
+            end_date=request.end_date,
+            shipments_per_interval=request.shipments_per_interval,
+            skip_weekends=request.skip_weekends,
             trailer_type=request.trailer_type,
             trailer_length=request.trailer_length,
-            minimum_weight_bracket=request.minimum_weight_bracket
         )
         return result
     except Exception as e:
