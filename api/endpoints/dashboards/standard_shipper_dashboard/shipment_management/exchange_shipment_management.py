@@ -430,6 +430,7 @@ def shipper_single_ftl_lane_exchange_detials(
                     "start_date": exchange.start_date,
                     "end_date": exchange.end_date,
                     "created": exchange.created_at,
+                    "status": exchange.auction_status,
                     "end_time": exchange.exchange_end_time,
 
                     "financial_information": {
