@@ -259,51 +259,6 @@ def calculate_spot_ftl_quote(
     except HTTPException as e:
         raise HTTPException(status_code=500, detail=f"Quote calculation failed: {e.detail}")
 
-def calculate_spot_ftl_quoteel(
-    db: Session,
-    origin_address: str,
-    destination_address: str,
-    required_truck_type,
-    equipment_type,
-    trailer_type,
-    trailer_length,
-    minimum_weight_bracket: int
-):
-    # Step 1: Calculate Distance and Transit Time
-    try:
-        distance_data = calculate_distance(AddressInput(
-            origin_address=origin_address,
-            destination_address=destination_address
-        ))
-        distance = distance_data["distance"]
-        estimated_transit_time = distance_data["duration"]
-        route_preview_embed = distance_data["google_maps_embed_url"]
-    except HTTPException as e:
-        raise HTTPException(status_code=500, detail=f"Distance calculation failed: {e.detail}")
-
-    # Ensure values are strings (support Enums or raw strings)
-    def safe_str(val):
-        return val.value if hasattr(val, "value") else str(val)
-
-    try:
-        quote = calculate_quote_for_shipment(
-            db=db,
-            required_truck_type=safe_str(required_truck_type),
-            equipment_type=safe_str(equipment_type),
-            trailer_type=safe_str(trailer_type),
-            trailer_length=safe_str(trailer_length),
-            distance=distance,
-            minimum_weight_bracket=minimum_weight_bracket
-        )
-        return {
-            "quote_amount": f"R{quote}",
-            "distance_km": distance,
-            "estimated_transit_time": estimated_transit_time,
-            "route_preview_embed": route_preview_embed
-            }
-
-    except HTTPException as e:
-            raise HTTPException(status_code=500, detail=f"Quote calculation failed: {e.detail}")
     
 def calculate_spot_ftl_lane_quote(
     db: Session,
