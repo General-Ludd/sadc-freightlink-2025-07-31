@@ -39,7 +39,7 @@ class Exchange_FTL_Lane_Bid(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     exchange_id = Column(Integer, index=True)
-    type = Column(String, default="FTL", nullable=False)
+    type = Column(String, default="FTL Lane", nullable=False)
     carrier_id = Column(Integer, nullable=False)
     carrier_type = Column(String, nullable=False)
     carrier_name = Column(String, nullable=False)
