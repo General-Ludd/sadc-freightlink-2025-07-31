@@ -37,7 +37,8 @@ class VehicleRate(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
     base_rate = Column(Integer, nullable=False)
-    weight_factor = Column(Integer, nullable=False)
+    base_weight_bracket = Column(Integer)
+    increment_per_tonne = Column(Integer)
     created_at = Column(DateTime(timezone=True), default=get_sast_time)
     updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)
 

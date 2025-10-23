@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.sql.expression import cast
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
+from typing import Optional
 from pydantic import BaseModel
 from db.database import SessionLocal # Ensure you have a database dependency defined
 from models.brokerage.finance import VehicleRate
@@ -23,11 +24,11 @@ def calculate_quote_for_shipment(
     trailer_type: str,
     trailer_length: str,
     distance: int,
-    minimum_weight_bracket: int,
+    minimum_weight_bracket: int,  # replace minimum_weight_bracket with actual truck tonnage
     db: Session = Depends(get_db)
 ):
     """
-    Calculate the vehicle rate quote by retrieving matching data from the VehicleRate table.
+    Calculate the vehicle rate quote using simple base rate + increment per tonne method.
     """
     try:
         # Construct the vehicle string
@@ -42,14 +43,24 @@ def calculate_quote_for_shipment(
                 detail=f"No vehicle rate found for vehicle string: {vehicle_string}"
             )
 
-        # Extract base_rate and weight_factor
-        base_rate = int(vehicle_rate.base_rate)
-        weight_factor = int(vehicle_rate.weight_factor)
+        # Extract base_rate and increment_per_tonne
+        base_rate = float(vehicle_rate.base_rate)
+        increment_per_tonne = int(vehicle_rate.increment_per_tonne)
+        base_bracket = int(vehicle_rate.base_weight_bracket)  # base truck tonnage in VehicleRate table
+
+        base_tonnage = (base_bracket / 1000)
+
+        tonnage_increment = (minimum_weight_bracket - base_tonnage)
+
+        increment = tonnage_increment * increment_per_tonne
+
+        # Calculate rate per km
+        rate_per_km = base_rate + increment
 
         # Calculate the quote
-        quote = distance * (base_rate + (minimum_weight_bracket * weight_factor))
-        
-        # Convert the quote to an integer
+        quote = rate_per_km * distance
+
+        # Return rounded integer
         return int(round(quote))
 
     except SQLAlchemyError as e:

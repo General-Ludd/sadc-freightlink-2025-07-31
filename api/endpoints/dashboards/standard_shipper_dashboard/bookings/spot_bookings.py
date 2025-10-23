@@ -42,9 +42,9 @@ def get_spot_ftl_shipment_qoute_endpoint(
             destination_address,
             required_truck_type,
             equipment_type,
+            minimum_weight_bracket,
             trailer_type,
-            trailer_length,
-            minimum_weight_bracket)
+            trailer_length)
         return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

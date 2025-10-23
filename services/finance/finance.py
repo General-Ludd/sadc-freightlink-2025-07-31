@@ -208,6 +208,63 @@ def calculate_spot_ftl_quote(
     destination_address: str,
     required_truck_type,
     equipment_type,
+    minimum_weight_bracket: int,
+    trailer_type=None,
+    trailer_length=None
+):
+    # Step 1: Calculate Distance and Transit Time
+    try:
+        distance_data = calculate_distance(AddressInput(
+            origin_address=origin_address,
+            destination_address=destination_address
+        ))
+        distance = distance_data["distance"]
+        estimated_transit_time = distance_data["duration"]
+        route_preview_embed = distance_data["google_maps_embed_url"]
+    except HTTPException as e:
+        raise HTTPException(status_code=500, detail=f"Distance calculation failed: {e.detail}")
+
+    # Helper: Safely get string values
+    def safe_str(val):
+        if val is None:
+            return ""
+        return val.value if hasattr(val, "value") else str(val)
+
+    try:
+
+        minimum_weight_tons = minimum_weight_bracket / 1000
+
+        # Clean empty trailer values
+        trailer_type_clean = safe_str(trailer_type).strip().lower()
+        trailer_length_clean = safe_str(trailer_length).strip().lower()
+
+        # Only include provided trailer details in the quote calculation
+        quote = calculate_quote_for_shipment(
+            db=db,
+            required_truck_type=safe_str(required_truck_type).strip().lower(),
+            equipment_type=safe_str(equipment_type).strip().lower(),
+            trailer_type=trailer_type_clean or "",
+            trailer_length=trailer_length_clean or "",
+            distance=distance,
+            minimum_weight_bracket=minimum_weight_tons
+        )
+
+        return {
+            "quote_amount": f"R{quote}",
+            "distance_km": distance,
+            "estimated_transit_time": estimated_transit_time,
+            "route_preview_embed": route_preview_embed
+        }
+
+    except HTTPException as e:
+        raise HTTPException(status_code=500, detail=f"Quote calculation failed: {e.detail}")
+
+def calculate_spot_ftl_quoteel(
+    db: Session,
+    origin_address: str,
+    destination_address: str,
+    required_truck_type,
+    equipment_type,
     trailer_type,
     trailer_length,
     minimum_weight_bracket: int
