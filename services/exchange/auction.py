@@ -997,22 +997,28 @@ def place_ftl_lane_bid(db: Session, bid_data: Exchange_FTL_Lane_Bid_Create, curr
         )
 
     # === Step 5: Validate Fleet Capacity ===
-    fleet_size_verification = db.query(Vehicle).filter(
+    query = db.query(Vehicle).filter(
         Vehicle.owner_id == company_id,
         Vehicle.type == exchange.required_truck_type,
         Vehicle.equipment_type == exchange.equipment_type,
-        Vehicle.trailer_type == exchange.trailer_type if exchange.trailer_type else "",
-        Vehicle.trailer_length == exchange.trailer_length if exchange.trailer_length else "",
         Vehicle.payload_capacity >= exchange.minimum_weight_bracket,
         Vehicle.is_verified.is_(True)
-    ).count()
+    )
+
+    if exchange.trailer_type:
+        query = query.filter(Vehicle.trailer_type == exchange.trailer_type)
+
+    if exchange.trailer_length:
+        query = query.filter(Vehicle.trailer_length == exchange.trailer_length)
+
+    fleet_size_verification = query.count()
 
     if fleet_size_verification < bid_data.requested_slots:
         raise HTTPException(
             status_code=400,
             detail=(
                 f"Carrier fleet size ({fleet_size_verification}) does not meet "
-                f"the required {exchange.bid_data.requested_slots} vehicles "
+                f"the required {bid_data.requested_slots} vehicles "
                 f"({exchange.required_truck_type}-{exchange.equipment_type}-"
                 f"{exchange.trailer_type if exchange.trailer_length else ""}-{exchange.trailer_length if exchange.trailer_length else ""}) per interval."
             )
