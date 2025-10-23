@@ -344,8 +344,8 @@ def calculate_spot_ftl_lane_quote(
             "distance": distance,
             "trip_transit_time": estimated_transit_time,
             "rate_per_km": quote_per_shipment / distance,
-            "rate_per_shipment": quote_per_shipment,
-            "contract_rate": total_shipments_quote,
+            "rate_per_shipment": quote_per_shipment * 1.5,
+            "contract_rate": total_shipments_quote * 1.5,
             "route_preview_embed": route_preview_embed
             }
     except HTTPException as e:
