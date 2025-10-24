@@ -500,7 +500,7 @@ def admin_get_ftl_shipment_id(
     current_user: dict = Depends(get_current_admin),
 ):
     try:
-        client_booking_shipment = db.query(FTL_SHIPMENT).filter(FTL_SHIPMENT.id = id).first()
+        client_booking_shipment = db.query(FTL_SHIPMENT).filter(FTL_SHIPMENT.id == id).first()
         shipment = db.query(Ftl_Load_Board).filter(Ftl_Load_Board.shipment_id == client_booking_shipment.id).first()
 
         return {
