@@ -551,7 +551,7 @@ def admin_get_ftl_shipment_id(
                 "platform_commission": {
                     "commission_rate": client_booking_shipment.quote - shipment.shipment_rate,
                     "commission_rate_per_km": (client_booking_shipment.quote - shipment.shipment_rate) / shipment.distance,
-                    "rate_per_ton": (client_booking_shipment.quote - shipment.shipment_rate) / (shipment.minimum_weight_bracket / 1000)),
+                    "rate_per_ton": (client_booking_shipment.quote - shipment.shipment_rate) / (shipment.minimum_weight_bracket / 1000),
                 }
             },
 
