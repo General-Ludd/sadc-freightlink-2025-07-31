@@ -495,7 +495,7 @@ def admin_get_carrier_financial_account(
 
 @router.get("/admin/spot-ftl-loadboard/{id}")
 def admin_get_ftl_shipment_id(
-    id: int
+    id: int,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_admin),
 ):
