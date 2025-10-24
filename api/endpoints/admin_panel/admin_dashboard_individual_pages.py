@@ -578,7 +578,7 @@ def admin_get_ftl_shipment_id(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/spot/ftl-lane-loadboard/{id}")
+@router.get("/admin/spot-ftl-lane-loadboard/{id}")
 def get_individual_loadboard_ftl_lane(
     id: int,
     db: Session = Depends(get_db),
