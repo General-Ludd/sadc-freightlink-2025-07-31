@@ -586,7 +586,7 @@ def get_individual_loadboard_ftl_lane(
 ):
     try:
         # Query all records from the "dedicated_lanes_loadboard" table
-        client_booking_lane = db.query(FTL_Lane).filter(FTL_Lane == id).first()
+        client_booking_lane = db.query(FTL_Lane).filter(FTL_Lane.id == id).first()
 
         lane = db.query(Dedicated_lanes_LoadBoard).filter(Dedicated_lanes_LoadBoard.shipment_id == client_booking_lane.id).first()
         if not lane:
