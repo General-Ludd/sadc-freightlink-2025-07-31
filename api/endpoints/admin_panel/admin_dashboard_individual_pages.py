@@ -650,6 +650,9 @@ def get_individual_loadboard_ftl_lane(
             "financial_data": {
                 "loadboard_rates": {
                     "rate_per_slot": lane.rate_per_shipment * lane.per_slot_size,
+                    "each_slot_size": lane.per_slot_size,
+                    "total_slots": lane.total_slots,
+                    "available_slots": lane.available_slots,
                     "rate_per_shipment": lane.rate_per_shipment,
                     "rate_per_km": lane.rate_per_km,
                     "rate_per_ton": lane.rate_per_ton,
@@ -657,14 +660,22 @@ def get_individual_loadboard_ftl_lane(
                 "client_booking_rates": {
                     "contract_rate": client_booking_lane.contract_quote,
                     "per_slot_rate": client_booking_lane.contract_quote / client_booking_lane.shipments_per_interval,
-                    "rate_per_shipment": client_booking_lane.contract_quote,
-                    "rate_per_km": client_booking_lane.contract_quote / distance,
-                    "rate_per_ton": client_booking_lane.contract_quote / weight,
+                    "each_slot_size": lane.per_slot_size,
+                    "total_slots": lane.total_slots,
+                    "available_slots": lane.available_slots,
+                    "rate_per_shipment": client_booking_lane.qoute_per_shipment,
+                    "rate_per_km": client_booking_lane.qoute_per_shipment / distance,
+                    "rate_per_ton": client_booking_lane.qoute_per_shipment / weight,
                 },
                 "platform_commission": {
-                    "commission_per_shipment": client_booking_lane.contract_quote - lane.rate_per_shipment,
-                    "commission_per_km": (client_booking_lane.contract_quote - lane.rate_per_shipment) / distance,
-                    "commission_per_ton": (client_booking_lane.contract_quote - lane.rate_per_shipment) / weight,
+                    "contract_commission": client_booking_lane.contract_quote - lane.contract_rate,
+                    "commission_per_slot": (client_booking_lane.qoute_per_shipment - lane.rate_per_shipment) * lane.per_slot_size,
+                    "each_slot_size": lane.per_slot_size,
+                    "total_slots": lane.total_slots,
+                    "available_slots": lane.available_slots,
+                    "commission_per_shipment": client_booking_lane.qoute_per_shipment - lane.rate_per_shipment,
+                    "commission_per_km": (client_booking_lane.qoute_per_shipment - lane.rate_per_shipment) / distance,
+                    "commission_per_ton": (client_booking_lane.qoute_per_shipment - lane.rate_per_shipment) / weight,
                 }
             },
 
