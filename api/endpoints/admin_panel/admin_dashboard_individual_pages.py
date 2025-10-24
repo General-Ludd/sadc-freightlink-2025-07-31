@@ -582,7 +582,7 @@ def admin_get_ftl_shipment_id(
 def get_individual_loadboard_ftl_lane(
     id: int,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(get_current_admin),
 ):
     try:
         # Query all records from the "dedicated_lanes_loadboard" table
