@@ -591,7 +591,11 @@ def get_individual_loadboard_ftl_lane(
         lane = db.query(Dedicated_lanes_LoadBoard).filter(Dedicated_lanes_LoadBoard.shipment_id == client_booking_lane.id).first()
         if not lane:
             raise HTTPException(status_code=404, detail="Lane not found")
-            
+
+        # Prevent division by zero
+        distance = lane.distance or 1
+        weight = (lane.minimum_weight_bracket or 1000) / 1000  # Convert kg to tons
+
         return {
             "lane_information": {
                 "id": lane.shipment_id,
