@@ -243,8 +243,8 @@ def calculate_spot_ftl_quote(
             db=db,
             required_truck_type=safe_str(required_truck_type).strip().lower(),
             equipment_type=safe_str(equipment_type).strip().lower(),
-            trailer_type=trailer_type_clean or None,
-            trailer_length=trailer_length_clean or None,
+            trailer_type=trailer_type_clean or "",
+            trailer_length=trailer_length_clean or "",
             distance=distance,
             minimum_weight_bracket=minimum_weight_tons
         )

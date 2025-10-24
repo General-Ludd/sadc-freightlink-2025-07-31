@@ -31,8 +31,8 @@ def get_spot_ftl_shipment_qoute_endpoint(
     minimum_weight_bracket: int,
     required_truck_type: TruckType,
     equipment_type: EquipmentType,
-    trailer_type: Optional [TrailerType] = None,
-    trailer_length: Optional [TrailerLength] = None,
+    trailer_type: Optional[TrailerType] = None,  # ✅ proper default
+    trailer_length: Optional[TrailerLength] = None,  # ✅ proper default
     db: Session = Depends(get_db),
 ):
     try:
