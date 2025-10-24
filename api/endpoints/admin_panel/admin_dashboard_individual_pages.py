@@ -576,3 +576,112 @@ def admin_get_ftl_shipment_id(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/spot/ftl-lane-loadboard/{id}")
+def get_individual_loadboard_ftl_lane(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    try:
+        # Query all records from the "dedicated_lanes_loadboard" table
+        client_booking_lane = db.query(FTL_Lane).filter(FTL_Lane == id).first()
+
+        lane = db.query(Dedicated_lanes_LoadBoard).filter(Dedicated_lanes_LoadBoard.shipment_id == client_booking_lane.id).first()
+        if not lane:
+            raise HTTPException(status_code=404, detail="Lane not found")
+            
+        return {
+            "lane_information": {
+                "id": lane.shipment_id,
+                "status": lane.status,
+                "type": lane.type,
+                "load_type": lane.load_type,
+                "trip_type": lane.trip_type,
+                "origin": lane.origin_city_province,
+                "destination": lane.destination_city_province,
+                "distance": lane.distance,
+                "minimum_transit_time": lane.estimated_transit_time,
+                "route_preview": lane.route_preview_embed,
+                "required_truck_type": lane.required_truck_type,
+                "equipment_type": lane.equipment_type,
+                "trailer_type": lane.trailer_type if lane.trailer_type else "N/A",
+                "trailer_length": lane.trailer_length if lane.trailer_length else "N/A",
+                "minimum_weight_bracket": lane.minimum_weight_bracket,
+                "average_shipment_weight": lane.average_shipment_weight,
+                "minimum_git_cover_amount": lane.minimum_git_cover_amount,
+                "minimum_liability_cover_amount": lane.minimum_liability_cover_amount,
+                "commodity": lane.commodity,
+                "temperature_control": lane.temperature_control,
+                "hazardous_materials": lane.hazardous_materials,
+                "packaging_quantity": lane.packaging_quantity,
+                "packaging_type": lane.packaging_type,
+                "pickup_number": lane.pickup_number,
+                "pickup_notes": lane.pickup_notes,
+                "delivery_number": lane.delivery_number,
+                "delivery_notes": lane.delivery_notes,
+            },
+            "contract_information": {
+                "start_date": lane.start_date,
+                "end_date": lane.end_date,
+                "recurrence_frequency": lane.recurrence_frequency,
+                "recurrence_days": lane.recurrence_days,
+                "slots_per_interval": lane.shipments_per_interval,
+                "total_shipments": lane.total_shipments,
+                "per_shipment_rate": lane.rate_per_shipment,
+                "per_slot_contract_rate": (lane.rate_per_shipment * lane.per_slot_size),
+                "distance_per_shipment": lane.distance,
+                "rate_per_km": lane.rate_per_km,
+                "rate_per_ton": lane.rate_per_ton,
+                "payment_terms": lane.payment_terms,
+                "shipment_dates": lane.shipment_dates,
+                "payment_dates": lane.payment_dates,
+                "total_slots": lane.total_slots,
+                "available_slots": lane.available_slots,
+                "total_shipments_per_slot": lane.per_slot_size,
+            },
+
+            # Financial transparency section
+            "financial_data": {
+                "loadboard_rates": {
+                    "rate_per_slot": lane.rate_per_shipment * lane.per_slot_size,
+                    "rate_per_shipment": lane.rate_per_shipment,
+                    "rate_per_km": lane.rate_per_km,
+                    "rate_per_ton": lane.rate_per_ton,
+                },
+                "client_booking_rates": {
+                    "contract_rate": client_booking_lane.contract_quote,
+                    "per_slot_rate": client_booking_lane.contract_quote / client_booking_lane.shipments_per_interval,
+                    "rate_per_shipment": client_booking_lane.contract_quote,
+                    "rate_per_km": client_booking_lane.contract_quote / distance,
+                    "rate_per_ton": client_booking_lane.contract_quote / weight,
+                },
+                "platform_commission": {
+                    "commission_per_shipment": client_booking_lane.contract_quote - lane.rate_per_shipment,
+                    "commission_per_km": (client_booking_lane.contract_quote - lane.rate_per_shipment) / distance,
+                    "commission_per_ton": (client_booking_lane.contract_quote - lane.rate_per_shipment) / weight,
+                }
+            },
+
+            "pickup_facility": {
+                "name": lane.pickup_facility_name,
+                "address": lane.origin_address,
+                "scheduling_type": lane.pickup_scheduling_type,
+                "operating_hours": f"{lane.pickup_start_time} - {lane.pickup_end_time}",
+                "contact_person": f"{lane.pickup_first_name} {lane.pickup_last_name}",
+                "phone_number": lane.pickup_phone_number,
+                "email": lane.pickup_email,
+            },
+            "delivery_facility": {
+                "name": lane.delivery_facility_name,
+                "address": lane.destination_address,
+                "scheduling_type": lane.delivery_scheduling_type,
+                "operating_hours": f"{lane.delivery_start_time} - {lane.delivery_end_time}",
+                "contact_person": f"{lane.delivery_first_name} {lane.delivery_last_name}",
+                "phone_number": lane.delivery_phone_number,
+                "email": lane.delivery_email,
+            },
+        }
+    except Exception as e:
+        return {"error": str(e)}
