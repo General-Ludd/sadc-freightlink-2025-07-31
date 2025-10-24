@@ -10,6 +10,8 @@ from models.brokerage.finance import FinancialAccounts, CarrierFinancialAccounts
 from models.spot_bookings.dedicated_lane_ftl_shipment import FTL_Lane
 from models.spot_bookings.ftl_shipment import FTL_SHIPMENT
 from models.spot_bookings.power_shipment import POWER_SHIPMENT
+from models.brokerage.loadboard import Ftl_Load_Board, Power_Load_Board, Dedicated_lanes_LoadBoard
+from models.brokerage.loadboards.exchange_loadboards import Exchange_Ftl_Load_Board, Exchange_Ftl_Lane_LoadBoard
 from models.brokerage.assigned_lanes import Assigned_Ftl_Lanes
 from models.brokerage.assigned_shipments import Assigned_Spot_Ftl_Shipments, Assigned_Power_Shipments
 from schemas.brokerage.finance import Individual_Sevice_Invoices_Request
@@ -487,6 +489,90 @@ def admin_get_carrier_financial_account(
                 "amount": lane_invoice.due_amount,
                 "description": lane_invoice.description
             } for lane_invoice in lane_invoices],
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/admin/spot-ftl-loadboard/{id}")
+def admin_get_ftl_shipment_id(
+    id: int
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_admin),
+):
+    try:
+        client_booking_shipment = db.query(FTL_SHIPMENT).filter(FTL_SHIPMENT.id = id).first()
+        shipment = db.query(Ftl_Load_Board).filter(Ftl_Load_Board.shipment_id == client_booking_shipment.id).first()
+
+        return {
+            "shipment_details": {
+                "id": shipment.shipment_id,
+                "type": shipment.type,
+                "load_type": shipment.load_type,
+                "trip_type": shipment.trip_type,
+                "status": shipment.status,
+                "required_truck_type": shipment.required_truck_type,
+                "equipment_type": shipment.equipment_type,
+                "trailer_type": shipment.trailer_type if shipment.trailer_type else "N/A",
+                "trailer_length": shipment.trailer_length if shipment.trailer_length else "N/A",
+                "minimum_weight_bracket": shipment.minimum_weight_bracket,
+                "minimum_git_cover_amount": shipment.minimum_git_cover_amount,
+                "minimum_liability_cover_amount": shipment.minimum_liability_cover_amount,
+                "origin": shipment.origin_city_province,
+                "destination": shipment.destination_city_province,
+                "distance": shipment.distance,
+                "pickup_date": shipment.pickup_date,
+                "eta_data": shipment.eta_date,
+                "payment_terms": shipment.payment_terms,
+                "payment_date": shipment.payment_date,
+                "minimum_transit_time": shipment.estimated_transit_time,
+                "route_preview": shipment.route_preview_embed,
+                "commodity": shipment.commodity,
+                "temperature_control": shipment.temperature_control,
+                "hazardous_materails": shipment.hazardous_metarials,
+                "packaging_quantity": shipment.packaging_quantity,
+                "packaging_type": shipment.packaging_type,
+                "pickup_number": shipment.pickup_number,
+                "pickup_notes": shipment.pickup_notes,
+                "delivery_number": shipment.delivery_number,
+                "delivery_notes": shipment.delivery_notes,
+            },
+
+            "financial_data": {
+                "loadboard_rates": {
+                    "rate": shipment.shipment_rate,
+                    "rate_per_km": shipment.rate_per_km,
+                    "rate_per_ton": shipment.rate_per_ton,
+                },
+                "booking_rates": {
+                    "rate": client_booking_shipment.quote,
+                    "rate_per_km": (client_booking_shipment.quote / shipment.distance),
+                    "rate_per_ton": (client_booking_shipment.quote / (shipment.minimum_weight_bracket / 1000)),
+                },
+                "platform_commission": {
+                    "commission_rate": client_booking_shipment.quote - shipment.shipment_rate,
+                    "commission_rate_per_km": (client_booking_shipment.quote - shipment.shipment_rate) / shipment.distance,
+                    "rate_per_ton": (client_booking_shipment.quote - shipment.shipment_rate) / (shipment.minimum_weight_bracket / 1000)),
+                }
+            },
+
+            "pickup_facility": {
+                "name": shipment.pickup_facility_name,
+                "address": shipment.origin_address,
+                "scheduling_type": shipment.pickup_scheduling_type,
+                "operating_hours": f"{shipment.pickup_start_time} - {shipment.pickup_end_time}",
+                "contact_person": f"{shipment.pickup_first_name} {shipment.pickup_last_name}",
+                "phone_number": shipment.pickup_phone_number,
+                "email": shipment.pickup_email,
+            },
+            "delivery_facility": {
+                "name": shipment.delivery_facility_name,
+                "address": shipment.destination_address,
+                "scheduling_type": shipment.delivery_scheduling_type,
+                "operating_hours": f"{shipment.delivery_start_time} - {shipment.delivery_end_time}",
+                "contact_person": f"{shipment.delivery_first_name} {shipment.delivery_last_name}",
+                "phone_number": shipment.delivery_phone_number,
+                "email": shipment.delivery_email,
+            },
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
