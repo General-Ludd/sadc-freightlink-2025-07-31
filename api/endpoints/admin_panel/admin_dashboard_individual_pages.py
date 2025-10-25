@@ -806,6 +806,27 @@ def admin_get_single_truck(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/admin/tracking/vehicle/{vehicle_id}")
+def admin_get_vehicle_location(vehicle_id: int, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    try:
+        vehicle = db.query(Vehicle).filter(Vehicle.id == vehicle_id).first()
+        if not vehicle:
+            raise HTTPException(status_code=404, detail="Vehicle not found")
+        
+        if vehicle.owner_id != user.company_id:
+            raise HTTPException(status_code=403, detail="Unauthorized to access this vehicle")
+
+        return {
+            "vehicle_location_data": {
+                "latitude": vehicle.latitude,
+                "longitude": vehicle.longitude,
+                "speed": vehicle.speed,
+                "heading": vehicle.heading,
+                "location_description": vehicle.location_description
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/admin/fleet-trailer/{id}")  # Tested
 def admin_get_single_trailer(
