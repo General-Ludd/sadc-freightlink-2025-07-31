@@ -807,15 +807,16 @@ def admin_get_single_truck(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/admin/tracking/vehicle/{vehicle_id}")
-def admin_get_vehicle_location(vehicle_id: int, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+def admin_get_vehicle_location(
+    vehicle_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_admin),
+):
     try:
         vehicle = db.query(Vehicle).filter(Vehicle.id == vehicle_id).first()
         if not vehicle:
             raise HTTPException(status_code=404, detail="Vehicle not found")
         
-        if vehicle.owner_id != user.company_id:
-            raise HTTPException(status_code=403, detail="Unauthorized to access this vehicle")
-
         return {
             "vehicle_location_data": {
                 "latitude": vehicle.latitude,
