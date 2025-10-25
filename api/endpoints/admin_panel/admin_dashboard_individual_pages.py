@@ -1291,7 +1291,7 @@ def admin_get_exchange_ftl_lane(
                     "carrier_per_slot_contract_bid": bid.per_shipment_bid_amount * loadboard_lane.each_slot_size if bid.per_shipment_bid_amount else None,
                     "shipper_per_shipment_bid": bid.baked_per_shipment_bid_amount,
                     "shipper_per_slot_contract_bid": bid.baked_contract_bid_amount,
-                    "platform_per_shipment_commission": (bid.per_shipment_bid_amount - bid.baked_per_shipment_bid_amount),
+                    "platform_per_shipment_commission": (bid.baked_per_shipment_bid_amount - bid.per_shipment_bid_amount),
                     "platform_per_slot_contract_bid": (bid.baked_contract_bid_amount - bid.contract_bid_amount),
                     "requested_slots": bid.requested_slots,
                     "bid_status": bid.status,
