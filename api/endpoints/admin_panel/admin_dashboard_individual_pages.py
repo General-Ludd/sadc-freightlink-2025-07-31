@@ -1145,8 +1145,8 @@ def admin_get_ftl_shipment_id(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/carrier/exchange-ftl-load/{id}")
-def get_exchange_ftl_load_id(
+@router.get("/admin/exchange-ftl-load/{id}")
+def admin_get_exchange_ftl_load_id(
     id: int,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_admin)
@@ -1233,8 +1233,8 @@ def get_exchange_ftl_load_id(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/carrier/exchange-ftl-lane/{id}")
-def exchange_ftl_lane(
+@router.get("/admin/exchange-ftl-lane/{id}")
+def admin_get_exchange_ftl_lane(
     id: int,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_admin),
