@@ -498,7 +498,7 @@ def admin_get_carrier_financial_account(
 def admin_get_driver_by_id(
     id: int,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_admin),
 ):
     try:
         # 1. Get the driver
