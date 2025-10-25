@@ -5,7 +5,7 @@ from db.database import SessionLocal
 from models.shipper import Corporation
 from models.user import Director, CarrierUser, Driver
 from models.carrier import Carrier
-from models.vehicle import Vehicle, Trailer, ShipperTrailer
+from models.vehicle import Vehicle, Vehicle_Schedule, Trailer, ShipperTrailer
 from models.brokerage.finance import FinancialAccounts, CarrierFinancialAccounts, Withdrawal_Request, Shipment_Invoice, Interim_Invoice, Invoices
 from models.spot_bookings.dedicated_lane_ftl_shipment import FTL_Lane
 from models.spot_bookings.ftl_shipment import FTL_SHIPMENT
