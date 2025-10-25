@@ -493,6 +493,551 @@ def admin_get_carrier_financial_account(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+@router.get("/admin/driver/{id}")
+def admin_get_driver_by_id(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    try:
+        # 1. Get the driver
+        driver = db.query(Driver).filter(Driver.id == id).first()
+        if not driver:
+            raise HTTPException(status_code=404, detail="Driver not found")
+
+        carrier = db.query(Carrier).filter(Carrier.id == driver.company_id).first()
+
+        # 2. Initialize
+        vehicle = None
+        shipment = None
+
+        # 3. Get driver's current vehicle (if exists)
+        if driver.current_vehicle_id:
+            vehicle = db.query(Vehicle).filter(Vehicle.id == driver.current_vehicle_id).first()
+
+            # 4. If vehicle has active shipment, fetch it
+            if vehicle and vehicle.current_shipment_id and vehicle.current_shipment_type:
+                if vehicle.current_shipment_type.upper() == "FTL":
+                    shipment = db.query(Assigned_Spot_Ftl_Shipments).filter(
+                        Assigned_Spot_Ftl_Shipments.id == vehicle.current_shipment_id
+                    ).first()
+                elif vehicle.current_shipment_type.upper() == "POWER":
+                    shipment = db.query(Assigned_Power_Shipments).filter(
+                        Assigned_Power_Shipments.id == vehicle.current_shipment_id
+                    ).first()
+
+        return {
+            "driver_information": {
+                "id": driver.id,
+                "first_name": driver.first_name,
+                "last_name": driver.last_name,
+                "nationality": driver.nationality,
+                "id_number": driver.id_number,
+                "license_number": driver.license_number,
+                "license_expiry_date": driver.license_expiry_date,
+                "prdp_number": driver.prdp_number,
+                "prdp_expiry_date": driver.prdp_expiry_date,
+                "passport_number": driver.passport_number,
+                "address": driver.address,
+                "email": driver.email,
+                "phone_number": driver.phone_number,
+                "company_id": driver.company_id,
+                "company_name": driver.company_name,
+                "company_type": driver.company_type,
+                "current_vehicle_id": driver.current_vehicle_id,
+                "id_document": driver.id_document,
+                "license_document": driver.license_document,
+                "prdp_document": driver.prdp_document,
+                "passport_document": driver.passport_document,
+                "proof_of_address": driver.proof_of_address,
+                "is_verified": driver.is_verified,
+                "status": driver.status,
+                "service_status": driver.service_status,
+                "total_shipments_completed": driver.total_shipments_completed,
+                "total_distance_driven": driver.total_distance_driven
+            },
+            "assigned_vehicle_information": {
+                "id": vehicle.id,
+                "verification_status": vehicle.is_verified,
+                "status": vehicle.status,
+                "make": vehicle.make,
+                "model": vehicle.model,
+                "year": vehicle.year,
+                "color": vehicle.color,
+                "vin": vehicle.vin,
+                "license_plate": vehicle.license_plate,
+                "license_expiry_date": vehicle.license_expiry_date,
+                "type": vehicle.type,
+                "equipment_type": vehicle.equipment_type,
+                "trailer_type": vehicle.trailer_type,
+                "trailer_length": vehicle.trailer_length,
+                "tare_weight": vehicle.tare_weight,
+                "gvm_weight": vehicle.gvm_weight,
+                "payload_capacity": vehicle.payload_capacity,
+            } if vehicle else None,
+            "current_shipment_information": {
+                "id": shipment.id,
+                "status": shipment.status,
+                "trip_status": shipment.trip_status,
+                "type": shipment.type,
+                "trip_type": shipment.trip_type,
+                "load_type": shipment.load_type,
+                "origin": shipment.origin_city_province,
+                "destination": shipment.destination_city_province,
+                "pickup_date": shipment.pickup_date,
+                "distance": shipment.distance,
+                "minimum_transit_time": shipment.estimated_transit_time,
+                "shipment_weight": shipment.shipment_weight,
+                "temperature_control": shipment.temperature_control,
+            } if shipment else None,
+            "carrier_company_information": {
+                "company_id": carrier.id,
+                "type": carrier.type,
+                "legal_business_name": carrier.legal_business_name,
+                "country_of_incorporation": carrier.country_of_incorporation,
+                "business_registration_number": carrier.business_registration_number,
+                "git_policy_insurer": carrier.name_of_git_cover_insurance_company,
+                "git_insurance_policy_number": carrier.git_insurance_policy_number,
+                "git_cover_amount": carrier.git_cover_amount,
+                "liability_policy_insurer": carrier.name_of_liability_cover_insurance_company,
+                "liability_insurance_policy_number": carrier.liability_insurance_policy_number,
+                "liability_cover_amount": carrier.liability_insurance_cover_amount,
+                "business_address": carrier.business_address,
+                "business_email": carrier.business_email,
+                "business_phone_number": carrier.business_phone_number,
+                "number_of_vehicles": carrier.number_of_vehicles,
+                "number_of_trailers": carrier.number_of_trailers,
+                "number_of_drivers": carrier.number_of_drivers,
+                "number_of_completed_shipments": carrier.number_of_completed_shipments,
+                "number_of_completed_lanes": carrier.number_of_completed_dedicated_lanes,
+                "number_of_in_progress_lane": carrier.number_of_ongoing_dedicated_lanes,
+                "rating": carrier.rating,
+                "verification_status": carrier.is_verified,
+                "status": carrier.status,
+                "created_at": carrier.created_at,
+                "updated_at": carrier.updated_at,
+                "company_documents": {
+                    "business_registration_certificate": carrier.business_registration_certificate,
+                    "git_insurance_certificate": carrier.git_insurance_certificate,
+                    "business_proof_of_address": carrier.proof_of_address,
+                    "liability_insurance_certificate": carrier.liability_insurance_certificate,
+                },
+            },
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/admin/vehicle/{id}") # Tested
+def admin_get_single_truck(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_admin),
+):
+    try:
+        truck = db.query(Vehicle).filter(
+            Vehicle.id == id
+        ).first()
+        if not truck:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Truck with ID {id} not found or not authorized"
+            )
+
+        carrier = db.query(Carrier).filter(Carrier.id == truck.owner_id).first()
+
+        vehicle_schedules = db.query(Vehicle_Schedule).filter(
+            Vehicle_Schedule.vehicle_id == truck.id,
+            Vehicle_Schedule.past == False
+        ).all()
+
+        trailer = None
+        if truck.trailer_id:
+            trailer = db.query(Trailer).filter(Trailer.id == truck.trailer_id).first()
+
+        driver = None
+        if truck.primary_driver_id:
+            driver = db.query(Driver).filter(Driver.id == truck.primary_driver_id).first()
+
+        shipment = None
+        if truck.current_shipment_id and truck.current_shipment_type:
+            if truck.current_shipment_type.lower() == "ftl":
+                shipment = db.query(Assigned_Spot_Ftl_Shipments).filter(
+                    Assigned_Spot_Ftl_Shipments.shipment_id == truck.current_shipment_id
+                ).first()
+            elif truck.current_shipment_type.lower() == "power":
+                shipment = db.query(Assigned_Power_Shipments).filter(
+                    Assigned_Power_Shipments.shipment_id == truck.current_shipment_id
+                ).first()
+
+        return {
+            "vehicle_information": {
+                "id": truck.id,
+                "verification_status": truck.is_verified,
+                "status": truck.status,
+                "availability_status": truck.service_status,
+                "type": truck.type,
+                "axle_configuration": truck.axle_configuration,
+                "equipment_type": truck.equipment_type,
+                "trailer_type": truck.trailer_type or "N/A",
+                "trailer_length": truck.trailer_length or "N/A",
+                "make": truck.make,
+                "model": truck.model,
+                "year": truck.year,
+                "color": truck.color,
+                "license_plate": truck.license_plate,
+                "license_expiry_date": truck.license_expiry_date,
+                "tare_weight": truck.tare_weight,
+                "gvm_weight": truck.gvm_weight,
+                "payload_capacity": truck.payload_capacity,
+            },
+            "tracker_details": {
+                "tracker_company_name": truck.tracker_providers_name,
+                "tracker_company_country": truck.tracker_providers_country,
+                "tracker_device_id": truck.tracker_id,
+                "tracking_account_login_username": truck.tracker_login_username,
+                "tracking_account_login_password": truck.tracker_login_password,
+            },
+            "vehicle_documents": {
+                "vehicle_registration_or_leasing_certificate": truck.vrc_or_leasing,
+                "vehicle_license_disc": truck.vehicle_license_disk,
+                "vehicle_roadworthy_certificate": truck.vehicle_road_worthy_certificate,
+                "vehicle_tracking_certificate": truck.vehicle_tracking_certificate,
+            },
+            "vehicle_images": {
+                "front_angle": truck.front_angle_image,
+                "rear_angle": truck.rear_angle_image,
+                "left_angle": truck.left_angle_image,
+                "right_angle": truck.right_angle_image,
+            },
+            "vehicle_schedule": [{
+                "shipment_id": schedule.shipment_id,
+                "shipment_type": schedule.shipment_type,
+                "status": schedule.status,
+                "origin": schedule.origin,
+                "destination": schedule.destination,
+                "pickup_date": schedule.pickup_date,
+                "pickup_appointment": schedule.pickup_appointment,
+                "eta": schedule.eta_date,
+                "distance": schedule.distance,
+                "rate": schedule.rate,
+            } for schedule in vehicle_schedules],
+            "trailer_information": {
+                "id": trailer.id if trailer else "N/A",
+                "verification_status": trailer.is_verified if trailer else "N/A",
+                "status": trailer.status if trailer else "N/A",
+                "make": trailer.make if trailer else "N/A",
+                "model": trailer.model if trailer else "N/A",
+                "year": trailer.year if trailer else "N/A",
+                "color": trailer.color if trailer else "N/A",
+                "equipment_type": trailer.equipment_type if trailer else "N/A",
+                "trailer_type": trailer.trailer_type if trailer else "N/A",
+                "trailer_length": trailer.trailer_length if trailer else "N/A",
+                "license_plate": trailer.license_plate if trailer else "N/A",
+                "license_expiry_date": trailer.license_expiry_date if trailer else "N/A",
+                "tare_weight": trailer.tare_weight if trailer else "N/A",
+                "gvm_weight": trailer.gvm_weight if trailer else "N/A",
+                "payload_capacity": trailer.payload_capacity if trailer else "N/A",
+            },
+            "driver_information": {
+                "id": driver.id if driver else "N/A",
+                "verification_status": driver.is_verified if driver else "N/A",
+                "status": driver.status if driver else "N/A",
+                "first_name": driver.first_name if driver else "N/A",
+                "last_name": driver.last_name if driver else "N/A",
+                "nationality": driver.nationality if driver else "N/A",
+                "id_number": driver.id_number if driver else "N/A",
+                "phone_number": driver.phone_number if driver else "N/A",
+                "email": driver.email if driver else "N/A",
+                "license_number": driver.license_number if driver else "N/A",
+                "license_expiry_date": driver.license_expiry_date if driver else "N/A",
+                "distance_driven": driver.total_distance_driven if driver else "N/A",
+                "total_shipments_fulfilled": driver.total_shipments_completed if driver else "N/A",
+            },
+            "current_shipment_information": {
+                "id": shipment.shipment_id if shipment else "N/A",
+                "status": shipment.status if shipment else "N/A",
+                "trip_status": shipment.trip_status if shipment else "N/A",
+                "type": shipment.type if shipment else "N/A",
+                "origin": shipment.origin_city_province if shipment else "N/A",
+                "destination": shipment.destination_city_province if shipment else "N/A",
+                "pickup_date": shipment.pickup_date if shipment else "N/A",
+                "distance": shipment.distance if shipment else "N/A",
+                "estimated_transit_time": shipment.estimated_transit_time if shipment else "N/A",
+                "rate_per_km": shipment.rate_per_km if shipment else "N/A",
+                "rate_per_ton": shipment.rate_per_ton if shipment else "N/A",
+            },
+            "carrier_company_information": {
+                "company_id": carrier.id,
+                "type": carrier.type,
+                "legal_business_name": carrier.legal_business_name,
+                "country_of_incorporation": carrier.country_of_incorporation,
+                "business_registration_number": carrier.business_registration_number,
+                "git_policy_insurer": carrier.name_of_git_cover_insurance_company,
+                "git_insurance_policy_number": carrier.git_insurance_policy_number,
+                "git_cover_amount": carrier.git_cover_amount,
+                "liability_policy_insurer": carrier.name_of_liability_cover_insurance_company,
+                "liability_insurance_policy_number": carrier.liability_insurance_policy_number,
+                "liability_cover_amount": carrier.liability_insurance_cover_amount,
+                "business_address": carrier.business_address,
+                "business_email": carrier.business_email,
+                "business_phone_number": carrier.business_phone_number,
+                "number_of_vehicles": carrier.number_of_vehicles,
+                "number_of_trailers": carrier.number_of_trailers,
+                "number_of_drivers": carrier.number_of_drivers,
+                "number_of_completed_shipments": carrier.number_of_completed_shipments,
+                "number_of_completed_lanes": carrier.number_of_completed_dedicated_lanes,
+                "number_of_in_progress_lane": carrier.number_of_ongoing_dedicated_lanes,
+                "rating": carrier.rating,
+                "verification_status": carrier.is_verified,
+                "status": carrier.status,
+                "created_at": carrier.created_at,
+                "updated_at": carrier.updated_at,
+                "company_documents": {
+                    "business_registration_certificate": carrier.business_registration_certificate,
+                    "git_insurance_certificate": carrier.git_insurance_certificate,
+                    "business_proof_of_address": carrier.proof_of_address,
+                    "liability_insurance_certificate": carrier.liability_insurance_certificate,
+                },
+            },
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/admin/fleet-trailer/{id}")  # Tested
+def admin_get_single_trailer(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_admin),
+):
+    try:
+        # Fetch trailer
+        trailer = db.query(Trailer).filter(
+            Trailer.id == id
+        ).first()
+
+        carrier = db.query(Carrier).filter(Carrier.id == trailer.owner_id).first()
+
+        if not trailer:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Trailer with ID {id} not found or not authorized"
+            )
+
+        # Fetch assigned truck if available
+        truck = None
+        if trailer.truck_id:
+            truck = db.query(Vehicle).filter(Vehicle.id == trailer.truck_id).first()
+
+        return {
+            "trailer_information": {
+                "id": trailer.id,
+                "verification_status": trailer.is_verified,
+                "status": trailer.status,
+                "make": trailer.make,
+                "model": trailer.model,
+                "year": trailer.year,
+                "color": trailer.color,
+                "vin": trailer.vin,
+                "license_plate": trailer.license_plate,
+                "license_expiry_date": trailer.license_expiry_date,
+                "equipment_type": trailer.equipment_type,
+                "trailer_type": trailer.trailer_type,
+                "trailer_length": trailer.trailer_length,
+                "tare_weight": trailer.tare_weight,
+                "gvm_weight": trailer.gvm_weight,
+                "payload_capacity": trailer.payload_capacity,
+                "current_truck_id": trailer.truck_id
+            },
+            "trailer_documents": {
+                "registration_certificate_or_leasing_certificate": trailer.vrc_leasing,
+                "license_disc": trailer.license_disk,
+                "roadworthy_certificate": trailer.road_worthy_certificate,
+            },
+            "trailer_images": {
+                "front_angle": trailer.front_angle_image,
+                "rear_angle": trailer.rear_angle_image,
+                "left_angle": trailer.left_angle_image,
+                "right_angle": trailer.right_angle_image,
+            },
+            "assigned_vehicle_information": (
+                {
+                    "id": truck.id,
+                    "verification_status": truck.is_verified,
+                    "status": truck.status,
+                    "type": truck.type,
+                    "axle_configuration": truck.axle_configuration,
+                    "make": truck.make,
+                    "model": truck.model,
+                    "year": truck.year,
+                    "color": truck.color,
+                    "vin": truck.vin,
+                    "license_plate": truck.license_plate,
+                    "license_expiry_date": truck.license_expiry_date,
+                    "tare_weight": truck.tare_weight,
+                    "gvm_weight": truck.gvm_weight,
+                    "payload_capacity": truck.payload_capacity
+                }
+                if truck else None
+            ),
+            "carrier_company_information": {
+                "company_id": carrier.id,
+                "type": carrier.type,
+                "legal_business_name": carrier.legal_business_name,
+                "country_of_incorporation": carrier.country_of_incorporation,
+                "business_registration_number": carrier.business_registration_number,
+                "git_policy_insurer": carrier.name_of_git_cover_insurance_company,
+                "git_insurance_policy_number": carrier.git_insurance_policy_number,
+                "git_cover_amount": carrier.git_cover_amount,
+                "liability_policy_insurer": carrier.name_of_liability_cover_insurance_company,
+                "liability_insurance_policy_number": carrier.liability_insurance_policy_number,
+                "liability_cover_amount": carrier.liability_insurance_cover_amount,
+                "business_address": carrier.business_address,
+                "business_email": carrier.business_email,
+                "business_phone_number": carrier.business_phone_number,
+                "number_of_vehicles": carrier.number_of_vehicles,
+                "number_of_trailers": carrier.number_of_trailers,
+                "number_of_drivers": carrier.number_of_drivers,
+                "number_of_completed_shipments": carrier.number_of_completed_shipments,
+                "number_of_completed_lanes": carrier.number_of_completed_dedicated_lanes,
+                "number_of_in_progress_lane": carrier.number_of_ongoing_dedicated_lanes,
+                "rating": carrier.rating,
+                "verification_status": carrier.is_verified,
+                "status": carrier.status,
+                "created_at": carrier.created_at,
+                "updated_at": carrier.updated_at,
+                "company_documents": {
+                    "business_registration_certificate": carrier.business_registration_certificate,
+                    "git_insurance_certificate": carrier.git_insurance_certificate,
+                    "business_proof_of_address": carrier.proof_of_address,
+                    "liability_insurance_certificate": carrier.liability_insurance_certificate,
+                },
+            },
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/shipper-trailer/{id}")  # Tested
+def admin_get_single_shipper_trailer(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_admin),
+):
+    try:
+        trailer = db.query(ShipperTrailer).filter(
+            ShipperTrailer.id == id
+        ).first()
+
+        shipper_company = db.query(Corporation).filter(Corporation.id == trailer.owner_id).first()
+
+        if not trailer:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Trailer with ID {id} not found or User not authorized"
+            )
+
+        # --- Truck lookup ---
+        truck = None
+        if trailer.truck_id:
+            truck = db.query(Vehicle).filter(Vehicle.id == trailer.truck_id).first()
+
+        # --- Shipment lookup ---
+        shipment = None
+        if truck and truck.current_shipment_id:
+            if truck.current_shipment_type == "FTL":
+                shipment = db.query(FTL_SHIPMENT).filter(
+                    FTL_SHIPMENT.id == truck.current_shipment_id
+                ).first()
+            else:
+                shipment = db.query(POWER_SHIPMENT).filter(
+                    POWER_SHIPMENT.id == truck.current_shipment_id
+                ).first()
+
+        return {
+            "trailer_information": {
+                "id": trailer.id,
+                "owned_by": f"SADC FREIGHTLINK Client-{trailer.owner_id}",
+                "make": trailer.make,
+                "model": trailer.model,
+                "year": trailer.year,
+                "color": trailer.color,
+                "vin": trailer.vin,
+                "license_plate": trailer.license_plate,
+                "license_expiry_date": trailer.license_expiry_date,
+                "tare_weight": trailer.tare_weight,
+                "gvm_weight": trailer.gvm_weight,
+                "equipment_type": trailer.equipment_type,
+                "trailer_length": trailer.trailer_length,
+                "trailer_type": trailer.trailer_type,
+                "connected_truck_id": trailer.truck_id or "N/A"
+            },
+
+            "trailer_documents": {
+                "registration_certificate": trailer.vrc_leasing,
+                "license_disc": trailer.license_disk,
+                "road_worthy_certificate": trailer.road_worthy_certificate
+            },
+
+            "trailer_pictures": {
+                "front_angle_image": trailer.front_angle_image,
+                "rear_angle_image": trailer.rear_angle_image,
+                "left_angle_image": trailer.left_angle_image,
+                "right_angle_image": trailer.right_angle_image
+            },
+
+            "attached_truck_information": {
+                "truck_id": truck.id if truck else "N/A",
+                "verification_status": truck.is_verified if truck else "N/A",
+                "owned_by": f"SADC FREIGHTLINK Carrier-{truck.owner_id}" if truck else "N/A",
+                "make": truck.make if truck else "N/A",
+                "model": truck.model if truck else "N/A",
+                "year": truck.year if truck else "N/A",
+                "color": truck.color if truck else "N/A",
+                "vin": truck.vin if truck else "N/A",
+                "license_plate": truck.license_plate if truck else "N/A",
+                "license_expiry_date": truck.license_expiry_date if truck else "N/A",
+                "tare_weight": truck.tare_weight if truck else "N/A",
+                "gvm_weight": truck.gvm_weight if truck else "N/A",
+                "payload_capacity": truck.payload_capacity if truck else "N/A",
+                "last_known_location": truck.location_description if truck else "N/A",
+            },
+
+            "current_shipment_information": {
+                "shipment_id": shipment.id if shipment else "N/A",
+                "shipment_status": shipment.shipment_status if shipment else "N/A",
+                "origin": shipment.origin_city_province if shipment else "N/A",
+                "destination": shipment.destination_city_province if shipment else "N/A"
+            },
+            "company_information": {
+                "company_id": shipper_company.id,
+                "type": shipper_company.type,
+                "legal_business_name": shipper_company.legal_business_name,
+                "country_of_incorporation": shipper_company.country_of_incorporation,
+                "business_registration_number": shipper_company.business_registration_number,
+                "business_address": shipper_company.business_address,
+                "business_email": shipper_company.business_email,
+                "business_phone_number": shipper_company.business_phone_number,
+                "is_verified": shipper_company.is_verified,
+                "status": shipper_company.status,
+                "created_at": shipper_company.created_at,
+                "updated_at": shipper_company.updated_at,
+                "company_documents": {
+                    "business_registration_certificate": shipper_company.business_registration_certificate,
+                    "business_proof_of_address": shipper_company.business_proof_of_address,
+                    "tax_clearance_certificate": shipper_company.tax_clearance_certificate
+                }
+            },
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/admin/spot-ftl-loadboard/{id}")
 def admin_get_ftl_shipment_id(
     id: int,
@@ -579,7 +1124,7 @@ def admin_get_ftl_shipment_id(
 
 
 @router.get("/admin/spot-ftl-lane-loadboard/{id}")
-def get_individual_loadboard_ftl_lane(
+def admin_get_individual_loadboard_ftl_lane(
     id: int,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_admin),
