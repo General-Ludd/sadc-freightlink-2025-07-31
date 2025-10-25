@@ -11,6 +11,7 @@ from models.spot_bookings.dedicated_lane_ftl_shipment import FTL_Lane
 from models.spot_bookings.ftl_shipment import FTL_SHIPMENT
 from models.spot_bookings.power_shipment import POWER_SHIPMENT
 from models.brokerage.loadboard import Ftl_Load_Board, Power_Load_Board, Dedicated_lanes_LoadBoard
+from models.Exchange.auction import Exchange_FTL_Shipment_Bid, Exchange_FTL_Lane_Bid, Exchange_POWER_Shipment_Bid
 from models.brokerage.loadboards.exchange_loadboards import Exchange_Ftl_Load_Board, Exchange_Ftl_Lane_LoadBoard
 from models.brokerage.assigned_lanes import Assigned_Ftl_Lanes
 from models.brokerage.assigned_shipments import Assigned_Spot_Ftl_Shipments, Assigned_Power_Shipments
@@ -1141,6 +1142,198 @@ def admin_get_ftl_shipment_id(
                 "email": shipment.delivery_email,
             },
         }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/carrier/exchange-ftl-load/{id}")
+def get_exchange_ftl_load_id(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_admin)
+):
+    try:
+        loadboard_shipment = db.query(Exchange_Ftl_Load_Board).filter(Exchange_Ftl_Load_Board.exchange_id == id).first()
+        bids = db.query(Exchange_FTL_Shipment_Bid).filter(Exchange_FTL_Shipment_Bid.exchange_id == loadboard_shipment.exchange_id).all()
+
+        return {
+            "ftl_exchange": {
+                "id": loadboard_shipment.exchange_id,
+                "shipment_type": loadboard_shipment.type,
+                "trip_type": loadboard_shipment.trip_type,
+                "load_type": loadboard_shipment.load_type,
+                "required_truck_type": loadboard_shipment.required_truck_type,
+                "equipment_type": loadboard_shipment.equipment_type,
+                "trailer_type": loadboard_shipment.trailer_type,
+                "trailer_length": loadboard_shipment.trailer_length,
+                "minimum_weight_bracket": loadboard_shipment.minimum_weight_bracket,
+                "shipment_weight": loadboard_shipment.shipment_weight,
+                "commodity": loadboard_shipment.commodity,
+                "distance": loadboard_shipment.distance,
+                "estimated_transit_time": loadboard_shipment.estimated_transit_time,
+                "origin": loadboard_shipment.origin_city_province,
+                "destination": loadboard_shipment.destination_city_province,
+                "route_preview_embed": loadboard_shipment.route_preview_embed,
+                "pickup_date": loadboard_shipment.pickup_date,
+                "priority_level": loadboard_shipment.priority_level,
+                "customer_reference": loadboard_shipment.customer_reference_number,
+                "payment_terms": loadboard_shipment.payment_terms,
+                "minimum_git_cover_amount": loadboard_shipment.minimum_git_cover_amount,
+                "minimum_liability_cover_amount": loadboard_shipment.minimum_liability_cover_amount,
+                "packaging_quantity": loadboard_shipment.packaging_quantity,
+                "packaging_type": loadboard_shipment.packaging_type,
+                "temperature_control": loadboard_shipment.temperature_control,
+                "hazardous_materials": loadboard_shipment.hazardous_materials,
+                "pickup_number": loadboard_shipment.pickup_number,
+                "pickup_notes": loadboard_shipment.pickup_notes,
+                "delivery_number": loadboard_shipment.delivery_number,
+                "delivery_notes": loadboard_shipment.delivery_notes,
+                "allow_booking": loadboard_shipment.automatically_accept_lower_bid,
+                "end_time": loadboard_shipment.exchange_end_time,
+
+                "exchange_information": {
+                    "exchange_offer": loadboard_shipment.shipment_rate,
+                    "leading_bid": loadboard_shipment.leading_bid_amount,
+                    "payment_terms": loadboard_shipment.payment_terms,
+                    "rate_per_km": loadboard_shipment.rate_per_km,
+                    "rate_per_ton": loadboard_shipment.rate_per_ton,
+                    "bids": [{
+                        "carrier_bid_amount": bid.bid_amount,
+                        "shipper_baked_amount": bid.baked_bid_amount,
+                        "platform_bid_commission": (bid.baked_bid_amount - bid.bid_amount),
+                        "bid_status": bid.status,
+                        "submitted_at": bid.submitted_at,
+                    } for bid in bids]
+                },
+
+                "pickup_facility": {
+                    "facility_name": loadboard_shipment.pickup_facility_name,
+                    "pickup_date": loadboard_shipment.pickup_date,
+                    "time_window": loadboard_shipment.pickup_appointment,
+                    "scheduling_type": loadboard_shipment.pickup_scheduling_type,
+                    "contact_name": f"{loadboard_shipment.pickup_first_name} - {loadboard_shipment.pickup_last_name}",
+                    "email": loadboard_shipment.pickup_email,
+                    "contact_phone": loadboard_shipment.pickup_phone_number,
+                    "notes": loadboard_shipment.pickup_notes,
+                },
+
+                "delivery_facility": {
+                    "facility_name": loadboard_shipment.delivery_facility_name,
+                    "eta_date": loadboard_shipment.eta_date,
+                    "time_window": loadboard_shipment.delivery_appointment,
+                    "eta_window": loadboard_shipment.eta_window,
+                    "scheduling_type": loadboard_shipment.delivery_scheduling_type,
+                    "contact_name": f"{loadboard_shipment.delivery_first_name} - {loadboard_shipment.delivery_last_name}",
+                    "email": loadboard_shipment.delivery_email,
+                    "contact_phone": loadboard_shipment.delivery_phone_number,
+                    "notes": loadboard_shipment.delivery_notes,
+                }
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/carrier/exchange-ftl-lane/{id}")
+def exchange_ftl_lane(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_admin),
+):
+    try:
+        loadboard_lane = db.query(Exchange_Ftl_Lane_LoadBoard).filter(Exchange_Ftl_Lane_LoadBoard.exchange_id == id).first()
+        bids = db.query(Exchange_FTL_Lane_Bid).filter(Exchange_FTL_Lane_Bid.exchange_id == loadboard_lane.exchange_id).all()
+
+        return {
+            "lane_information":{
+                "id": loadboard_lane.exchange_id,
+                "shipment_type": loadboard_lane.type,
+                "trip_type": loadboard_lane.trip_type,
+                "load_type": loadboard_lane.load_type,
+                "required_truck_type": loadboard_lane.required_truck_type,
+                "equipment_type": loadboard_lane.equipment_type,
+                "trailer_type": loadboard_lane.trailer_type,
+                "trailer_length": loadboard_lane.trailer_length,
+                "minimum_weight_bracket": loadboard_lane.minimum_weight_bracket,
+                "average_shipment_weight": loadboard_lane.average_shipment_weight,
+                "commodity": loadboard_lane.commodity,
+                "priority_level": loadboard_lane.priority_level,
+                "customer_reference": loadboard_lane.customer_reference_number,
+                "distance": loadboard_lane.distance,
+                "estimated_transit_time": loadboard_lane.estimated_transit_time,
+                "payment_terms": loadboard_lane.payment_terms,
+                "route_preview_embed": loadboard_lane.route_preview_embed,
+                "minimum_git_cover_amount": loadboard_lane.minimum_git_cover_amount,
+                "minimum_liability_cover_amount": loadboard_lane.minimum_liability_cover_amount,
+                "packaging_quantity": loadboard_lane.packaging_quantity,
+                "packaging_type": loadboard_lane.packaging_type,
+                "temperature_control": loadboard_lane.temperature_control,
+                "hazardous_materials": loadboard_lane.hazardous_materials,
+                "origin": loadboard_lane.origin_city_province,
+                "destination": loadboard_lane.destination_city_province,
+                "pickup_number": loadboard_lane.pickup_number,
+                "delivery_number": loadboard_lane.delivery_number,
+                "pickup_notes": loadboard_lane.pickup_notes,
+                "delivery_notes": loadboard_lane.delivery_notes,
+                "allow_booking": loadboard_lane.automatically_accept_lower_bid,
+                "auction_status": loadboard_lane.status,
+
+                "exchange_information": {
+                    "per_shipment_offer_rate": loadboard_lane.per_shipment_offer_rate,
+                    "per_slot_contract_offer_rate": loadboard_lane.contract_offer_rate / loadboard_lane.shipments_per_interval,
+                    "per_shipment_leading_bid": loadboard_lane.leading_per_shipment_offer_bid_amount,
+                    "per_slot_contract_leading_bid": loadboard_lane.leading_per_shipment_offer_bid_amount * loadboard_lane.each_slot_size if loadboard_lane.leading_per_shipment_offer_bid_amount else None,
+                    "active_bidders": loadboard_lane.number_of_bids_submitted,
+                    "auction_end_time": loadboard_lane.exchange_end_time,
+                
+                "bids": [{
+                    "bid_id": bid.id,
+                    "carrier_per_shipment_bid": bid.per_shipment_bid_amount,
+                    "carrier_per_slot_contract_bid": bid.per_shipment_bid_amount * loadboard_lane.each_slot_size if bid.per_shipment_bid_amount else None,
+                    "shipper_per_shipment_bid": bid.baked_per_shipment_bid_amount,
+                    "shipper_per_slot_contract_bid": bid.baked_contract_bid_amount,
+                    "platform_per_shipment_commission": (bid.per_shipment_bid_amount - bid.baked_per_shipment_bid_amount),
+                    "platform_per_slot_contract_bid": (bid.baked_contract_bid_amount - bid.contract_bid_amount),
+                    "requested_slots": bid.requested_slots,
+                    "bid_status": bid.status,
+                    "submitted_at": bid.submitted_at,
+                } for bid in bids]
+                },
+
+                "contract_details": {
+                    "contract_start_date": loadboard_lane.start_date,
+                    "contract_end_date": loadboard_lane.end_date,
+                    "recurrence_frequency": loadboard_lane.recurrence_frequency,
+                    "recurrence_days": loadboard_lane.recurrence_days,
+                    "slots_per_interval": loadboard_lane.shipments_per_interval,
+                    "available_slots": loadboard_lane.available_slots,
+                    "total_shipments_per_slot": loadboard_lane.total_shipments / loadboard_lane.shipments_per_interval,
+                    "payment_terms": loadboard_lane.payment_terms,
+                    "shipment_schedule": loadboard_lane.shipment_dates,
+                    "payment_schedule": loadboard_lane.payment_dates,
+                },
+
+                "pickup_facility": {
+                    "facility_name": loadboard_lane.pickup_facility_name,
+                    "time_window": loadboard_lane.pickup_appointment,
+                    "scheduling_type": loadboard_lane.pickup_scheduling_type,
+                    "contact_name": f"{loadboard_lane.pickup_first_name} - {loadboard_lane.pickup_last_name}",
+                    "email": loadboard_lane.pickup_email,
+                    "contact_phone": loadboard_lane.pickup_phone_number,
+                    "notes": loadboard_lane.pickup_notes,
+                },
+
+                "delivery_facility": {
+                    "facility_name": loadboard_lane.delivery_facility_name,
+                    "time_window": loadboard_lane.delivery_appointment,
+                    "scheduling_type": loadboard_lane.delivery_scheduling_type,
+                    "contact_name": f"{loadboard_lane.delivery_first_name} - {loadboard_lane.delivery_last_name}",
+                    "email": loadboard_lane.delivery_email,
+                    "contact_phone": loadboard_lane.delivery_phone_number,
+                    "notes": loadboard_lane.delivery_notes,
+                }
+            }
+        }
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
