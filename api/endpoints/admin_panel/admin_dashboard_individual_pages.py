@@ -922,7 +922,7 @@ def admin_get_single_trailer(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/shipper-trailer/{id}")  # Tested
+@router.get("/admin/shipper-trailer/{id}")  # Tested
 def admin_get_single_shipper_trailer(
     id: int,
     db: Session = Depends(get_db),
