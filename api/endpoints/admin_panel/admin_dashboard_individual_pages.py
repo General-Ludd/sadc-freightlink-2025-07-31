@@ -94,7 +94,6 @@ def admin_get_shipper_company_id(
                     "bank_statement": financial_account.bank_statement,
                     "tax_clearance_certificate": financial_account.tax_clearance_certificate,
                     "business_credit_score_report": financial_account.business_credit_score_report,
-                    "audited_financial_statements": financial_account.audited_financial_statements,
                     "surityship": financial_account.suretyship
                 }
             },
