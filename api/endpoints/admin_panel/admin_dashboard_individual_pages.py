@@ -118,7 +118,7 @@ def admin_get_shipper_company_id(
                         "origin": ftl_shipment.origin_city_province,
                         "destination": ftl_shipment.destination_city_province,
                         "distance": ftl_shipment.distance,
-                        "status": ftl_shipment.status,
+                        "status": ftl_shipment.shipment_status,
                         "required_truck_type": ftl_shipment.required_truck_type,
                         "equipment_type": ftl_shipment.equipment_type,
                         "trailer_type": ftl_shipment.trailer_type if ftl_shipment.trailer_type else None,
@@ -126,7 +126,7 @@ def admin_get_shipper_company_id(
                         "weight_bracket": ftl_shipment.minimum_weight_bracket,
                         "shipment_weight": ftl_shipment.shipment_weight,
                         "hazardous_materials": ftl_shipment.hazardous_materials,
-                        "rate": ftl_shipment.shipment_rate
+                        "rate": ftl_shipment.quote
                     } for ftl_shipment in ftl_shipments],
 
                     "power_shipments": [{
@@ -139,7 +139,7 @@ def admin_get_shipper_company_id(
                         "axle_configuration": power_shipment.axle_configuration,
                         "weight_bracket": power_shipment.minimum_weight_bracket,
                         "shipment_weight": power_shipment.shipment_weight,
-                        "rate": power_shipment.shipment_rate
+                        "rate": power_shipment.quote
                     } for power_shipment in power_shipments],
                 },
                 "lanes": {
@@ -158,8 +158,8 @@ def admin_get_shipper_company_id(
                         "recurrence_days": ftl_lane.recurrence_days,
                         "shipments_per_interval": ftl_lane.shipments_per_interval,
                         "total_shipments": ftl_lane.total_shipments,
-                        "per_shipment_rate": ftl_lane.rate_per_shipment,
-                        "contract_rate": ftl_lane.contract_rate
+                        "per_shipment_rate": ftl_lane.qoute_per_shipment,
+                        "contract_rate": ftl_lane.contract_quote
                     } for ftl_lane in ftl_lanes],
                 },
             },
