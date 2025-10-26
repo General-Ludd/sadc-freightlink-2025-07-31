@@ -114,7 +114,7 @@ def admin_get_shipper_company_id(
             "activity": {
                 "shipments": {
                     "ftl_shipments": [{
-                        "id": ftl_shipment.shipment_id,
+                        "id": ftl_shipment.id,
                         "origin": ftl_shipment.origin_city_province,
                         "destination": ftl_shipment.destination_city_province,
                         "distance": ftl_shipment.distance,
@@ -130,7 +130,7 @@ def admin_get_shipper_company_id(
                     } for ftl_shipment in ftl_shipments],
 
                     "power_shipments": [{
-                        "id": power_shipment.shipment_id,
+                        "id": power_shipment.id,
                         "origin": power_shipment.origin_city_province,
                         "destination": power_shipment.destination_city_province,
                         "distance": power_shipment.distance,
@@ -144,7 +144,7 @@ def admin_get_shipper_company_id(
                 },
                 "lanes": {
                     "ftl_lanes": [{
-                        "id": ftl_lane.lane_id,
+                        "id": ftl_lane.id,
                         "origin": ftl_lane.origin_city_province,
                         "destination": ftl_lane.destination_city_province,
                         "distance": ftl_lane.distance,
