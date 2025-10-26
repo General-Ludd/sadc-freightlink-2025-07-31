@@ -40,6 +40,10 @@ def admin_get_shipper_company_id(
         shipper_company = db.query(Corporation).filter(Corporation.id == id).first()
         financial_account = db.query(FinancialAccounts).filter(FinancialAccounts.id == shipper_company.id).first()
         shipper_users = db.query(Director).filter(Director.company_id == shipper_company.id).all()
+        ftl_shipments = db.query(FTL_SHIPMENT).filter(FTL_SHIPMENT.shipper_company_id == shipper_company.id).all()
+        power_shipments = db.query(POWER_SHIPMENT).filter(POWER_SHIPMENT.shipper_company_id == shipper_company.id).all()
+        ftl_lanes = db.query(FTL_Lane).filter(FTL_Lane.shipper_company_id == shipper_company.id).all()
+
         
         return {
             "company_information": {
@@ -105,7 +109,60 @@ def admin_get_shipper_company_id(
                 "is_director": shipper_user.is_director,
                 "verification_status": shipper_user.is_verified,
                 "status": shipper_user.status
-            } for shipper_user in shipper_users]
+            } for shipper_user in shipper_users],
+
+            "activity": {
+                "shipments": {
+                    "ftl_shipments": [{
+                        "id": ftl_shipment.shipment_id,
+                        "origin": ftl_shipment.origin_city_province,
+                        "destination": ftl_shipment.destination_city_province,
+                        "distance": ftl_shipment.distance,
+                        "status": ftl_shipment.status,
+                        "required_truck_type": ftl_shipment.required_truck_type,
+                        "equipment_type": ftl_shipment.equipment_type,
+                        "trailer_type": ftl_shipment.trailer_type if ftl_shipment.trailer_type else None,
+                        "trailer_length": ftl_shipment.trailer_length if ftl_shipment.trailer_length else None,
+                        "weight_bracket": ftl_shipment.minimum_weight_bracket,
+                        "shipment_weight": ftl_shipment.shipment_weight,
+                        "hazardous_materials": ftl_shipment.hazardous_materials,
+                        "rate": ftl_shipment.shipment_rate
+                    } for ftl_shipment in ftl_shipments],
+
+                    "power_shipments": [{
+                        "id": power_shipment.shipment_id,
+                        "origin": power_shipment.origin_city_province,
+                        "destination": power_shipment.destination_city_province,
+                        "distance": power_shipment.distance,
+                        "status": power_shipment.status,
+                        "required_truck_type": power_shipment.required_truck_type,
+                        "axle_configuration": power_shipment.axle_configuration,
+                        "weight_bracket": power_shipment.minimum_weight_bracket,
+                        "shipment_weight": power_shipment.shipment_weight,
+                        "rate": power_shipment.shipment_rate
+                    } for power_shipment in power_shipments],
+                },
+                "lanes": {
+                    "ftl_lanes": [{
+                        "id": ftl_lane.lane_id,
+                        "origin": ftl_lane.origin_city_province,
+                        "destination": ftl_lane.destination_city_province,
+                        "distance": ftl_lane.distance,
+                        "status": ftl_lane.status,
+                        "required_truck_type": ftl_lane.required_truck_type,
+                        "equipment_type": ftl_lane.equipment_type,
+                        "trailer_type": f"{ftl_lane.trailer_type if ftl_lane.trailer_type else None} ({ftl_lane.trailer_length if ftl_lane.trailer_length else None})",
+                        "start_date": ftl_lane.start_date,
+                        "end_date": ftl_lane.end_date,
+                        "recurrence_frequency": ftl_lane.recurrence_frequency,
+                        "recurrence_days": ftl_lane.recurrence_days,
+                        "shipments_per_interval": ftl_lane.shipments_per_interval,
+                        "total_shipments": ftl_lane.total_shipments,
+                        "per_shipment_rate": ftl_lane.rate_per_shipment,
+                        "contract_rate": ftl_lane.contract_rate
+                    } for ftl_lane in ftl_lanes],
+                },
+            },
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
