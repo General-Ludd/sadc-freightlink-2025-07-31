@@ -191,3 +191,10 @@ class Priority_Level(str, Enum):
     LOW = "Low"
     NORMAL = "Normal"
     HIGH = "High"
+
+class Account_Status(str, Enum):
+    UNVERIFIED = "Un-verified"
+    ACTIVE = "Active"
+    SUSPENDED = "Suspended"
+    UNDER_INVESTIGATION = "Under-Investigation"
+    DELETED = "Deleted"
