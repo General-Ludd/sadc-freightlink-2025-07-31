@@ -23,6 +23,8 @@ from utils.auth import get_current_user
 from utils.administration_auth import get_current_admin
 from enums  import Account_Status
 
+router = APIRouter()
+
 def get_db():
     db = SessionLocal()
     try:
