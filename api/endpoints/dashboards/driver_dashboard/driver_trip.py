@@ -89,28 +89,20 @@ def driver_update_shipment_status(
     current_user: dict = Depends(get_current_user)
 ):
     try:
-        # Select the correct carrier-side model
+        # Select correct shipment models
         if shipment_type == "FTL":
-            carrier_shipment = (
-                db.query(Assigned_Spot_Ftl_Shipments)
-                .filter_by(shipment_id=shipment_id)
-                .first()
-            )
+            carrier_shipment = db.query(Assigned_Spot_Ftl_Shipments).filter_by(shipment_id=shipment_id).first()
             shipment = db.query(FTL_SHIPMENT).filter_by(id=shipment_id).first()
         elif shipment_type == "POWER":
-            carrier_shipment = (
-                db.query(Assigned_Power_Shipments)
-                .filter_by(shipment_id=shipment_id)
-                .first()
-            )
+            carrier_shipment = db.query(Assigned_Power_Shipments).filter_by(shipment_id=shipment_id).first()
             shipment = db.query(POWER_SHIPMENT).filter_by(id=shipment_id).first()
         else:
-            return {"error": "Invalid shipment type"}
+            raise HTTPException(status_code=400, detail="Invalid shipment type")
 
         if not carrier_shipment or not shipment:
-            return {"error": f"No {shipment_type} shipment found with id {shipment_id}"}
+            raise HTTPException(status_code=404, detail=f"No {shipment_type} shipment found with id {shipment_id}")
 
-        # Define allowed trip status progression
+        # Define valid progression
         trip_status_flow = [
             "Scheduled",
             "Carrier en route to pickup",
@@ -122,39 +114,39 @@ def driver_update_shipment_status(
             "Completed"
         ]
 
-        # Validate requested status
         if new_trip_status not in trip_status_flow:
-            return {"error": f"Invalid trip status: {new_trip_status}"}
+            raise HTTPException(status_code=400, detail=f"Invalid trip status: {new_trip_status}")
 
-        # Get indexes for progression validation
-        current_index = trip_status_flow.index(shipment.trip_status)
+        # Default to "Scheduled" if not set
+        current_trip_status = shipment.trip_status or "Scheduled"
+
+        current_index = trip_status_flow.index(current_trip_status)
         new_index = trip_status_flow.index(new_trip_status)
 
-        # Prevent invalid jumps
+        # Enforce logical progression
         if new_index < current_index or new_index > current_index + 1:
-            return {
-                "error": f"Invalid status transition from {shipment.trip_status} to {new_trip_status}"
-            }
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid status transition from '{current_trip_status}' to '{new_trip_status}'"
+            )
 
-        # Update trip statuses
+        # Update both shipment sides
         carrier_shipment.trip_status = new_trip_status
         shipment.trip_status = new_trip_status
 
-        # Business rules for carrier side
+        # Carrier-side logic
         if carrier_shipment.status == "Assigned" and new_trip_status == "Carrier en route to pickup":
             carrier_shipment.status = "In-Progress"
+        elif new_trip_status == "Completed":
+            carrier_shipment.status = "Awaiting POD"
 
-        if new_trip_status == "Completed":
-            carrier_shipment.status = "Awating POD"
+        # Shipper-side logic
+        if hasattr(shipment, "shipment_status"):
+            if shipment.shipment_status == "Assigned" and new_trip_status == "Carrier en route to pickup":
+                shipment.shipment_status = "In-Progress"
+            elif new_trip_status == "Completed":
+                shipment.shipment_status = "Awaiting POD"
 
-        # Business rules for shipper side
-        if shipment.shipment_status == "Assigned" and new_trip_status == "Carrier en route to pickup":
-            shipment.shipment_status = "In-Progress"
-
-        if new_trip_status == "Completed":
-            shipment.shipment_status = "Awaiting POD"
-
-        # Commit and refresh
         db.commit()
         db.refresh(carrier_shipment)
         db.refresh(shipment)
@@ -165,12 +157,16 @@ def driver_update_shipment_status(
             "shipment_type": shipment_type,
             "carrier_status": carrier_shipment.status,
             "carrier_trip_status": carrier_shipment.trip_status,
-            "shipper_status": shipment.shipment_status,
+            "shipper_status": getattr(shipment, "shipment_status", None),
             "shipper_trip_status": shipment.trip_status,
         }
 
+    except HTTPException:
+        db.rollback()
+        raise
     except Exception as e:
-        return {"error": str(e)}
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/driver/upload-pod", status_code=status.HTTP_200_OK)
 def upload_pod(
