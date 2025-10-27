@@ -210,6 +210,8 @@ def driver_get_ftl_shipment_id(
                 "trip_status": getattr(load, "trip_status", None),
                 "origin": getattr(load, "origin_address_completed", None),
                 "destination": getattr(load, "destination_address_completed", None),
+                "distance": getattr(load, "distance", None),
+                "minimum_transit_time": getattr(load, "estimated_transit_time", None),
                 "pickup_date": getattr(load, "pickup_date", None),
                 "priority": getattr(load, "priority_level", None),
                 "customer_ref": getattr(load, "customer_reference_number", None),
