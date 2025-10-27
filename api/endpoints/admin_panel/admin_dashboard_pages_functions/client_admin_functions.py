@@ -43,7 +43,7 @@ def admin_update_shipper_company_status(
         # 1️⃣ Verify admin
         admin = (
             db.query(Platform_Super_Admins)
-            .filter(Platform_Super_Admins.id == current_user.get("id"))
+            .filter(Platform_Super_Admins.id == current_user.get("admin_id"))
             .first()
         )
         if not admin:
@@ -111,7 +111,7 @@ def verify_shipper_company(
         # 1️⃣ Verify admin
         admin = (
             db.query(Platform_Super_Admins)
-            .filter(Platform_Super_Admins.id == current_user.get("id"))
+            .filter(Platform_Super_Admins.id == current_user.get("admin_id"))
             .first()
         )
         if not admin:
@@ -163,7 +163,7 @@ def unverify_shipper_company(
         # 1️⃣ Verify admin
         admin = (
             db.query(Platform_Super_Admins)
-            .filter(Platform_Super_Admins.id == current_user.get("id"))
+            .filter(Platform_Super_Admins.id == current_user.get("admin_id"))
             .first()
         )
         if not admin:
@@ -216,7 +216,7 @@ def admin_update_shipper_financial_account_status(
         # 1️⃣ Verify admin
         admin = (
             db.query(Platform_Super_Admins)
-            .filter(Platform_Super_Admins.id == current_user.get("id"))
+            .filter(Platform_Super_Admins.id == current_user.get("admin_id"))
             .first()
         )
         if not admin:
@@ -284,7 +284,7 @@ def verify_shipper_financial_account(
         # 1️⃣ Verify admin
         admin = (
             db.query(Platform_Super_Admins)
-            .filter(Platform_Super_Admins.id == current_user.get("id"))
+            .filter(Platform_Super_Admins.id == current_user.get("admin_id"))
             .first()
         )
         if not admin:
@@ -336,7 +336,7 @@ def unverify_shipper_financial_account(
         # 1️⃣ Verify admin
         admin = (
             db.query(Platform_Super_Admins)
-            .filter(Platform_Super_Admins.id == current_user.get("id"))
+            .filter(Platform_Super_Admins.id == current_user.get("admin_id"))
             .first()
         )
         if not admin:
@@ -378,6 +378,146 @@ def unverify_shipper_financial_account(
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
+@router.put("/admin/financial-account-outstanding/{account_id}/{action}")
+def admin_update_financial_account_outstanding_balance(
+    account_id: int,
+    action: str,  # "credit" or "debit"
+    amount: float = Body(..., embed=True, gt=0.0),
+    db: Session = Depends(get_db),
+    current_admin: dict = Depends(get_current_admin)
+):
+    try:
+        # 1️⃣ Verify Admin Identity
+        admin = db.query(Platform_Super_Admins).filter(
+            Platform_Super_Admins.email == current_admin.get("admin_id")
+        ).first()
+
+        if not admin:
+            raise HTTPException(status_code=401, detail="Unauthorized")
+
+        if not admin.is_verified:
+            raise HTTPException(status_code=403, detail="Administrator account not verified")
+
+        # 2️⃣ Check Permissions
+        permissions = db.query(Platform_Super_and_Support_Admins_Permissions).filter(
+            Platform_Super_and_Support_Admins_Permissions.id == admin.id
+        ).first()
+
+        if not permissions:
+            raise HTTPException(status_code=403, detail="No permissions record found")
+
+        # 4️⃣ Retrieve the company financial account
+        account = db.query(FinancialAccounts).filter(FinancialAccounts.id == id).first()
+        if not account:
+            raise HTTPException(status_code=404, detail=f"Financial Account with ID {id} not found")
+
+
+        # 4️⃣ Perform Credit or Debit
+        if action.lower() == "credit":
+            if not permissions.manage_shipper_spending_credit_limit:
+                raise HTTPException(status_code=403, detail="No permission to credit financial accounts")
+
+            account.outstanding_balance += amount
+            operation_type = "credited"
+
+        elif action.lower() == "debit":
+            if not permissions.manage_shipper_spending_credit_limit:
+                raise HTTPException(status_code=403, detail="No permission to debit financial accounts")
+
+            if amount > account.outstanding_balance:
+                raise HTTPException(status_code=400, detail="Insufficient outstanding balance")
+
+            account.outstanding_balance -= amount
+            operation_type = "debited"
+
+        else:
+            raise HTTPException(status_code=400, detail="Invalid action. Use 'credit' or 'debit'.")
+
+        db.commit()
+        db.refresh(account)
+
+        # 5️⃣ Return Response
+        return {
+            "message": f"Account successfully {operation_type}.",
+            "account_id": account.id,
+            "updated_outstanding_balance": account.outstanding_balance,
+            "timestamp": account.updated_at
+        }
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.put("/admin/financial-account-credit-balance/{account_id}/{action}")
+def admin_update_financial_account_credit_balance(
+    account_id: int,
+    action: str,  # "credit" or "debit"
+    amount: float = Body(..., embed=True, gt=0.0),
+    db: Session = Depends(get_db),
+    current_admin: dict = Depends(get_current_admin)
+):
+    try:
+        # 1️⃣ Verify Admin Identity
+        admin = db.query(Platform_Super_Admins).filter(
+            Platform_Super_Admins.id == current_admin.get("admin_id")
+        ).first()
+
+        if not admin:
+            raise HTTPException(status_code=401, detail="Unauthorized")
+
+        if not admin.is_verified:
+            raise HTTPException(status_code=403, detail="Administrator account not verified")
+
+        # 2️⃣ Check Permissions
+        permissions = db.query(Platform_Super_and_Support_Admins_Permissions).filter(
+            Platform_Super_and_Support_Admins_Permissions.id == admin.id
+        ).first()
+
+        if not permissions:
+            raise HTTPException(status_code=403, detail="No permissions record found")
+
+        # 4️⃣ Retrieve the company financial account
+        account = db.query(FinancialAccounts).filter(FinancialAccounts.id == id).first()
+        if not account:
+            raise HTTPException(status_code=404, detail=f"Financial Account with ID {id} not found")
+
+
+        # 4️⃣ Perform Credit or Debit
+        if action.lower() == "credit":
+            if not permissions.credit_shipper_spending_credit_limit:
+                raise HTTPException(status_code=403, detail="No permission to credit financial accounts")
+
+            account.credit_balance += amount
+            operation_type = "credited"
+
+        elif action.lower() == "debit":
+            if not permissions.debit_shipper_financial_accounts:
+                raise HTTPException(status_code=403, detail="No permission to debit financial accounts")
+
+            if amount > account.credit_balance:
+                raise HTTPException(status_code=400, detail="Insufficient outstanding balance")
+
+            account.credit_balance -= amount
+            operation_type = "debited"
+
+        else:
+            raise HTTPException(status_code=400, detail="Invalid action. Use 'credit' or 'debit'.")
+
+        db.commit()
+        db.refresh(account)
+
+        # 5️⃣ Return Response
+        return {
+            "message": f"Account successfully {operation_type}.",
+            "account_id": account.id,
+            "updated_outstanding_balance": account.outstanding_balance,
+            "timestamp": account.updated_at
+        }
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.put("/admin/update-shipper-user-{id}/{status}")
 def admin_update_shipper_user_status(
     id: int,
@@ -389,7 +529,7 @@ def admin_update_shipper_user_status(
         # 1️⃣ Verify admin
         admin = (
             db.query(Platform_Super_Admins)
-            .filter(Platform_Super_Admins.id == current_user.get("id"))
+            .filter(Platform_Super_Admins.id == current_user.get("admin_id"))
             .first()
         )
         if not admin:
