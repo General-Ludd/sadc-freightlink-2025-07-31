@@ -31,14 +31,14 @@ def driver_get_all_my_upcoming_shipments(
         ftl_shipments = db.query(Assigned_Spot_Ftl_Shipments).filter(
             Assigned_Spot_Ftl_Shipments.driver_id == user_id,
             Assigned_Spot_Ftl_Shipments.pickup_date >= today,
-            Assigned_Spot_Ftl_Shipments.status.in_(["Assigned", "In-Progress"])
+            Assigned_Spot_Ftl_Shipments.status.in_(["Assigned", "In-Progress", "Awaiting POD"])
         ).all()
 
         # Fetch Power shipments
         power_shipments = db.query(Assigned_Power_Shipments).filter(
             Assigned_Power_Shipments.driver_id == user_id,
             Assigned_Power_Shipments.pickup_date >= today,
-            Assigned_Power_Shipments.status.in_(["Assigned", "In-Progress"])
+            Assigned_Power_Shipments.status.in_(["Assigned", "In-Progress", "Awaiting POD"])
         ).all()
 
         # Merge
