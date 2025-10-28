@@ -44,11 +44,13 @@ def driver_get_all_my_upcoming_shipments(
         # Merge
         shipments = ftl_shipments + power_shipments
 
+        priority_statuses = ["In-Progress", "Awaiting POD"]
+
         # Sort
         sorted_shipments = sorted(
             shipments,
             key=lambda s: (
-                0 if s.status == "In-Progress" else 1,   # In-Progress first
+                0 if s.status in priority_statuses else 1,   # In-Progress first
                 -s.pickup_date.toordinal()               # Newest pickup_date
             )
         )
