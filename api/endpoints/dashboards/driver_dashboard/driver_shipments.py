@@ -90,13 +90,13 @@ def driver_get_all_my_shipments_split(
         ftl_active = db.query(Assigned_Spot_Ftl_Shipments).filter(
             Assigned_Spot_Ftl_Shipments.driver_id == user_id,
             Assigned_Spot_Ftl_Shipments.pickup_date >= today,
-            Assigned_Spot_Ftl_Shipments.status.in_(["Assigned", "In-Progress"])
+            Assigned_Spot_Ftl_Shipments.status.in_(["Assigned", "In-Progress", "Awaiting POD"])
         ).all()
 
         power_active = db.query(Assigned_Power_Shipments).filter(
             Assigned_Power_Shipments.driver_id == user_id,
             Assigned_Power_Shipments.pickup_date >= today,
-            Assigned_Power_Shipments.status.in_(["Assigned", "In-Progress"])
+            Assigned_Power_Shipments.status.in_(["Assigned", "In-Progress", "Awaiting POD"])
         ).all()
 
         active_shipments = ftl_active + power_active
@@ -104,12 +104,12 @@ def driver_get_all_my_shipments_split(
         # Completed
         ftl_completed = db.query(Assigned_Spot_Ftl_Shipments).filter(
             Assigned_Spot_Ftl_Shipments.driver_id == user_id,
-            Assigned_Spot_Ftl_Shipments.status.in_(["Completed", "Awaiting POD"])
+            Assigned_Spot_Ftl_Shipments.status == "Completed"
         ).order_by(desc(Assigned_Spot_Ftl_Shipments.pickup_date)).all()
 
         power_completed = db.query(Assigned_Power_Shipments).filter(
             Assigned_Power_Shipments.driver_id == user_id,
-            Assigned_Power_Shipments.status.in_(["Completed", "Awaiting POD"])
+            Assigned_Power_Shipments.status == "Completed"
         ).order_by(desc(Assigned_Power_Shipments.pickup_date)).all()
 
         completed_shipments = ftl_completed + power_completed
