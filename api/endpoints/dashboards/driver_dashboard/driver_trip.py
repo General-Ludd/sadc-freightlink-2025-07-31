@@ -174,7 +174,12 @@ def upload_pod(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    shipment_id = request.shipment_id
+    # --- Convert shipment_id to integer safely ---
+    try:
+        shipment_id = int(request.shipment_id)
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=400, detail="Invalid shipment_id. Must be an integer.")
+
     shipment_type = request.shipment_type
     pod_link = request.pod_link
 
@@ -201,7 +206,7 @@ def upload_pod(
         carrier_shipment.status = "Completed"
 
         # Handle sub-shipment case
-        if shipment.is_sub_shipment:
+        if shipment.is_subshipment:
             lane = db.query(FTL_Lane).filter_by(id=shipment.lane_id).first()
             carrier_lane = db.query(Assigned_Ftl_Lanes).filter_by(id=shipment.lane_id).first()
             if lane and carrier_lane:

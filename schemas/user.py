@@ -4,7 +4,7 @@ from typing import Optional
 from typing import Literal
 
 class UploadPODRequest(BaseModel):
-    shipment_id: int
+    shipment_id: str
     shipment_type: Literal["FTL", "POWER"]
     pod_link: HttpUrl
 
