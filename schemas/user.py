@@ -5,7 +5,7 @@ from typing import Literal
 
 class UploadPODRequest(BaseModel):
     shipment_id: str
-    shipment_type: Literal["FTL", "POWER"]
+    shipment_type: str
     pod_link: str
 
 class UserCreate(BaseModel):
