@@ -10,7 +10,7 @@ from models.spot_bookings.ftl_shipment import FTL_SHIPMENT
 from models.spot_bookings.power_shipment import POWER_SHIPMENT
 from models.spot_bookings.dedicated_lane_ftl_shipment import FTL_Lane
 from models.brokerage.assigned_lanes import Assigned_Ftl_Lanes
-from models.brokerage.finance import FinancialAccounts, CarrierFinancialAccount, Shipment_Invoice, Load_Invoice
+from models.brokerage.finance import FinancialAccounts, CarrierFinancialAccounts, Shipment_Invoice, Load_Invoice
 
 router = APIRouter()
 
@@ -233,7 +233,7 @@ def upload_pod(
             db.add(shipment_invoice)
 
         # --- CARRIER: financial account ---
-        carrier_account = db.query(CarrierFinancialAccount).filter_by(carrier_id=shipment.carrier_id).first()
+        carrier_account = db.query(CarrierFinancialAccounts).filter_by(carrier_id=shipment.carrier_id).first()
         if not carrier_account:
             raise HTTPException(status_code=404, detail="Carrier financial account not found")
 
