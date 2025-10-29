@@ -1,4 +1,7 @@
 from fastapi import FastAPI
+from fastapi import Request
+import logging
+import json
 import threading
 from fastapi.middleware.cors import CORSMiddleware
 from api.endpoints.dashboards import tracking
@@ -46,6 +49,40 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
+
+# Define which endpoints to log
+LOG_ROUTES = [
+    "/api/driver/upload-pod",  # add any route paths you want to monitor
+]
+
+@app.middleware("http")
+async def log_selected_requests(request: Request, call_next):
+    # Only log specific routes
+    if any(request.url.path.startswith(route) for route in LOG_ROUTES):
+        try:
+            body_bytes = await request.body()
+            body = body_bytes.decode("utf-8")
+            try:
+                json_body = json.loads(body)
+                body_str = json.dumps(json_body, indent=2)
+            except json.JSONDecodeError:
+                body_str = body
+
+            logging.info(f"""
+📦 [REQUEST RECEIVED]
+➡️ Path: {request.url.path}
+➡️ Method: {request.method}
+➡️ Body:
+{body_str}
+            """)
+        except Exception as e:
+            logging.error(f"⚠️ Error logging request body for {request.url.path}: {e}")
+
+    response = await call_next(request)
+    return response
 
 #################################################Public################################################
 app.include_router(contact_us.router, prefix="/api", tags=["Contact Us"])
