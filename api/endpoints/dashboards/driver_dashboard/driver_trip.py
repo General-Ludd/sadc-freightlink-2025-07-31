@@ -233,7 +233,7 @@ def upload_pod(
             db.add(shipment_invoice)
 
         # --- CARRIER: financial account ---
-        carrier_account = db.query(CarrierFinancialAccounts).filter_by(carrier_id=shipment.carrier_id).first()
+        carrier_account = db.query(CarrierFinancialAccounts).filter_by(id=shipment.carrier_id).first()
         if not carrier_account:
             raise HTTPException(status_code=404, detail="Carrier financial account not found")
 
