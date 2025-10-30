@@ -189,7 +189,7 @@ def get_all_carrier_shipments_summary(
                     "id": exchange.exchange_id,
                     "type": "FTL Lane",
                     "status": exchange.status,
-                    "closing_time": exchange.closing_time,
+                    "closing_time": exchange.exchange_end_time,
                     "origin": exchange.origin_city_province,
                     "destination": exchange.destination_city_province,
                     "distance": exchange.distance,
