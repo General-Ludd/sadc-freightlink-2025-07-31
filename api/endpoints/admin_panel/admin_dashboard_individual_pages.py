@@ -167,6 +167,159 @@ def admin_get_shipper_company_id(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/admin/brokerage-firm/{id}")
+def admin_get_brokergae_firm_id(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_admin),
+):
+    try:
+        shipper_company = db.query(Corporation).filter(Corporation.id == id).first()
+        financial_account = db.query(FinancialAccounts).filter(FinancialAccounts.id == shipper_company.id).first()
+        shipper_users = db.query(Director).filter(Director.company_id == shipper_company.id).all()
+        ftl_shipments = db.query(FTL_SHIPMENT).filter(FTL_SHIPMENT.shipper_company_id == shipper_company.id).all()
+        power_shipments = db.query(POWER_SHIPMENT).filter(POWER_SHIPMENT.shipper_company_id == shipper_company.id).all()
+        ftl_lanes = db.query(FTL_Lane).filter(FTL_Lane.shipper_company_id == shipper_company.id).all()
+        clients = db.query(Consignor).filter(Consignor.brokerage_firm_id == shipper_company.id).all()
+        
+        return {
+            "company_information": {
+                "company_id": shipper_company.id,
+                "type": shipper_company.type,
+                "legal_business_name": shipper_company.legal_business_name,
+                "country_of_incorporation": shipper_company.country_of_incorporation,
+                "business_registration_number": shipper_company.business_registration_number,
+                "business_address": shipper_company.business_address,
+                "business_email": shipper_company.business_email,
+                "business_phone_number": shipper_company.business_phone_number,
+                "is_verified": shipper_company.is_verified,
+                "status": shipper_company.status,
+                "created_at": shipper_company.created_at,
+                "updated_at": shipper_company.updated_at,
+                "company_documents": {
+                    "business_registration_certificate": shipper_company.business_registration_certificate,
+                    "business_proof_of_address": shipper_company.business_proof_of_address,
+                    "tax_clearance_certificate": shipper_company.tax_clearance_certificate
+                }
+            },
+
+            "financial_account": {
+                "account_id": financial_account.id,
+                "company_name": financial_account.company_name,
+                "payment_terms": financial_account.payment_terms,
+                "years_in_business": financial_account.years_in_business,
+                "nature_of_business": financial_account.nature_of_business,
+                "annual_turnover": financial_account.annual_turnover,
+                "annual_cashflow": financial_account.annual_cash_flow,
+                "credit_score": financial_account.credit_score,
+                "projected_monthly_bookings": financial_account.projected_monthly_bookings,
+                "spending_limit": financial_account.spending_limit,
+                "bank_name": financial_account.bank_name,
+                "branch_code": financial_account.branch_code,
+                "account_number": financial_account.account_number,
+                "account_type": financial_account.account_type,
+                "total_spent": financial_account.total_spent,
+                "average_spend": financial_account.average_spend,
+                "total_outstanding": financial_account.total_outstanding,
+                "credit_balance": financial_account.credit_balance,
+                "total_paid": financial_account.total_paid,
+                "paid_invoices": financial_account.num_paid_invoices,
+                "outstanding_invoices": financial_account.num_outstanding_invoices,
+                "over_due_invoices": financial_account.num_overdue_invoices,
+                "ongoing_interim_invoices": financial_account.ongoing_interim_invoices,
+                "verification_status": financial_account.is_verified,
+                "status": financial_account.status,
+                "created_at": financial_account.created_at,
+                "financial_account_documents": {
+                    "account_confirmation_letter": financial_account.account_confirmation_letter,
+                    "bank_statement": financial_account.bank_statement,
+                    "tax_clearance_certificate": financial_account.tax_clearance_certificate,
+                    "business_credit_score_report": financial_account.business_credit_score_report,
+                    "surityship": financial_account.suretyship
+                }
+            },
+
+            "users": [{
+                "name": f"{shipper_user.first_name} - {shipper_user.last_name}",
+                "id": shipper_user.id,
+                "id_number": shipper_user.id_number,
+                "is_director": shipper_user.is_director,
+                "verification_status": shipper_user.is_verified,
+                "status": shipper_user.status
+            } for shipper_user in shipper_users],
+
+            "clients": [{
+                "id": client.id,
+                "company_name": client.company_name,
+                "client_type": client.client_type,
+                "business_sector": client.business_sector,
+                "business_address": client.business_address,
+                "contact_person": client.contact_person_name,
+                "contact_person_position": client.position,
+                "phone_number": client.phone_number,
+                "email": client.email,
+                "preferred_contact_method",
+                "shipments": client.shipments,
+                "lane": client.contract_lanes,
+                "revenue_generated": client.revenue_generated
+            } for client in clients]
+
+            "activity": {
+                "shipments": {
+                    "ftl_shipments": [{
+                        "id": ftl_shipment.id,
+                        "origin": ftl_shipment.origin_city_province,
+                        "destination": ftl_shipment.destination_city_province,
+                        "distance": ftl_shipment.distance,
+                        "status": ftl_shipment.shipment_status,
+                        "required_truck_type": ftl_shipment.required_truck_type,
+                        "equipment_type": ftl_shipment.equipment_type,
+                        "trailer_type": ftl_shipment.trailer_type if ftl_shipment.trailer_type else None,
+                        "trailer_length": ftl_shipment.trailer_length if ftl_shipment.trailer_length else None,
+                        "weight_bracket": ftl_shipment.minimum_weight_bracket,
+                        "shipment_weight": ftl_shipment.shipment_weight,
+                        "hazardous_materials": ftl_shipment.hazardous_materials,
+                        "rate": ftl_shipment.quote
+                    } for ftl_shipment in ftl_shipments],
+
+                    "power_shipments": [{
+                        "id": power_shipment.id,
+                        "origin": power_shipment.origin_city_province,
+                        "destination": power_shipment.destination_city_province,
+                        "distance": power_shipment.distance,
+                        "status": power_shipment.status,
+                        "required_truck_type": power_shipment.required_truck_type,
+                        "axle_configuration": power_shipment.axle_configuration,
+                        "weight_bracket": power_shipment.minimum_weight_bracket,
+                        "shipment_weight": power_shipment.shipment_weight,
+                        "rate": power_shipment.quote
+                    } for power_shipment in power_shipments],
+                },
+                "lanes": {
+                    "ftl_lanes": [{
+                        "id": ftl_lane.id,
+                        "origin": ftl_lane.origin_city_province,
+                        "destination": ftl_lane.destination_city_province,
+                        "distance": ftl_lane.distance,
+                        "status": ftl_lane.status,
+                        "required_truck_type": ftl_lane.required_truck_type,
+                        "equipment_type": ftl_lane.equipment_type,
+                        "trailer_type": f"{ftl_lane.trailer_type if ftl_lane.trailer_type else None} ({ftl_lane.trailer_length if ftl_lane.trailer_length else None})",
+                        "start_date": ftl_lane.start_date,
+                        "end_date": ftl_lane.end_date,
+                        "recurrence_frequency": ftl_lane.recurrence_frequency,
+                        "recurrence_days": ftl_lane.recurrence_days,
+                        "shipments_per_interval": ftl_lane.shipments_per_interval,
+                        "total_shipments": ftl_lane.total_shipments,
+                        "per_shipment_rate": ftl_lane.qoute_per_shipment,
+                        "contract_rate": ftl_lane.contract_quote
+                    } for ftl_lane in ftl_lanes],
+                },
+            },
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/admin/financial-account/{id}")
 def admin_get_shipper_and_broker_financial_account_id(
     id: int,
