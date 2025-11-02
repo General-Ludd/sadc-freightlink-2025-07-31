@@ -871,7 +871,7 @@ def admin_get_all_withdrawal_requests(
     current_user: dict = Depends(get_current_admin),
 ):
     try:
-        requests = db.query(WithdrawalRequest).all()
+        requests = db.query(Withdrawal_Request).all()
 
         return {
             "withdrawal_requests": [{
