@@ -550,6 +550,184 @@ def admin_get_carrier_financial_account(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/admin/user/{id}")
+def admin_get_user_by_id(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_admin),
+):
+    try:
+        # 1. Get user id
+        user = db.query(Director).filter(Director.id == id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="Driver not found")
+        shipper_company = db.query(Corporation).filter(Corporation.id == user.company_id).first()
+        ftl_shipments = db.query(FTL_SHIPMENT).filter(FTL_SHIPMENT.shipper_user_id == user.id).all()
+        power_shipments = db.query(POWER_SHIPMENT).filter(POWER_SHIPMENT.shipper_user_id == user.id).all()
+        ftl_lanes = db.query(FTL_Lane).filter(FTL_Lane.shipper_user_id).all()
+
+        return{
+            "user_information": {
+                "name": f"{user.first_name}-{user.last_name}",
+                "id": user.id,
+                "company_id": user.company_id,
+                "is_director": user.is_director,
+                "nationality": user.nationality,
+                "id_number": user.id_number,
+                "address": user.home_address,
+                "email": user.email,
+                "phone_number": user.phone_number,
+                "is_verified": user.is_verified,
+                "status": user.status,
+                "created_at": user.created_at,
+                "documents": {
+                    "id_document": user.id_document,
+                    "proof_of_address": user.proof_of_address,
+                },
+            },
+            "company_information": {
+                "company_id": shipper_company.id,
+                "type": shipper_company.type,
+                "legal_business_name": shipper_company.legal_business_name,
+                "country_of_incorporation": shipper_company.country_of_incorporation,
+                "business_registration_number": shipper_company.business_registration_number,
+                "business_address": shipper_company.business_address,
+                "business_email": shipper_company.business_email,
+                "business_phone_number": shipper_company.business_phone_number,
+                "is_verified": shipper_company.is_verified,
+                "status": shipper_company.status,
+                "created_at": shipper_company.created_at,
+                "updated_at": shipper_company.updated_at,
+                "company_documents": {
+                    "business_registration_certificate": shipper_company.business_registration_certificate,
+                    "business_proof_of_address": shipper_company.business_proof_of_address,
+                    "tax_clearance_certificate": shipper_company.tax_clearance_certificate
+                }
+            },
+            
+            "activity": {
+                "shipments": {
+                    "ftl_shipments": [{
+                        "id": ftl_shipment.id,
+                        "origin": ftl_shipment.origin_city_province,
+                        "destination": ftl_shipment.destination_city_province,
+                        "distance": ftl_shipment.distance,
+                        "status": ftl_shipment.shipment_status,
+                        "required_truck_type": ftl_shipment.required_truck_type,
+                        "equipment_type": ftl_shipment.equipment_type,
+                        "trailer_type": ftl_shipment.trailer_type if ftl_shipment.trailer_type else None,
+                        "trailer_length": ftl_shipment.trailer_length if ftl_shipment.trailer_length else None,
+                        "weight_bracket": ftl_shipment.minimum_weight_bracket,
+                        "shipment_weight": ftl_shipment.shipment_weight,
+                        "hazardous_materials": ftl_shipment.hazardous_materials,
+                        "rate": ftl_shipment.quote
+                    } for ftl_shipment in ftl_shipments],
+
+                    "power_shipments": [{
+                        "id": power_shipment.id,
+                        "origin": power_shipment.origin_city_province,
+                        "destination": power_shipment.destination_city_province,
+                        "distance": power_shipment.distance,
+                        "status": power_shipment.status,
+                        "required_truck_type": power_shipment.required_truck_type,
+                        "axle_configuration": power_shipment.axle_configuration,
+                        "weight_bracket": power_shipment.minimum_weight_bracket,
+                        "shipment_weight": power_shipment.shipment_weight,
+                        "rate": power_shipment.quote
+                    } for power_shipment in power_shipments],
+                },
+                "lanes": {
+                    "ftl_lanes": [{
+                        "id": ftl_lane.id,
+                        "origin": ftl_lane.origin_city_province,
+                        "destination": ftl_lane.destination_city_province,
+                        "distance": ftl_lane.distance,
+                        "status": ftl_lane.status,
+                        "required_truck_type": ftl_lane.required_truck_type,
+                        "equipment_type": ftl_lane.equipment_type,
+                        "trailer_type": f"{ftl_lane.trailer_type if ftl_lane.trailer_type else None} ({ftl_lane.trailer_length if ftl_lane.trailer_length else None})",
+                        "start_date": ftl_lane.start_date,
+                        "end_date": ftl_lane.end_date,
+                        "recurrence_frequency": ftl_lane.recurrence_frequency,
+                        "recurrence_days": ftl_lane.recurrence_days,
+                        "shipments_per_interval": ftl_lane.shipments_per_interval,
+                        "total_shipments": ftl_lane.total_shipments,
+                        "per_shipment_rate": ftl_lane.qoute_per_shipment,
+                        "contract_rate": ftl_lane.contract_quote
+                    } for ftl_lane in ftl_lanes],
+                },
+            },
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/admin/carrier-user/{id}")
+def admin_get_carrier_user_by_id(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_admin),
+):
+    try:
+        # 1. Get the carrier user
+        carrier_user = db.query(CarrierUser).filter(CarrierUser.id == id).first()
+        carrier = db.query(Carrier).filter(Carrier.id == user.company_id).first()
+
+        return{
+            "user": {
+                "is_director": carrier_user.is_director,
+                "role": carrier_user.role,
+                "name": f"{carrier_user.first_name}-{carrier_user.last_name}",
+                "id": carrier_user.id,
+                "nationality": carrier_user.nationality,
+                "id_number": carrier_user.id_number,
+                "home_address": carrier_user.home_address,
+                "email": carrier_user.email,
+                "phone_number": carrier_user,
+                "is_verified": carrier_user.is_verified,
+                "status": carrier_user.status,
+                "created_at": carrier_user.created_at,
+                "documents": {
+                    "id_document": carrier_user.id_document,
+                    "proof_of_address": carrier_user.proof_of_address,
+                }
+            },
+
+            "carrier_company_information": {
+                "company_id": carrier.id,
+                "type": carrier.type,
+                "legal_business_name": carrier.legal_business_name,
+                "country_of_incorporation": carrier.country_of_incorporation,
+                "business_registration_number": carrier.business_registration_number,
+                "git_policy_insurer": carrier.name_of_git_cover_insurance_company,
+                "git_insurance_policy_number": carrier.git_insurance_policy_number,
+                "git_cover_amount": carrier.git_cover_amount,
+                "liability_policy_insurer": carrier.name_of_liability_cover_insurance_company,
+                "liability_insurance_policy_number": carrier.liability_insurance_policy_number,
+                "liability_cover_amount": carrier.liability_insurance_cover_amount,
+                "business_address": carrier.business_address,
+                "business_email": carrier.business_email,
+                "business_phone_number": carrier.business_phone_number,
+                "number_of_vehicles": carrier.number_of_vehicles,
+                "number_of_trailers": carrier.number_of_trailers,
+                "number_of_drivers": carrier.number_of_drivers,
+                "number_of_completed_shipments": carrier.number_of_completed_shipments,
+                "number_of_completed_lanes": carrier.number_of_completed_dedicated_lanes,
+                "number_of_in_progress_lane": carrier.number_of_ongoing_dedicated_lanes,
+                "rating": carrier.rating,
+                "verification_status": carrier.is_verified,
+                "status": carrier.status,
+                "created_at": carrier.created_at,
+                "updated_at": carrier.updated_at,
+                "company_documents": {
+                    "business_registration_certificate": carrier.business_registration_certificate,
+                    "git_insurance_certificate": carrier.git_insurance_certificate,
+                    "business_proof_of_address": carrier.proof_of_address,
+                    "liability_insurance_certificate": carrier.liability_insurance_certificate,
+                },
+            },
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/admin/driver/{id}")
 def admin_get_driver_by_id(
