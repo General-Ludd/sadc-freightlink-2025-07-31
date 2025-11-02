@@ -884,7 +884,7 @@ def admin_get_all_withdrawal_requests(
                 "account_balance": request.financial_account_current_balance,
                 "withdrawal_amount": request.to_be_paid_out,
 
-            } for request in requests]}
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+        } for request in requests]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
