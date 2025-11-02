@@ -865,28 +865,26 @@ def admin_get_loadboards(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/admin/all-withdrawal-requests/status")
-def admin_get_all_withdrawal_requests_by_status(
-    status: str = None,
-    db: Session = Depends(get_db)
+@router.get("/admin/all-withdrawal-requests")
+def admin_get_all_withdrawal_requests(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_admin),
 ):
     try:
-        query = db.query(Withdrawal_Request)
-        if status:
-            query = query.filter(Withdrawal_Request.status == status)
+        requests = db.query(WithdrawalRequest).all()
 
-        requests = query.all()
+        return {
+            "withdrawal_requests": [{
+                "id": request.id,
+                "status": request.status,
+                "request_date_time": request.created_at,
+                "carrier_id": request.financial_account_id,
+                "carrier_name": request.carrier_company_name,
+                "financial_account_id": request.financial_account_id,
+                "account_balance": request.financial_account_current_balance,
+                "withdrawal_amount": request.to_be_paid_out,
 
-        return [{
-            "id": request.id,
-            "status": request.status,
-            "request_date_time": request.created_at,
-            "carrier_id": request.financial_account_id,
-            "carrier_name": request.carrier_company_name,
-            "financial_account_id": request.financial_account_id,
-            "account_balance": request.financial_account_current_balance,
-            "withdrawal_amount": request.to_be_paid_out,
-        } for request in requests]
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+            } for request in requests]}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
 
