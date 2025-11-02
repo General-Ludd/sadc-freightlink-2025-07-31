@@ -670,10 +670,10 @@ def admin_get_carrier_user_by_id(
     try:
         # 1. Get the carrier user
         carrier_user = db.query(CarrierUser).filter(CarrierUser.id == id).first()
-        carrier = db.query(Carrier).filter(Carrier.id == user.company_id).first()
+        carrier = db.query(Carrier).filter(Carrier.id == carrier_user.company_id).first()
 
         return{
-            "user": {
+            "user_information": {
                 "is_director": carrier_user.is_director,
                 "role": carrier_user.role,
                 "name": f"{carrier_user.first_name}-{carrier_user.last_name}",
@@ -682,7 +682,7 @@ def admin_get_carrier_user_by_id(
                 "id_number": carrier_user.id_number,
                 "home_address": carrier_user.home_address,
                 "email": carrier_user.email,
-                "phone_number": carrier_user,
+                "phone_number": carrier_user.phone_number,
                 "is_verified": carrier_user.is_verified,
                 "status": carrier_user.status,
                 "created_at": carrier_user.created_at,
