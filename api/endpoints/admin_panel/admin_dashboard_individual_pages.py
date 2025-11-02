@@ -258,7 +258,7 @@ def admin_get_brokergae_firm_id(
                 "contact_person_position": client.position,
                 "phone_number": client.phone_number,
                 "email": client.email,
-                "preferred_contact_method",
+                "preferred_contact_method": clienet.preferred_contact_method,
                 "shipments": client.shipments,
                 "lane": client.contract_lanes,
                 "revenue_generated": client.revenue_generated
