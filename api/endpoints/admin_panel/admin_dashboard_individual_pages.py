@@ -262,7 +262,7 @@ def admin_get_brokergae_firm_id(
                 "shipments": client.shipments,
                 "lane": client.contract_lanes,
                 "revenue_generated": client.revenue_generated
-            } for client in clients]
+            } for client in clients],
 
             "activity": {
                 "shipments": {
