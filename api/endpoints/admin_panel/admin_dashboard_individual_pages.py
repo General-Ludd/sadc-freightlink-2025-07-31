@@ -564,7 +564,7 @@ def admin_get_user_by_id(
         shipper_company = db.query(Corporation).filter(Corporation.id == user.company_id).first()
         ftl_shipments = db.query(FTL_SHIPMENT).filter(FTL_SHIPMENT.shipper_user_id == user.id).all()
         power_shipments = db.query(POWER_SHIPMENT).filter(POWER_SHIPMENT.shipper_user_id == user.id).all()
-        ftl_lanes = db.query(FTL_Lane).filter(FTL_Lane.shipper_user_id).all()
+        ftl_lanes = db.query(FTL_Lane).filter(FTL_Lane.shipper_user_id == user.id).all()
 
         return{
             "user_information": {
