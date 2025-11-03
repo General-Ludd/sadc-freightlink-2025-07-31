@@ -2,7 +2,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from requests import Session
 from db.database import SessionLocal
-from models.brokerage.finance import FinancialAccounts, Shipment_Invoice
+from models.brokerage.finance import FinancialAccounts, Shipment_Invoice, Interim_Invoice, Invoice
 from schemas.brokerage.finance import Individual_Service_Invoice_Response, Individual_Sevice_Invoices_Request, Service_Invoices_Summary_Response, Shipper_Financial_Account_Response
 from utils.auth import get_current_user
 from utils.pdf_generator import generate_shipper_invoice_pdf
