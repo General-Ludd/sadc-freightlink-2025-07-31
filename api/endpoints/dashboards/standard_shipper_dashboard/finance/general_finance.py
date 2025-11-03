@@ -86,9 +86,7 @@ def get_shipper_shipment_invoice_by_id(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    invoice = db.query(Shipment_Invoice).filter(
-        Shipment_Invoice.id == invoice_id
-    ).first()
+    invoice = db.query(Shipment_Invoice).filter(Shipment_Invoice.id == invoice_id).first()
 
     if not invoice:
         raise HTTPException(status_code=404, detail="Invoice not found")
