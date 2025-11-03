@@ -123,7 +123,7 @@ def generate_shipper_invoice_pdf(invoice: dict, logo_url: str = None) -> bytes:
             response = requests.get(logo_url, timeout=5)
             if response.status_code == 200:
                 logo = ImageReader(BytesIO(response.content))
-                c.drawImage(logo, 40, y - 60, width=99, height=80, preserveAspectRatio=True)
+                c.drawImage(logo, 50, y - 65, width=99, height=80, preserveAspectRatio=True)
         except Exception as e:
             print(f"Logo load failed: {e}")
 
