@@ -82,7 +82,6 @@ def get_shipper_shipment_invoice(
 @router.get("/shipper/shipment-invoice/{invoice_id}")
 def get_shipper_shipment_invoice_by_id(
     invoice_id: int,
-    shipment_type: str,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
