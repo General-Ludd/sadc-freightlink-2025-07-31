@@ -239,7 +239,7 @@ def generate_shipper_invoice_pdf(invoice: dict, logo_url: str = None) -> bytes:
 
     # === FOOTER ===
     c.setFont("Helvetica", 8)
-    c.drawString(40, 40, f"Generated on {get_sast_time().strftime('%Y-%m-%d %H:%M:%S UTC')}")
+    c.drawString(40, 40, f"Generated on {get_sast_time().strftime('%Y-%m-%d %H:%M:%S SAST')}")
     c.drawRightString(width - 40, 40, "Thank you for your business.")
 
     c.showPage()
