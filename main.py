@@ -6,6 +6,7 @@ import threading
 from fastapi.middleware.cors import CORSMiddleware
 from api.endpoints.dashboards import tracking
 from api.endpoints.dashboards.standard_shipper_dashboard import standard_facility_dashboard
+from api.endpoints.dashboards.standard_shipper_dashboard.finance import general_finance
 from api.endpoints.dashboards.standard_shipper_dashboard import user_management
 from api.endpoints.dashboards.standard_shipper_dashboard import equipment_management
 from api.endpoints.dashboards.standard_shipper_dashboard.shipment_management import spot_shipment_management
@@ -90,6 +91,7 @@ app.include_router(contact_us.router, prefix="/api", tags=["Contact Us"])
 ################################################Shipper Dashboard######################################
 app.include_router(gcs_upload.router, prefix="/api", tags=["File Upload"])
 app.include_router(standard_facility_dashboard.router, prefix="/api", tags=["Standard Shipper Dashboard"])
+app.include_router(general_finance.router, prefix="/api", tags=["Shipper General Finance"])
 app.include_router(user_management.router, prefix="/api", tags=["Shipper User Management"])
 app.include_router(equipment_management.router, prefix="/api", tags=["Shipper Equipment Management"])
 app.include_router(spot_shipment_management.router, prefix="/api", tags=["Spot Shipment Managment"])
