@@ -180,7 +180,7 @@ def generate_shipper_invoice_pdf(invoice: dict, logo_url: str = None) -> bytes:
     section_y -= 75
 
     # === SHIPMENT DETAILS ===
-    details_y = section_y - 25
+    details_y = section_y - 20
     c.setFont("Helvetica-Bold", 12)
     c.drawString(40, details_y, "Shipment Details")
 
