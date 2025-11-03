@@ -149,8 +149,20 @@ def generate_shipper_invoice_pdf(invoice: dict, logo_url: str = None) -> bytes:
     c.drawString(300, section_y, "Billed To:")
 
     c.setFont("Helvetica", 10)
-    from_text = f"{invoice['from']['platform_name']}\n{invoice['from']['platform_address']}\nBank: {invoice['from']['platform_bank']}\nAccount: {invoice['from']['platform_bank_account']}"
-    billed_to_text = f"{invoice['billed_to']['business_name']}\n{invoice['billed_to']['billing_address']}\nEmail: {invoice['billed_to']['business_email']}"
+
+    from_text = (
+        f"{invoice['from']['platform_name']}\n"
+        f"{invoice['from']['platform_address']}\n"
+        f"Bank: {invoice['from']['platform_bank']}\n"
+        f"Account: {invoice['from']['platform_bank_account']}"
+    )
+
+    billed_to_text = (
+        f"{invoice['billed_to']['business_name']}\n"
+        f"Reg No: {invoice['billed_to']['registration_no']}\n"
+        f"{invoice['billed_to']['billing_address']}\n"
+        f"Email: {invoice['billed_to']['business_email']}"
+    )
 
     # Draw FROM on left
     text_obj = c.beginText(40, section_y - 15)
@@ -168,7 +180,7 @@ def generate_shipper_invoice_pdf(invoice: dict, logo_url: str = None) -> bytes:
     section_y -= 75
 
     # === SHIPMENT DETAILS ===
-    details_y = section_y - 20
+    details_y = section_y - 90
     c.setFont("Helvetica-Bold", 12)
     c.drawString(40, details_y, "Shipment Details")
 
@@ -193,7 +205,7 @@ def generate_shipper_invoice_pdf(invoice: dict, logo_url: str = None) -> bytes:
         )
     )
     table.wrapOn(c, width, height)
-    table.drawOn(c, 40, details_y - 80)
+    table.drawOn(c, 40, details_y - 25)
 
     # === CHARGES ===
     charges_y = details_y - 120
