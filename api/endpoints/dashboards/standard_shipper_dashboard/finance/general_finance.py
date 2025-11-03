@@ -165,7 +165,7 @@ def get_shipper_interim_invoice(
         "payment_reference": invoice.payment_reference,
         "platform_name": invoice.platform_name,
         "status": invoice.status,
-        "description": invoice.description,
+        "description": f"{invoice.contract_type}-{invoice.contract_id} billing period {invoice.billing_date} to {invoice.due_date}",
         "from": {
             "platform_name": invoice.platform_name,
             "platform_address": invoice.platform_address,
@@ -181,7 +181,7 @@ def get_shipper_interim_invoice(
         "information": {
             "contract_id": invoice.contract_id,
             "contract_type": invoice.contract_type,
-            "billing_period": invoice.payment_terms or "N/A",
+            "billing_period": f"{invoice.billing_date} to {invoice.due_date} billing period",
             "base_amount": invoice.base_amount,
             "other_surcharges": invoice.other_surcharges,
             "late_fees": invoice.late_fees,
@@ -191,7 +191,7 @@ def get_shipper_interim_invoice(
     }
 
     # === 4️⃣ Generate PDF ===
-    logo_url = "https://ik.imagekit.io/0bf9ktdig/ChatGPT%20Image%20Sep%202,%202025,%2009_25_07%20PM.png?updatedAt=1762145054656"
+    logo_url = "https://ik.imagekit.io/0bf9ktdig/ChatGPT%20Image%20Sep%202,%202025,%2009_28_10%20PM.png?updatedAt=1759309497595"  # Replace with your real URL
     pdf_bytes = generate_interim_invoice_pdf(invoice_dict, logo_url)
 
     # === 5️⃣ Return Response ===
