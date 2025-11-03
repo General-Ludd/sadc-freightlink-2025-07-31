@@ -5,6 +5,9 @@ from db.database import SessionLocal
 from models.brokerage.finance import FinancialAccounts, Shipment_Invoice
 from schemas.brokerage.finance import Individual_Service_Invoice_Response, Individual_Sevice_Invoices_Request, Service_Invoices_Summary_Response, Shipper_Financial_Account_Response
 from utils.auth import get_current_user
+from utils.pdf_generator import generate_shipper_invoice_pdf
+
+
 
 
 router = APIRouter()
@@ -16,467 +19,64 @@ def get_db():
     finally:
         db.close()
 
-@router.get("/shipper/finance/financial_account", response_model=Shipper_Financial_Account_Response) #UnTested
-def get_shipper_financial_account(
+@router.get("/shipper/shipment-invoice/{shipment_id}-{shipment_type}")
+def get_shipper_shipment_invoice(
+    shipment_id: int,
+    shipment_type: str,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    assert "company_id" in current_user, "Missing company_id in current_user"
-    company_id = current_user.get("company_id")
-
-    if not company_id:
-        raise HTTPException(
-            status_code=400,
-            detail="User does not belong to a company"
-        )
-
-    try:
-        financial_account = db.query(FinancialAccounts).filter(
-            FinancialAccounts.id == company_id
-        ).first()
-
-        if not financial_account:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Shipments linked to carrier ID {id} not found or not authorized"
-            )
-        
-        return financial_account
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-###############################################Invoices Summary Responses############################################
-
-@router.get("/shipper/finance/service-invoices") #UnTested
-def get_shipper_service_invoices(
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    assert "company_id" in current_user, "Missing company_id in current_user"
-    company_id = current_user.get("company_id")
-
-    if not company_id:
-        raise HTTPException(
-            status_code=400,
-            detail="User does not belong to a company"
-        )
-
-    try:
-
-        invoices = db.query(Shipment_Invoice).filter(
-            Shipment_Invoice.financial_account_id == company_id
-        ).all()
-
-        return {
-            "service_invoices": [{
-                "id": invoice.id,
-                "billing_date": invoice.billing_date,
-                "due_date": invoice.due_date,
-                "status": invoice.status,
-                "due_amount": invoice.due_amount
-                } for invoice in invoices]
-        }
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.get("/shipper/finance/service-invoices/{status}") #UnTested
-def get_shipper_service_invoices_by_status(
-    status: str,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    assert "company_id" in current_user, "Missing company_id in current_user"
-    company_id = current_user.get("company_id")
-
-    if not company_id:
-        raise HTTPException(
-            status_code=400,
-            detail="User does not belong to a company"
-        )
-
-    try:
-
-        invoices = db.query(Shipment_Invoice).filter(
-            Shipment_Invoice.financial_account_id == company_id,
-            Shipment_Invoice.status == status
-        ).all()
-
-        return {
-            "service_invoices": [{
-                "id": invoice.id,
-                "billing_date": invoice.billing_date,
-                "due_date": invoice.due_date,
-                "status": invoice.status,
-                "due_amount": invoice.due_amount
-                } for invoice in invoices]
-        }
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.get("/shipper/finance/interim-invoices") #UnTested
-def get_shipper_interim_invoices(
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    assert "company_id" in current_user, "Missing company_id in current_user"
-    company_id = current_user.get("company_id")
-
-    if not company_id:
-        raise HTTPException(
-            status_code=400,
-            detail="User does not belong to a company"
-        )
-
-    try:
-
-        invoices = db.query(Interim_Invoice).filter(
-            Interim_Invoice.financial_account_id == company_id
-        ).all()
-
-        return {
-            "interim_invoices": [{
-                "id": invoice.id,
-                "lane_id": invoice.contract_id,
-                "lane_type": invoice.contract_type,
-                "billing_period": f"{invoice.billing_date} - {invoice.due_date}",
-                "due_date": invoice.billing_date,
-                "status": invoice.status,
-                "due_amount": invoice.due_amount
-                } for invoice in invoices]
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.get("/shipper/finance/interim-invoices/{status}") #UnTested
-def get_shipper_interim_invoices(
-    status: str,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    assert "company_id" in current_user, "Missing company_id in current_user"
-    company_id = current_user.get("company_id")
-
-    if not company_id:
-        raise HTTPException(
-            status_code=400,
-            detail="User does not belong to a company"
-        )
-
-    try:
-
-        invoices = db.query(Interim_Invoice).filter(
-            Interim_Invoice.financial_account_id == company_id,
-            Interim_Invoice.status == status
-        ).all()
-
-        return {
-            "interim_invoices": [{
-                "id": invoice.id,
-                "lane_id": invoice.contract_id,
-                "lane_type": invoice.contract_type,
-                "billing_period": f"{invoice.billing_date} - {invoice.due_date}",
-                "due_date": invoice.billing_date,
-                "status": invoice.status,
-                "due_amount": invoice.due_amount
-                } for invoice in invoices]
-        }
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.get("/shipper/finance/interim-invoices/{lane_type}-{lane_id}") #UnTested
-def get_shipper_interim_invoices(
-    lane_type: str,
-    lane_id: int,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    assert "company_id" in current_user, "Missing company_id in current_user"
-    company_id = current_user.get("company_id")
-
-    if not company_id:
-        raise HTTPException(
-            status_code=400,
-            detail="User does not belong to a company"
-        )
-
-    try:
-        invoices = db.query(Interim_Invoice).filter(
-            Interim_Invoice.financial_account_id == company_id,
-            Interim_Invoice.contract_type == lane_type,
-            Interim_Invoice.contract_id == lane_id,
-        ).all()
-
-        return {
-            "interim_invoices": [{
-                "id": invoice.id,
-                "lane_id": invoice.contract_id,
-                "lane_type": invoice.contract_type,
-                "billing_period": f"{invoice.billing_date} - {invoice.due_date}",
-                "due_date": invoice.billing_date,
-                "status": invoice.status,
-                "due_amount": invoice.due_amount
-                } for invoice in invoices]
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.get("/shipper/finance/lanes-invoices") #UnTested
-def get_shipper_lanes_invoices(
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    assert "company_id" in current_user, "Missing company_id in current_user"
-    company_id = current_user.get("company_id")
-
-    if not company_id:
-        raise HTTPException(
-            status_code=400,
-            detail="User does not belong to a company"
-        )
-
-    try:
-
-        invoices = db.query(Invoices).filter(
-            Invoices.financial_account_id == company_id
-        ).all()
-
-        return {
-            "lanes_invoices": [{
-                "id": invoice.id,
-                "lane_id": invoice.contract_id,
-                "lane_type": invoice.contract_type,
-                "billing_period": f"{invoice.billing_date} - {invoice.due_date}",
-                "due_date": invoice.billing_date,
-                "status": invoice.status,
-                "due_amount": invoice.due_amount
-                } for invoice in invoices]
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.get("/shipper/finance/lanes-invoices/{status}") #UnTested
-def get_shipper_lanes_invoices_status(
-    status: str,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    assert "company_id" in current_user, "Missing company_id in current_user"
-    company_id = current_user.get("company_id")
-
-    if not company_id:
-        raise HTTPException(
-            status_code=400,
-            detail="User does not belong to a company"
-        )
-
-    try:
-
-        invoices = db.query(Invoices).filter(
-            Invoices.financial_account_id == company_id,
-            Invoices.status == status
-        ).all()
-
-        return {
-            "lanes_invoices": [{
-                "id": invoice.id,
-                "lane_id": invoice.contract_id,
-                "lane_type": invoice.contract_type,
-                "billing_period": f"{invoice.billing_date} - {invoice.due_date}",
-                "due_date": invoice.billing_date,
-                "status": invoice.status,
-                "due_amount": invoice.due_amount
-                } for invoice in invoices]
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.get("/shipper/finance/Overdue/service-invoices", response_model=List[Service_Invoices_Summary_Response]) #UnTested
-def get_all_shipper_overdue_service_invoices(
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    assert "company_id" in current_user, "Missing company_id in current_user"
-    company_id = current_user.get("company_id")
-
-    if not company_id:
-        raise HTTPException(
-            status_code=400,
-            detail="User does not belong to a company"
-        )
-
-    try:
-        invoices = db.query(Shipment_Invoice).filter(
-            Shipment_Invoice.financial_account_id == company_id,
-            Shipment_Invoice.status == "Overdue"
-        ).all()
-
-        if not invoices:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Shipments linked to carrier ID {id} not found or not authorized"
-            )
-        
-        return invoices
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-#########################################Individual Invoice#############################################
-@router.get("/shipper/finance/service-invoice/{invoice_id}") #UnTested
-def get_shipper_service_invoice(
-    invoice_id: int,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    assert "company_id" in current_user, "Missing company_id in current_user"
-    company_id = current_user.get("company_id")
-
-    if not company_id:
-        raise HTTPException(
-            status_code=400,
-            detail="User does not belong to a company"
-        )
-
-    try:
-        company = db.query(FinancialAccounts).filter(FinancialAccounts.id == company_id).first()
-
-        invoice = db.query(Shipment_Invoice).filter(
-            Shipment_Invoice.id == invoice_id
-        ).first()
-
-        return {
-            "service_invoice": {
-                "id": invoice.id,
-                "invoice_type": invoice.invoice_type,
-                "billing_date": invoice.billing_date,
-                "due_date": invoice.due_date,
-                "status": invoice.status,
-                "payment_terms": invoice.payment_terms,
-
-                "billed_to": {
-                    "company_name": invoice.business_name,
-                    "registration_number": financial_account.business_registration_number,
-                    "country": financial_account.business_country_of_incorporation,
-                    "billing_address": financial_account.business_address
-                },
-
-                "service_details": {
-                    "shipment_id": invoice.shipment_id,
-                    "shipment_type": invoice.shipment_type,
-                    "origin_address": invoice.origin_address,
-                    "destination_address": invoice.destination_address,
-                    "pickup_date": invoice.pickup_date,
-                    "distance": invoice.distance,
-                },
-
-                "base_amount": invoice.base_amount,
-                "detention_fees": invoice.other_surcharges,
-                "total_due": invoice.due_amount,
-                "settled_amount": invoice.paid_amount
-            }
-        }
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.get("/shipper/finance/interim-invoice/{invoice_id}") #UnTested
-def get_shipper_interim_invoice(
-    invoice_id: int,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    assert "company_id" in current_user, "Missing company_id in current_user"
-    company_id = current_user.get("company_id")
-
-    if not company_id:
-        raise HTTPException(
-            status_code=400,
-            detail="User does not belong to a company"
-        )
-
-    try:
-        company = db.query(FinancialAccounts).filter(FinancialAccounts.id == company_id).first()
-
-        invoice = db.query(Interim_Invoice).filter(
-            Interim_Invoice.id == invoice_id
-        ).first()
-
-        return {
-            "interim_invoice": {
-                "id": invoice.id,
-                "invoice_type": invoice.invoice_type,
-                "billing_date": invoice.billing_date,
-                "due_date": invoice.due_date,
-                "status": invoice.status,
-                "payment_terms": invoice.payment_terms,
-
-                "billed_to": {
-                    "company_name": invoice.business_name,
-                    "registration_number": financial_account.business_registration_number,
-                    "country": financial_account.business_country_of_incorporation,
-                    "billing_address": financial_account.business_address
-                },
-
-                "base_amount": invoice.base_amount,
-                "detention_fees": invoice.other_surcharges,
-                "total_due": invoice.due_amount,
-                "settled_amount": invoice.paid_amount
-            }
-        }
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.get("/shipper/finance/lane-invoice/{invoice_id}") #UnTested
-def get_shipper_lane_invoice(
-    invoice_id: int,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    assert "company_id" in current_user, "Missing company_id in current_user"
-    company_id = current_user.get("company_id")
-
-    if not company_id:
-        raise HTTPException(
-            status_code=400,
-            detail="User does not belong to a company"
-        )
-
-    try:
-        company = db.query(FinancialAccounts).filter(FinancialAccounts.id == company_id).first()
-
-        invoice = db.query(Invoices).filter(
-            Invoices.id == invoice_id
-        ).first()
-
-        return {
-            "lane_invoice": {
-                "id": invoice.id,
-                "invoice_type": invoice.invoice_type,
-                "billing_period": f"{invoice.billing_date} - {invoice.due_date}",
-                "billing_date": invoice.billing_date,
-                "due_date": invoice.due_date,
-                "status": invoice.status,
-                "payment_terms": invoice.payment_terms,
-
-                "billed_to": {
-                    "company_name": invoice.business_name,
-                    "registration_number": financial_account.business_registration_number,
-                    "country": financial_account.business_country_of_incorporation,
-                    "billing_address": financial_account.business_address
-                },
-
-                "base_amount": invoice.base_amount,
-                "detention_fees": invoice.other_surcharges,
-                "total_due": invoice.due_amount,
-                "settled_amount": invoice.paid_amount
-            }
-        }
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    invoice = db.query(Shipment_Invoice).filter(
+        Shipment_Invoice.shipment_id == shipment_id,
+        Shipment_Invoice.shipment_type == shipment_type
+    ).first()
+
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    financial_account = db.query(FinancialAccounts).filter(FinancialAccounts.id == invoice.company_id).first()
+
+    if not financial_account:
+        raise HTTPException(status_code=404, detail="Linked financial account not found")
+
+    invoice_dict = {
+        "id": invoice.id,
+        "invoice_type": invoice.invoice_type,
+        "billing_date": str(invoice.billing_date),
+        "due_date": str(invoice.due_date),
+        "payment_reference": invoice.payment_reference,
+        "platform_name": "SADC FREIGHTLINK",
+        "billed_to": {
+            "business_name": financial_account.company_name,
+            "registration_no": financial_account.business_registration_number,
+            "billing_address": financial_account.business_address,
+            "business_email": financial_account.business_email,
+        },
+        "from": {
+            "platform_name": "SADC FREIGHTLINK",
+            "platform_address": "2 Bridgeway, Century City, Cape Town, 7441",
+            "platform_bank": "Nedbank Ltd",
+            "platform_bank_account": "1317232429",
+        },
+        "information": {
+            "origin_address": invoice.origin_address,
+            "destination_address": invoice.destination_address,
+            "pickup_date": str(invoice.pickup_date),
+            "distance": invoice.distance,
+            "transit_time": invoice.transit_time,
+            "base_amount": invoice.base_amount,
+            "other_surcharges": invoice.other_surcharges,
+            "late_fees": invoice.late_fees,
+            "total": invoice.total,
+            "due_amount": invoice.due_amount,
+        },
+    }
+
+    logo_url = "https://ik.imagekit.io/0bf9ktdig/ChatGPT%20Image%20Sep%202,%202025,%2009_25_07%20PM.png?updatedAt=1762145054656"  # Replace with your real URL
+    pdf_bytes = generate_shipper_invoice_pdf(invoice_dict, logo_url)
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="shipper_invoice_{invoice.id}.pdf"'}
+    )
