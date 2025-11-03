@@ -8,6 +8,7 @@ from reportlab.lib.styles import getSampleStyleSheet
 from io import BytesIO
 from datetime import datetime
 import requests
+from fastapi.responses import Response
 
 def generate_invoice_pdf(invoice: dict) -> bytes:
     buffer = BytesIO()
