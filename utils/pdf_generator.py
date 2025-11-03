@@ -7,6 +7,7 @@ from reportlab.platypus import Paragraph, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet
 from io import BytesIO
 from datetime import datetime
+from utils.sast_datetime import get_sast_time
 import requests
 from fastapi.responses import Response
 
@@ -238,7 +239,7 @@ def generate_shipper_invoice_pdf(invoice: dict, logo_url: str = None) -> bytes:
 
     # === FOOTER ===
     c.setFont("Helvetica", 8)
-    c.drawString(40, 40, f"Generated on {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}")
+    c.drawString(40, 40, f"Generated on {get_sast_time.strftime('%Y-%m-%d %H:%M:%S UTC')}")
     c.drawRightString(width - 40, 40, "Thank you for your business.")
 
     c.showPage()

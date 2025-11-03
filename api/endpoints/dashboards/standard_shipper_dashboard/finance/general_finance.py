@@ -51,7 +51,7 @@ def get_shipper_shipment_invoice(
             "business_email": financial_account.business_email,
         },
         "from": {
-            "platform_name": "SADC FREIGHTLINK",
+            "platform_name": "SADC FREIGHTLINK ",
             "platform_address": "2 Bridgeway, Century City, Cape Town, 7441",
             "platform_bank": "Nedbank Ltd",
             "platform_bank_account": "1317232429",
