@@ -2,7 +2,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from requests import Session
 from db.database import SessionLocal
-from models.shipper import Corporation
+from models.shipper import Corporation, Consignor
 from models.user import Director, CarrierUser, Driver
 from models.carrier import Carrier
 from models.vehicle import Vehicle, Vehicle_Schedule, Trailer, ShipperTrailer
