@@ -70,7 +70,7 @@ def get_shipper_shipment_invoice(
         },
     }
 
-    logo_url = "https://ik.imagekit.io/0bf9ktdig/ChatGPT%20Image%20Sep%202,%202025,%2009_25_07%20PM.png?updatedAt=1762145054656"  # Replace with your real URL
+    logo_url = "https://ik.imagekit.io/0bf9ktdig/ChatGPT%20Image%20Sep%202,%202025,%2009_28_10%20PM.png?updatedAt=1759309497595"  # Replace with your real URL
     pdf_bytes = generate_shipper_invoice_pdf(invoice_dict, logo_url)
 
     return Response(
