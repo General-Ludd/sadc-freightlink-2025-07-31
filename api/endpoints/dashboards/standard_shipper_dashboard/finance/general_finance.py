@@ -53,7 +53,7 @@ def get_shipper_shipment_invoice(
         "from": {
             "platform_name": "SADC FREIGHTLINK ",
             "platform_address": "2 Bridgeway, Century City, Cape Town, 7441",
-            "platform_bank": "Nedbank Ltd",
+            "platform_bank": "NEDBANK (RSA)",
             "platform_bank_account": "1317232429",
         },
         "information": {
@@ -111,7 +111,7 @@ def get_shipper_shipment_invoice_by_id(
         "from": {
             "platform_name": "SADC FREIGHTLINK ",
             "platform_address": "2 Bridgeway, Century City, Cape Town, 7441",
-            "platform_bank": "Nedbank Ltd",
+            "platform_bank": "NEDBANK (RSA)",
             "platform_bank_account": "1317232429",
         },
         "information": {
@@ -167,10 +167,10 @@ def get_shipper_interim_invoice(
         "status": invoice.status,
         "description": f"{invoice.contract_type}-{invoice.contract_id} billing period {invoice.billing_date} to {invoice.due_date}",
         "from": {
-            "platform_name": invoice.platform_name,
-            "platform_address": invoice.platform_address,
-            "platform_bank": invoice.platform_bank,
-            "platform_bank_account": invoice.platform_bank_account,
+            "platform_name": "SADC FREIGHTLINK",
+            "platform_address": "2 Bridgeway, Century City, Cape Town, 7441",
+            "platform_bank": "NEDBANK (RSA)",
+            "platform_bank_account": "1317232429",
         },
         "billed_to": {
             "business_name": financial_account.company_name,
