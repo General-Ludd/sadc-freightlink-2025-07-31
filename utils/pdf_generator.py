@@ -145,31 +145,22 @@ def generate_shipper_invoice_pdf(invoice: dict, logo_url: str = None) -> bytes:
     # === FROM / BILLED TO ===
     section_y = meta_y - 80
     c.setFont("Helvetica-Bold", 12)
-    c.drawString(40, section_y, "Billed To:")
-    c.drawString(300, section_y, "From:")
+    c.drawString(40, section_y, "From:")
+    c.drawString(300, section_y, "Billed To:")
 
     c.setFont("Helvetica", 10)
-    billed_to_text = (
-        f"{invoice['billed_to']['business_name']}\n"
-        f"Reg No: {invoice['billed_to']['registration_no']}\n"
-        f"{invoice['billed_to']['billing_address']}\n"
-        f"Email: {invoice['billed_to']['business_email']}"
-    )
-    from_text = (
-        f"{invoice['from']['platform_name']}\n"
-        f"{invoice['from']['platform_address']}\n"
-        f"Bank: {invoice['from']['platform_bank']}\n"
-        f"Account: {invoice['from']['platform_bank_account']}"
-    )
+    from_text = f"{invoice['from']['platform_name']}\n{invoice['from']['platform_address']}\nBank: {invoice['from']['platform_bank']}\nAccount: {invoice['from']['platform_bank_account']}"
+    billed_to_text = f"{invoice['billed_to']['business_name']}\n{invoice['billed_to']['billing_address']}\nEmail: {invoice['billed_to']['business_email']}"
 
-    # Draw billed_to and from text
+    # Draw FROM on left
     text_obj = c.beginText(40, section_y - 15)
-    for line in billed_to_text.split("\n"):
+    for line in from_text.split("\n"):
         text_obj.textLine(line)
     c.drawText(text_obj)
 
+    # Draw BILLED TO on right
     text_obj = c.beginText(300, section_y - 15)
-    for line in from_text.split("\n"):
+    for line in billed_to_text.split("\n"):
         text_obj.textLine(line)
     c.drawText(text_obj)
 
