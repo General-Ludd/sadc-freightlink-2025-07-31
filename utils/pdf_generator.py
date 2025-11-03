@@ -205,7 +205,7 @@ def generate_shipper_invoice_pdf(invoice: dict, logo_url: str = None) -> bytes:
         )
     )
     table.wrapOn(c, width, height)
-    table.drawOn(c, 40, details_y - 90)
+    table.drawOn(c, 40, details_y - 95)
 
     # === CHARGES ===
     charges_y = details_y - 120
