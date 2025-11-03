@@ -81,7 +81,7 @@ def get_shipper_shipment_invoice(
 
 @router.get("/shipper/shipment-invoice/{invoice_id}")
 def get_shipper_shipment_invoice_by_id(
-    shipment_id: int,
+    invoice_id: int,
     shipment_type: str,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
@@ -138,4 +138,130 @@ def get_shipper_shipment_invoice_by_id(
         content=pdf_bytes,
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="shipper_invoice_{invoice.id}.pdf"'}
+    )
+
+@router.get("/shipper/interim-invoice/{invoice_id}")
+def get_shipper_interim_invoice(
+    invoice_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    # === 1️⃣ Fetch Invoice ===
+    invoice = db.query(Interim_Invoice).filter(Interim_Invoice.id == invoice_id).first()
+
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Interim invoice not found")
+
+    # === 2️⃣ Fetch Financial Account ===
+    financial_account = db.query(FinancialAccounts).filter(FinancialAccounts.id == invoice.financial_account_id).first()
+
+    if not financial_account:
+        raise HTTPException(status_code=404, detail="Linked financial account not found")
+
+    # === 3️⃣ Build Invoice Dictionary ===
+    invoice_dict = {
+        "id": invoice.id,
+        "invoice_type": invoice.invoice_type,
+        "billing_date": str(invoice.billing_date),
+        "due_date": str(invoice.due_date),
+        "payment_reference": invoice.payment_reference,
+        "platform_name": invoice.platform_name,
+        "status": invoice.status,
+        "description": invoice.description,
+        "from": {
+            "platform_name": invoice.platform_name,
+            "platform_address": invoice.platform_address,
+            "platform_bank": invoice.platform_bank,
+            "platform_bank_account": invoice.platform_bank_account,
+        },
+        "billed_to": {
+            "business_name": financial_account.company_name,
+            "registration_no": financial_account.business_registration_number,
+            "billing_address": financial_account.business_address,
+            "business_email": financial_account.business_email,
+        },
+        "information": {
+            "contract_id": invoice.contract_id,
+            "contract_type": invoice.contract_type,
+            "billing_period": invoice.payment_terms or "N/A",
+            "base_amount": invoice.base_amount,
+            "other_surcharges": invoice.other_surcharges,
+            "late_fees": invoice.late_fees,
+            "total": invoice.total,
+            "due_amount": invoice.due_amount,
+        },
+    }
+
+    # === 4️⃣ Generate PDF ===
+    logo_url = "https://ik.imagekit.io/0bf9ktdig/ChatGPT%20Image%20Sep%202,%202025,%2009_25_07%20PM.png?updatedAt=1762145054656"
+    pdf_bytes = generate_interim_invoice_pdf(invoice_dict, logo_url)
+
+    # === 5️⃣ Return Response ===
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="interim_invoice_{invoice.id}.pdf"'}
+    )
+
+@router.get("/shipper/interim-invoice/{invoice_id}")
+def get_shipper_interim_invoice(
+    invoice_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    # === 1️⃣ Fetch Invoice ===
+    invoice = db.query(Interim_Invoice).filter(Interim_Invoice.id == invoice_id).first()
+
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Interim invoice not found")
+
+    # === 2️⃣ Fetch Financial Account ===
+    financial_account = db.query(FinancialAccounts).filter(FinancialAccounts.id == invoice.financial_account_id).first()
+
+    if not financial_account:
+        raise HTTPException(status_code=404, detail="Linked financial account not found")
+
+    # === 3️⃣ Build Invoice Dictionary ===
+    invoice_dict = {
+        "id": invoice.id,
+        "invoice_type": invoice.invoice_type,
+        "billing_date": str(invoice.billing_date),
+        "due_date": str(invoice.due_date),
+        "payment_reference": invoice.payment_reference,
+        "platform_name": invoice.platform_name,
+        "status": invoice.status,
+        "description": invoice.description,
+        "from": {
+            "platform_name": invoice.platform_name,
+            "platform_address": invoice.platform_address,
+            "platform_bank": invoice.platform_bank,
+            "platform_bank_account": invoice.platform_bank_account,
+        },
+        "billed_to": {
+            "business_name": financial_account.company_name,
+            "registration_no": financial_account.business_registration_number,
+            "billing_address": financial_account.business_address,
+            "business_email": financial_account.business_email,
+        },
+        "information": {
+            "contract_id": invoice.contract_id,
+            "contract_type": invoice.contract_type,
+            "billing_period": invoice.payment_terms or "N/A",
+            "base_amount": invoice.base_amount,
+            "other_surcharges": invoice.other_surcharges,
+            "late_fees": invoice.late_fees,
+            "total": invoice.total,
+            "due_amount": invoice.due_amount,
+        },
+    }
+
+    # === 4️⃣ Generate PDF ===
+    logo_url = "https://ik.imagekit.io/0bf9ktdig/ChatGPT%20Image%20Sep%202,%202025,%2009_25_07%20PM.png?updatedAt=1762145054656"
+    pdf_bytes = generate_interim_invoice_pdf(invoice_dict, logo_url)
+
+    # === 5️⃣ Return Response ===
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="interim_invoice_{invoice.id}.pdf"'}
     )
