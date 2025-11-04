@@ -327,7 +327,7 @@ def create_ftl_shipment(
         rate_per_km=int(rate_per_km),  # Convert to integer (e.g., cents)
         rate_per_ton=int(rate_per_ton),  # Convert to integer
         payment_terms=financial_account.payment_terms,  # Dynamic payout method
-        payment_date=BillingEngine.get_next_billing_date(payment_terms, shipment_data.pickup_date),
+        payment_date=BillingEngine.get_next_billing_date(payment_terms, shipment_data.pickup_date) + timedelta(days=2),
         required_truck_type=shipment_data.required_truck_type,
         equipment_type=shipment_data.equipment_type,
         trailer_type=shipment_data.trailer_type,
@@ -450,34 +450,7 @@ def create_ftl_shipment(
     db.refresh(loadboard_entry)
 
     # Step 6: Return all details
-    return {
-        "shipment": shipment,
-        "brokerage_details": {
-            "platform_commission": brokerage_details[0],
-            "transaction_fee": brokerage_details[1],
-            "true_platform_earnings": brokerage_details[2],
-            "carrier_payout": brokerage_details[3],
-        },
-        "brokerage_transaction": {
-            "id": brokerage_transaction.id,
-            "shipment_id": brokerage_transaction.shipment_id,
-            "platform_commission": brokerage_transaction.platform_commission,
-            "transaction_fee": brokerage_transaction.transaction_fee,
-            "true_platform_earnings": brokerage_transaction.true_platform_earnings,
-            "carrier_payout": brokerage_transaction.carrier_payable,
-            "payment_method": brokerage_transaction.payment_terms,
-            "created_at": brokerage_transaction.created_at,
-        },
-        "loadboard_entry": {
-            "id": loadboard_entry.id,
-            "shipment_id": loadboard_entry.shipment_id,
-            "shipment_rate": loadboard_entry.shipment_rate,
-            "rate_per_km": loadboard_entry.rate_per_km,
-            "rate_per_ton": loadboard_entry.rate_per_ton,
-            "payment_terms": loadboard_entry.payment_terms,
-            "created_at": loadboard_entry.created_at,
-        },
-    }
+    return {"shipment_id": shipment.id}
 
 ################################################Broker Shipment Create###################################
 def broker_create_ftl_shipment(
@@ -942,31 +915,4 @@ def broker_create_ftl_shipment(
     db.refresh(loadboard_entry)
 
     # Step 6: Return all details
-    return {
-        "shipment": shipment,
-        "brokerage_details": {
-            "platform_commission": brokerage_details[0],
-            "transaction_fee": brokerage_details[1],
-            "true_platform_earnings": brokerage_details[2],
-            "carrier_payout": brokerage_details[3],
-        },
-        "brokerage_transaction": {
-            "id": brokerage_transaction.id,
-            "shipment_id": brokerage_transaction.shipment_id,
-            "platform_commission": brokerage_transaction.platform_commission,
-            "transaction_fee": brokerage_transaction.transaction_fee,
-            "true_platform_earnings": brokerage_transaction.true_platform_earnings,
-            "carrier_payout": brokerage_transaction.carrier_payable,
-            "payment_method": brokerage_transaction.payment_terms,
-            "created_at": brokerage_transaction.created_at,
-        },
-        "loadboard_entry": {
-            "id": loadboard_entry.id,
-            "shipment_id": loadboard_entry.shipment_id,
-            "shipment_rate": loadboard_entry.shipment_rate,
-            "rate_per_km": loadboard_entry.rate_per_km,
-            "rate_per_ton": loadboard_entry.rate_per_ton,
-            "payment_terms": loadboard_entry.payment_terms,
-            "created_at": loadboard_entry.created_at,
-        },
-    }
+    return {"shipment_id": shipment.id}

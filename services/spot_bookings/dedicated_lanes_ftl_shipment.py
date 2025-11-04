@@ -644,10 +644,7 @@ def create_dedicated_lane_ftl_shipment(
 
     return {
         "message": "Contract and sub-shipments created successfully",
-        "contract_id": shipment.id,
-        "contract_invoice_due_date": last_billing_date,
-        "billing_dates": all_payment_dates,
-        "shipment_dates": shipment_dates
+        "lane_id": shipment.id,
     }
 
 #############################################################################################################################
@@ -1290,8 +1287,5 @@ def broker_create_dedicated_lane_ftl_shipment(
 
     return {
         "message": "Contract and sub-shipments created successfully",
-        "contract_id": shipment.id,
-        "contract_invoice_due_date": last_billing_date,
-        "billing_dates": all_payment_dates,
-        "shipment_dates": shipment_dates
+        "lane_id": shipment.id,
     }
