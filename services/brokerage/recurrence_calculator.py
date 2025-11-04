@@ -31,11 +31,11 @@ class DedicatedLanesFtlShipmentPaymentSchedule:
         last_day = monthrange(year, month)[1]
         billing_days = []
 
-        if self.payment_term == "NET 7":
+        if self.payment_term == "NET-7":
             billing_days = [7, 14, 21, 28]
-        elif self.payment_term == "NET 10":
+        elif self.payment_term == "NET-10":
             billing_days = [10, 20, last_day]
-        elif self.payment_term == "NET 15":
+        elif self.payment_term == "NET-15":
             billing_days = [15, last_day]
         elif self.payment_term == "EOM":
             billing_days = [last_day]

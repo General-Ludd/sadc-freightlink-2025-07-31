@@ -29,9 +29,9 @@ class UserStatus(str, Enum):
 
 class PaymentTerms(str, Enum):
     PAB = "PAB"
-    NET_7 = "NET 7"
-    NET_10 = "NET 10"
-    NET_15 = "NET 15"
+    NET_7 = "NET-7"
+    NET_10 = "NET-10"
+    NET_15 = "NET-15"
     EOM = "EOM"
 
 class Recurrence_Frequency(str, Enum):

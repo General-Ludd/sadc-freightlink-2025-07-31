@@ -52,11 +52,11 @@ def determine_payout_method(payment_type: str):
         return "48 Hrs EFT"
     elif payment_type == "30_DAY_STANDARD":
         return "30 Days POD"
-    elif payment_type == "NET 7":
+    elif payment_type == "NET-7":
         return "7 Days after POD"
-    elif payment_type == "NET 10":
+    elif payment_type == "NET-10":
         return "10 Days after POD"
-    elif payment_type == "NET 15":
+    elif payment_type == "NET-15":
         return "15 Days after POD"
     elif payment_type == "EOM":
         return "End of the month"

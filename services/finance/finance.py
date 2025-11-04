@@ -22,9 +22,9 @@ def get_next_billing_date(current_date, payment_term):
         return datetime(dt.year, dt.month, last_day)
 
     billing_days = {
-        "NET_7": [7, 14, 21, 28],
-        "NET_10": [10, 20, "EOM"],
-        "NET_15": [15, "EOM"],
+        "NET-7": [7, 14, 21, 28],
+        "NET-10": [10, 20, "EOM"],
+        "NET-15": [15, "EOM"],
         "EOM": ["EOM"]
     }
 
