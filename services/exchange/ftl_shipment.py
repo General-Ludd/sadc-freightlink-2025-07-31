@@ -323,17 +323,7 @@ def create_ftl_shipment_exchange(
     return {
         "status": "success",
         "message": f"Exchange successfully booked for pickup date {shipment.pickup_date}",
-        "booking_details": {
-            "origin": shipment.origin_city_province,
-            "destination": shipment.destination_city_province,
-            "pickup_date": shipment.pickup_date,
-            "distance": shipment.distance,
-            "required_truck_type": shipment.required_truck_type,
-            "equipment_type": shipment.equipment_type,
-            "trailer_type": shipment.trailer_type if shipment.trailer_type else "N/A",
-            "trailer_length": shipment.trailer_length if shipment.trailer_length else "N/A",
-            "offer_rate": shipment.offer_price,
-        }
+        "exchange_id": shipment.id
     }
 
 
@@ -652,15 +642,5 @@ def broker_access_create_ftl_shipment_exchange(
     return {
         "status": "success",
         "message": f"Exchange successfully booked for pickup date {shipment.pickup_date}",
-        "booking_details": {
-            "origin": shipment.origin_city_province,
-            "destination": shipment.destination_city_province,
-            "pickup_date": shipment.pickup_date,
-            "distance": shipment.distance,
-            "required_truck_type": shipment.required_truck_type,
-            "equipment_type": shipment.equipment_type,
-            "trailer_type": shipment.trailer_type if shipment.trailer_type else "N/A",
-            "trailer_length": shipment.trailer_length if shipment.trailer_length else "N/A",
-            "offer_rate": shipment.offer_price,
-        }
+        "exchange_id": shipment.id
     }

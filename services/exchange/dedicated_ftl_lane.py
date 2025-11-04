@@ -349,19 +349,7 @@ def create_dedicated_ftl_lane_exchange(
     return {
         "status": "success",
         "message": "Dedicated lane exchange successfully booked",
-        "booking_details": {
-            "origin": shipment.origin_city_province,
-            "destination": shipment.destination_city_province,
-            "from": shipment.start_date,
-            "to": shipment.end_date,
-            "distance": shipment.distance,
-            "required_truck_type": shipment.required_truck_type,
-            "equipment_type": shipment.equipment_type,
-            "trailer_type": shipment.trailer_type if shipment.trailer_type else "N/A",
-            "trailer_length": shipment.trailer_length if shipment.trailer_length else "N/A",
-            "per_shipment_offer_rate": shipment.per_shipment_offer_rate,
-            "contract_offer_rate": shipment.contract_offer_rate,
-        }
+        "exchange_lane_id": shipment.id
     }
 
 def broker_access_create_dedicated_ftl_lane_exchange(
@@ -701,17 +689,5 @@ def broker_access_create_dedicated_ftl_lane_exchange(
     return {
         "status": "success",
         "message": "Dedicated lane exchange successfully booked",
-        "booking_details": {
-            "origin": shipment.origin_city_province,
-            "destination": shipment.destination_city_province,
-            "from": shipment.start_date,
-            "to": shipment.end_date,
-            "distance": shipment.distance,
-            "required_truck_type": shipment.required_truck_type,
-            "equipment_type": shipment.equipment_type,
-            "trailer_type": shipment.trailer_type if shipment.trailer_type else "N/A",
-            "trailer_length": shipment.trailer_length if shipment.trailer_length else "N/A",
-            "per_shipment_offer_rate": shipment.per_shipment_offer_rate,
-            "contract_offer_rate": shipment.contract_offer_rate,
-        }
+        "exchange_lane_id": shipment.id
     }
