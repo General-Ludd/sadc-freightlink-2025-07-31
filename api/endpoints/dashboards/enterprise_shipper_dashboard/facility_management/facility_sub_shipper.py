@@ -11,6 +11,7 @@ from models.shipper import Corporation, Client_Notification
 from schemas.brokerage.finance import Shipper_Financial_Account_Create, Client_Financial_Account_Update
 from schemas.shipper import CorporationBase, CorporationResponse, CorporationUpdate, FacilityCreation
 from schemas.user import DirectorCreate, DirectorResponse, ShipperUserResponse
+from utils.auth import get_current_user, verify_password, hash_password
 
 router = APIRouter()
 
