@@ -23,6 +23,14 @@ class FacilityCreate(BaseModel):
     facility_type: FacilityType
     is_verified: bool = False
 
+class FacilityCreation(BaseModel):
+    facility_name: str
+    country: str
+    facility_address: str
+    facility_email: str
+    facility_phone_number: str
+    facility_proof_of_address: str
+
 from pydantic import BaseModel, EmailStr
 from datetime import date
 from typing import Optional

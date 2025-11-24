@@ -5,6 +5,7 @@ import json
 import threading
 from fastapi.middleware.cors import CORSMiddleware
 from api.endpoints.dashboards import tracking
+from api.endpoints.dashboards.enterprise_shipper_dashboard import enterprise_dashboard
 from api.endpoints.dashboards.standard_shipper_dashboard import standard_facility_dashboard
 from api.endpoints.dashboards.standard_shipper_dashboard.finance import general_finance
 from api.endpoints.dashboards.standard_shipper_dashboard import user_management
@@ -87,6 +88,9 @@ async def log_selected_requests(request: Request, call_next):
 
 #################################################Public################################################
 app.include_router(contact_us.router, prefix="/api", tags=["Contact Us"])
+
+#################################################Enterprise############################################
+app.include_router(enterprise_dashboard.router, prefix="/api", tags=["Enterprise Shipper Dashboard"])
 
 ################################################Shipper Dashboard######################################
 app.include_router(gcs_upload.router, prefix="/api", tags=["File Upload"])

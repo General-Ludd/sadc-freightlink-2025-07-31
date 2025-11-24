@@ -29,6 +29,12 @@ class BrokerageTransactionResponse(BrokerageTransactionCreate):
 class Shipper_Financial_Account_Create(BaseModel):
     payment_terms: PaymentTerms
 
+class Enterprise_Financial_Account_Create(BaseModel):
+    payment_terms: PaymentTerms
+    years_in_business: str
+    nature_of_business: str
+    projected_daily_bookings: int
+
 class Client_Financial_Account_Update(BaseModel):
     credit_score: Optional[int] = None
     nature_of_business: Optional[str] = None

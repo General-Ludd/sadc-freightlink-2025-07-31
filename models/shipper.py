@@ -11,6 +11,7 @@ class Corporation(Base):
     __tablename__ = "corporations"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    parent_company_id = Column(Integer, nullable=True)
     type = Column(Enum(ShipperType), nullable=False)
     facility_type = Column(Enum(FacilityType), nullable=True)  # subsidiary, outpost
     legal_business_name = Column(String, nullable=False)
