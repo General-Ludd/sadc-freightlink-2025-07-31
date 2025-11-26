@@ -7,6 +7,8 @@ from models.spot_bookings.shipment_facility import ShipmentFacility
 from models.spot_bookings.ftl_shipment import FTL_SHIPMENT
 from models.spot_bookings.dedicated_lane_ftl_shipment import FTL_Lane
 from models.spot_bookings.power_shipment import POWER_SHIPMENT
+from models.Exchange.ftl_shipment import FTL_SHIPMENT_EXCHANGE
+from models.Exchange.dedicated_ftl_lane import FTL_Lane_Exchange
 from models.shipper import Corporation, Client_Notification
 from schemas.brokerage.finance import Shipper_Financial_Account_Create, Enterprise_Financial_Account_Create, Client_Financial_Account_Update
 from schemas.shipper import CorporationBase, CorporationResponse, CorporationUpdate
