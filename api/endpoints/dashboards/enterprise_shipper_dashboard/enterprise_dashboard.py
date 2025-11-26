@@ -175,8 +175,8 @@ def get_enterprise_shipper_dashboard(
         for lane in lanes:
             total_shipments = lane_counts.get(lane.id, 0)
             lanes_by_volume.append({
-                "origin": lane.origin,
-                "destination": lane.destination,
+                "origin": lane.origin_city_province,
+                "destination": lane.destination_city_province,
                 "total_shipments": total_shipments
             })
 
