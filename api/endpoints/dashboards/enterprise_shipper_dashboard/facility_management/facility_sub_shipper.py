@@ -254,7 +254,7 @@ def get_enterprise_facility_id(
                     "origin": {
                         "city": shipment.origin_city_province,
                         "pickup_date": shipment.pickup_date,
-                        "pickup_window": shipment.pickup_window,
+                        "pickup_window": shipment.pickup_appointment,
                     },
                     "destination": {
                         "city": shipment.destination_city_province,
