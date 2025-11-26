@@ -35,31 +35,31 @@ def get_db():
 
 def make_aware(dt):
     """
-    Converts:
-        - None → None
-        - datetime.date → datetime at midnight SAST
-        - naive datetime → datetime with tzinfo=SAST
-        - aware datetime → unchanged
-        - ISO-format string → parsed and timezone-aware
+    Converts any date/datetime/string to a timezone-aware SAST datetime.
+    Handles:
+        - None → returns None
+        - datetime.date → converted to datetime at midnight
+        - datetime.datetime → assigned SAST if naive
+        - ISO-format strings → parsed to datetime and made SAST aware
     """
     if dt is None:
         return None
 
     sast = ZoneInfo("Africa/Johannesburg")
 
-    # If string → parse
+    # If it's a string, try parsing it
     if isinstance(dt, str):
         try:
-            dt = datetime.fromisoformat(dt)  # works for YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS
+            dt = datetime.fromisoformat(dt)  # YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS
         except ValueError:
-            # If only date
+            # If only date string like YYYY-MM-DD
             dt = datetime.fromisoformat(dt + "T00:00:00")
 
-    # If date-only object → convert to datetime at midnight
+    # If it's date-only object
     if not isinstance(dt, datetime):
         dt = datetime(dt.year, dt.month, dt.day)
 
-    # Assign SAST if naive
+    # If naive datetime → assign SAST timezone
     if dt.tzinfo is None or dt.tzinfo.utcoffset(dt) is None:
         dt = dt.replace(tzinfo=sast)
 
