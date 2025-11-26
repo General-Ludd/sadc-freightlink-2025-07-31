@@ -562,7 +562,7 @@ def get_enterprise_shipper_lanes(
                 "shipments_per_interval": lane.shipments_per_interval,
                 "total_shipments": lane.total_shipments,
                 "completed_shipments": lane.progress if lane.progress else 0,
-                "rate_per_shipment": lane.quote_per_shipment,
+                "rate_per_shipment": lane.qoute_per_shipment,
                 "payment_terms": lane.payment_terms,
             })
 
