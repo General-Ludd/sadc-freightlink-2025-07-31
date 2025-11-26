@@ -35,26 +35,37 @@ def get_db():
 
 def make_aware(dt):
     """
-    Safely handles:
-    - None
-    - date
-    - naive datetime
-    - timezone-aware datetime
+    Converts dates/datetimes (naive or aware) or ISO strings into timezone-aware SAST datetime.
+    Handles:
+        - None
+        - datetime.date
+        - datetime.datetime
+        - ISO-format strings (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)
     """
-
     if dt is None:
         return None
 
     sast = ZoneInfo("Africa/Johannesburg")
 
-    # Case 1: date-only → convert to datetime at midnight SAST
-    if isinstance(dt, datetime) is False:
-        # dt is a datetime.date
-        return datetime(dt.year, dt.month, dt.day, tzinfo=sast)
+    # If dt is a string → try parse
+    if isinstance(dt, str):
+        try:
+            # Try full datetime first
+            dt_parsed = datetime.fromisoformat(dt)
+        except ValueError:
+            # If only date, convert to datetime at midnight
+            dt_parsed = datetime.fromisoformat(dt + "T00:00:00")
+        dt = dt_parsed
 
-    # Case 2: already timezone-aware
-    if dt.tzinfo is not None and dt.tzinfo.utcoffset(dt) is not None:
-        return dt
+    # If dt is a date (not datetime)
+    if not isinstance(dt, datetime):
+        dt = datetime(dt.year, dt.month, dt.day)
+
+    # If naive → assign SAST
+    if dt.tzinfo is None or dt.tzinfo.utcoffset(dt) is None:
+        dt = dt.replace(tzinfo=sast)
+
+    return dt
 
     # Case 3: naive datetime → make SAST aware
     return dt.replace(tzinfo=sast)
