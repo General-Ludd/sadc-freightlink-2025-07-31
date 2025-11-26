@@ -577,6 +577,20 @@ def get_enterprise_shipper_lanes(
         print("Error:", str(e))
         raise HTTPException(status_code=500, detail="Internal server error")
 
+def make_aware(dt):
+    """
+    Converts naive datetimes (from DB) into timezone-aware SAST datetimes.
+    If already aware, returns the same datetime.
+    """
+    if dt is None:
+        return None
+
+    if dt.tzinfo is not None and dt.tzinfo.utcoffset(dt) is not None:
+        return dt  # already aware
+
+    return dt.replace(tzinfo=ZoneInfo("Africa/Johannesburg"))
+
+
 @router.get("/enterprise-exchange-lanes")
 def get_enteprise_shipper_exchange_lanes(
     db: Session = Depends(get_db),
@@ -603,19 +617,22 @@ def get_enteprise_shipper_exchange_lanes(
             .all()
         )
 
-        # Current time in UTC
+        # Current SAST time
         now = get_sast_time()
         two_hours_from_now = now + timedelta(hours=2)
 
-        # 5. Status counts
+        # 5. Status counts with safe timezone-aware handling
         status_counts = {
             "total_exchanges": len(lane_exchanges),
-            "open": len([l for l in lane_exchanges if l.auction_status == "Open"]),
+            "open": len([
+                l for l in lane_exchanges
+                if l.auction_status == "Open"
+            ]),
             "closing_soon": len([
                 l for l in lane_exchanges
                 if l.auction_status == "Open"
-                and l.exchange_end_time is not None
-                and now <= l.exchange_end_time <= two_hours_from_now
+                and make_aware(l.exchange_end_time) is not None
+                and now <= make_aware(l.exchange_end_time) <= two_hours_from_now
             ]),
             "closed": len([l for l in lane_exchanges if l.auction_status == "Closed"]),
         }
@@ -623,6 +640,12 @@ def get_enteprise_shipper_exchange_lanes(
         lane_list = []
 
         for lane in lane_exchanges:
+
+            # Make DB times timezone-aware
+            start_date = make_aware(lane.start_date)
+            end_date = make_aware(lane.end_date)
+            exchange_end_time = make_aware(lane.exchange_end_time)
+
             facility = (
                 db.query(Corporation)
                 .filter(Corporation.id == lane.shipper_company_id)
@@ -636,15 +659,15 @@ def get_enteprise_shipper_exchange_lanes(
                     "name": facility.legal_business_name,
                     "id": facility.id,
                 },
-                "exchange_end_time": lane.exchange_end_time,
+                "exchange_end_time": exchange_end_time.isoformat() if exchange_end_time else None,
                 "origin": lane.origin_city_province,
                 "destination": lane.destination_city_province,
                 "distance": lane.distance,
                 "average_weight": lane.average_shipment_weight,
                 "commodity": lane.commodity,
                 "contract_details": {
-                    "start_date": lane.start_date,
-                    "end_date": lane.end_date,
+                    "start_date": start_date.isoformat() if start_date else None,
+                    "end_date": end_date.isoformat() if end_date else None,
                     "frequency": lane.recurrence_frequency,
                     "recurrence_days": lane.recurrence_days,
                 },
