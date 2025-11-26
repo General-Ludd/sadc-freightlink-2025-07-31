@@ -167,8 +167,8 @@ def get_enterprise_shipper_dashboard(
         # Build mapping: lane_id -> count of shipments
         lane_counts = {}
         for shipment in shipments:
-            if shipment.lane_id:
-                lane_counts[shipment.lane_id] = lane_counts.get(shipment.lane_id, 0) + 1
+            if shipment.dedicated_lane_id:
+                lane_counts[shipment.dedicated_lane_id] = lane_counts.get(shipment.dedicated_lane_id, 0) + 1
 
         # Build list with Origin, Destination, Total Shipments
         lanes_by_volume = []
