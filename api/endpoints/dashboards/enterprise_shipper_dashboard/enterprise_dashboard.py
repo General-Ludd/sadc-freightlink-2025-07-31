@@ -67,9 +67,6 @@ def make_aware(dt):
 
     return dt
 
-    # Case 3: naive datetime → make SAST aware
-    return dt.replace(tzinfo=sast)
-
 @router.get("/enterprise-shipper/company-name")
 def get_enterprise_shipper_company_name(
     db: Session = Depends(get_db),
