@@ -580,17 +580,29 @@ def get_enterprise_shipper_lanes(
 
 def make_aware(dt):
     """
-    Converts naive datetimes (from DB) into timezone-aware SAST datetimes.
-    If already aware, returns the same datetime.
+    Safely handles:
+    - None
+    - date
+    - naive datetime
+    - timezone-aware datetime
     """
+
     if dt is None:
         return None
 
+    sast = ZoneInfo("Africa/Johannesburg")
+
+    # Case 1: date-only → convert to datetime at midnight SAST
+    if isinstance(dt, datetime) is False:
+        # dt is a datetime.date
+        return datetime(dt.year, dt.month, dt.day, tzinfo=sast)
+
+    # Case 2: already timezone-aware
     if dt.tzinfo is not None and dt.tzinfo.utcoffset(dt) is not None:
-        return dt  # already aware
+        return dt
 
-    return dt.replace(tzinfo=ZoneInfo("Africa/Johannesburg"))
-
+    # Case 3: naive datetime → make SAST aware
+    return dt.replace(tzinfo=sast)
 
 @router.get("/enterprise-exchange-lanes")
 def get_enteprise_shipper_exchange_lanes(
