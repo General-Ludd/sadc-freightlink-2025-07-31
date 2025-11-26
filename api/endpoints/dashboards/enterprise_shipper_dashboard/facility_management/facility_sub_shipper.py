@@ -245,7 +245,7 @@ def get_enterprise_facility_id(
                     "status": shipment.shipment_status,
                     "priority_level": shipment.priority_level,
                     "is_subshipment": shipment.is_subshipment,
-                    "lane_id": shipment.lane_id,
+                    "lane_id": shipment.dedicated_lane_id,
                     "facility": {
                         "name": facility.legal_business_name,
                         "id": facility.id,
