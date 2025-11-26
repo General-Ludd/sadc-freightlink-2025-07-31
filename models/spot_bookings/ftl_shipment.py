@@ -88,6 +88,16 @@ class FTL_SHIPMENT(Base):
     created_at = Column(DateTime(timezone=True), default=get_sast_time)
     updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)
 
+class shipment_status_Update(Base):
+    __tablename__ = "shipment_status_updates"
+
+    id = Column(Integer, index=True, primary_key=True)
+    shipment_id = Column(Integer)
+    type = Column(String)
+    status = Column(String)
+    trip_status = Column(String)
+    location_description = Column()
+    created_at = Column(DateTime(timezone=True), default=get_sast_time)
 
 class FTL_Shipment_Docs(Base):
     __tablename__ = "ftl_shipment_docs"
