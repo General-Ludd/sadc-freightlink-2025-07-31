@@ -33,6 +33,32 @@ def get_db():
     finally:
         db.close()
 
+def make_aware(dt):
+    """
+    Safely handles:
+    - None
+    - date
+    - naive datetime
+    - timezone-aware datetime
+    """
+
+    if dt is None:
+        return None
+
+    sast = ZoneInfo("Africa/Johannesburg")
+
+    # Case 1: date-only → convert to datetime at midnight SAST
+    if isinstance(dt, datetime) is False:
+        # dt is a datetime.date
+        return datetime(dt.year, dt.month, dt.day, tzinfo=sast)
+
+    # Case 2: already timezone-aware
+    if dt.tzinfo is not None and dt.tzinfo.utcoffset(dt) is not None:
+        return dt
+
+    # Case 3: naive datetime → make SAST aware
+    return dt.replace(tzinfo=sast)
+
 @router.get("/enterprise-shipper/company-name")
 def get_enterprise_shipper_company_name(
     db: Session = Depends(get_db),
@@ -414,33 +440,46 @@ def get_enterprise_shipper_shipment_exchanges(
         # 3. Scope includes parent + all facilities
         company_scope_ids = [current_user.get("company_id")] + facility_ids
 
-        # 4. Fetch all lanes
+        # 4. Fetch all shipments for the scope
         shipment_exchanges = (
             db.query(FTL_SHIPMENT)
             .filter(FTL_SHIPMENT.shipper_company_id.in_(company_scope_ids))
             .all()
         )
 
-        # Current time in UTC
+        # 5. Current SAST time
         now = get_sast_time()
         two_hours_from_now = now + timedelta(hours=2)
 
-        # 5. Status counts
+        # 6. Status counts (timezone-safe)
         status_counts = {
             "total_exchanges": len(shipment_exchanges),
-            "open": len([s for s in shipment_exchanges if s.auction_status == "Open"]),
+            "open": len([
+                s for s in shipment_exchanges
+                if s.auction_status == "Open"
+            ]),
             "closing_soon": len([
                 s for s in shipment_exchanges
                 if s.auction_status == "Open"
-                and s.end_time is not None
-                and now <= s.end_time <= two_hours_from_now
+                and make_aware(s.end_time) is not None
+                and now <= make_aware(s.end_time) <= two_hours_from_now
             ]),
-            "closed": len([l for l in shipment_exchanges if l.auction_status == "Closed"]),
+            "closed": len([
+                s for s in shipment_exchanges
+                if s.auction_status == "Closed"
+            ]),
         }
 
         exchanges_list = []
 
         for shipment in shipment_exchanges:
+
+            # ===========================
+            #  TIMEZONE FIXES FOR FIELDS
+            # ===========================
+            end_time = make_aware(shipment.end_time)
+            pickup_date = make_aware(shipment.pickup_date)
+
             facility = (
                 db.query(Corporation)
                 .filter(Corporation.id == shipment.shipper_company_id)
@@ -453,19 +492,25 @@ def get_enterprise_shipper_shipment_exchanges(
                 .first()
             )
 
-            # Step 2: get ETA Date, ETA Window, Polylines
+            # Convert pickup_facility.end_time if needed
+            pickup_window_time = make_aware(pickup_facility.end_time) if pickup_facility and pickup_facility.end_time else None
+
+            # ===========================
+            #  TRIP ETA + POLYLINES
+            # ===========================
             try:
                 trip_data = get_eta_and_polyline(RouteETAInput(
                     origin_address=shipment.origin_address,
                     destination_address=shipment.destination_address,
-                    start_date=shipment.pickup_date,
-                    start_time=pickup_facility.end_time,
+                    start_date=pickup_date,
+                    start_time=pickup_window_time,
                 ))
-                eta_date = trip_data["eta_date"]  # Distance in kilometers
-                eta_window = trip_data["eta_window"]  # Transit time as text
+
+                eta_date = trip_data["eta_date"]
+                eta_window = trip_data["eta_window"]
+
             except HTTPException as e:
                 raise HTTPException(status_code=500, detail=f"Trip info calculation failed: {e.detail}")
-
 
             exchanges_list.append({
                 "id": shipment.id,
@@ -475,11 +520,10 @@ def get_enterprise_shipper_shipment_exchanges(
                     "name": facility.legal_business_name,
                     "id": facility.id,
                 },
-                "end_time": shipment.end_time,
-                "destination": shipment.destination_city_province,
+                "end_time": end_time.isoformat() if end_time else None,
                 "origin": {
                     "origin_city_province": shipment.origin_city_province,
-                    "pickup_date": shipment.pickup_date,
+                    "pickup_date": pickup_date.isoformat() if pickup_date else None,
                     "pickup_window": shipment.pickup_appointment,
                 },
                 "destination": {
@@ -497,10 +541,16 @@ def get_enterprise_shipper_shipment_exchanges(
                     "leading_bid": shipment.leading_bid_amount,
                 },
             })
+
+        return {
+            "summary": status_counts,
+            "exchanges": exchanges_list
+        }
+
     except Exception as e:
         print("Error:", str(e))
         raise HTTPException(status_code=500, detail="Internal server error")
-
+    
 @router.get("/enterprise-lanes")
 def get_enterprise_shipper_lanes(
     db: Session = Depends(get_db),
