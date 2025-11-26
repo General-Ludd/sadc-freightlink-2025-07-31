@@ -442,8 +442,8 @@ def get_enterprise_shipper_shipment_exchanges(
 
         # 4. Fetch all shipments for the scope
         shipment_exchanges = (
-            db.query(FTL_SHIPMENT)
-            .filter(FTL_SHIPMENT.shipper_company_id.in_(company_scope_ids))
+            db.query(FTL_SHIPMENT_EXCHANGE)
+            .filter(FTL_SHIPMENT_EXCHANGE.shipper_company_id.in_(company_scope_ids))
             .all()
         )
 
