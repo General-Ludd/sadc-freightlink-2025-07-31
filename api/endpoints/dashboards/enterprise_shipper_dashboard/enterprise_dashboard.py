@@ -421,7 +421,7 @@ def get_enterprise_shipper_shipment_exchanges(
         )
 
         # Current time in UTC
-        now = datetime.now(timezone.utc)
+        now = get_sast_time()
         two_hours_from_now = now + timedelta(hours=2)
 
         # 5. Status counts
@@ -604,7 +604,7 @@ def get_enteprise_shipper_exchange_lanes(
         )
 
         # Current time in UTC
-        now = datetime.now(timezone.utc)
+        now = get_sast_time()
         two_hours_from_now = now + timedelta(hours=2)
 
         # 5. Status counts
