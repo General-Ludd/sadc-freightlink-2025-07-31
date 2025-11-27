@@ -19,54 +19,44 @@ def get_db():
 
 @router.post("/calculate-vehicle-quote")
 def calculate_quote_for_shipment(
+    db: Session,
     required_truck_type: str,
     equipment_type: str,
     trailer_type: str,
     trailer_length: str,
     distance: int,
-    minimum_weight_bracket: int,  # replace minimum_weight_bracket with actual truck tonnage
-    db: Session = Depends(get_db)
+    minimum_weight_bracket: int  # Provided in kg
 ):
     """
-    Calculate the vehicle rate quote using simple base rate + increment per tonne method.
+    Correct calculation using consistent tonnage units.
     """
     try:
-        # Construct the vehicle string
         vehicle_string = f"{required_truck_type.lower()}{equipment_type.lower()}{trailer_type.lower()}{trailer_length.lower()}"
 
-        # Query the VehicleRate table for the matching vehicle
         vehicle_rate = db.query(VehicleRate).filter(VehicleRate.name == vehicle_string).first()
 
         if not vehicle_rate:
-            raise HTTPException(
-                status_code=404,
-                detail=f"No vehicle rate found for vehicle string: {vehicle_string}"
-            )
+            raise HTTPException(status_code=404, detail=f"No vehicle rate found for: {vehicle_string}")
 
-        # Extract base_rate and increment_per_tonne
         base_rate = float(vehicle_rate.base_rate)
-        increment_per_tonne = int(vehicle_rate.increment_per_tonne)
-        base_bracket = int(vehicle_rate.base_weight_bracket)  # base truck tonnage in VehicleRate table
+        increment_per_tonne = float(vehicle_rate.increment_per_tonne)
+        base_bracket = float(vehicle_rate.base_weight_bracket)
 
-        base_tonnage = (base_bracket / 1000)
+        # Convert BOTH values to tonnes
+        base_tonnage = base_bracket / 1000
+        min_tonnage = minimum_weight_bracket / 1000
 
-        tonnage_increment = (minimum_weight_bracket - base_tonnage)
+        # Correct increment
+        tonnage_increment = max(min_tonnage - base_tonnage, 0)  # no negative values
 
         increment = tonnage_increment * increment_per_tonne
-
-        # Calculate rate per km
         rate_per_km = base_rate + increment
 
-        # Calculate the quote
         quote = rate_per_km * distance
-
-        # Return rounded integer
         return int(round(quote))
 
-    except SQLAlchemyError as e:
-        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 def calculate_total_shipment_quote(
     qoute_per_shipment: int,

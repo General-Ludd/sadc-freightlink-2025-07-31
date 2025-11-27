@@ -288,7 +288,7 @@ def get_enterprise_facility_id(
                     "contract_and_recurrence": {
                         "start_date": lane.start_date,
                         "end_date": lane.end_date,
-                        "frequency": lane.frequency,
+                        "frequency": lane.recurrence_frequency,
                         "recurrence_days": lane.recurrence_days,
                     },
                     "shipment_details": {
@@ -306,7 +306,7 @@ def get_enterprise_facility_id(
                     "name": f"{user.first_name} {user.last_name}",
                     "id": user.id,
                     "status": user.status,
-                    "role": user.role,
+                    "role": user.role,################Add in database and models
                     "is_verified": user.is_verified,
                     "nationality": user.nationality,
                     "id_number": user.id_number,
