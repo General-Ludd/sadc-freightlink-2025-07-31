@@ -16,16 +16,15 @@ def get_db():
     finally:
         db.close()
 
-
 @router.post("/calculate-vehicle-quote")
 def calculate_quote_for_shipment(
-    db: Session,
     required_truck_type: str,
     equipment_type: str,
     trailer_type: str,
     trailer_length: str,
     distance: int,
     minimum_weight_bracket: int  # Provided in kg
+    db: Session = Depends(get_db),
 ):
     """
     Correct calculation using consistent tonnage units.
