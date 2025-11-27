@@ -23,7 +23,7 @@ def calculate_quote_for_shipment(
     trailer_type: str,
     trailer_length: str,
     distance: int,
-    minimum_weight_bracket: int  # Provided in kg
+    minimum_weight_bracket: int,  # Provided in kg
     db: Session = Depends(get_db),
 ):
     """
