@@ -330,7 +330,7 @@ def enterprise_shipper_get_individual_ftl_lane_id(
         carrier = db.query(Carrier).filter(Carrier.id == lane.carrier_id).first()
 
         # fetch lane KPIs
-        lane_kpis = get_lane_kpis(db, lane_id)
+        lane_kpis = get_lane_kpis(db, lane.id)
 
         pickup_facility = db.query(ShipmentFacility).filter_by(id=lane.pickup_facility_id).first()
         delivery_facility = db.query(ShipmentFacility).filter_by(id=lane.delivery_facility_id).first()
