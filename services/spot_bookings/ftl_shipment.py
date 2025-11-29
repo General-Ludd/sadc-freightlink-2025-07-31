@@ -240,6 +240,7 @@ def create_ftl_shipment(
     db.commit()
     db.refresh(shipment)
 
+
     shipment_documents_data = FTL_Shipment_Docs(
         shipment_id=shipment.id,
         commercial_invoice=shipment_documents_data.commercial_invoice,
@@ -448,6 +449,17 @@ def create_ftl_shipment(
     db.add(loadboard_entry)
     db.commit()
     db.refresh(loadboard_entry)
+
+    initial_status = shipment_status_Update(
+        shipment_id=shipment.id,
+        type="FTL",
+        status="Booked",
+        trip_status="Scheduled",
+        location_description="Shipment booking has been processed."
+    )
+    db.add(initial_status)
+    db.commit()
+    db.refresh(initial_status)
 
     # Step 6: Return all details
     return {"shipment_id": shipment.id}
@@ -753,7 +765,7 @@ def broker_create_ftl_shipment(
         db.add(initial_status)
         db.commit()
         db.refresh(initial_status)
-        
+
     except SQLAlchemyError as e:
         # Rollback on error to avoid leaving the session in an inconsistent state
         db.rollback()
