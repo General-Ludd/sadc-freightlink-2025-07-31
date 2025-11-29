@@ -97,7 +97,8 @@ class shipment_status_Update(Base):
     status = Column(String)
     trip_status = Column(String)
     location_description = Column(String)
-    created_at = Column(DateTime, server_default=func.now())
+    created_at = Column(DateTime(timezone=True), default=get_sast_time)
+    updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)
 
 class FTL_Shipment_Docs(Base):
     __tablename__ = "ftl_shipment_docs"
