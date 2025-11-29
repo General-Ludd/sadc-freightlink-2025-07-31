@@ -19,6 +19,7 @@ from schemas.spot_bookings.ftl_shipment import FTL_Shipment_Response, FTL_Shipme
 from schemas.spot_bookings.power_shipment import POWER_SHIPMENT_RESPONSE, Power_Shipments_Summary_Response
 from utils.auth import get_current_user
 from utils.shipment_kpi_service import get_shipment_kpis
+from utils.lane_kpi_service import get_lane_kpis
 from services.cancellations.spot_cancellations import cancel_spot_ftl_shipment
 from services.brokerage.disputes import shipper_dispute_ftl_shipment, shipper_dispute_ftl_lane
 from enums import ShipperShipmentStatus
