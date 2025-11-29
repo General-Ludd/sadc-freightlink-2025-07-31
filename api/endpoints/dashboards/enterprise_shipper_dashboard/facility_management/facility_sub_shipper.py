@@ -310,7 +310,7 @@ def get_enterprise_facility_id(
                     "is_verified": user.is_verified,
                     "nationality": user.nationality,
                     "id_number": user.id_number,
-                    "address": user.address,
+                    "address": user.home_address,
                     "phone": user.phone_number,
                     "email": user.email,
                     # 🔥 NEW FIELDS:
