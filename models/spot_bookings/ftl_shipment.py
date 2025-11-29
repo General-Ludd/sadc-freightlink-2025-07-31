@@ -96,7 +96,7 @@ class shipment_status_Update(Base):
     type = Column(String)
     status = Column(String)
     trip_status = Column(String)
-    location_description = Column()
+    location_description = Column(String)
     created_at = Column(DateTime(timezone=True), default=get_sast_time)
 
 class FTL_Shipment_Docs(Base):

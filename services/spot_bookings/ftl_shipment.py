@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from typing import Optional
 from datetime import timedelta
 from models.shipper import Corporation, Consignor
-from models.spot_bookings.ftl_shipment import FTL_SHIPMENT, FTL_Shipment_Docs
+from models.spot_bookings.ftl_shipment import FTL_SHIPMENT, FTL_Shipment_Docs, shipment_status_Update
 from models.brokerage.finance import BrokerageLedger, FinancialAccounts, Brokers_Brokerage_Transactions
 from models.spot_bookings.shipment_facility import ShipmentFacility, ContactPerson
 from schemas.brokerage.loadboard import LoadBoardEntryCreate
@@ -448,6 +448,19 @@ def create_ftl_shipment(
     db.add(loadboard_entry)
     db.commit()
     db.refresh(loadboard_entry)
+
+    # --- Create initial shipment status update ---
+    initial_status = shipment_status_Update(
+        shipment_id=shipment.id,
+        type="FTL",
+        status="Booked",
+        trip_status="Scheduled",
+        location_description="Shipment booking has been processed."
+    )
+
+    db.add(initial_status)
+    db.commit()
+    db.refresh(initial_status)
 
     # Step 6: Return all details
     return {"shipment_id": shipment.id}
@@ -913,6 +926,19 @@ def broker_create_ftl_shipment(
     db.add(loadboard_entry)
     db.commit()
     db.refresh(loadboard_entry)
+
+    # --- Create initial shipment status update ---
+    initial_status = shipment_status_Update(
+        shipment_id=shipment.id,
+        type="FTL",
+        status="Booked",
+        trip_status="Scheduled",
+        location_description="Shipment booking has been processed."
+    )
+
+    db.add(initial_status)
+    db.commit()
+    db.refresh(initial_status)
 
     # Step 6: Return all details
     return {"shipment_id": shipment.id}

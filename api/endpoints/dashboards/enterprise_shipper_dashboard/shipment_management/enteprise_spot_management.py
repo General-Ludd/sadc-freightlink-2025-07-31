@@ -7,7 +7,7 @@ from models.brokerage.finance import BrokerageLedger, CarrierFinancialAccounts, 
 from models.brokerage.loadboard import Ftl_Load_Board
 from models.carrier import Carrier
 from models.spot_bookings.dedicated_lane_ftl_shipment import FTL_Lane
-from models.spot_bookings.ftl_shipment import FTL_SHIPMENT
+from models.spot_bookings.ftl_shipment import FTL_SHIPMENT, shipment_status_Update
 from models.spot_bookings.power_shipment import POWER_SHIPMENT
 from models.spot_bookings.shipment_facility import ContactPerson, ShipmentFacility
 from models.user import Driver
@@ -16,6 +16,7 @@ from schemas.spot_bookings.dedicated_lanes_ftl_shipment import Ftl_Lanes_Summary
 from schemas.spot_bookings.ftl_shipment import FTL_Shipment_Response, FTL_Shipments_Summary_Response, FTL_Shipment_Dispute_Create
 from schemas.spot_bookings.power_shipment import POWER_SHIPMENT_RESPONSE, Power_Shipments_Summary_Response
 from utils.auth import get_current_user
+from utils.shipment_kpi_service import get_shipment_kpis
 from services.cancellations.spot_cancellations import cancel_spot_ftl_shipment
 from services.brokerage.disputes import shipper_dispute_ftl_shipment, shipper_dispute_ftl_lane
 from enums import ShipperShipmentStatus
@@ -70,6 +71,9 @@ def shipper_get_individual_ftl_shipment(
             if delivery_facility else None
         )
 
+        statuses = db.query(shipment_status_Update.shipment_id == shipment.id,
+                            shipment_status_Update.type == shipment.type).all()
+
         # ---------------------------------
         # 3. SAFE CALCULATIONS
         # ---------------------------------
@@ -78,6 +82,11 @@ def shipper_get_individual_ftl_shipment(
             shipment.quote / shipment.minimum_weight_bracket
             if shipment.minimum_weight_bracket else None
         )
+
+        # ---------------------------------
+        # 4. GET SHIPMENT KPI DATA  ⬅️ NEW
+        # ---------------------------------
+        kpis = get_shipment_kpis(db, shipment.id)   # ⬅️
 
         # ---------------------------------
         # 4. BUILD RESPONSE
@@ -252,6 +261,17 @@ def shipper_get_individual_ftl_shipment(
                 "contact_phone": delivery_contact.phone_number if delivery_contact else None,
                 "notes": delivery_facility.facility_notes,
             } if delivery_facility else None,
+
+            "status_tracking": [{
+                "status": status.status,
+                "trip_status": status.trip_status,
+                "location_description": status.location_description,
+                "created_at": status.created_at,
+            } for status in statuses],
+
+            # 6.  ADD KPI BLOCK TO RESPONSE  ⬅️ NEW
+            # ---------------------------------
+            "kpis": kpis["kpis"] if kpis else None,  # ⬅️
         }
 
     except Exception as e:
