@@ -179,7 +179,7 @@ def shipper_get_individual_ftl_shipment(
                         "vehicle_roadworthy_certificate": vehicle.vehicle_road_worthy_certificate if vehicle else None,
                         "vehicle_tracking_certificate": vehicle.vehicle_tracking_certificate if vehicle else None,
                     },
-                },
+                } if vehicle else None,
 
                 "assigned_driver": {
                     "id": driver.id if driver else None,
@@ -203,8 +203,8 @@ def shipper_get_individual_ftl_shipment(
                         "license_document": driver.license_document if driver and driver.license_document else None,
                         "prdp_document": driver.prdp_document if driver and driver.prdp_document else None,
                     },
-                },
-            },
+                } if driver else None,
+            } if carrier else None,
 
             "facility": {
                 "facility_information": {
@@ -267,7 +267,7 @@ def shipper_get_individual_ftl_shipment(
                 "trip_status": status.trip_status,
                 "location_description": status.location_description,
                 "created_at": status.created_at,
-            } for status in statuses],
+            } for status in statuses] if statuses else None,
 
             # 6.  ADD KPI BLOCK TO RESPONSE  ⬅️ NEW
             # ---------------------------------
