@@ -73,8 +73,20 @@ def shipper_get_individual_ftl_shipment(
             if delivery_facility else None
         )
 
-        statuses = db.query(shipment_status_Update.shipment_id == shipment.id,
-                            shipment_status_Update.type == shipment.type).all()
+        try:
+            statuses = (
+                db.query(shipment_status_Update)
+                .filter(
+                    shipment_status_Update.shipment_id == shipment.id,
+                    shipment_status_Update.type == shipment.type
+                )
+                .order_by(shipment_status_Update.created_at.asc())
+                .all()
+            )
+        except SQLAlchemyError as e:
+            db.rollback()
+            statuses = []
+            print("Failed to fetch statuses:", e)
 
         # ---------------------------------
         # 3. SAFE CALCULATIONS
