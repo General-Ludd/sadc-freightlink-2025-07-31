@@ -297,7 +297,7 @@ def get_enterprise_facility_id(
                         "completed_shipments": lane.progress,
                     },
                     "financials": {
-                        "rate_per_shipment": lane.quote_per_shipment,
+                        "rate_per_shipment": lane.qoute_per_shipment,
                         "payment_terms": lane.payment_terms,
                     },
                 } for lane in lanes],
