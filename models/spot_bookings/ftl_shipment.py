@@ -92,11 +92,11 @@ class shipment_status_Update(Base):
     __tablename__ = "shipment_status_updates"
 
     id = Column(Integer, index=True, primary_key=True)
-    shipment_id = Column(Integer)
-    type = Column(String)
-    status = Column(String)
-    trip_status = Column(String)
-    location_description = Column(String)
+    shipment_id = Column(Integer, nullable=False)
+    type = Column(String, nullable=False)
+    status = Column(String, nullable=False)
+    trip_status = Column(String, nullable=False)
+    location_description = Column(String, nullable=False)
     created_at = Column(DateTime(timezone=True), default=get_sast_time)
     updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)
 
