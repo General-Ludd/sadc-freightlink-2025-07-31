@@ -294,7 +294,7 @@ def get_enterprise_facility_id(
                     "shipment_details": {
                         "shipments_per_interval": lane.shipments_per_interval,
                         "total_shipments": lane.total_shipments,
-                        "completed_shipments": lane.completed_shipments,
+                        "completed_shipments": lane.progress,
                     },
                     "financials": {
                         "rate_per_shipment": lane.quote_per_shipment,
