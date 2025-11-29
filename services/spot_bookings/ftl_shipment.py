@@ -306,6 +306,19 @@ def create_ftl_shipment(
     db.commit()
     db.refresh(brokerage_transaction)
 
+    # --- Create initial shipment status update ---
+    initial_status = shipment_status_Update(
+        shipment_id=shipment.id,
+        type="FTL",
+        status="Booked",
+        trip_status="Scheduled",
+        location_description="Shipment booking has been processed."
+    )
+
+    db.add(initial_status)
+    db.commit()
+    db.refresh(initial_status)
+
     # Step 6: Calculate rates for LoadBoardEntry
     rate_per_km, rate_per_ton = calculate_rates(
         carrier_payable=brokerage_details[3],
@@ -448,19 +461,6 @@ def create_ftl_shipment(
     db.add(loadboard_entry)
     db.commit()
     db.refresh(loadboard_entry)
-
-    # --- Create initial shipment status update ---
-    initial_status = shipment_status_Update(
-        shipment_id=shipment.id,
-        type="FTL",
-        status="Booked",
-        trip_status="Scheduled",
-        location_description="Shipment booking has been processed."
-    )
-
-    db.add(initial_status)
-    db.commit()
-    db.refresh(initial_status)
 
     # Step 6: Return all details
     return {"shipment_id": shipment.id}
