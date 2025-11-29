@@ -741,6 +741,24 @@ def broker_create_ftl_shipment(
     db.commit()
     db.refresh(shipment)
 
+    try:
+
+        initial_status = shipment_status_Update(
+            shipment_id=shipment.id,
+            type="FTL",
+            status="Booked",
+            trip_status="Scheduled",
+            location_description="Shipment booking has been processed."
+        )
+        db.add(initial_status)
+        db.commit()
+        db.refresh(initial_status)
+        
+    except SQLAlchemyError as e:
+        # Rollback on error to avoid leaving the session in an inconsistent state
+        db.rollback()
+        print("Database error:", e)
+        return {"error": "Failed to create shipment or status update", "details": str(e)}
 
     # Step 4: Calculate brokerage details
     brokerage_details = calculate_brokerage_details(
@@ -913,17 +931,6 @@ def broker_create_ftl_shipment(
     db.add(loadboard_entry)
     db.commit()
     db.refresh(loadboard_entry)
-
-    initial_status = shipment_status_Update(
-        shipment_id=shipment.id,
-        type="FTL",
-        status="Booked",
-        trip_status="Scheduled",
-        location_description="Shipment booking has been processed."
-    )
-    db.add(initial_status)
-    db.commit()
-    db.refresh(initial_status)
 
     # Step 6: Return all details
     return {"shipment_id": shipment.id}
