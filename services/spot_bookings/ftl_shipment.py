@@ -312,9 +312,9 @@ def create_ftl_shipment(
         type="FTL",
         status="Booked",
         trip_status="Scheduled",
-        location_description="Shipment booking has been processed."
+        location_description="Shipment booking has been processed.",
+        created_at=shipment.created_at,
     )
-
     db.add(initial_status)
     db.commit()
     db.refresh(initial_status)
