@@ -163,6 +163,7 @@ class Director(Base):
     __tablename__ = "directors"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    role = Column(String, nullable=True)
     first_name = Column(String, nullable=False)
     last_name = Column(String, nullable=False)
     id_number = Column(String, nullable=False)
