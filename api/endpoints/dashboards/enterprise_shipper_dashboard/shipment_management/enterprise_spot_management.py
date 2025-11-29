@@ -5,6 +5,7 @@ from db.database import SessionLocal
 from models.brokerage.assigned_shipments import Assigned_Spot_Ftl_Shipments
 from models.brokerage.finance import BrokerageLedger, CarrierFinancialAccounts, FinancialAccounts, Interim_Invoice, Load_Invoice
 from models.brokerage.loadboard import Ftl_Load_Board
+from models.shipper import Corporation
 from models.carrier import Carrier
 from models.spot_bookings.dedicated_lane_ftl_shipment import FTL_Lane
 from models.spot_bookings.ftl_shipment import FTL_SHIPMENT, shipment_status_Update
