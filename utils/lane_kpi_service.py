@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from statistics import mean, pstdev
 from utils.shipment_kpi_service import get_shipment_kpis
-from models.shipment import FTL_SHIPMENT
+from models.spot_bookings.ftl_shipment import FTL_SHIPMENT
 
 def get_lane_kpis(db: Session, lane_id: int):
 
