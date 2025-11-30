@@ -653,7 +653,6 @@ def ensure_date(value):
 #################################################################################################################
 #################################################################################################################
 #################################################################################################################
-
 def assign_spot_ftl_lane_to_carrier(db: Session, lane_data: AssignLaneSlotRequest, current_user: dict):
     assert "company_id" in current_user, "Missing company_id in current_user"
     carrier_id = current_user.get("company_id")
@@ -661,28 +660,31 @@ def assign_spot_ftl_lane_to_carrier(db: Session, lane_data: AssignLaneSlotReques
     if not carrier_id:
         raise HTTPException(status_code=400, detail="User does not belong to a company")
 
+    # Load loadboard entry
     loadboard_entry = db.query(Dedicated_lanes_LoadBoard).filter(
         Dedicated_lanes_LoadBoard.shipment_id == lane_data.lane_id
     ).first()
     if not loadboard_entry or loadboard_entry.status != "Available":
         raise HTTPException(status_code=400, detail="Loadboard entry is not available for assignment")
 
+    # Load lane
     lane = db.query(FTL_Lane).filter(FTL_Lane.id == lane_data.lane_id).first()
     if not lane:
         raise HTTPException(status_code=404, detail="Contract Lane not found")
 
+    # Lock brokerage ledger row for this lane
     brokerage_ledger = db.query(Dedicated_Lane_BrokerageLedger).filter(
         Dedicated_Lane_BrokerageLedger.contract_id == lane_data.lane_id,
         Dedicated_Lane_BrokerageLedger.lane_type == lane.type
-    ).with_for_update().first()  # <-- concurrency-safe lock
+    ).with_for_update().first()
     if not brokerage_ledger:
         raise HTTPException(status_code=404, detail="Shipment not found in Brokerage Ledger")
 
-    # Initialize carriers_assigned if empty
+    # Ensure carriers_assigned structure exists
     if not brokerage_ledger.carriers_assigned:
         brokerage_ledger.carriers_assigned = []
 
-    # Step 4: Carrier
+    # Carrier validation
     carrier = db.query(Carrier).filter(Carrier.id == carrier_id).first()
     if not carrier:
         raise HTTPException(status_code=400, detail="Carrier not found.")
@@ -690,7 +692,6 @@ def assign_spot_ftl_lane_to_carrier(db: Session, lane_data: AssignLaneSlotReques
         raise HTTPException(status_code=400, detail="Carrier account not verified, please await verification in order to be able to accept shipments")
     if carrier.status != "Active":
         raise HTTPException(status_code=400, detail="Carrier account not active, please await account activation in order to be able to accept shipments")
-    
     try:
         assert carrier.git_cover_amount >= lane.minimum_git_cover_amount, "Carrier GIT Cover Amount does not meet shipment GIT cover amount requirement"
         assert carrier.liability_insurance_cover_amount >= lane.minimum_liability_cover_amount, "Carrier Liability Cover Amount does not meet shipment Liability cover amount requirement"
@@ -698,7 +699,7 @@ def assign_spot_ftl_lane_to_carrier(db: Session, lane_data: AssignLaneSlotReques
     except AssertionError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    # Step 3: Retrieve Financial Account & Generate Payment Dates Based on Terms
+    # Financial account
     financial_account = db.query(CarrierFinancialAccounts).filter(
         CarrierFinancialAccounts.id == carrier_id
     ).first()
@@ -709,344 +710,448 @@ def assign_spot_ftl_lane_to_carrier(db: Session, lane_data: AssignLaneSlotReques
     if financial_account.status != "Active":
         raise HTTPException(status_code=403, detail="Financial account is not active, Please await activation to accept shipments.")
 
-    # Step 5: Concurrency-safe recheck for available slots
+    # Re-check available slots under lock
     db.refresh(brokerage_ledger)
     if brokerage_ledger.total_slots_available < lane_data.requested_slots:
         raise HTTPException(status_code=409, detail="Not enough available slots remaining for assignment")
 
-    # Check if carrier already exists in the JSON
-    existing_entry = next(
-        (c for c in brokerage_ledger.carriers_assigned if c["carrier_id"] == carrier.id), 
-        None
-    )
+    # Begin atomic block — rely on DB transaction context
+    try:
+        # -------------------------
+        # Compute shipment & payable totals (Stage 3)
+        # -------------------------
+        shipments_per_slot = brokerage_ledger.shipments_per_slot or loadboard_entry.per_slot_size or 1
+        total_shipments_for_carrier = shipments_per_slot * lane_data.requested_slots
 
-    if existing_entry:
-        # Increment slots if carrier already assigned before
-        existing_entry["slots_assigned"] += lane_data.requested_slots
-        existing_entry["assigned_at"] = datetime.now()
-    else:
-        # Add new entry
-        brokerage_ledger.carriers_assigned.append({
-            "carrier_id": carrier.id,
-            "company_name": carrier.legal_business_name,
-            "company_registration_number": carrier.business_registration_number,
-            "country_of_incorporation": carrier.country_of_incorporation,
-            "carrier_git_cover_amount": carrier.git_cover_amount,
-            "carrier_liability_cover_amount": carrier.liability_insurance_cover_amount,
-            "fleet_size": carrier.number_of_vehicles,
-            "slots_assigned": lane_data.requested_slots,
-            "assigned_at": datetime.now()
-        })
+        per_shipment_carrier_payable = brokerage_ledger.carrier_payable_per_shipment or 0
+        # calculate total payable (integer rounding)
+        total_carrier_payable = int(total_shipments_for_carrier * per_shipment_carrier_payable)
 
-    # Update total slots
-    brokerage_ledger.total_slots_assigned += lane_data.requested_slots
-    brokerage_ledger.total_slots_available -= lane_data.requested_slots
-    loadboard_entry.available_slots -= lane_data.requested_slots
+        # Update carriers_assigned structure (Stage 1)
+        carriers_assigned = brokerage_ledger.carriers_assigned or []
+        existing_carrier_entry = next((c for c in carriers_assigned if c.get("carrier_id") == carrier.id), None)
+        if existing_carrier_entry:
+            existing_carrier_entry["slots_assigned"] = existing_carrier_entry.get("slots_assigned", 0) + lane_data.requested_slots
+            existing_carrier_entry["assigned_at"] = datetime.utcnow().isoformat()
+        else:
+            carriers_assigned.append({
+                "carrier_id": carrier.id,
+                "company_name": carrier.legal_business_name,
+                "company_registration_number": carrier.business_registration_number,
+                "country_of_incorporation": carrier.country_of_incorporation,
+                "carrier_git_cover_amount": carrier.git_cover_amount,
+                "carrier_liability_cover_amount": carrier.liability_insurance_cover_amount,
+                "fleet_size": carrier.number_of_vehicles,
+                "slots_assigned": lane_data.requested_slots,
+                "assigned_at": datetime.utcnow().isoformat()
+            })
+        brokerage_ledger.carriers_assigned = carriers_assigned
 
-    lane_invoice = Lane_Invoice(
-        contract_id=lane.id,
-        lane_type=lane.type,
-        invoice_type="Lane Invoice",
-        billing_date=ensure_date(lane.start_date),
-        due_date=ensure_date(lane.end_date),
-        description=f"{lane.type} Lane {lane.id}",
-        status="Pending",
-        company_id=carrier_id,
-        carrier_company_name=carrier.legal_business_name,
-        contact_person_name=f"{financial_account.directors_first_name} {financial_account.directors_last_name}",
-        business_email=carrier.business_email,
-        business_address=carrier.business_address,
-        carrier_financial_account_id=carrier_id,
-        payment_terms=lane.payment_terms,
-        carrier_bank=financial_account.bank_name,
-        carrier_bank_account=financial_account.account_number,
-        payment_reference=f"{lane.type} Lane {lane.id}",
-        base_amount=(brokerage_ledger.carrier_payable_per_shipment * len(lane.shipment_dates)),
-        due_amount=(brokerage_ledger.carrier_payable_per_shipment * len(lane.shipment_dates))
-    )
-    db.add(lane_invoice)
-    db.flush()
+        # Update counts
+        brokerage_ledger.total_slots_assigned = (brokerage_ledger.total_slots_assigned or 0) + lane_data.requested_slots
+        brokerage_ledger.total_slots_available = (brokerage_ledger.total_slots_available or 0) - lane_data.requested_slots
+        loadboard_entry.available_slots = (loadboard_entry.available_slots or 0) - lane_data.requested_slots
 
-    # Step 1: Generate Lane Interim Invoices
-    booking_interim_invoices = db.query(Interim_Invoice).filter(
-        Interim_Invoice.contract_id == lane_data.lane_id,
-        Interim_Invoice.contract_type == lane.type
-    ).all()
-
-    requested_slots_shipments = loadboard_entry.per_slot_size * lane_data.requested_slots
-    carrier_contract_amount = brokerage_ledger.carrier_payable_per_shipment * requested_slots_shipments
-    interim_base_amount = carrier_contract_amount / max(len(booking_interim_invoices), 1)
-
-    lane_interim_invoices = []
-    for booking_invoice in booking_interim_invoices:
-        original_due = ensure_date(booking_invoice.due_date)
-        new_due = ensure_date(booking_invoice.billing_date)
-
-        interim = Lane_Interim_Invoice(
+        # Create lane-level invoice (Stage 5 base)
+        lane_invoice = Lane_Invoice(
             contract_id=lane.id,
-            contract_type=lane.type,
-            is_subinvoice=True,
-            parent_invoice_id=lane_invoice.id,
-            description=f"Lane Interim Invoice for Contract Invoice {lane.id}",
+            lane_type=lane.type,
+            invoice_type="Lane Invoice",
+            billing_date=ensure_date(lane.start_date),
+            due_date=ensure_date(lane.end_date),
+            description=f"{lane.type} Lane {lane.id}",
             status="Pending",
-            billing_date=ensure_date(booking_invoice.billing_date),
-            due_date=original_due + timedelta(days=2),
-            carrier_company_id=carrier_id,
-            carrier_name=carrier.legal_business_name,
-            carrier_email=carrier.business_email,
-            carrier_address=carrier.business_address,
-            carrier_financial_account_id=financial_account.id,
-            invoice_payment_terms=lane.payment_terms,
+            company_id=carrier_id,
+            carrier_company_name=carrier.legal_business_name,
+            contact_person_name=f"{financial_account.directors_first_name} {financial_account.directors_last_name}",
+            business_email=carrier.business_email,
+            business_address=carrier.business_address,
+            carrier_financial_account_id=carrier_id,
+            payment_terms=lane.payment_terms,
             carrier_bank=financial_account.bank_name,
             carrier_bank_account=financial_account.account_number,
-            payment_reference=f"Lane Interim Invoice for Contract Invoice {lane.id}",
-            base_amount=interim_base_amount,
-            due_amount=interim_base_amount,
+            payment_reference=f"{lane.type} Lane {lane.id}",
+            base_amount=(brokerage_ledger.carrier_payable_per_shipment * len(lane.shipment_dates)) if lane.shipment_dates else 0,
+            due_amount=(brokerage_ledger.carrier_payable_per_shipment * len(lane.shipment_dates)) if lane.shipment_dates else 0
         )
-        db.add(interim)
-        lane_interim_invoices.append(interim)
+        db.add(lane_invoice)
+        db.flush()  # ensure lane_invoice.id is available
 
-    db.flush()
+        # Generate lane interim invoices (Stage 5)
+        booking_interim_invoices = db.query(Interim_Invoice).filter(
+            Interim_Invoice.contract_id == lane_data.lane_id,
+            Interim_Invoice.contract_type == lane.type
+        ).all()
 
-    assigned_lane = Assigned_Ftl_Lanes(
-        lane_id=lane.id,
-        type=lane.type,
-        trip_type=lane.trip_type,
-        load_type=lane.load_type,
-        carrier_id=carrier_id,
-        carrier_name=carrier.legal_business_name,
-        contract_rate=brokerage_ledger.contract_carrier_payable,
-        rate_per_shipment=brokerage_ledger.carrier_payable_per_shipment,
-        payment_terms=brokerage_ledger.payment_terms,
-        payment_dates=brokerage_ledger.payment_dates,
-        complete_origin_address=lane.complete_origin_address,
-        complete_destination_address=lane.complete_destination_address,
-        distance=lane.distance,
-        rate_per_km=loadboard_entry.rate_per_km,
-        rate_per_ton=loadboard_entry.rate_per_ton,
-        minimum_git_cover_amount=lane.minimum_git_cover_amount,
-        minimum_liability_cover_amount=lane.minimum_liability_cover_amount,
-        status="Assigned",
-        recurrence_frequency=lane.recurrence_frequency,
-        recurrence_days=lane.recurrence_days,
-        skip_weekends=lane.skip_weekends,
-        shipments_per_interval=lane.shipments_per_interval,
-        total_shipments=lane.total_shipments,
-        start_date=lane.start_date,
-        end_date=lane.end_date,
-        shipment_dates=lane.shipment_dates,
-        required_truck_type=lane.required_truck_type,
-        equipment_type=lane.equipment_type,
-        trailer_type=lane.trailer_type,
-        trailer_length=lane.trailer_length,
-        minimum_weight_bracket=lane.minimum_weight_bracket,
-        pickup_appointment=f"{loadboard_entry.pickup_start_time} - {loadboard_entry.pickup_end_time}",
-        origin_address=lane.origin_address,
-        origin_city_province=lane.origin_city_province,
-        origin_country=lane.origin_country,
-        origin_region=lane.origin_region,
-        delivery_appointment=f"{loadboard_entry.delivery_start_time} - {loadboard_entry.delivery_end_time}",
-        destination_address=lane.destination_address,
-        destination_city_province=lane.destination_city_province,
-        destination_country=lane.destination_country,
-        destinationn_region=lane.destination_country,
-        route_preview_embed=loadboard_entry.route_preview_embed,
-        priority_level=lane.priority_level,
-        customer_reference_number=lane.customer_reference_number,
-        average_shipment_weight=lane.average_shipment_weight,
-        commodity=lane.commodity,
-        temperature_control=lane.temperature_control,
-        hazardous_materials=lane.hazardous_materials,
-        packaging_quantity=lane.packaging_quantity,
-        packaging_type=lane.packaging_type,
-        pickup_number=lane.pickup_number,
-        pickup_notes=lane.pickup_notes,
-        delivery_number=lane.delivery_number,
-        delivery_notes=lane.delivery_notes,
-        estimated_transit_time=lane.estimated_transit_time,
-        pickup_facility_id=lane.pickup_facility_id,
-        delivery_facility_id=lane.delivery_facility_id,
-    )
-    db.add(assigned_lane)
-    db.flush()
+        requested_slots_shipments = (loadboard_entry.per_slot_size or shipments_per_slot) * lane_data.requested_slots
+        carrier_contract_amount = brokerage_ledger.carrier_payable_per_shipment * requested_slots_shipments
+        interim_base_amount = carrier_contract_amount / max(len(booking_interim_invoices), 1)
 
-    slot_ledger = Lane_Slot_Ledger(
-        lane_id = lane.id,
-        lane_type = lane.type,
-        carrier_id = carrier.id,
-        carrier_company_name = carrier.legal_business_name,
-        carrier_company_registration_number = carrier.business_registration_number,
-        carrier_country_of_incorporation=carrier.country_of_incorporation,
-        carrier_fleet_size=carrier.number_of_vehicles,
-        assigned_slots=lane_data.requested_slots,
-        slot_rate_per_shipment=brokerage_ledger.carrier_payable_per_shipment,
-        slot_total_rate=carrier_contract_amount,
-        
-    )
-    db.add(slot_ledger)
-    db.flush()
+        lane_interim_invoices = []
+        for booking_invoice in booking_interim_invoices:
+            original_due = ensure_date(booking_invoice.due_date)
+            new_due = ensure_date(booking_invoice.billing_date)
 
-    # -------------------------
-    # Begin: Sub-shipment assignment (append right after slot_ledger.flush())
-    # -------------------------
+            interim = Lane_Interim_Invoice(
+                contract_id=lane.id,
+                contract_type=lane.type,
+                is_subinvoice=True,
+                parent_invoice_id=lane_invoice.id,
+                description=f"Lane Interim Invoice for Contract Invoice {lane.id}",
+                status="Pending",
+                billing_date=ensure_date(booking_invoice.billing_date),
+                due_date=original_due + timedelta(days=2),
+                carrier_company_id=carrier_id,
+                carrier_name=carrier.legal_business_name,
+                carrier_email=carrier.business_email,
+                carrier_address=carrier.business_address,
+                carrier_financial_account_id=financial_account.id,
+                invoice_payment_terms=lane.payment_terms,
+                carrier_bank=financial_account.bank_name,
+                carrier_bank_account=financial_account.account_number,
+                payment_reference=f"Lane Interim Invoice for Contract Invoice {lane.id}",
+                base_amount=interim_base_amount,
+                due_amount=interim_base_amount,
+            )
+            db.add(interim)
+            lane_interim_invoices.append(interim)
 
-    # Ensure necessary local vars exist / compute derived values
-    requested_slots = lane_data.requested_slots
-    # how many shipments per slot (the loadboard stores this)
-    per_slot_size = loadboard_entry.per_slot_size
-    # total shipments we plan to assign to this carrier across all scheduled dates
-    total_shipments_for_carrier = requested_slots * per_slot_size
+        db.flush()  # ensure interim invoice ids exist
 
-    assigned_shipper_ids, carrier_assigned_count = [], 0
-    dates_to_iterate = list(lane.shipment_dates or [])
+        # Create Assigned_Ftl_Lanes (Stage 4)
+        assigned_lane = Assigned_Ftl_Lanes(
+            lane_id=lane.id,
+            type=lane.type,
+            trip_type=lane.trip_type,
+            load_type=lane.load_type,
+            carrier_id=carrier_id,
+            carrier_name=carrier.legal_business_name,
+            contract_rate=brokerage_ledger.contract_carrier_payable,
+            rate_per_shipment=brokerage_ledger.carrier_payable_per_shipment,
+            payment_terms=brokerage_ledger.payment_terms,
+            payment_dates=brokerage_ledger.payment_dates,
+            complete_origin_address=lane.complete_origin_address,
+            complete_destination_address=lane.complete_destination_address,
+            distance=lane.distance,
+            rate_per_km=loadboard_entry.rate_per_km,
+            rate_per_ton=loadboard_entry.rate_per_ton,
+            minimum_git_cover_amount=lane.minimum_git_cover_amount,
+            minimum_liability_cover_amount=lane.minimum_liability_cover_amount,
+            status="Assigned",
+            recurrence_frequency=lane.recurrence_frequency,
+            recurrence_days=lane.recurrence_days,
+            skip_weekends=lane.skip_weekends,
+            shipments_per_interval=lane.shipments_per_interval,
+            total_shipments=lane.total_shipments,
+            start_date=lane.start_date,
+            end_date=lane.end_date,
+            shipment_dates=lane.shipment_dates,
+            required_truck_type=lane.required_truck_type,
+            equipment_type=lane.equipment_type,
+            trailer_type=lane.trailer_type,
+            trailer_length=lane.trailer_length,
+            minimum_weight_bracket=lane.minimum_weight_bracket,
+            pickup_appointment=f"{loadboard_entry.pickup_start_time} - {loadboard_entry.pickup_end_time}",
+            origin_address=lane.origin_address,
+            origin_city_province=lane.origin_city_province,
+            origin_country=lane.origin_country,
+            origin_region=lane.origin_region,
+            delivery_appointment=f"{loadboard_entry.delivery_start_time} - {loadboard_entry.delivery_end_time}",
+            destination_address=lane.destination_address,
+            destination_city_province=lane.destination_city_province,
+            destination_country=lane.destination_country,
+            destinationn_region=lane.destination_country,
+            route_preview_embed=loadboard_entry.route_preview_embed,
+            priority_level=lane.priority_level,
+            customer_reference_number=lane.customer_reference_number,
+            average_shipment_weight=lane.average_shipment_weight,
+            commodity=lane.commodity,
+            temperature_control=lane.temperature_control,
+            hazardous_materials=lane.hazardous_materials,
+            packaging_quantity=lane.packaging_quantity,
+            packaging_type=lane.packaging_type,
+            pickup_number=lane.pickup_number,
+            pickup_notes=lane.pickup_notes,
+            delivery_number=lane.delivery_number,
+            delivery_notes=lane.delivery_notes,
+            estimated_transit_time=lane.estimated_transit_time,
+            pickup_facility_id=lane.pickup_facility_id,
+            delivery_facility_id=lane.delivery_facility_id,
+        )
+        db.add(assigned_lane)
+        db.flush()  # ensure assigned_lane.id is available
 
-    if not dates_to_iterate:
-        booked_all = db.query(FTL_SHIPMENT).filter(
-            FTL_SHIPMENT.dedicated_lane_id == lane.id,
-            FTL_SHIPMENT.is_subshipment == True,
-            FTL_SHIPMENT.shipment_status.in_([None, "Booked"])
-        ).order_by(FTL_SHIPMENT.pickup_date).all()
-        dates_to_iterate = sorted({s.pickup_date for s in booked_all if s.pickup_date})
+        # -------------------------
+        # SLOT LEDGER: check existing -> update or create (Stage 1 & Stage 3 combined)
+        # -------------------------
+        existing_slot_ledger = (
+            db.query(Lane_Slot_Ledger)
+            .filter(
+                Lane_Slot_Ledger.lane_id == lane.id,
+                Lane_Slot_Ledger.lane_type == lane.type,
+                Lane_Slot_Ledger.carrier_id == carrier.id
+            )
+            .with_for_update()  # lock ledger row if exists
+            .first()
+        )
 
-    for sched_date in dates_to_iterate:
-        if carrier_assigned_count >= total_shipments_for_carrier:
-            break
+        # Current assigned slots on ledger (0 if none)
+        current_assigned_slots = (existing_slot_ledger.assigned_slots if existing_slot_ledger else 0)
+        requested_slots_now = lane_data.requested_slots
+        combined_slots = current_assigned_slots + requested_slots_now
 
-        candidates = db.query(FTL_SHIPMENT).filter(
-            FTL_SHIPMENT.dedicated_lane_id == lane.id,
-            FTL_SHIPMENT.is_subshipment == True,
-            FTL_SHIPMENT.shipment_status == "Booked",
-            FTL_SHIPMENT.pickup_date == sched_date
-        ).order_by(FTL_SHIPMENT.id).limit(requested_slots).all()
+        # Validate vehicle count for this carrier across combined slots
+        carrier_vehicle_count = carrier.number_of_vehicles  # keep your existing attr
+        if combined_slots > carrier_vehicle_count:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Carrier does not have enough vehicles to cover combined slots. "
+                    f"Current assigned slots: {current_assigned_slots}, "
+                    f"Requested now: {requested_slots_now}, "
+                    f"Combined needed: {combined_slots}, "
+                    f"Carrier vehicles: {carrier_vehicle_count}"
+                )
+            )
 
-        if not candidates:
-            continue
+        # Build helper lists of invoice ids (if models have fields we'll append safely)
+        interim_invoice_ids = [inv.id for inv in lane_interim_invoices] if lane_interim_invoices else []
+        parent_invoice_id = lane_invoice.id if lane_invoice else None
 
-        for ship in candidates:
+        if existing_slot_ledger:
+            # Update existing ledger
+            existing_slot_ledger.assigned_slots = combined_slots
+            existing_slot_ledger.total_carrier_payable = (existing_slot_ledger.total_carrier_payable or 0) + total_carrier_payable
+            existing_slot_ledger.per_shipment_carrier_payable = per_shipment_carrier_payable
+
+            # merge assigned_shipment_ids placeholder (we'll fill after assignment)
+            if not existing_slot_ledger.assigned_shipment_ids:
+                existing_slot_ledger.assigned_shipment_ids = []
+            # append interim/parent invoice ids safely
+            if interim_invoice_ids:
+                if hasattr(existing_slot_ledger, "interim_invoice_ids"):
+                    existing_slot_ledger.interim_invoice_ids = (existing_slot_ledger.interim_invoice_ids or []) + interim_invoice_ids
+            if parent_invoice_id:
+                if hasattr(existing_slot_ledger, "parent_invoice_ids"):
+                    existing_slot_ledger.parent_invoice_ids = (existing_slot_ledger.parent_invoice_ids or []) + [parent_invoice_id]
+
+            slot_ledger = existing_slot_ledger
+            db.add(slot_ledger)
+            db.flush()
+        else:
+            # Create brand new slot ledger
+            slot_ledger = Lane_Slot_Ledger(
+                lane_id=lane.id,
+                lane_type=lane.type,
+                carrier_id=carrier.id,
+                carrier_company_name=carrier.legal_business_name,
+                carrier_company_registration_number=carrier.business_registration_number,
+                carrier_country_of_incorporation=carrier.country_of_incorporation,
+                carrier_fleet_size=carrier.number_of_vehicles,
+                assigned_slots=requested_slots_now,
+                shipments_per_slot=shipments_per_slot,
+                slot_rate_per_shipment=per_shipment_carrier_payable,
+                slot_total_rate=carrier_contract_amount,
+                assigned_shipment_ids=[],  # will populate after assignment
+                total_carrier_payable=total_carrier_payable,
+                per_shipment_carrier_payable=per_shipment_carrier_payable,
+                platform_commission=(brokerage_ledger.platform_commission_per_shipment or 0) * total_shipments_for_carrier,
+                carrier_lane_invoice_id=lane_invoice.id if lane_invoice else None,
+                created_at=datetime.utcnow()
+            )
+            # attach interim/parent invoice ids if model supports
+            if interim_invoice_ids and hasattr(slot_ledger, "interim_invoice_ids"):
+                slot_ledger.interim_invoice_ids = interim_invoice_ids
+            if parent_invoice_id and hasattr(slot_ledger, "parent_invoice_ids"):
+                slot_ledger.parent_invoice_ids = [parent_invoice_id]
+
+            db.add(slot_ledger)
+            db.flush()
+
+        # -------------------------
+        # Sub-shipment assignment (Stage 2)
+        # -------------------------
+        requested_slots = lane_data.requested_slots
+        per_slot_size = loadboard_entry.per_slot_size or shipments_per_slot
+        total_shipments_for_carrier = requested_slots * per_slot_size
+
+        assigned_shipper_ids = []
+        assigned_shipment_ids = []  # will collect shipment ids to persist to slot ledger
+        carrier_assigned_count = 0
+
+        dates_to_iterate = list(lane.shipment_dates or [])
+        if not dates_to_iterate:
+            booked_all = db.query(FTL_SHIPMENT).filter(
+                FTL_SHIPMENT.dedicated_lane_id == lane.id,
+                FTL_SHIPMENT.is_subshipment == True,
+                FTL_SHIPMENT.shipment_status.in_([None, "Booked"])
+            ).order_by(FTL_SHIPMENT.pickup_date).all()
+            dates_to_iterate = sorted({s.pickup_date for s in booked_all if s.pickup_date})
+
+        for sched_date in dates_to_iterate:
             if carrier_assigned_count >= total_shipments_for_carrier:
                 break
 
-            ship.shipment_status = "Assigned"
-            ship.assigned_carrier_id = carrier_id
-            db.add(ship)
-            assigned_shipper_ids.append(ship.id)
-            carrier_assigned_count += 1
+            candidates = db.query(FTL_SHIPMENT).filter(
+                FTL_SHIPMENT.dedicated_lane_id == lane.id,
+                FTL_SHIPMENT.is_subshipment == True,
+                FTL_SHIPMENT.shipment_status == "Booked",
+                FTL_SHIPMENT.pickup_date == sched_date
+            ).order_by(FTL_SHIPMENT.id).limit(requested_slots).all()
 
-            parent_invoice = next(
-                (li for li in lane_interim_invoices
-                 if li.billing_date <= ship.pickup_date <= li.due_date),
-                lane_interim_invoices[0] if lane_interim_invoices else None
-            )
+            if not candidates:
+                continue
 
-            amount = brokerage_ledger.carrier_payable_per_shipment
-            load_invoice = Load_Invoice(
-                contract_id=lane.id,
-                contract_type=lane.type,
-                shipment_id=ship.id,
-                shipment_type=getattr(ship, "type", None),
-                is_subinvoice=True,
-                parent_invoice_id=parent_invoice.id if parent_invoice else None,
-                description=f"Load Invoice for Sub-Shipment {ship.id}",
-                billing_date=ship.pickup_date,
-                due_date=(ensure_date(ship.invoice_due_date) + timedelta(days=2)) if getattr(ship, "invoice_due_date", None) else None,
-                carrier_company_id=carrier_id,
-                carrier_financial_account_id=financial_account.id,
-                carrier_company_name=carrier.legal_business_name,
-                payment_terms=lane.payment_terms,
-                carrier_bank=financial_account.bank_name,
-                carrier_bank_account=financial_account.account_number,
-                payment_reference=f"Load {ship.id} of Lane {lane.id}",
-                contact_person_name=f"{financial_account.directors_first_name} {financial_account.directors_last_name}",
-                carrier_email=carrier.business_email,
-                carrier_address=carrier.business_address,
-                origin_address=ship.origin_address,
-                destination_address=ship.destination_address,
-                pickup_date=ship.pickup_date,
-                distance=ship.distance,
-                transit_time=ship.estimated_transit_time,
-                status="Pending",
-                base_amount=amount,
-                due_amount=amount,
-            )
-            db.add(load_invoice)
+            for ship in candidates:
+                if carrier_assigned_count >= total_shipments_for_carrier:
+                    break
 
-            # Create carrier-side Assigned_Spot_Ftl_Shipments linking to the shipper shipment id
-            assigned = Assigned_Spot_Ftl_Shipments(
-                is_subshipment=True,
-                lane_id=assigned_lane.lane_id,
-                shipment_id=ship.id,                      # link to shipper shipment
-                type="FTL",
-                trip_type=ship.trip_type,
-                load_type=ship.load_type,
-                carrier_id=carrier_id,
-                carrier_name=carrier.legal_business_name,
-                vehicle_id=None,
-                driver_id=None,
-                accepted_for=None,
-                accepted_at=None,
-                minimum_weight_bracket=ship.minimum_weight_bracket,
-                minimum_git_cover_amount=ship.minimum_git_cover_amount,
-                minimum_liability_cover_amount=ship.minimum_liability_cover_amount,
-                shipment_rate=amount,
-                distance=ship.distance,
-                rate_per_km=loadboard_entry.rate_per_km,
-                rate_per_ton=loadboard_entry.rate_per_ton,
-                payment_terms=lane.payment_terms,
-                status="Assigned",
-                trip_status="Scheduled",
-                required_truck_type=ship.required_truck_type,
-                equipment_type=ship.equipment_type,
-                trailer_type=ship.trailer_type,
-                trailer_length=ship.trailer_length,
-                origin_address=ship.origin_address,
-                origin_address_completed=ship.complete_origin_address,
-                origin_city_province=ship.origin_city_province,
-                origin_country=ship.origin_country,
-                origin_region=ship.origin_region,
-                destination_address=ship.destination_address,
-                destination_address_completed=ship.complete_destination_address,
-                destination_city_province=ship.destination_city_province,
-                destination_country=ship.destination_country,
-                destination_region=ship.destination_region,
-                route_preview_embed=ship.route_preview_embed,
-                pickup_date=ship.pickup_date,
-                priority_level=ship.priority_level,
-                customer_reference_number=ship.customer_reference_number,
-                shipment_weight=ship.shipment_weight,
-                commodity=ship.commodity,
-                temperature_control=ship.temperature_control,
-                hazardous_materials=ship.hazardous_materials,
-                packaging_quantity=ship.packaging_quantity,
-                packaging_type=ship.packaging_type,
-                pickup_number=ship.pickup_number,
-                pickup_notes=ship.pickup_notes,
-                delivery_number=ship.delivery_number,
-                delivery_notes=ship.delivery_notes,
-                estimated_transit_time=ship.estimated_transit_time,
-                eta_date=ship.eta_date,
-                eta_window=ship.eta_window
-            )
-            db.add(assigned)
+                # assign shipment
+                ship.shipment_status = "Assigned"
+                ship.assigned_carrier_id = carrier_id
+                db.add(ship)
 
-    # Step 12: Update lane statuses
-    if brokerage_ledger.total_slots_available <= 0:
-        lane.status = loadboard_entry.status = brokerage_ledger.lane_status = "Assigned"
-    else:
-        lane.status = loadboard_entry.status = brokerage_ledger.lane_status = "Partially Assigned"
+                assigned_shipper_ids.append(ship.id)
+                assigned_shipment_ids.append(ship.id)
+                carrier_assigned_count += 1
 
-    db.add_all([lane, loadboard_entry, brokerage_ledger])
-    db.commit()
+                parent_invoice = next(
+                    (li for li in lane_interim_invoices
+                     if li.billing_date <= ship.pickup_date <= li.due_date),
+                    lane_interim_invoices[0] if lane_interim_invoices else None
+                )
 
-    # Return a concise result (optional)
-    return {
-        "ok": True,
-        "message": f"Assigned {requested_slots} slot(s) to carrier {carrier.id}",
-        "assigned_shipments_count": carrier_assigned_count,
-        "assigned_shipper_ids": assigned_shipper_ids,
-        "assigned_lane_id": assigned_lane.id,
-        "lane_status": lane.status,
-        "remaining_slots": brokerage_ledger.total_slots_available
-    }
+                amount = brokerage_ledger.carrier_payable_per_shipment
+                load_invoice = Load_Invoice(
+                    contract_id=lane.id,
+                    contract_type=lane.type,
+                    shipment_id=ship.id,
+                    shipment_type=getattr(ship, "type", None),
+                    is_subinvoice=True,
+                    parent_invoice_id=parent_invoice.id if parent_invoice else None,
+                    description=f"Load Invoice for Sub-Shipment {ship.id}",
+                    billing_date=ship.pickup_date,
+                    due_date=(ensure_date(ship.invoice_due_date) + timedelta(days=2)) if getattr(ship, "invoice_due_date", None) else None,
+                    carrier_company_id=carrier_id,
+                    carrier_financial_account_id=financial_account.id,
+                    carrier_company_name=carrier.legal_business_name,
+                    payment_terms=lane.payment_terms,
+                    carrier_bank=financial_account.bank_name,
+                    carrier_bank_account=financial_account.account_number,
+                    payment_reference=f"Load {ship.id} of Lane {lane.id}",
+                    contact_person_name=f"{financial_account.directors_first_name} {financial_account.directors_last_name}",
+                    carrier_email=carrier.business_email,
+                    carrier_address=carrier.business_address,
+                    origin_address=ship.origin_address,
+                    destination_address=ship.destination_address,
+                    pickup_date=ship.pickup_date,
+                    distance=ship.distance,
+                    transit_time=ship.estimated_transit_time,
+                    status="Pending",
+                    base_amount=amount,
+                    due_amount=amount,
+                )
+                db.add(load_invoice)
+
+                # Create carrier-side Assigned_Spot_Ftl_Shipments
+                assigned = Assigned_Spot_Ftl_Shipments(
+                    is_subshipment=True,
+                    lane_id=assigned_lane.lane_id,
+                    shipment_id=ship.id,
+                    type="FTL",
+                    trip_type=ship.trip_type,
+                    load_type=ship.load_type,
+                    carrier_id=carrier_id,
+                    carrier_name=carrier.legal_business_name,
+                    vehicle_id=None,
+                    driver_id=None,
+                    accepted_for=None,
+                    accepted_at=None,
+                    minimum_weight_bracket=ship.minimum_weight_bracket,
+                    minimum_git_cover_amount=ship.minimum_git_cover_amount,
+                    minimum_liability_cover_amount=ship.minimum_liability_cover_amount,
+                    shipment_rate=amount,
+                    distance=ship.distance,
+                    rate_per_km=loadboard_entry.rate_per_km,
+                    rate_per_ton=loadboard_entry.rate_per_ton,
+                    payment_terms=lane.payment_terms,
+                    status="Assigned",
+                    trip_status="Scheduled",
+                    required_truck_type=ship.required_truck_type,
+                    equipment_type=ship.equipment_type,
+                    trailer_type=ship.trailer_type,
+                    trailer_length=ship.trailer_length,
+                    origin_address=ship.origin_address,
+                    origin_address_completed=ship.complete_origin_address,
+                    origin_city_province=ship.origin_city_province,
+                    origin_country=ship.origin_country,
+                    origin_region=ship.origin_region,
+                    destination_address=ship.destination_address,
+                    destination_address_completed=ship.complete_destination_address,
+                    destination_city_province=ship.destination_city_province,
+                    destination_country=ship.destination_country,
+                    destination_region=ship.destination_region,
+                    route_preview_embed=ship.route_preview_embed,
+                    pickup_date=ship.pickup_date,
+                    priority_level=ship.priority_level,
+                    customer_reference_number=ship.customer_reference_number,
+                    shipment_weight=ship.shipment_weight,
+                    commodity=ship.commodity,
+                    temperature_control=ship.temperature_control,
+                    hazardous_materials=ship.hazardous_materials,
+                    packaging_quantity=ship.packaging_quantity,
+                    packaging_type=ship.packaging_type,
+                    pickup_number=ship.pickup_number,
+                    pickup_notes=ship.pickup_notes,
+                    delivery_number=ship.delivery_number,
+                    delivery_notes=ship.delivery_notes,
+                    estimated_transit_time=ship.estimated_transit_time,
+                    eta_date=ship.eta_date,
+                    eta_window=ship.eta_window
+                )
+                db.add(assigned)
+
+        # After assignment: persist assigned_shipment_ids to slot ledger (Stage 3)
+        if assigned_shipment_ids:
+            # merge with existing ledger's assigned_shipment_ids
+            if not slot_ledger.assigned_shipment_ids:
+                slot_ledger.assigned_shipment_ids = []
+            slot_ledger.assigned_shipment_ids = (slot_ledger.assigned_shipment_ids or []) + assigned_shipment_ids
+
+        # ensure carrier lane invoice id is set
+        if hasattr(slot_ledger, "carrier_lane_invoice_id"):
+            slot_ledger.carrier_lane_invoice_id = lane_invoice.id
+
+        # Update statuses (Stage 5)
+        if brokerage_ledger.total_slots_available <= 0:
+            lane.status = loadboard_entry.status = brokerage_ledger.lane_status = "Assigned"
+        else:
+            lane.status = loadboard_entry.status = brokerage_ledger.lane_status = "Partially Assigned"
+
+        db.add_all([lane, loadboard_entry, brokerage_ledger, slot_ledger, assigned_lane])
+        db.commit()
+
+        return {
+            "ok": True,
+            "message": f"Assigned {lane_data.requested_slots} slot(s) to carrier {carrier.id}",
+            "assigned_shipments_count": carrier_assigned_count,
+            "assigned_shipper_ids": assigned_shipper_ids,
+            "assigned_lane_id": assigned_lane.id,
+            "lane_status": lane.status,
+            "remaining_slots": brokerage_ledger.total_slots_available,
+            "slot_ledger_id": slot_ledger.id,
+            "lane_invoice_id": lane_invoice.id
+        }
+
+    except HTTPException:
+        db.rollback()
+        raise
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error during assignment: {str(e)}")
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Assignment failed: {str(e)}")
 #########################################################################################################################
 #########################################################################################################################
 #########################################################################################################################

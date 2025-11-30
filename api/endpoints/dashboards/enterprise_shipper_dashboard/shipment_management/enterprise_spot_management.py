@@ -342,7 +342,48 @@ def enterprise_shipper_get_individual_ftl_lane_id(
             FTL_SHIPMENT.dedicated_lane_id == lane.id
         ).all() or []
 
-        carrier = db.query(Carrier).filter(Carrier.id == lane.carrier_id).first()
+        ledgers = db.query(Lane_Slot_Ledger).filter(
+            Lane_Slot_Ledger.lane_id == lane.id,
+            Lane_Slot_Ledger.lane_type == lane.type
+        ).all() or []
+
+        # Prepare carrier info list
+        carrier_information_list = []
+
+        for ledger in ledgers:
+            carrier = db.query(Carrier).filter(Carrier.id == ledger.carrier_id).first()
+            if not carrier:
+                continue
+
+            carrier_information_list.append({
+                "ledger_id": ledger.id,
+                "carrier_id": carrier.id,
+                "is_verified": carrier.is_verified,
+                "status": carrier.status,
+                "carrier_name": carrier.legal_business_name,
+                "country_of_incorporation": carrier.country_of_incorporation,
+                "carrier_registration_number": carrier.business_registration_number,
+                "carrier_address": carrier.business_address,
+                "carrier_email": carrier.business_email,
+                "carrier_phone_number": carrier.business_phone_number,
+                "git_insurance_company": carrier.name_of_git_cover_insurance_company,
+                "git_policy_number": carrier.git_insurance_policy_number,
+                "git_cover_amount": carrier.git_cover_amount,
+                "liability_insurance_company": carrier.name_of_liability_cover_insurance_company,
+                "liability_policy_number": carrier.liability_insurance_policy_number,
+                "carrier_liability_cover_amount": carrier.liability_insurance_cover_amount,
+                "carrier_documents": {
+                    "registration_certificate": carrier.business_registration_certificate,
+                    "proof_of_address": carrier.proof_of_address,
+                    "git_insurance_certificate": carrier.git_insurance_certificate,
+                    "liability_insurance_certificate": carrier.liability_insurance_certificate,
+                },
+                # Custom ledger-specific info
+                "number_of_assigned_slots": ledger.assigned_slots,
+                "total_shipments_per_slot": ledger.shipments_per_slot,
+                "per_shipment_payable": ledger.per_shipment_carrier_payable,
+                "total_carrier_payable": ledger.total_carrier_payable,
+            })
 
         # fetch lane KPIs
         lane_kpis = get_lane_kpis(db, lane.id)
@@ -444,29 +485,7 @@ def enterprise_shipper_get_individual_ftl_lane_id(
                 "notes": delivery_facility.facility_notes if delivery_facility else None,
             } if delivery_facility else None,
 
-            "carrier_information": {
-                "id": carrier.id if carrier else None,
-                "is_verified": carrier.is_verified if carrier else None,
-                "status": carrier.status if carrier else None,
-                "carrier_name": carrier.legal_business_name if carrier else None,
-                "country_of_incorporation": carrier.country_of_incorporation if carrier else None,
-                "carrier_registration_number": carrier.business_registration_number if carrier else None,
-                "carrier_address": carrier.business_address if carrier else None,
-                "carrier_email": carrier.business_email if carrier else None,
-                "carrier_phone_number": carrier.business_phone_number if carrier else None,
-                "git_insurance_company": carrier.name_of_git_cover_insurance_company if carrier else None,
-                "git_policy_number": carrier.git_insurance_policy_number if carrier else None,
-                "git_cover_amount": carrier.git_cover_amount if carrier else None,
-                "liability_insurance_company": carrier.name_of_liability_cover_insurance_company if carrier else None,
-                "liability_policy_number": carrier.liability_insurance_policy_number if carrier else None,
-                "carrier_liability_cover_amount": carrier.liability_insurance_cover_amount if carrier else None,
-                "carrier_documents": {
-                    "registration_certificate": carrier.business_registration_certificate if carrier else None,
-                    "proof_of_address": carrier.proof_of_address if carrier else None,
-                    "git_insurance_certificate": carrier.git_insurance_certificate if carrier else None,
-                    "liability_insurance_certificate": carrier.liability_insurance_certificate if carrier else None,
-                },
-            } if carrier else None,
+            "carrier_information": carrier_information_list,
             "facility": {
                 "facility_information": {
                     "id": facility.id,

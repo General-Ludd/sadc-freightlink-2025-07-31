@@ -473,6 +473,8 @@ def create_dedicated_lane_ftl_shipment(
         contract_end_date=shipment.end_date,
         total_shipments=total_shipments,
         total_slots_available=shipment.shipments_per_interval,
+        shipments_per_slot=(total_shipments / shipment.shipments_per_interval),
+        remainder_shipments=(total_shipments % shipment.shipments_per_interval),
         booking_amount_per_shipment=brokerage_details["shipment_booking_amount"],
         platform_commission_per_shipment=brokerage_details["shipment_platform_commission"],
         transaction_fee_per_shipment=brokerage_details["shipment_transaction_fee"],

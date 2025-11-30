@@ -150,6 +150,10 @@ class Dedicated_Lane_BrokerageLedger(Base):
     sub_ledger_ids = Column(ARRAY(Integer))     # list of related Lane_Slot_Ledger IDs
     total_slots_assigned = Column(Integer, default=0)
     total_slots_available = Column(Integer, default=0)
+    # Already have total_slots_available, total_slots_assigned, num_sub_assignments, sub_ledger_ids
+    # Add:
+    shipments_per_slot = Column(Integer, nullable=False)   # new: canonical number per slot
+    remainder_shipments = Column(Integer, nullable=True)   # new: shipments not evenly divisible (optional)
 
     # === Bidding / Exchange Future-Proofing ===
     # for when you implement exchanges and competitive bidding
@@ -180,6 +184,7 @@ class Lane_Slot_Ledger(Base):
     carrier_country_of_incorporation = Column(String, nullable=False)
     carrier_fleet_size = Column(Integer, nullable=False)
     assigned_slots = Column(Integer, nullable=False, default=0)  # number of slots accepted
+    assigned_shipment_ids = Column(ARRAY(Integer), nullable=True)     # list of shipment ids assigned to this ledger
     shipments_per_slot = Column(Integer, nullable=False, default=1)  # how many shipments each slot represents
     slot_rate_per_shipment = Column(Integer, nullable=False)  # carrier rate per shipment
     slot_total_rate = Column(Integer, nullable=False)  # assigned_slots * shipments_per_slot * rate_per_shipment
