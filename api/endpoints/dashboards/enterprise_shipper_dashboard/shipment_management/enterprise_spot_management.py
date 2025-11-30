@@ -34,7 +34,7 @@ def get_db():
         db.close()
 
 @router.get("/enterprise/ftl-shipment/{id}")
-def shipper_get_individual_ftl_shipment(
+def enterprise_shipper_get_individual_ftl_shipment(
     id: int,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
