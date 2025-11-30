@@ -52,6 +52,8 @@ def shipper_get_individual_ftl_shipment(
         if not shipment:
             raise HTTPException(status_code=404, detail="Shipment not found")
 
+        shipment_docs = db.query(FTL_Shipment_Docs).filter(FTL_Shipment_Docs.shipment_id == shipment.id).first()
+
         # ---------------------------------
         # 2. FETCH RELATED OBJECTS
         # ---------------------------------
@@ -142,6 +144,16 @@ def shipper_get_individual_ftl_shipment(
                 "distance": shipment.distance,
                 "estimated_transit_time": shipment.estimated_transit_time,
                 "route_preview_embed": shipment.route_preview_embed,
+            },
+
+            "shipment_documents": {
+                "commercial_invoice": shipment_docs.commercial_invoice if shipment_docs else None,
+                "packaging_list": shipment_docs.packaging_list if shipment_docs else None,
+                "customs_declaration_form": shipment_docs.customs_declaration_form if shipment_docs else None,
+                "import_or_export_permits": shipment_docs.import_or_export_permits if shipment_docs else None,
+                "certificate_of_origin": shipment_docs.certificate_of_origin if shipment_docs else None,
+                "da5501orsad500": shipment_docs.da5501orsad500 if shipment_docs else None,
+                "proof_of_delivery": shipment.pod_document if shipment.pod_document else None,
             },
 
             "carrier_information": {
