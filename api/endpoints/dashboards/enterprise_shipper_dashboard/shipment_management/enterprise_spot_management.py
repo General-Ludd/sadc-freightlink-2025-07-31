@@ -270,6 +270,8 @@ def shipper_get_individual_ftl_shipment(
                 "facility_name": delivery_facility.name,
                 "address": delivery_facility.address,
                 "time_window": f"{delivery_facility.start_time} - {delivery_facility.end_time}",
+                "eta_date": shipment.eta_date,
+                "eta_window": shipment.eta_window,
                 "scheduling_type": delivery_facility.scheduling_type,
                 "contact_name": f"{delivery_contact.first_name} {delivery_contact.last_name}" if delivery_contact else None,
                 "email": delivery_contact.email if delivery_contact else None,
