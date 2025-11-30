@@ -252,6 +252,7 @@ def shipper_get_individual_ftl_shipment(
                 "rate_per_ton": rate_per_ton,
                 "distance": shipment.distance,
                 "payment_terms": shipment.payment_terms,
+                "invoice_status": shipment.invoice_status,
                 "invoice_due_date": shipment.invoice_due_date,
             },
 
