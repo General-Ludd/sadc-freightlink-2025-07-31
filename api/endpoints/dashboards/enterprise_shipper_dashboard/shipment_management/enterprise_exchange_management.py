@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 from db.database import SessionLocal
 from models.Exchange.auction import Exchange_FTL_Lane_Bid, Exchange_FTL_Shipment_Bid, Exchange_POWER_Shipment_Bid
 from models.Exchange.dedicated_ftl_lane import FTL_Lane_Exchange
+from models.shipper import Corporation
+from models.user import Director
 from models.Exchange.ftl_shipment import FTL_SHIPMENT_EXCHANGE
 from models.Exchange.power_shipment import POWER_SHIPMENT_EXCHANGE
 from models.brokerage.loadboards.exchange_loadboards import Exchange_Ftl_Load_Board, Exchange_Power_Load_Board
