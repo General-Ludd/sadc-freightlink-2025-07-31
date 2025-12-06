@@ -19,6 +19,7 @@ from utils.auth import get_current_user, verify_password, hash_password
 from utils.jwt_handler import create_access_token
 from utils.mailgun_handler import send_email
 from utils.sast_datetime import get_sast_time
+from utils.google_maps import get_eta_and_polyline
 from pytz import timezone, UTC
 from models.user import Director, User, Driver, CarrierDirector, PasswordResetCode
 from models.vehicle import Vehicle
