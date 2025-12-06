@@ -522,7 +522,7 @@ def get_enterprise_shipper_shipment_exchanges(
                         origin_address=shipment.origin_address,
                         destination_address=shipment.destination_address,
                         start_date=pickup_date,            # date only (correct)
-                        start_time=pickup_window_time,     # aware datetime
+                        start_time=pickup_facility.end_time,     # aware datetime
                     )
                 )
 
