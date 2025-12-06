@@ -953,7 +953,7 @@ def broker_create_ftl_shipment(
 ############################################################################################################
 def enterprise_create_ftl_shipment(
         db: Session,
-        shipment_data: Enteprise_FTL_Shipment_Booking,
+        shipment_data: Enterprise_FTL_Shipment_Booking,
         pickup_facility_data: ShipmentFacilityCreate,
         dropoff_facility_data: ShipmentFacilityCreate,
         pickup_contact_data: FacilityContactCreate,
