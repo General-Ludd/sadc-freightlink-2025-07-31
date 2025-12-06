@@ -33,37 +33,45 @@ def get_db():
     finally:
         db.close()
 
-def make_aware(dt):
+def make_aware_combine(dt, fallback_date: date = None):
     """
-    Converts any date/datetime/string to a timezone-aware SAST datetime.
-    Handles:
-        - None → returns None
-        - datetime.date → converted to datetime at midnight
-        - datetime.datetime → assigned SAST if naive
-        - ISO-format strings → parsed to datetime and made SAST aware
+    Safely convert:
+        - datetime → aware datetime
+        - date → aware datetime at midnight
+        - time → combine with fallback_date
+        - str → parse + convert
+        - None → None
     """
     if dt is None:
         return None
 
     sast = ZoneInfo("Africa/Johannesburg")
 
-    # If it's a string, try parsing it
+    # ----- STRING -----
     if isinstance(dt, str):
         try:
-            dt = datetime.fromisoformat(dt)  # YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS
+            dt = datetime.fromisoformat(dt)
         except ValueError:
-            # If only date string like YYYY-MM-DD
             dt = datetime.fromisoformat(dt + "T00:00:00")
 
-    # If it's date-only object
-    if not isinstance(dt, datetime):
-        dt = datetime(dt.year, dt.month, dt.day)
+    # ----- DATETIME -----
+    if isinstance(dt, datetime):
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=sast)
+        return dt
 
-    # If naive datetime → assign SAST timezone
-    if dt.tzinfo is None or dt.tzinfo.utcoffset(dt) is None:
-        dt = dt.replace(tzinfo=sast)
+    # ----- DATE -----
+    if isinstance(dt, date) and not isinstance(dt, datetime):
+        return datetime(dt.year, dt.month, dt.day, tzinfo=sast)
 
-    return dt
+    # ----- TIME (requires a fallback date) -----
+    if isinstance(dt, time):
+        if fallback_date is None:
+            return None  # cannot convert safely
+        combined = datetime.combine(fallback_date, dt)
+        return combined.replace(tzinfo=sast)
+
+    return None
 
 @router.get("/enterprise-shipper/company-name")
 def get_enterprise_shipper_company_name(
@@ -446,7 +454,7 @@ def get_enterprise_shipper_shipment_exchanges(
         # 3. Scope includes parent + all facilities
         company_scope_ids = [current_user.get("company_id")] + facility_ids
 
-        # 4. Fetch all shipments for the scope
+        # 4. Fetch all shipments
         shipment_exchanges = (
             db.query(FTL_SHIPMENT_EXCHANGE)
             .filter(FTL_SHIPMENT_EXCHANGE.shipper_company_id.in_(company_scope_ids))
@@ -457,34 +465,32 @@ def get_enterprise_shipper_shipment_exchanges(
         now = get_sast_time()
         two_hours_from_now = now + timedelta(hours=2)
 
-        # 6. Status counts (timezone-safe)
+        # 6. Status counts
         status_counts = {
             "total_exchanges": len(shipment_exchanges),
-            "open": len([
-                s for s in shipment_exchanges
-                if s.auction_status == "Open"
-            ]),
+            "open": len([s for s in shipment_exchanges if s.auction_status == "Open"]),
             "closing_soon": len([
                 s for s in shipment_exchanges
                 if s.auction_status == "Open"
-                and make_aware(s.end_time) is not None
-                and now <= make_aware(s.end_time) <= two_hours_from_now
+                and make_aware_combine(s.end_time) is not None
+                and now <= make_aware_combine(s.end_time) <= two_hours_from_now
             ]),
-            "closed": len([
-                s for s in shipment_exchanges
-                if s.auction_status == "Closed"
-            ]),
+            "closed": len([s for s in shipment_exchanges if s.auction_status == "Closed"]),
         }
 
         exchanges_list = []
 
         for shipment in shipment_exchanges:
 
-            # ===========================
-            #  TIMEZONE FIXES FOR FIELDS
-            # ===========================
-            end_time = make_aware(shipment.end_time)
-            pickup_date = make_aware(shipment.pickup_date)
+            # -------------------------------------------------
+            # FIXED DATETIME HANDLING
+            # -------------------------------------------------
+
+            # end_time is real datetime → direct aware
+            end_time = make_aware_combine(shipment.end_time)
+
+            # pickup_date is a DATE (not datetime)
+            pickup_date = shipment.pickup_date  # keep as date
 
             facility = (
                 db.query(Corporation)
@@ -498,25 +504,35 @@ def get_enterprise_shipper_shipment_exchanges(
                 .first()
             )
 
-            # Convert pickup_facility.end_time if needed
-            pickup_window_time = make_aware(pickup_facility.end_time) if pickup_facility and pickup_facility.end_time else None
+            # pickup_window_time uses date + time combination
+            pickup_window_time = None
+            if pickup_facility and pickup_facility.end_time:
+                pickup_window_time = make_aware_combine(
+                    pickup_facility.end_time,
+                    fallback_date=pickup_date  # required for time
+                )
 
-            # ===========================
-            #  TRIP ETA + POLYLINES
-            # ===========================
+            # -------------------------------------------------
+            # ETA + ROUTE POLYLINE
+            # -------------------------------------------------
             try:
-                trip_data = get_eta_and_polyline(RouteETAInput(
-                    origin_address=shipment.origin_address,
-                    destination_address=shipment.destination_address,
-                    start_date=pickup_date,
-                    start_time=pickup_window_time,
-                ))
+                trip_data = get_eta_and_polyline(
+                    RouteETAInput(
+                        origin_address=shipment.origin_address,
+                        destination_address=shipment.destination_address,
+                        start_date=pickup_date,            # date only (correct)
+                        start_time=pickup_window_time,     # aware datetime
+                    )
+                )
 
                 eta_date = trip_data["eta_date"]
                 eta_window = trip_data["eta_window"]
 
             except HTTPException as e:
-                raise HTTPException(status_code=500, detail=f"Trip info calculation failed: {e.detail}")
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Trip info calculation failed: {e.detail}"
+                )
 
             exchanges_list.append({
                 "id": shipment.id,
