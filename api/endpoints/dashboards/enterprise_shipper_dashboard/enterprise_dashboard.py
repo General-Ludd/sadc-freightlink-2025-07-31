@@ -547,7 +547,7 @@ def get_enterprise_shipper_shipment_exchanges(
                 "origin": {
                     "origin_city_province": shipment.origin_city_province,
                     "pickup_date": pickup_date.isoformat() if pickup_date else None,
-                    "pickup_window": shipment.pickup_appointment,
+                    "pickup_window": f"{pickup_facility.start_time} - {pickup_facility.end_time}",
                 },
                 "destination": {
                     "destination_city_province": shipment.destination_city_province,
