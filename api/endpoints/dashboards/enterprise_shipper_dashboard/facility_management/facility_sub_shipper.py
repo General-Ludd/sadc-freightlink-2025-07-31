@@ -135,6 +135,7 @@ def get_enterprise_facility_id(
         # -----------------------------
         return {
             "facility": {
+                "summary": status_counts,
                 "facility_information": {
                     "id": facility.id,
                     "type": facility.type,
