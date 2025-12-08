@@ -326,7 +326,7 @@ def get_enterprise_facilities(
             .first()
         )
 
-        ftl_disputes = db.query(FTL_Shipment_Booking).filter(FTL_Shipment_Dispute.shipper_company_id == facility.id,
+        ftl_disputes = db.query(FTL_Shipment_Dispute).filter(FTL_Shipment_Dispute.shipper_company_id == facility.id,
                                                              FTL_Shipment_Dispute.status == "Open").all()
         ftl_lane_disputes = db.query(FTL_Lane_Dispute).filter(FTL_Lane_Dispute.shipper_company_id == facility.id,
                                                               FTL_Lane_Dispute.status == "Open").all()
