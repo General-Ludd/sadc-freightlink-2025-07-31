@@ -322,7 +322,7 @@ def get_enterprise_facilities(
         # Financial account
         financial_account = (
             db.query(FinancialAccounts)
-            .filter(FinancialAccounts.company_id == facility.id)
+            .filter(FinancialAccounts.id == facility.id)
             .first()
         )
 
