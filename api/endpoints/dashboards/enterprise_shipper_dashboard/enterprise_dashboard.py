@@ -249,9 +249,11 @@ def get_enterprise_facilities(
     # 1. Fetch all subsidiary facilities
     facilities = (
         db.query(Corporation)
-        .filter(Corporation.parent_company_id == current_user.get("company_id"))
+        .filter(Corporation.id == current_user.get("company_id"))
         .all()
     )
+
+###########Facility uses parent_company_id
 
     # 2. Build summary counts
     status_counts = {
