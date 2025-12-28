@@ -118,7 +118,6 @@ def get_nexus_customs_procedures(
                 "currency_code": country.currency_code,
                 "standard_vat_rate": float(country.standard_vat_rate) if country.standard_vat_rate else None,
                 "requires_ctn": country.requires_ctn,
-                "border_points": border_points_list,
                 "border_points_count": len(border_points_list),
                 "customs_procedures": len(customs_procedures)
             })
