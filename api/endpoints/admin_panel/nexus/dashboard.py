@@ -91,18 +91,10 @@ def get_nexus_customs_procedures(
         
         result = []
         for country in countries:
-            # Query border posts for this country in one go
+            # Query border posts for this country using bitwise operators
             border_posts = db.query(BorderPost).filter(
-                db.or_(
-                    db.and_(
-                        BorderPost.to_country_id == country.id,
-                        BorderPost.fee_type == "ENTRY"
-                    ),
-                    db.and_(
-                        BorderPost.from_country_id == country.id,
-                        BorderPost.fee_type == "EXIT"
-                    )
-                )
+                (BorderPost.to_country_id == country.id) & (BorderPost.fee_type == "ENTRY") |
+                (BorderPost.from_country_id == country.id) & (BorderPost.fee_type == "EXIT")
             ).all()
 
             customs_procedures = db.query(CustomsProcedure).filter(CustomsProcedure.country_id == country.id).all()
@@ -111,8 +103,7 @@ def get_nexus_customs_procedures(
             border_points_list = [
                 {
                     "id": bp.id,
-                    "name": bp.name,
-                    "code": bp.code,
+                    "name": bp.border_name,
                     "fee_type": bp.fee_type,
                     "from_country_id": bp.from_country_id,
                     "to_country_id": bp.to_country_id,
@@ -125,8 +116,9 @@ def get_nexus_customs_procedures(
                 "id": country.id,
                 "iso_code": country.iso_code,
                 "currency_code": country.currency_code,
-                "standard_vat_rate": country.standard_vat_rate,
+                "standard_vat_rate": float(country.standard_vat_rate) if country.standard_vat_rate else None,
                 "requires_ctn": country.requires_ctn,
+                "border_points": border_points_list,
                 "border_points_count": len(border_points_list),
                 "customs_procedures": len(customs_procedures)
             })
