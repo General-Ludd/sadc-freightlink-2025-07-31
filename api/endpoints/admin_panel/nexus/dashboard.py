@@ -21,7 +21,7 @@ def get_db():
     finally:
         db.close()
 
-@router.get("/countries/optimized")
+@router.get("/countries")
 def get_nexus_supported_countries_optimized(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_admin),
