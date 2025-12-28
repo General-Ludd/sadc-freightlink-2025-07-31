@@ -1,6 +1,7 @@
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from requests import Session
+from sqlalchemy.orm import aliased
 from db.database import SessionLocal
 from models.administration import Platform_Super_Admins, Platform_Super_and_Support_Admins_Permissions
 from models.nexus.customs_territories import Country, CountryTradeAgreement, BorderPost, BorderClearanceProfile, TariffSchedule, TradeDefenseMeasure, CountrySpecialFee, TransitBondFee, CustomsProcedure, ExciseTaxRate
@@ -20,36 +21,43 @@ def get_db():
     finally:
         db.close()
 
-@router.get("/countries")
-def get_nexus_supported_countries(
+@router.get("/countries/optimized")
+def get_nexus_supported_countries_optimized(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_admin),
 ):
     try:
-        countries = db.query(Country).all()
+        # Query all countries and their border posts in one go
+        countries_data = db.query(
+            Country,
+            BorderPost
+        ).outerjoin(
+            BorderPost,
+            ((BorderPost.to_country_id == Country.id) & (BorderPost.fee_type == "ENTRY")) |
+            ((BorderPost.from_country_id == Country.id) & (BorderPost.fee_type == "EXIT"))
+        ).all()
         
+        # Group border posts by country
+        country_map = {}
+        for country, border_post in countries_data:
+            if country.id not in country_map:
+                country_map[country.id] = {
+                    "country": country,
+                    "border_posts": []
+                }
+            if border_post:
+                country_map[country.id]["border_posts"].append(border_post)
+        
+        # Build response
         result = []
-        for country in countries:
-            # Query border posts for this country in one go
-            border_posts = db.query(BorderPost).filter(
-                db.or_(
-                    db.and_(
-                        BorderPost.to_country_id == country.id,
-                        BorderPost.fee_type == "ENTRY"
-                    ),
-                    db.and_(
-                        BorderPost.from_country_id == country.id,
-                        BorderPost.fee_type == "EXIT"
-                    )
-                )
-            ).all()
+        for country_id, data in country_map.items():
+            country = data["country"]
+            border_posts = data["border_posts"]
             
-            # Convert border posts to dictionaries
             border_points_list = [
                 {
                     "id": bp.id,
-                    "name": bp.name,
-                    "code": bp.code,
+                    "name": bp.border_name,
                     "fee_type": bp.fee_type,
                     "from_country_id": bp.from_country_id,
                     "to_country_id": bp.to_country_id,
@@ -62,7 +70,7 @@ def get_nexus_supported_countries(
                 "id": country.id,
                 "iso_code": country.iso_code,
                 "currency_code": country.currency_code,
-                "standard_vat_rate": country.standard_vat_rate,
+                "standard_vat_rate": float(country.standard_vat_rate) if country.standard_vat_rate else None,
                 "requires_ctn": country.requires_ctn,
                 "border_points_count": len(border_points_list)
             })
@@ -71,7 +79,6 @@ def get_nexus_supported_countries(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
     
 @router.get("/customs-procedures")
 def get_nexus_customs_procedures(
