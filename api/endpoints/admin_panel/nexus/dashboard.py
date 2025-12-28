@@ -67,6 +67,7 @@ def get_nexus_supported_countries_optimized(
             ]
             
             result.append({
+                "is_active": country.is_active,
                 "name": country.name,
                 "id": country.id,
                 "iso_code": country.iso_code,
@@ -112,6 +113,7 @@ def get_nexus_customs_procedures(
             ]
             
             result.append({
+                "is_active": country.is_active,
                 "name": country.name,
                 "id": country.id,
                 "iso_code": country.iso_code,
