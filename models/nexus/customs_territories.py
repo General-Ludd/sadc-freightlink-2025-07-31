@@ -16,6 +16,7 @@ class Country(Base):
     is_sacu_member = Column(Boolean, default=False, nullable=False)
     standard_vat_rate = Column(DECIMAL(5, 2))
     requires_ctn = Column(Boolean, default=False, nullable=False)
+    is_active = Column(Boolean, default=False, nullable=False)
 
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
     updated_at = Column(
