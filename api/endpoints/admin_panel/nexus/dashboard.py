@@ -2,6 +2,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from requests import Session
 from sqlalchemy.orm import aliased
+from sqlalchemy import or_, and_
 from db.database import SessionLocal
 from models.administration import Platform_Super_Admins, Platform_Super_and_Support_Admins_Permissions
 from models.nexus.customs_territories import Country, CountryTradeAgreement, BorderPost, BorderClearanceProfile, TariffSchedule, TradeDefenseMeasure, CountrySpecialFee, TransitBondFee, CustomsProcedure, ExciseTaxRate
