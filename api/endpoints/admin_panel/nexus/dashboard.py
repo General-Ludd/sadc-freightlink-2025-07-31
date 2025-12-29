@@ -159,9 +159,9 @@ def get_trade_agreements(
                 func.count(CountryTradeAgreement.country_id).label('member_count'),
                 func.array_agg(CountryTradeAgreement.country_id).label('country_ids')
             ).filter(
-                TradeAgreement.agreement_code == code
+                CountryTradeAgreement.agreement_code == code
             ).group_by(
-                TradeAgreement.agreement_code
+                CountryTradeAgreement.agreement_code
             ).first()
             
             if not agreement_data:
