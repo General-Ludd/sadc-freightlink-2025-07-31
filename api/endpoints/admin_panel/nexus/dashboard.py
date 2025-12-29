@@ -142,8 +142,8 @@ def get_trade_agreements(
         # Query trade agreements and group by code to identify unique agreements
         # Use DISTINCT to get unique codes and names
         distinct_agreements = db.query(
-            CountryTradeAgreement.code,
-            CountryTradeAgreement.name
+            CountryTradeAgreement.agreement_code,
+            CountryTradeAgreement.agreement_name
         ).distinct().all()
         
         result = []
@@ -152,7 +152,7 @@ def get_trade_agreements(
             # For each unique agreement code, get aggregated data
             agreement_data = db.query(
                 func.min(CountryTradeAgreement.id).label('min_id'),
-                func.min(CountryTradeAgreement.name).label('agreement_name'),
+                func.min(CountryTradeAgreement.agreement_name).label('agreement_name'),
                 func.min(CountryTradeAgreement.effective_date).label('effective_date'),
                 func.min(CountryTradeAgreement.notes).label('notes'),
                 func.bool_or(CountryTradeAgreement.is_active).label('is_active'),  # True if any is active
