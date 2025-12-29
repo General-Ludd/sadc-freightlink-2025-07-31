@@ -201,8 +201,14 @@ def get_trade_agreements(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/countries-tarrif-schedule/summary-list")
-def get_countries_tarrif_summary_list(
+from datetime import date
+from sqlalchemy import func, case
+from sqlalchemy.orm import Session
+from fastapi import HTTPException, Depends
+from typing import List, Dict, Any
+
+@router.get("/countries-tariff-schedule/summary-list")
+def get_countries_tariff_summary_list(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_admin),
 ):
@@ -257,33 +263,66 @@ def get_countries_tarrif_summary_list(
             Country.name
         ).all()
         
-        # If using SQLite or MySQL instead of PostgreSQL, use group_concat:
-        # func.group_concat(func.distinct(TradeAgreement.code)).label('memberships_string')
+        # Alternative for SQLite/MySQL if string_agg doesn't work:
+        # func.group_concat(func.distinct(CountryTradeAgreement.agreement_code)).label('memberships_string')
         
         summary_list = []
         
         for country, border_count, current_tariffs, future_tariffs, memberships_string in countries_data:
-            # Format CTN requirement
-            requires_ctn = "Yes" if country.requires_ctn else "No"
-            
-            # Get customs agency - check if attribute exists
-            customs_agency = "Unknown"
-            if hasattr(country, 'customs_agency'):
-                customs_agency = country.customs_agency if country.customs_agency else "Unknown"
-            
             # Parse memberships string into list
             memberships_list = []
             if memberships_string:
                 # Split by comma and clean up
                 memberships_list = [m.strip() for m in memberships_string.split(',') if m.strip()]
             
-            # Format VAT rate to remove trailing zeros if it's a decimal
-            vat_rate = country.standard_vat_rate
-            if isinstance(vat_rate, float):
-                vat_rate = f"{vat_rate:g}"  # Removes trailing zeros
+            # Get customs agency - check if attribute exists
+            customs_agency = None
+            if hasattr(country, 'customs_agency'):
+                customs_agency = country.customs_agency
             
-            # Build the formatted summary block
-            summary_block = f"""{country.name} flag
+            # Create JSON response object
+            country_summary = {
+                "country_id": country.id,
+                "country_name": country.name,
+                "iso_code": country.iso_code,
+                "currency_code": country.currency_code,
+                "standard_vat_rate": float(country.standard_vat_rate) if country.standard_vat_rate else None,
+                "requires_ctn": country.requires_ctn,
+                "border_points_count": border_count,
+                "customs_agency": customs_agency,
+                "current_tariffs_count": current_tariffs,
+                "future_tariffs_count": future_tariffs,
+                "total_tariffs": current_tariffs + future_tariffs,
+                "memberships": memberships_list,
+                "flag": f"{country.iso_code.lower()}.png",  # Assuming flag file naming convention
+                # Optional: include formatted string if still needed
+                "formatted_summary": format_country_summary(
+                    country, border_count, current_tariffs, future_tariffs, 
+                    memberships_list, customs_agency
+                )
+            }
+            
+            summary_list.append(country_summary)
+        
+        return summary_list
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Helper function to create formatted string (optional)
+def format_country_summary(country, border_count, current_tariffs, future_tariffs, 
+                          memberships_list, customs_agency=None):
+    """Format country summary as a string (optional)"""
+    requires_ctn = "Yes" if country.requires_ctn else "No"
+    customs_agency = customs_agency or "Unknown"
+    
+    # Format VAT rate
+    vat_rate = country.standard_vat_rate
+    if isinstance(vat_rate, float):
+        vat_rate = f"{vat_rate:g}"
+    
+    summary = f"""{country.name} flag
 {country.name}
 ID: {country.id} | {country.iso_code}
 Currency Code
@@ -302,23 +341,15 @@ Future Tariffs
 {future_tariffs}
 Memberships
 """
-            
-            # Add each membership on a new line
-            if memberships_list:
-                for membership in memberships_list:
-                    summary_block += f"{membership}\n"
-            else:
-                summary_block += "None\n"
-            
-            # Add the "View Tariffs" line
-            summary_block += "View Tariffs"
-            
-            summary_list.append(summary_block)
-        
-        return summary_list
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    
+    if memberships_list:
+        for membership in memberships_list:
+            summary += f"{membership}\n"
+    else:
+        summary += "None\n"
+    
+    summary += "View Tariffs"
+    return summary
 
 
 from datetime import date
