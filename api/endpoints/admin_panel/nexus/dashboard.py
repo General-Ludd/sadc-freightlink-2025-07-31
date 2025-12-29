@@ -241,7 +241,7 @@ def get_countries_tarrif_summary_list(
                     else_=None
                 )
             ).label('future_tariffs'),
-            func.string_agg(func.distinct(CountryTradeAgreement.code), ', ').label('memberships_string')
+            func.string_agg(func.distinct(CountryTradeAgreement.agreement_code), ', ').label('memberships_string')
         ).outerjoin(
             BorderPost,
             (BorderPost.to_country_id == Country.id) | (BorderPost.from_country_id == Country.id)
