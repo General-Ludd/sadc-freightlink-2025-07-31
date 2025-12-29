@@ -129,68 +129,73 @@ def get_nexus_customs_procedures(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+from sqlalchemy import func
+from sqlalchemy.orm import Session
+from fastapi import HTTPException, Depends
+
 @router.get("/trade-agreements")
 def get_trade_agreements(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_admin),
 ):
     try:
-        # Query all trade agreements with their associated countries
-        trade_agreements = db.query(CountryTradeAgreement).all()
+        # Query trade agreements and group by code to identify unique agreements
+        # Use DISTINCT to get unique codes and names
+        distinct_agreements = db.query(
+            TradeAgreement.code,
+            TradeAgreement.name
+        ).distinct().all()
         
-        # Group agreements by code (since same agreement appears for multiple countries)
-        agreements_by_code = {}
-        
-        for agreement in trade_agreements:
-            code = agreement.code
-            if code not in agreements_by_code:
-                agreements_by_code[code] = {
-                    "agreement": agreement,
-                    "country_ids": set(),
-                    "countries": []
-                }
-            agreements_by_code[code]["country_ids"].add(agreement.country_id)
-        
-        # Get country names for each agreement
         result = []
         
-        for code, data in agreements_by_code.items():
-            agreement = data["agreement"]
+        for code, name in distinct_agreements:
+            # For each unique agreement code, get aggregated data
+            agreement_data = db.query(
+                func.min(TradeAgreement.id).label('min_id'),
+                func.min(TradeAgreement.name).label('agreement_name'),
+                func.min(TradeAgreement.effective_date).label('effective_date'),
+                func.min(TradeAgreement.notes).label('notes'),
+                func.bool_or(TradeAgreement.is_active).label('is_active'),  # True if any is active
+                func.count(TradeAgreement.country_id).label('member_count'),
+                func.array_agg(TradeAgreement.country_id).label('country_ids')
+            ).filter(
+                TradeAgreement.code == code
+            ).group_by(
+                TradeAgreement.code
+            ).first()
             
-            # Count unique countries
-            member_count = len(data["country_ids"])
+            if not agreement_data:
+                continue
             
             # Format effective date
-            if agreement.effective_date:
-                effective_date = agreement.effective_date.strftime("%-m/%-d/%Y")
+            if agreement_data.effective_date:
+                effective_date = agreement_data.effective_date.strftime("%-m/%-d/%Y")
             else:
                 effective_date = "N/A"
             
             # Format status
-            status = "Active" if agreement.is_active else "Inactive"
+            status = "Active" if agreement_data.is_active else "Inactive"
             
-            # Create a more formal name (you might want to customize this mapping)
-            formal_name_map = {
-                "SACU": "Southern African Customs Union",
-                "SADC_FTA": "SADC Free Trade Area",
-                "AFCFTA": "African Continental Free Trade Area",
-                "EU_SADC_EPA": "EU-SADC Economic Partnership Agreement",
-                "COMESA": "COMESA Free Trade Area"
-            }
+            # Get country names for the agreement
+            country_names = []
+            if agreement_data.country_ids:
+                countries = db.query(Country.name).filter(
+                    Country.id.in_(agreement_data.country_ids)
+                ).all()
+                country_names = [country[0] for country in countries]
             
-            formal_name = formal_name_map.get(agreement.code, agreement.name)
-            
-            # Create response dictionary
             result.append({
-                "name": f"{formal_name} ({agreement.code})",
-                "id": agreement.id,
-                "code": agreement.code,
-                "formal_name": formal_name,
-                "short_name": agreement.name,
-                "members": member_count,
+                "id": agreement_data.min_id,  # Use the minimum ID for reference
+                "code": code,
+                "name": name,
+                "formal_name": name,  # You could enhance this if needed
+                "short_name": code,   # Use code as short name
+                "members": agreement_data.member_count,
+                "member_countries": country_names,
+                "country_ids": agreement_data.country_ids,
                 "effective_date": effective_date,
                 "status": status,
-                "notes": agreement.notes
+                "notes": agreement_data.notes
             })
         
         return result
