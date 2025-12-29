@@ -200,14 +200,7 @@ def get_trade_agreements(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
-from datetime import date
-from sqlalchemy import func, case
-from sqlalchemy.orm import Session
-from fastapi import HTTPException, Depends
-from typing import List, Dict, Any
-
-@router.get("/countries-tariff-schedule/summary-list")
+@router.get("/countries-tariff-schedule") 
 def get_countries_tariff_summary_list(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_admin),
@@ -350,12 +343,6 @@ Memberships
     
     summary += "View Tariffs"
     return summary
-
-
-from datetime import date
-from sqlalchemy import func, case
-from sqlalchemy.orm import Session
-from fastapi import HTTPException, Depends
 
 @router.get("/border-posts/summary")
 def get_border_posts_summary(
