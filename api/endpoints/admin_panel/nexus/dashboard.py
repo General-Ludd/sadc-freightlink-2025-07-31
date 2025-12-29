@@ -186,13 +186,10 @@ def get_trade_agreements(
             
             result.append({
                 "id": agreement_data.min_id,  # Use the minimum ID for reference
-                "code": code,
                 "name": name,
-                "formal_name": name,  # You could enhance this if needed
                 "short_name": code,   # Use code as short name
+                "code": code,
                 "members": agreement_data.member_count,
-                "member_countries": country_names,
-                "country_ids": agreement_data.country_ids,
                 "effective_date": effective_date,
                 "status": status,
                 "notes": agreement_data.notes
