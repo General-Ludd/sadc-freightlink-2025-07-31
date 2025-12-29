@@ -241,7 +241,7 @@ def get_countries_tarrif_summary_list(
                     else_=None
                 )
             ).label('future_tariffs'),
-            func.string_agg(func.distinct(TradeAgreement.code), ', ').label('memberships_string')
+            func.string_agg(func.distinct(CountryTradeAgreement.code), ', ').label('memberships_string')
         ).outerjoin(
             BorderPost,
             (BorderPost.to_country_id == Country.id) | (BorderPost.from_country_id == Country.id)
@@ -249,8 +249,8 @@ def get_countries_tarrif_summary_list(
             TariffSchedule,
             TariffSchedule.country_id == Country.id
         ).outerjoin(
-            TradeAgreement,
-            (TradeAgreement.country_id == Country.id) & (TradeAgreement.is_active == True)
+            CountryTradeAgreement,
+            (CountryTradeAgreement.country_id == Country.id) & (CountryTradeAgreement.is_active == True)
         ).group_by(
             Country.id
         ).order_by(
