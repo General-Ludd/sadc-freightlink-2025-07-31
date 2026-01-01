@@ -152,7 +152,7 @@ def admin_get_individual_country(
                 "id": fee.id,
                 "code": fee.fee_code,
                 "name": fee.fee_name,
-                "amount": fee.amount,
+                "amount": fee.amount_zar,
                 "percentage_rate": fee.percentage_rate,
                 "threshold_amount_zar": fee.threshold_amount_zar,
                 "description": fee.description,
