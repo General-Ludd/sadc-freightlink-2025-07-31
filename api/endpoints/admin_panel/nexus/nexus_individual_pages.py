@@ -141,7 +141,7 @@ def admin_get_individual_country(
                 "is_active": fee.is_active,
                 "country_id": fee.country_id,
                 "amount_zar": fee.amount_zar,
-                "validity_days": fee.validity_days,
+                "validity_days": fee.bond_validity_days,
                 "effective_date": fee.effective_date.isoformat() if fee.effective_date else None,
                 "description": fee.description,
             })
