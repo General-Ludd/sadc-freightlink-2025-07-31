@@ -30,7 +30,21 @@ class Country(Base):
     trade_defense_measures = relationship("TradeDefenseMeasure", back_populates="country", cascade="all, delete-orphan")
     customs_procedures = relationship("CustomsProcedure", back_populates="country", cascade="all, delete-orphan")
 
+class Customs_Duty_Authority(Base):
+    __tablename__ = "customs_duty_authorities"
 
+    id = Column(Integer, primary_key=True, index=True)
+    country_id = Column(Integer, nullable=False)
+    country = Column(String(50), nullable=False)
+    agency_name = Column(String(50), nullable=False)
+    agency_code = Column(String(50), nullable=False)
+    bank_name = Column(String(50), nullable=True)
+    branch_code = Column(String(50), nullable=True)
+    bank_account_number = Column(String(50), nullable=True)
+    account_type = Column(String(50), nullable=True)
+    website = Column(String(50), nullable=False)
+    email = Column(String(50), nullable=True)
+    phone_number = Column(String(50), nullable=False)
 
 class CountryTradeAgreement(Base):
     __tablename__ = "country_trade_agreements"

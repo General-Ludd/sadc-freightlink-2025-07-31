@@ -9,9 +9,11 @@ class CountryBase(BaseModel):
     name: str = Field(..., max_length=100)
     currency_code: str = Field(..., min_length=3, max_length=3)
     is_sadc_member: bool = False
+    is_comesa_memeber: bool = False
     is_sacu_member: bool = False
     standard_vat_rate: Optional[Decimal] = None
     requires_ctn: bool = False
+    is_active: bool = False
 
 class CountryCreate(CountryBase):
     pass
@@ -21,18 +23,22 @@ class CountryUpdate(BaseModel):
     name: Optional[str] = Field(None, max_length=100)
     currency_code: Optional[str] = Field(None, min_length=3, max_length=3)
     is_sadc_member: Optional[bool] = None
+    is_comesa_member: Optional[bool] = None
     is_sacu_member: Optional[bool] = None
     standard_vat_rate: Optional[Decimal] = None
     requires_ctn: Optional[bool] = None
+    is_active: Optional[Bool] = None
 
-class Country(CountryBase):
-    model_config = ConfigDict(from_attributes=True)
-    id: int
-    created_at: datetime
-    updated_at: datetime
-    # Optional: Include related data in responses
-    trade_agreements: List['CountryTradeAgreement'] = []
-    procedures: List['CustomsProcedure'] = []
+class Customs_Duty_Authority_Base(BaseModel):
+    agency_name: str
+    agency_code: str
+    bank_name: Optional[str] = None
+    branch_code: Optional[str] = None
+    bank_account_number: Optional[str] = None
+    account_type: Optional[str] = None
+    website: str
+    email: Optional[str] = None
+    phone_number: str
 
 # ----- 2. Trade Agreement Model -----
 class CountryTradeAgreementBase(BaseModel):

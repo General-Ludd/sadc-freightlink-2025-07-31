@@ -37,6 +37,7 @@ from api.endpoints import gcs_upload
 from api.endpoints import financial_deposits
 from api.endpoints.dashboards import early_access_requests
 from api.endpoints.admin_panel.nexus import dashboard
+from api.endpoints.admin_panel.nexus import nexus_individual_pages
 from api.endpoints.admin_panel import admin_dashboard
 from api.endpoints.admin_panel import admin_dashboard_individual_pages
 from api.endpoints.admin_panel.admin_dashboard_pages_functions import client_admin_functions
@@ -144,6 +145,7 @@ app.include_router(early_access_requests.router, prefix="/api", tags=["Early Acc
 app.include_router(admin_dashboard.router, prefix="/api", tags=["Admin Dashboard"])
 app.include_router(admin_dashboard_individual_pages.router, prefix="/api", tags=["Admin Dashboard Pages"])
 app.include_router(dashboard.router, prefix="/api", tags=["Admin Nexus"])
+app.include_router(nexus_individual_pages.router, prefix="/api", tags=["Admin Nexus individual Pages"])
 app.include_router(client_admin_functions.router, prefix="/api", tags=["Client Admin Functions"])
 app.include_router(admin_financial_account.router, prefix="/api", tags=["Admin Financial Account Management"])
 app.include_router(company.router, prefix="/api", tags=["Admin Company Management"])
