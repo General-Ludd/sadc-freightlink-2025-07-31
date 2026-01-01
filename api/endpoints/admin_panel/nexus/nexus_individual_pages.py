@@ -45,6 +45,11 @@ def admin_get_individual_country(
         defense_measures = db.query(TradeDefenseMeasure).filter(TradeDefenseMeasure.country_id == id).all()
         special_fees = db.query(CountrySpecialFee).filter(CountrySpecialFee.country_id == id).all()
         transit_bond_fees = db.query(TransitBondFee).filter(TransitBondFee.country_id == id).all()
+        
+        # Fetch border posts - both where this country is the source or destination
+        border_posts = db.query(BorderPost).filter(
+            (BorderPost.from_country_id == id) | (BorderPost.to_country_id == id)
+        ).all()
 
         # Build response with null handling
         response = {
@@ -57,15 +62,16 @@ def admin_get_individual_country(
                 "is_active": country.is_active,
                 "is_sacu_member": country.is_sacu_member,
                 "is_sadc_member": country.is_sadc_member,
-                "is_comesa_member": country.is_comesa_member,  # Fixed typo: memeber -> member
+                "is_comesa_member": country.is_comesa_member,
             },
             "customs_authority": None,
             "customs_procedures": [],
             "trade_agreements": [],
-            "tariff_schedule": [],  # Fixed typo: tarrif -> tariff
-            "trade_defense_measures": [],  # Fixed typo: defence -> defense (to match variable name)
+            "tariff_schedule": [],
+            "trade_defense_measures": [],
             "transit_bond": [],
             "special_fees": [],
+            "borders": [],  # Add borders section
         }
 
         # Handle customs_authority if exists
@@ -158,6 +164,38 @@ def admin_get_individual_country(
                 "description": fee.description,
                 "payable_to": fee.payable_to,
                 "is_mandatory": fee.is_mandatory,
+            })
+        
+        # Handle border posts
+        for border in border_posts:
+            # Determine the direction type (EXIT or ENTRY) and the other country
+            if border.from_country_id == id:
+                direction = "EXIT"
+                other_country_id = border.to_country_id
+            else:  # border.to_country_id == id
+                direction = "ENTRY"
+                other_country_id = border.from_country_id
+            
+            # Get the other country's details (optional, if you want to include them)
+            other_country = db.query(Country).filter(Country.id == other_country_id).first()
+            
+            response["borders"].append({
+                "id": border.id,
+                "border_name": border.border_name,
+                "direction": direction,
+                "is_port": border.is_port,
+                "fee_type": border.fee_type,
+                "vehicle_category": border.vehicle_category,
+                "amount_zar": float(border.amount_zar) if border.amount_zar else None,
+                "description": border.description,
+                "is_active": border.is_active,
+                "effective_date": border.effective_date.isoformat() if border.effective_date else None,
+                "expiry_date": border.expiry_date.isoformat() if border.expiry_date else None,
+                "other_country": {
+                    "id": other_country.id if other_country else None,
+                    "name": other_country.name if other_country else None,
+                    "iso_code": other_country.iso_code if other_country else None,
+                } if other_country else None
             })
 
         return response
