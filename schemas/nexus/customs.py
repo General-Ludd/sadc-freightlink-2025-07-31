@@ -9,7 +9,7 @@ class CountryBase(BaseModel):
     name: str = Field(..., max_length=100)
     currency_code: str = Field(..., min_length=3, max_length=3)
     is_sadc_member: bool = False
-    is_comesa_memeber: bool = False
+    is_comesa_member: bool = False  # Fixed typo: memeber -> member
     is_sacu_member: bool = False
     standard_vat_rate: Optional[Decimal] = None
     requires_ctn: bool = False
@@ -23,12 +23,13 @@ class CountryUpdate(BaseModel):
     name: Optional[str] = Field(None, max_length=100)
     currency_code: Optional[str] = Field(None, min_length=3, max_length=3)
     is_sadc_member: Optional[bool] = None
-    is_comesa_member: Optional[bool] = None
+    is_comesa_member: Optional[bool] = None  # Fixed typo
     is_sacu_member: Optional[bool] = None
     standard_vat_rate: Optional[Decimal] = None
     requires_ctn: Optional[bool] = None
-    is_active: Optional[Bool] = None
+    is_active: Optional[bool] = None  # Fixed: Bool -> bool
 
+# ----- 2. Customs Duty Authority Model -----
 class Customs_Duty_Authority_Base(BaseModel):
     agency_name: str
     agency_code: str
@@ -40,7 +41,7 @@ class Customs_Duty_Authority_Base(BaseModel):
     email: Optional[str] = None
     phone_number: str
 
-# ----- 2. Trade Agreement Model -----
+# ----- 3. Trade Agreement Model -----
 class CountryTradeAgreementBase(BaseModel):
     agreement_name: str = Field(..., max_length=150)
     agreement_code: Optional[str] = Field(None, max_length=50)
@@ -56,12 +57,7 @@ class CountryTradeAgreementUpdate(BaseModel):
     is_active: Optional[bool] = None
     notes: Optional[str] = None
 
-class CountryTradeAgreement(CountryTradeAgreementBase):
-    model_config = ConfigDict(from_attributes=True)
-    id: int
-    country_id: int
-
-# ----- 3. Tariff Schedule Model -----
+# ----- 4. Tariff Schedule Model -----
 class TariffScheduleBase(BaseModel):
     hs_code: str = Field(..., max_length=12)
     hs_description: str
@@ -76,12 +72,7 @@ class TariffScheduleBase(BaseModel):
 class TariffScheduleCreate(TariffScheduleBase):
     country_id: int
 
-class TariffSchedule(TariffScheduleBase):
-    model_config = ConfigDict(from_attributes=True)
-    id: int
-    country_id: int
-
-# ----- 4. Trade Defense Measure Model -----
+# ----- 5. Trade Defense Measure Model -----
 class TradeDefenseMeasureBase(BaseModel):
     measure_type: str = Field(..., max_length=50)
     hs_code: str = Field(..., max_length=12)
@@ -95,33 +86,55 @@ class TradeDefenseMeasureBase(BaseModel):
 class TradeDefenseMeasureCreate(TradeDefenseMeasureBase):
     country_id: int
 
-\\\\class TradeDefenseMeasure(TradeDefenseMeasureBase):
-    model_config = ConfigDict(from_attributes=True)-
-    id: int
+# ----- 6. Country Special Fee Model -----
+class CountrySpecialFeeBase(BaseModel):
+    fee_code: str = Field(..., max_length=50)
+    fee_name: str = Field(..., max_length=150)
+    amount_zar: Optional[Decimal] = Field(None, ge=0)
+    percentage_rate: Optional[Decimal] = Field(None, ge=0, le=100)
+    threshold_amount_zar: Optional[Decimal] = Field(None, ge=0)
+    description: Optional[str] = None
+    payable_to: Optional[str] = Field(None, max_length=200)
+    is_mandatory: bool = False
+    is_active: bool = True
+    effective_date: date
+    expiry_date: Optional[date] = None
+
+class CountrySpecialFeeCreate(CountrySpecialFeeBase):
     country_id: int
 
-# ----- 5. Customs Procedure Model -----
-class CustomsProcedureBase(BaseModel):
-    procedure_type: str = Field(..., max_length=100)
-    required_documents: List[Any] = Field(default_factory=list)  # JSON list
-    process_description: Optional[str] = None
-    standard_processing_days: Optional[int] = Field(None, ge=0)
-    is_electronic_filing_mandatory: bool = True
-    authority_name: Optional[str] = Field(None, max_length=200)
-    authority_website: Optional[str] = Field(None, max_length=500)
+# ----- 7. Transit Bond Fee Model -----
+class TransitBondFeeBase(BaseModel):
+    amount_zar: Decimal = Field(..., ge=0)
+    bond_validity_days: int = Field(..., ge=1)
+    description: Optional[str] = None
+    is_active: bool = True
+    effective_date: date
+    expiry_date: Optional[date] = None
 
-class CustomsProcedureCreate(CustomsProcedureBase):
+class TransitBondFeeCreate(TransitBondFeeBase):
     country_id: int
 
-class CustomsProcedureUpdate(BaseModel):
-    required_documents: Optional[List[Any]] = None
-    process_description: Optional[str] = None
-    standard_processing_days: Optional[int] = Field(None, ge=0)
+# ----- 8. Border Post Model -----
+class BorderPostBase(BaseModel):
+    from_country_id: int
+    to_country_id: int
+    border_name: str = Field(..., max_length=150)
+    is_port: bool = False
+    fee_type: str = Field(..., max_length=50)
+    vehicle_category: str = Field(..., max_length=50)
+    amount_zar: Decimal = Field(..., ge=0)
+    description: Optional[str] = None
+    is_active: bool = True
+    effective_date: date
+    expiry_date: Optional[date] = None
 
-class CustomsProcedure(CustomsProcedureBase):
-    model_config = ConfigDict(from_attributes=True)
-    id: int
-    country_id: int
+class BorderPostCreate(BorderPostBase):
+    pass
 
-# Handle forward references for nested relationships
-Country.model_rebuild()
+class BorderPostUpdate(BaseModel):
+    border_name: Optional[str] = Field(None, max_length=150)
+    is_active: Optional[bool] = None
+    amount_zar: Optional[Decimal] = Field(None, ge=0)
+    description: Optional[str] = None
+    expiry_date: Optional[date] = None
