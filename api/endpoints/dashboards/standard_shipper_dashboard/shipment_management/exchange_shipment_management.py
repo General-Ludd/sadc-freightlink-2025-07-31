@@ -416,6 +416,8 @@ def shipper_single_ftl_lane_exchange_detials(
                     "commodity": exchange.commodity,
                     "temperature_control": exchange.temperature_control,
                     "hazardous_materials": exchange.hazardous_materials,
+                    "under_bond": exchange.under_bond or False,
+                    "rib_requirements": exchange.rib_requirements or False,
                     "minimum_git_cover": exchange.minimum_git_cover_amount,
                     "minimum_liability_cover": exchange.minimum_liability_cover_amount,
                     "customer_reference": exchange.customer_reference_number,
