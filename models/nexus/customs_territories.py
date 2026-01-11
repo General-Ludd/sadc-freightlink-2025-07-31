@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DECIMAL, Date, Text, JSON, TIMESTAMP, ForeignKey, UniqueConstraint, Index
+from sqlalchemy import Column, Integer, String, Boolean, DECIMAL, Float, Date, Text, JSON, TIMESTAMP, ForeignKey, UniqueConstraint, Index
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from models.base import Base
@@ -73,6 +73,8 @@ class BorderPost(Base):
     to_country_id = Column(Integer, ForeignKey("countries.id"), nullable=False)
 
     border_name = Column(String(150), nullable=False)
+    latitude = Column(Float)
+    longitude = Column(Float)
     is_port = Column(Boolean, default=False)
     fee_type = Column(String(50), nullable=False)
     vehicle_category = Column(String(50), nullable=False)
@@ -258,7 +260,9 @@ class CustomsProcedure(Base):
     country_id = Column(Integer, ForeignKey("countries.id", ondelete="CASCADE"), nullable=False)
 
     procedure_type = Column(String(100), nullable=False)
-    required_documents = Column(JSON, nullable=False, default=list)
+    required_documents_shipper = Column(JSON, nullable=False, default=list)
+    required_documents_agent = Column(JSON, nullable=False, default=list)
+    required_documents_carrier = Column(JSON, nullable=False, default=list)
 
     process_description = Column(Text)
     standard_processing_days = Column(Integer)

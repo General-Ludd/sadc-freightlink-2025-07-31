@@ -43,6 +43,8 @@ class FTL_Lane(Base):
     commodity = Column(String)
     temperature_control = Column(String)
     hazardous_materials = Column(Boolean, nullable=False)
+    under_bond = Column(Boolean, default=False) ########### Add to DB
+    rib_requirements = Column(Boolean, default=False) ####### Add to DB
     packaging_quantity = Column(String)
     packaging_type = Column(String)
     pickup_number = Column(String)

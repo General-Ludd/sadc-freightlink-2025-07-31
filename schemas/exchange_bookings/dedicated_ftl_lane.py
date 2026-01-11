@@ -30,6 +30,8 @@ class Exchange_FTL_Lane_Booking(BaseModel):
     commodity: str
     temperature_control: str
     hazardous_materials: bool
+    under_bond: bool
+    rib_requirements: bool
     packaging_quantity: Optional[str] = None
     packaging_type: Optional[str] = None
     pickup_number: Optional[str] = None

@@ -49,6 +49,8 @@ class Exchange_Ftl_Load_Board(Base):
     commodity = Column(String)
     temperature_control = Column(String)
     hazardous_materials = Column(Boolean, nullable=False)
+    under_bond = Column(String, nullable=False) ########### Add to DB
+    rib_requirements = Column(Boolean, default=False) ####### Add to DB
     packaging_quantity = Column(String)
     packaging_type = Column(String)
     pickup_number = Column(String)
@@ -141,6 +143,8 @@ class Exchange_Ftl_Lane_LoadBoard(Base):
     commodity = Column(String)
     temperature_control = Column(String)
     hazardous_materials = Column(Boolean, nullable=False)
+    under_bond = Column(String, nullable=False) ########### Add to DB
+    rib_requirements = Column(Boolean, default=False) ####### Add to DB
     packaging_quantity = Column(String)
     packaging_type = Column(String)
     pickup_number = Column(String)

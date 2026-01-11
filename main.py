@@ -45,6 +45,8 @@ from api.endpoints.admin_panel.admin_dashboard_pages_functions import client_adm
 from api.endpoints.admin_panel.admin_dashboard_pages_functions import admin_financial_account, company
 from services.platform_administration_services.loadboards import admin_exchange_loadboards, admin_spot_loadboards
 from api.endpoints.dashboards import contact_us
+from services.nexus import border_detection_service
+from services.nexus import quote_service
 
 from triggers.scheduler import start_tracking_scheduler
 
@@ -153,6 +155,11 @@ app.include_router(admin_financial_account.router, prefix="/api", tags=["Admin F
 app.include_router(company.router, prefix="/api", tags=["Admin Company Management"])
 app.include_router(admin_exchange_loadboards.router, prefix="/api", tags=["Admin Exchange Loadboards"])
 app.include_router(admin_spot_loadboards.router, prefix="/api", tags=["Admin Spot Loadboards"])
+
+################################################Border Detection#####################################
+app.include_router(border_detection_service.router, prefix="/api", tags=["Border Detection"])
+app.include_router(quote_service.router, prefix="/api", tags=["Shipment Quote"])
+
 
 ################################################Deposits###########################################
 app.include_router(financial_deposits.router, prefix="/api", tags=["Nedbank Deposits"])
