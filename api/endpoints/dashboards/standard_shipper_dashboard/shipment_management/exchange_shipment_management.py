@@ -142,6 +142,8 @@ def get_single_ftl_exchange_details(
             "commodity": exchange.commodity,
             "temperature_control": exchange.temperature_control,
             "hazardous_materials": exchange.hazardous_materials,
+            "under_bond": exchange.under_bond or False,
+            "rib_requirements": exchange.rib_requirements or False,
             "packaging_quantity": exchange.packaging_quantity,
             "packaging_type": exchange.packaging_type,
             "pickup_number": exchange.pickup_number,
