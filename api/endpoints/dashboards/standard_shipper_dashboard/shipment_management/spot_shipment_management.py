@@ -742,6 +742,9 @@ def shipper_get_individual_ftl_lane_id(
         if not lane:
             raise HTTPException(status_code=404, detail="Lane not found")
 
+        facility = db.query(Corporation).filter(Corporation.id == lane.shipper_company_id).first()
+        user = db.query(Director).filter(Director.id == lane.shipper_user_id).first()
+
         # Safe queries (will return [] instead of None if nothing found)
         invoices = db.query(Interim_Invoice).filter(
             Interim_Invoice.contract_id == lane.id,
@@ -752,7 +755,51 @@ def shipper_get_individual_ftl_lane_id(
             FTL_SHIPMENT.dedicated_lane_id == lane.id
         ).all() or []
 
-        carrier = db.query(Carrier).filter(Carrier.id == lane.carrier_id).first()
+        ledgers = db.query(Lane_Slot_Ledger).filter(
+            Lane_Slot_Ledger.lane_id == lane.id,
+            Lane_Slot_Ledger.lane_type == lane.type
+        ).all() or []
+
+        # Prepare carrier info list
+        carrier_information_list = []
+
+        for ledger in ledgers:
+            carrier = db.query(Carrier).filter(Carrier.id == ledger.carrier_id).first()
+            if not carrier:
+                continue
+
+            carrier_information_list.append({
+                "ledger_id": ledger.id,
+                "carrier_id": carrier.id,
+                "is_verified": carrier.is_verified,
+                "status": carrier.status,
+                "carrier_name": carrier.legal_business_name,
+                "country_of_incorporation": carrier.country_of_incorporation,
+                "carrier_registration_number": carrier.business_registration_number,
+                "carrier_address": carrier.business_address,
+                "carrier_email": carrier.business_email,
+                "carrier_phone_number": carrier.business_phone_number,
+                "git_insurance_company": carrier.name_of_git_cover_insurance_company,
+                "git_policy_number": carrier.git_insurance_policy_number,
+                "git_cover_amount": carrier.git_cover_amount,
+                "liability_insurance_company": carrier.name_of_liability_cover_insurance_company,
+                "liability_policy_number": carrier.liability_insurance_policy_number,
+                "carrier_liability_cover_amount": carrier.liability_insurance_cover_amount,
+                "carrier_documents": {
+                    "registration_certificate": carrier.business_registration_certificate,
+                    "proof_of_address": carrier.proof_of_address,
+                    "git_insurance_certificate": carrier.git_insurance_certificate,
+                    "liability_insurance_certificate": carrier.liability_insurance_certificate,
+                },
+                # Custom ledger-specific info
+                "number_of_assigned_slots": ledger.assigned_slots,
+                "total_shipments_per_slot": ledger.shipments_per_slot,
+                "per_shipment_payable": ledger.per_shipment_carrier_payable,
+                "total_carrier_payable": ledger.total_carrier_payable,
+            })
+
+        # fetch lane KPIs
+        lane_kpis = get_lane_kpis(db, lane.id)
 
         pickup_facility = db.query(ShipmentFacility).filter_by(id=lane.pickup_facility_id).first()
         delivery_facility = db.query(ShipmentFacility).filter_by(id=lane.delivery_facility_id).first()
@@ -853,12 +900,32 @@ def shipper_get_individual_ftl_lane_id(
                 "notes": delivery_facility.facility_notes if delivery_facility else None,
             } if delivery_facility else None,
 
-            "carrier_information": {
-                "id": carrier.id if carrier else None,
-                "carrier_name": f"SADC FREIGHTLINK Carrier-{carrier.id}" if carrier else None,
-                "carrier_git_cover": carrier.git_cover_amount if carrier else 0,
-                "carrier_liability_cover_amount": carrier.liability_insurance_cover_amount if carrier else 0,
-            } if carrier else None,
+            "carrier_information": carrier_information_list,
+            "facility": {
+                "facility_information": {
+                    "id": facility.id,
+                    "type": facility.type,
+                    "facility_name": facility.legal_business_name,
+                    "country": facility.country_of_incorporation,
+                    "address": facility.business_address,
+                    "email": facility.business_email,
+                    "phone_number": facility.business_phone_number,
+                    "is_verified": facility.is_verified,
+                    "status": facility.status
+                },
+                "booked_by": {
+                    "id": user.id,
+                    "is_verified": user.is_verified,
+                    "status": user.status,
+                    "role": user.role,
+                    "first_name": user.first_name,
+                    "last_name": user.last_name,
+                    "id_number": user.id_number,
+                    "email": user.email,
+                    "phone_number": user.phone_number,
+                },
+            },
+            "kpis": lane_kpis["kpis"] if lane_kpis else None,
         }
 
     except Exception as e:

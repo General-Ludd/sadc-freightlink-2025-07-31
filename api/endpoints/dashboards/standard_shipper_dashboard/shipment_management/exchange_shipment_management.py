@@ -140,8 +140,6 @@ def get_single_ftl_exchange_details(
             "customer_reference": exchange.customer_reference_number,
             "shipment_weight": exchange.shipment_weight,
             "commodity": exchange.commodity,
-            "under_bond": exchange.under_bond or False,
-            "rib_requirements": exchange.rib_requirements or False,
             "temperature_control": exchange.temperature_control,
             "hazardous_materials": exchange.hazardous_materials,
             "under_bond": exchange.under_bond or False,
