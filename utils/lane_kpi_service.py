@@ -3,6 +3,28 @@ from statistics import mean, pstdev
 from utils.shipment_kpi_service import get_shipment_kpis
 from models.spot_bookings.ftl_shipment import FTL_SHIPMENT
 
+TRACKING_THRESHOLD = 10
+
+
+def calculate_reliability_score(on_time_rate, tracking_rate, avg_delay):
+    """
+    Reliability score (0–100)
+    Weighted composite:
+    - 50% On-time delivery
+    - 30% Tracking compliance
+    - 20% Delay penalty
+    """
+    delay_score = max(0, 100 - avg_delay) if avg_delay else 100
+
+    score = (
+        (on_time_rate * 0.5) +
+        (tracking_rate * 0.3) +
+        ((delay_score / 100) * 0.2)
+    ) * 100
+
+    return round(score, 1)
+
+
 def get_lane_kpis(db: Session, lane_id: int):
 
     shipments = db.query(FTL_SHIPMENT).filter(
@@ -15,7 +37,9 @@ def get_lane_kpis(db: Session, lane_id: int):
     total = len(shipments)
     completed = len([s for s in shipments if s.shipment_status == "Completed"])
 
-    # KPI storage arrays
+    # ------------------------
+    # LANE KPI COLLECTION
+    # ------------------------
     pickup_on_time_list = []
     pickup_delay_list = []
     delivery_on_time_list = []
@@ -26,6 +50,9 @@ def get_lane_kpis(db: Session, lane_id: int):
     cycle_time_list = []
     tracking_update_list = []
 
+    # ------------------------
+    # CARRIER KPI MAP
+    # ------------------------
     carrier_map = {}
 
     for s in shipments:
@@ -37,9 +64,8 @@ def get_lane_kpis(db: Session, lane_id: int):
         k = kpi["kpis"]
 
         # ------------------------
-        # KPI COLLECTION
+        # LANE KPIs
         # ------------------------
-
         if k.get("pickup_on_time") is not None:
             pickup_on_time_list.append(1 if k["pickup_on_time"] else 0)
 
@@ -69,24 +95,68 @@ def get_lane_kpis(db: Session, lane_id: int):
         # ------------------------
         # CARRIER PERFORMANCE
         # ------------------------
-        if s.carrier_id:
-            if s.carrier_id not in carrier_map:
-                carrier_map[s.carrier_id] = {"deliveries": 0, "on_time": 0}
+        if not s.carrier_id:
+            continue
 
-            carrier_map[s.carrier_id]["deliveries"] += 1
-            if k.get("delivery_on_time"):
-                carrier_map[s.carrier_id]["on_time"] += 1
+        if s.carrier_id not in carrier_map:
+            carrier = db.query(Carrier).filter(Carrier.id == s.carrier_id).first()
 
-    # Carrier KPI dictionary
-    carrier_kpis = {
-        f"carrier_{cid}": {
-            "on_time_delivery": (
-                cdata["on_time"] / cdata["deliveries"]
-                if cdata["deliveries"] > 0 else None
-            )
-        }
-        for cid, cdata in carrier_map.items()
-    }
+            carrier_map[s.carrier_id] = {
+                "carrier_id": s.carrier_id,
+                "carrier_name": carrier.legal_business_name if carrier else "Unknown Carrier",
+                "total_shipments": 0,
+                "on_time_deliveries": 0,
+                "delivery_delays": [],
+                "tracking_hits": 0,
+                "tracking_total": 0,
+            }
+
+        c = carrier_map[s.carrier_id]
+        c["total_shipments"] += 1
+
+        if k.get("delivery_on_time"):
+            c["on_time_deliveries"] += 1
+        elif k.get("delivery_late_by_minutes") is not None:
+            c["delivery_delays"].append(k["delivery_late_by_minutes"])
+
+        if k.get("total_status_updates") is not None:
+            c["tracking_total"] += 1
+            if k["total_status_updates"] >= TRACKING_THRESHOLD:
+                c["tracking_hits"] += 1
+
+    # ------------------------
+    # BUILD CARRIER KPI OUTPUT
+    # ------------------------
+    carrier_kpis = []
+
+    for c in carrier_map.values():
+        on_time_rate = (
+            c["on_time_deliveries"] / c["total_shipments"]
+            if c["total_shipments"] else 0
+        )
+
+        avg_delay = mean(c["delivery_delays"]) if c["delivery_delays"] else 0
+
+        tracking_rate = (
+            c["tracking_hits"] / c["tracking_total"]
+            if c["tracking_total"] else 0
+        )
+
+        reliability_score = calculate_reliability_score(
+            on_time_rate,
+            tracking_rate,
+            avg_delay
+        )
+
+        carrier_kpis.append({
+            "carrier_id": c["carrier_id"],
+            "carrier_name": c["carrier_name"],
+            "total_shipments": c["total_shipments"],
+            "on_time_delivery_rate": round(on_time_rate * 100, 1),
+            "average_delay_minutes": round(avg_delay, 1),
+            "tracking_compliance_rate": round(tracking_rate * 100, 1),
+            "reliability_score": reliability_score
+        })
 
     # ------------------------
     # FINAL RESPONSE
@@ -105,7 +175,7 @@ def get_lane_kpis(db: Session, lane_id: int):
             "average_actual_transit_minutes": mean(transit_time_list) if transit_time_list else None,
             "transit_reliability_stddev": pstdev(transit_time_list) if len(transit_time_list) > 1 else 0,
             "average_tracking_updates": mean(tracking_update_list) if tracking_update_list else None,
-            "tracking_compliance": sum(1 for t in tracking_update_list if t >= 10) / total,
+            "tracking_compliance": sum(1 for t in tracking_update_list if t >= TRACKING_THRESHOLD) / total,
             "average_shipment_cycle_minutes": mean(cycle_time_list) if cycle_time_list else None,
             "carrier_performance": carrier_kpis
         }
