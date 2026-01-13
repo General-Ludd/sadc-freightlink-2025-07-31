@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from db.database import SessionLocal
 from models.brokerage.assigned_shipments import Assigned_Spot_Ftl_Shipments
-from models.brokerage.finance import BrokerageLedger, CarrierFinancialAccounts, FinancialAccounts, Interim_Invoice, Load_Invoice
+from models.brokerage.finance import BrokerageLedger, Lane_Slot_Ledger, CarrierFinancialAccounts, FinancialAccounts, Interim_Invoice, Load_Invoice
 from models.brokerage.loadboard import Ftl_Load_Board
 from models.shipper import Corporation
 from models.user import Director, Driver
@@ -18,7 +18,7 @@ from schemas.spot_bookings.dedicated_lanes_ftl_shipment import Ftl_Lanes_Summary
 from schemas.spot_bookings.ftl_shipment import FTL_Shipment_Response, FTL_Shipments_Summary_Response, FTL_Shipment_Dispute_Create
 from schemas.spot_bookings.power_shipment import POWER_SHIPMENT_RESPONSE, Power_Shipments_Summary_Response
 from utils.auth import get_current_user
-from utils.shipment_kpi_service import get_shipment_kpis
+from utils.shipment_kpi_service import get_shipment_kpis, get_lane_kpis
 from services.cancellations.spot_cancellations import cancel_spot_ftl_shipment
 from services.brokerage.disputes import shipper_dispute_ftl_shipment, shipper_dispute_ftl_lane
 from enums import ShipperShipmentStatus
