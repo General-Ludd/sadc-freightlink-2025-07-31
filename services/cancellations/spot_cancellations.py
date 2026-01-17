@@ -37,7 +37,7 @@ def cancel_spot_ftl_shipment(db: Session, shipment_id: int, cancelled_by_user_id
     db.add(financial_account)
 
     # Step 3: Reverse SHIPPER invoice
-    shipper_invoice = db.query(Shipment_Invoices).filter(Shipment_Invoices.shipment_id == shipment.id,
+    shipper_invoice = db.query(Shipment_Invoice).filter(Shipment_Invoice.shipment_id == shipment.id,
                                                         Shipment_Invoice.type == shipment.type).first()
     if shipper_invoice:
         shipper_invoice.status = "Cancelled"
