@@ -53,7 +53,7 @@ def get_shipper_and_broker_users(
             "name": f"{user.first_name} {user.last_name}",
             "id": user.id,
             "status": user.status,
-            "director": user.is_director or None,
+            "director": user.is_director,
             "verification_status": user.is_verified,
             "nationality": user.nationality,
             "address": user.home_address,

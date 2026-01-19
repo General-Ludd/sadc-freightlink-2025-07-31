@@ -114,7 +114,7 @@ def shipper_request_password_reset(email: str, db: Session = Depends(get_db)):
 
         send_email(
             to_email=email,
-            subject="SADC FREIGHTLINK Carrier Password Reset",
+            subject="SADC FREIGHTLINK User Password Reset",
             text=(
                 f"Your password reset code is: {code}\n"
                 f"This code is valid until {expires_sast.strftime('%Y-%m-%d %H:%M:%S %Z')} (SAST)."
