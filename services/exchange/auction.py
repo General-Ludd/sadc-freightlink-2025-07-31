@@ -339,7 +339,7 @@ def accept_ftl_shipment_exchange_bid(db: Session, bid_data: Accept_Bid, current_
             shipment_id=shipment.id,
             shipment_type=shipment.type,
             pickup_date=shipment.pickup_date,
-            due_date=BillingEngine.get_next_due_date(shipment.pickup_date, financial_account.payment_terms),
+            due_date=BillingEngine.get_next_billing_date(shipment.pickup_date, financial_account.payment_terms),
             amount=bid.baked_bid_amount,
             company_id=company_id,
             payment_terms=financial_account.payment_terms,
