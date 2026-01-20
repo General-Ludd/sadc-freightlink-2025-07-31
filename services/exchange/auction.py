@@ -335,7 +335,7 @@ def accept_ftl_shipment_exchange_bid(db: Session, bid_data: Accept_Bid, current_
     db.refresh(shipment)
 
     try:
-        shipment_invoice = BillingEngine.generate_shipment_invoice(
+        shipment_invoice = BillingEngine.create_shipment_invoice(
             shipment_id=shipment.id,
             shipment_type=shipment.type,
             pickup_date=shipment.pickup_date,
