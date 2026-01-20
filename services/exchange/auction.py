@@ -21,6 +21,7 @@ from services.brokerage.carrier_loadboard_service import calculate_rates
 from utils.billing import BillingEngine
 from fastapi import HTTPException, Depends, Request
 from sqlalchemy.orm import Session
+from datetime import datetime
 from utils.sast_datetime import format_datetime_sast
 from utils.google_maps import AddressInput, RouteETAInput, calculate_distance, get_eta_and_polyline
 
