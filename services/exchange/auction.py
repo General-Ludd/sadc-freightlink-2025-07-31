@@ -321,7 +321,7 @@ def accept_ftl_shipment_exchange_bid(db: Session, bid_data: Accept_Bid, current_
         route_preview_embed=exchange.route_preview_embed,
         eta_date=eta_date,
         eta_window=eta_window,
-        polyline=Polyline,
+        polyline=polyline,
         pickup_appointment=f"{pickup_facility.start_time}-{pickup_facility.end_time}",
         shipment_status="Assigned",
         trip_status="Scheduled",
