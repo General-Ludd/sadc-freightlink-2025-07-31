@@ -1,6 +1,7 @@
 from typing import List
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
+from models.spot_bookings.shipment_facility import ShipmentFacility
 from models.Exchange.dedicated_ftl_lane import FTL_Lane_Exchange
 from models.Exchange.ftl_shipment import FTL_SHIPMENT_EXCHANGE
 from models.Exchange.auction import Exchange_FTL_Lane_Bid, Exchange_FTL_Shipment_Bid, Exchange_POWER_Shipment_Bid
