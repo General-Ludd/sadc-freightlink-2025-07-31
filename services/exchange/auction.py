@@ -264,7 +264,7 @@ def accept_ftl_shipment_exchange_bid(db: Session, bid_data: Accept_Bid, current_
             origin_address=exchange.origin_address,
             destination_address=exchange.destination_address,
             start_date=exchange.pickup_date,
-            start_time=pickup_facility_facility.end_time,
+            start_time=pickup_facility.end_time,
         ))
         eta_date = trip_data["eta_date"]  # Distance in kilometers
         eta_window = trip_data["eta_window"]  # Transit time as text
