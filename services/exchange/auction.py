@@ -336,19 +336,17 @@ def accept_ftl_shipment_exchange_bid(db: Session, bid_data: Accept_Bid, current_
 
     try:
         shipment_invoice = BillingEngine.create_shipment_invoice(
+            company_id=company_id,
+            financial_account=financial_account,
             shipment_id=shipment.id,
             shipment_type=shipment.type,
+            origin_address=exchange.origin_address,
+            destination_address=exchange.destination_address,
             pickup_date=shipment.pickup_date,
-            due_date=BillingEngine.get_next_billing_date(financial_account.payment_terms, shipment.pickup_date),
-            amount=bid.baked_bid_amount,
-            company_id=company_id,
-            payment_terms=financial_account.payment_terms,
-            #New
-            description=f"FTL Shipment {shipment.id}",
-            business_name=shipper.legal_business_name,
-            contact_person_name=f"{financial_account.directors_first_name}-{financial_account.directors_last_name}",
-            business_email=shipper.business_email,
-            billing_address=shipper.business_address,
+            distance=exchange.distance,
+            transit_time=exchange.estimated_transit_time,
+            total_cost=bid.baked_bid_amount,
+            base_amount=bid.baked_bid_amount,
             db=db
         )
         db.add(shipment)
