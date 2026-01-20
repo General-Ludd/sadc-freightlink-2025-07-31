@@ -31,7 +31,7 @@ class Assigned_Ftl_Lanes(Base):
     rate_per_ton = Column(Integer, nullable=False)
     minimum_git_cover_amount = Column(Integer, default=0, nullable=True)
     minimum_liability_cover_amount = Column(Integer, default=0, nullable=True)
-    status = Column(Enum("Assigned", "In-Progress", "Completed"), default="Assigned")
+    status = Column(Enum("Assigned", "In-Progress", "Completed", "Cancelled"), default="Assigned")
     total_shipment_completed = Column(Integer, default=0)
 
     # Slot Details
