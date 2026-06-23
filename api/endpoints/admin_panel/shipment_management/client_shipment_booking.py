@@ -30,7 +30,7 @@ def get_db():
     finally:
         db.close()
 
-@router.get("/api/get-client-company-summary/{id}")
+@router.get("/get-client-company-summary/{id}")
 def admin_fetch_client_summary(
     id: int,
     db: Session = Depends(get_db),
@@ -85,23 +85,46 @@ def admin_fetch_client_summary(
             "total_outstanding": financial_account.total_outstanding
         }
 
-@router.get("/admin/get-client-{id}-users")
+@router.get("/admin/clients/{id}/users")
 def admin_fetch_client_users(
     id: int,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_admin),
 ):
     try:
-        users = db.query(Director).filter(Director.company_id == id).all()
-        return [{
-            "id": int,
-            "first_name": user.first_name,
-            "last_name": user.last_name,
-            "role": user.role,
-            
-        }for user in users]
+
+        company = db.query(Corporation).filter(
+            Corporation.id == id
+        ).first()
+
+        if not company:
+            raise HTTPException(
+                status_code=404,
+                detail="Company not found"
+            )
+
+        users = db.query(Director).filter(
+            Director.company_id == id
+        ).all()
+
+        return [
+            {
+                "id": user.id,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "role": user.role,
+            }
+            for user in users
+        ]
+
+    except HTTPException:
+        raise
+
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(
+            status_code=400,
+            detail=str(e)
+        )
 
 @router.post("/admin/spot/client-ftl-shipment-create", status_code=status.HTTP_201_CREATED)
 def admin_create_client_spot_ftl_endpoint(
