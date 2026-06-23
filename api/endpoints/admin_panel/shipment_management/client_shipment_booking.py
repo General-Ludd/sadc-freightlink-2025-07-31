@@ -84,6 +84,14 @@ def admin_fetch_client_summary(
             "total_spent": financial_account.total_spent,
             "total_outstanding": financial_account.total_outstanding
         }
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=str(e)
+        )
 
 @router.get("/admin/clients/{id}/users")
 def admin_fetch_client_users(
