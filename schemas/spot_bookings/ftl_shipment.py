@@ -63,7 +63,7 @@ class Admin_Client_FTL_Shipment_Booking(BaseModel):
     user_id: int
     shipment_rate: Optional[int] = None
     commission_rate: Optional[int] = None
-    number_of_required_truck: int
+    number_of_required_trucks: int
     required_truck_type: TruckType
     equipment_type: EquipmentType
     trailer_type: Optional[TrailerType] = None
