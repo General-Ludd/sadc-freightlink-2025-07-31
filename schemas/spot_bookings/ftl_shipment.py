@@ -59,6 +59,7 @@ class Enterprise_FTL_Shipment_Booking(BaseModel):
     delivery_notes: Optional[str] = None
 
 class Admin_Client_FTL_Shipment_Booking(BaseModel):
+    facility_id: Optional [int] = None
     client_id: int
     user_id: int
     shipment_rate: Optional[int] = None
