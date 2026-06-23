@@ -26,8 +26,8 @@ def get_db():
     finally:
         db.close()
 
-@router.post("/spot/ftl-shipment-create", status_code=status.HTTP_201_CREATED)
-def create_spot_ftl_endpoint(
+@router.post("/admin/spot/client-ftl-shipment-create", status_code=status.HTTP_201_CREATED)
+def admin_create_client_spot_ftl_endpoint(
     shipment_data: Admin_Client_FTL_Shipment_Booking,
     pickup_facility_data: ShipmentFacilityCreate,
     dropoff_facility_data: ShipmentFacilityCreate,
