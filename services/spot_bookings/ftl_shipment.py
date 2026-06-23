@@ -6,7 +6,7 @@ from models.spot_bookings.ftl_shipment import FTL_SHIPMENT, FTL_Shipment_Docs, s
 from models.brokerage.finance import BrokerageLedger, FinancialAccounts, Brokers_Brokerage_Transactions
 from models.spot_bookings.shipment_facility import ShipmentFacility, ContactPerson
 from schemas.brokerage.loadboard import LoadBoardEntryCreate
-from schemas.spot_bookings.ftl_shipment import FTL_Shipment_Booking, Enterprise_FTL_Shipment_Booking, FTL_Shipment_docs_create
+from schemas.spot_bookings.ftl_shipment import FTL_Shipment_Booking, Enterprise_FTL_Shipment_Booking, Admin_Client_FTL_Shipment_Booking, FTL_Shipment_docs_create
 from schemas.shipment_facility import ShipmentFacilityCreate, FacilityContactCreate
 from schemas.shipper import ConsignorCreate
 from schemas.brokerage.finance import Broker_Brokerage_TransactionCreate
@@ -955,9 +955,9 @@ def broker_create_ftl_shipment(
 ############################################################################################################
 ###########################################Enterprise FTL Shipment Booking##################################
 ############################################################################################################
-def enterprise_create_ftl_shipment(
+def admin_create_client_ftl_shipment(
         db: Session,
-        shipment_data: Enterprise_FTL_Shipment_Booking,
+        shipment_data: Admin_Client_FTL_Shipment_Booking,
         pickup_facility_data: ShipmentFacilityCreate,
         dropoff_facility_data: ShipmentFacilityCreate,
         pickup_contact_data: FacilityContactCreate,
@@ -969,8 +969,8 @@ def enterprise_create_ftl_shipment(
     print(f"current_user: {current_user}")
     
     # Extract the company_id from the current user
-    company_id = current_user.get("company_id")
-    user_id = current_user.get("id")
+    company_id = shipment_data.client_id
+    user_id = shipment_data.user_id
     if not company_id:
         raise HTTPException(
             status_code=400,
@@ -1066,7 +1066,37 @@ def enterprise_create_ftl_shipment(
     def safe_str(val):
         return val.value if hasattr(val, "value") else str(val)
 
-    try:
+    # ---------------------------------------
+    # Determine shipment rate
+    # ---------------------------------------
+
+    is_admin_booking = isinstance(
+        shipment_data,
+        Admin_Client_FTL_Shipment_Booking
+    )
+
+    if is_admin_booking:
+
+        # If admin entered a shipment rate use it
+        if shipment_data.shipment_rate is not None:
+
+            quote_per_shipment = shipment_data.shipment_rate
+
+        else:
+            # Use market rate
+            quote_per_shipment = calculate_quote_for_shipment(
+                db=db,
+                required_truck_type=safe_str(shipment_data.required_truck_type),
+                equipment_type=safe_str(shipment_data.equipment_type),
+                trailer_type=safe_str(shipment_data.trailer_type),
+                trailer_length=safe_str(shipment_data.trailer_length),
+                distance=distance,
+                minimum_weight_bracket=shipment_data.minimum_weight_bracket
+            )
+
+    else:
+
+        # Normal client booking
         quote_per_shipment = calculate_quote_for_shipment(
             db=db,
             required_truck_type=safe_str(shipment_data.required_truck_type),
@@ -1076,8 +1106,6 @@ def enterprise_create_ftl_shipment(
             distance=distance,
             minimum_weight_bracket=shipment_data.minimum_weight_bracket
         )
-    except HTTPException as e:
-        raise HTTPException(status_code=500, detail=f"Quote calculation failed: {e.detail}")
 
     try:
         if billing_account.payment_terms == "PAB":
@@ -1154,7 +1182,6 @@ def enterprise_create_ftl_shipment(
     
     # Step 1: Create the FTL shipment
     shipment = FTL_SHIPMENT(
-        consignor_id=shipment_data.consignor_id,
         type="FTL",
         trip_type="1 Pickup, 1 Delivery",
         load_type="Live Loading",
@@ -1245,12 +1272,47 @@ def enterprise_create_ftl_shipment(
     db.refresh(shipment)
 
     # Step 4: Calculate brokerage details
-    brokerage_details = calculate_brokerage_details(
-        db=db,
-        booking_amount=quote_per_shipment,
-        shipment_type="FTL",
-        payment_method=billing_account.payment_terms,
-    )
+    # ---------------------------------------
+    # Brokerage calculation
+    # ---------------------------------------
+
+    if is_admin_booking and shipment_data.commission_rate is not None:
+
+        platform_commission = shipment_data.commission_rate
+
+        # Keep your existing transaction fee logic
+        brokerage_details = calculate_brokerage_details(
+            db=db,
+            booking_amount=quote_per_shipment,
+            shipment_type="FTL",
+            payment_method=financial_account.payment_terms,
+        )
+
+        transaction_fee = brokerage_details[1]
+
+        carrier_payable = (
+            quote_per_shipment
+            - platform_commission
+        )
+
+        true_platform_earnings = (
+            platform_commission
+            + transaction_fee
+        )
+
+    else:
+
+        (
+            platform_commission,
+            transaction_fee,
+            true_platform_earnings,
+            carrier_payable,
+        ) = calculate_brokerage_details(
+            db=db,
+            booking_amount=quote_per_shipment,
+            shipment_type="FTL",
+            payment_method=financial_account.payment_terms,
+        )
 
     # Step 5: Create the brokerage transaction
     brokerage_transaction = BrokerageLedger(
@@ -1263,11 +1325,11 @@ def enterprise_create_ftl_shipment(
         shipment_invoice_id=shipment_invoice.id,
         shipment_invoice_due_date=shipment_invoice.due_date,
         shipment_invoice_status=shipment_invoice.status,
-        platform_commission=brokerage_details[0],
-        transaction_fee=brokerage_details[1],
-        true_platform_earnings=brokerage_details[2],
+        platform_commission=platform_commission,
+        transaction_fee=transaction_fee,
+        true_platform_earnings=true_platform_earnings,
         payment_terms=billing_account.payment_terms,
-        carrier_payable=brokerage_details[3],
+        carrier_payable=carrier_payable,
     )
     db.add(brokerage_transaction)
     db.commit()
@@ -1275,7 +1337,7 @@ def enterprise_create_ftl_shipment(
 
     # Step 6: Calculate rates for LoadBoardEntry
     rate_per_km, rate_per_ton = calculate_rates(
-        carrier_payable=brokerage_details[3],
+        carrier_payable=carrier_payable,
         distance=distance,
         minimum_weight_bracket=shipment_data.minimum_weight_bracket,  # Example weight, can be adjusted dynamically
     )
@@ -1290,7 +1352,7 @@ def enterprise_create_ftl_shipment(
         minimum_git_cover_amount=shipment_data.minimum_git_cover_amount,
         minimum_liability_cover_amount=shipment_data.minimum_liability_cover_amount,
         distance=distance,
-        shipment_rate=brokerage_details[3],
+        shipment_rate=carrier_payable,
         rate_per_km=int(rate_per_km),  # Convert to integer (e.g., cents)
         rate_per_ton=int(rate_per_ton),  # Convert to integer
         payment_terms=billing_account.payment_terms,  # Dynamic payout method

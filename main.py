@@ -43,6 +43,7 @@ from api.endpoints.admin_panel import admin_dashboard
 from api.endpoints.admin_panel import admin_dashboard_individual_pages
 from api.endpoints.admin_panel.admin_dashboard_pages_functions import client_admin_functions
 from api.endpoints.admin_panel.admin_dashboard_pages_functions import admin_financial_account, company
+from api.endpoints.admin_panel..shipment_management import client_shipment_booking
 from services.platform_administration_services.loadboards import admin_exchange_loadboards, admin_spot_loadboards
 from api.endpoints.dashboards import contact_us
 from services.nexus import border_detection_service
