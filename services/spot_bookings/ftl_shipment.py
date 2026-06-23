@@ -965,7 +965,6 @@ def admin_create_client_ftl_shipment(
         shipment_documents_data: FTL_Shipment_docs_create,
         current_user: dict,
 ):
-    assert "company_id" in current_user, "Missing company_id in current_user"
     print(f"current_user: {current_user}")
     
     # Extract the company_id from the current user
