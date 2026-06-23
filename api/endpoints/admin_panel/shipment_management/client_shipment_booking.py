@@ -3,6 +3,7 @@ from typing import Optional
 from models.shipper import Corporation
 from models.brokerage.finance import FinancialAccounts
 from models.user import Director
+from models.spot_bookings.ftl_shipment import FTL_SHIPMENT
 from enums import Axle_Configuration, EquipmentType, Lorry, Recurrence_Days, Recurrence_Frequency, TrailerLength, TrailerType, TruckType
 from schemas.spot_bookings.dedicated_lanes_ftl_shipment import FTL_Lane_Create,  SpotFTLLaneQuoteRequest
 from schemas.spot_bookings.ftl_shipment import FTL_Shipment_Booking, Admin_Client_FTL_Shipment_Booking, FTL_Shipment_docs_create
