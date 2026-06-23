@@ -1284,7 +1284,7 @@ def admin_create_client_ftl_shipment(
             db=db,
             booking_amount=quote_per_shipment,
             shipment_type="FTL",
-            payment_method=financial_account.payment_terms,
+            payment_method=billing_account.payment_terms,
         )
 
         transaction_fee = brokerage_details[1]
@@ -1310,7 +1310,7 @@ def admin_create_client_ftl_shipment(
             db=db,
             booking_amount=quote_per_shipment,
             shipment_type="FTL",
-            payment_method=financial_account.payment_terms,
+            payment_method=billing_account.payment_terms,
         )
 
     # Step 5: Create the brokerage transaction
