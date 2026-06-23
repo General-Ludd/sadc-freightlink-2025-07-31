@@ -154,6 +154,7 @@ app.include_router(nexus_admin_func.router, prefix="/api", tags=["Admin Nexus Ad
 app.include_router(client_admin_functions.router, prefix="/api", tags=["Client Admin Functions"])
 app.include_router(admin_financial_account.router, prefix="/api", tags=["Admin Financial Account Management"])
 app.include_router(company.router, prefix="/api", tags=["Admin Company Management"])
+app.include_router(client_shipment_booking.router, prefix="/api", tags=["Client Shipment Management"])
 app.include_router(admin_exchange_loadboards.router, prefix="/api", tags=["Admin Exchange Loadboards"])
 app.include_router(admin_spot_loadboards.router, prefix="/api", tags=["Admin Spot Loadboards"])
 
