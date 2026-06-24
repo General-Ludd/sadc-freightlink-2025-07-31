@@ -160,4 +160,18 @@ def admin_create_client_spot_ftl_endpoint(
             current_user=current_user)
         return result
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+
+        print("========== ERROR ==========")
+
+        print(type(e))
+
+        print(str(e))
+
+        traceback.print_exc()
+
+        print("===========================")
+
+        raise HTTPException(
+            status_code=400,
+            detail=str(e)
+        )
