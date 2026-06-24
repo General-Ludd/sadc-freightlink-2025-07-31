@@ -136,7 +136,7 @@ def admin_fetch_client_users(
     current_user: dict = Depends(get_current_admin),
 ):
     try:
-        shipments = db.query(FTL_SHIPMENT).filter(FTL_SHIPMENT.id == id).first()
+        shipment = db.query(FTL_SHIPMENT).filter(FTL_SHIPMENT.id == id).first()
 
         shipment_docs = db.query(FTL_Shipment_Docs).filter(FTL_Shipment_Docs.shipment_id == shipment.id).first()
 
