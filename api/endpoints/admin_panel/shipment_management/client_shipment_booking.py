@@ -293,18 +293,10 @@ def admin_create_client_spot_ftl_endpoint(
             shipment_documents_data,
             current_user=current_user)
         return result
+    except HTTPException:
+        raise
+
     except Exception as e:
-
-        print("========== ERROR ==========")
-
-        print(type(e))
-
-        print(str(e))
-
-        traceback.print_exc()
-
-        print("===========================")
-
         raise HTTPException(
             status_code=400,
             detail=str(e)
