@@ -110,7 +110,7 @@ def admin_fetch_client_users(
             {
                 "id": shipment.id,
                 "origin": shipment.origin_city_province,
-                "destination": shipment.destination_city_provice,
+                "destination": shipment.destination_city_province,
                 "customer_reference_number": shipment.customer_reference_number,
                 "shipment_weight": shipment.shipment_weight,
                 "commodity": shipment.commodity,
