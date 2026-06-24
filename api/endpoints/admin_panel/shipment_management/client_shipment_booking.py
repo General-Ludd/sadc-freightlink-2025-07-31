@@ -147,6 +147,20 @@ def admin_create_client_spot_ftl_endpoint(
     current_user: dict = Depends(get_current_admin),
 ):
     try:
+
+        body = await request.json()
+
+        print("\n========== FRONTEND PAYLOAD ==========")
+
+        print(
+            json.dumps(
+                body,
+                indent=4
+            )
+        )
+
+        print("======================================\n")
+
         result = admin_create_client_ftl_shipment(
             db,
             shipment_data,

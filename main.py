@@ -48,6 +48,9 @@ from services.platform_administration_services.loadboards import admin_exchange_
 from api.endpoints.dashboards import contact_us
 from services.nexus import border_detection_service
 from services.nexus import quote_service
+from fastapi import Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 
 from triggers.scheduler import start_tracking_scheduler
 
@@ -174,3 +177,41 @@ def startup_event():
 @app.get("/")
 def read_root():
     return {"message": "Welcome to SADC FreightLink API"}
+
+@app.exception_handler(RequestValidationError)
+
+async def validation_exception_handler(
+
+    request: Request,
+
+    exc: RequestValidationError
+
+):
+
+    body = await request.body()
+
+    print("\n========== VALIDATION ERROR ==========")
+
+    print("URL:", request.url)
+
+    print("\nBODY:")
+
+    print(body.decode())
+
+    print("\nERRORS:")
+
+    print(exc.errors())
+
+    print("======================================\n")
+
+    return JSONResponse(
+
+        status_code=422,
+
+        content={
+
+            "detail": exc.errors()
+
+        }
+
+    )
