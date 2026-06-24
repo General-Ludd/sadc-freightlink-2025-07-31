@@ -1106,7 +1106,7 @@ def admin_create_client_ftl_shipment(
             minimum_weight_bracket=shipment_data.minimum_weight_bracket
         )
 
-    number_of_trucks = shipment_data.number_of_required_truck or 1
+    number_of_trucks = shipment_data.number_of_required_trucks or 1
 
     created_shipments = []
 
