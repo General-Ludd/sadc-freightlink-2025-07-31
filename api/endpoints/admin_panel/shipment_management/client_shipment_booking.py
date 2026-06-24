@@ -209,7 +209,7 @@ def admin_fetch_client_users(
                 "last_name": {pickup_contact.last_name} if pickup_contact else None,
                 "contact_phone": pickup_contact.phone_number if pickup_contact else None,
                 "email": pickup_contact.email if pickup_contact else None,
-            } if pickup_contact else None
+            } if pickup_contact else None,
 
             "delivery_facility": {
                 "facility_name": delivery_facility.name,
