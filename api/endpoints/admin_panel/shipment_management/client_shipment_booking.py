@@ -20,6 +20,8 @@ from services.spot_bookings.power_shipment import create_spot_power_shipment
 from utils.auth import get_current_user
 from utils.administration_auth import get_current_admin
 from sqlalchemy import func
+from fastapi import Request
+import json
 
 
 router = APIRouter()
