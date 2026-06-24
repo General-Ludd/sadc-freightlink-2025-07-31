@@ -4,6 +4,7 @@ from models.shipper import Corporation
 from models.brokerage.finance import FinancialAccounts
 from models.user import Director
 from models.spot_bookings.ftl_shipment import FTL_SHIPMENT
+from models.spot_bookings.shipment_facility import ContactPerson, ShipmentFacility
 from enums import Axle_Configuration, EquipmentType, Lorry, Recurrence_Days, Recurrence_Frequency, TrailerLength, TrailerType, TruckType
 from schemas.spot_bookings.dedicated_lanes_ftl_shipment import FTL_Lane_Create,  SpotFTLLaneQuoteRequest
 from schemas.spot_bookings.ftl_shipment import FTL_Shipment_Booking, Admin_Client_FTL_Shipment_Booking, FTL_Shipment_docs_create
@@ -95,6 +96,139 @@ def admin_fetch_client_summary(
             status_code=400,
             detail=str(e)
         )
+
+@router.get("/admin/client/{id}/past-shipments")
+def admin_fetch_client_users(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_admin),
+):
+    try:
+        shipments = db.query(FTL_SHIPMENT).filter(FTL_SHIPMENT.shipper_company_id == id).all()
+
+        return [
+            {
+                "id": shipment.id,
+                "origin": shipment.origin__city_province,
+                "destination" shipment.destination_address_city_provice,
+                "customer_reference_number": shipment.customer_reference_number,
+                "shipment_weight": shipment.shipment_weight,
+                "commodity": shipment.commodity,
+                "pickup_date": shipment.pickup_date,
+                "status": shipment.shipment_status,
+            }
+            for shipment in shipments
+        ]
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=str(e)
+        )
+
+@router.get("/admin/client/shipment/{id}")
+def admin_fetch_client_users(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_admin),
+):
+    try:
+        shipments = db.query(FTL_SHIPMENT).filter(FTL_SHIPMENT.id == id).first()
+
+        shipment_docs = db.query(FTL_Shipment_Docs).filter(FTL_Shipment_Docs.shipment_id == shipment.id).first()
+
+        # ---------------------------------
+        # 2. FETCH RELATED OBJECTS
+        # ---------------------------------
+        pickup_facility = db.query(ShipmentFacility).filter_by(id=shipment.pickup_facility_id).first()
+        delivery_facility = db.query(ShipmentFacility).filter_by(id=shipment.delivery_facility_id).first()
+
+        pickup_contact = (
+            db.query(ContactPerson).filter_by(id=pickup_facility.contact_person).first()
+            if pickup_facility else None
+        )
+        delivery_contact = (
+            db.query(ContactPerson).filter_by(id=delivery_facility.contact_person).first()
+            if delivery_facility else None
+        )
+
+        # ---------------------------------
+        # 4. BUILD RESPONSE
+        # ---------------------------------
+        return {
+            "shipment_details": {
+                "id": shipment.id,
+                "required_truck_type": shipment.required_truck_type,
+                "required_equipment_type": shipment.equipment_type,
+                "required_trailer_type": shipment.trailer_type,
+                "required_trailer_length": shipment.trailer_length,
+                "minimum_weight_bracket": shipment.minimum_weight_bracket,
+                "origin_address": shipment.complete_origin_address,
+                "destination_address": shipment.complete_destination_address,
+                "pickup_date": shipment.pickup_date,
+                "priority_level": shipment.priority_level,
+                "customer_reference_number": shipment.customer_reference_number,
+                "shipment_weight": shipment.shipment_weight,
+                "commodity": shipment.commodity,
+                "temperature_control": shipment.temperature_control,
+                "hazardous_materials": shipment.hazardous_materials,
+                "minimum_git_cover_amount": shipment.minimum_git_cover_amount,
+                "minimum_liability_cover_amount": shipment.minimum_liability_cover_amount,
+                "packaging_quantity": shipment.packaging_quantity,
+                "packaging_type": shipment.packaging_type,
+                "pickup_number": shipment.pickup_number,
+                "delivery_number": shipment.delivery_number,
+                "pickup_notes": shipment.pickup_notes,
+                "delivery_notes": shipment.delivery_notes,
+                "distance": shipment.distance,
+            },
+
+            "shipment_documents": {
+                "commercial_invoice": shipment_docs.commercial_invoice if shipment_docs else None,
+                "packaging_list": shipment_docs.packaging_list if shipment_docs else None,
+                "customs_declaration_form": shipment_docs.customs_declaration_form if shipment_docs else None,
+                "import_or_export_permits": shipment_docs.import_or_export_permits if shipment_docs else None,
+                "certificate_of_origin": shipment_docs.certificate_of_origin if shipment_docs else None,
+                "da5501orsad500": shipment_docs.da5501orsad500 if shipment_docs else None,
+                "proof_of_delivery": shipment.pod_document if shipment.pod_document else None,
+            },
+
+            "pickup_facility": {
+                "facility_name": pickup_facility.name,
+                "start_time": {pickup_facility.start_time},
+                "end_time": {pickup_facility.end_time},
+                "scheduling_type": pickup_facility.scheduling_type,
+                "notes": pickup_facility.facility_notes,
+            } if pickup_facility else None,
+
+            "pickup_contact": {
+                "first_name": {pickup_contact.first_name} if pickup_contact else None,
+                "last_name": {pickup_contact.last_name} if pickup_contact else None,
+                "contact_phone": pickup_contact.phone_number if pickup_contact else None,
+                "email": pickup_contact.email if pickup_contact else None,
+            } if pickup_contact else None
+
+            "delivery_facility": {
+                "facility_name": delivery_facility.name,
+                "start_time": {delivery_facility.start_time},
+                "end_time": {delivery_facility.end_time},
+                "scheduling_type": delivery_facility.scheduling_type,
+                "notes": delivery_facility.facility_notes,
+            } if delivery_facility else None,
+            
+            "delivery_contact": {
+                "first_name": {delivery_contact.first_name} if delivery_contact else None,
+                "last_name": {delivery_contact.last_name} if delivery_contact else None,
+                "contact_phone": delivery_contact.phone_number if delivery_contact else None,
+                "email": delivery_contact.email if delivery_contact else None,
+            }
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/admin/clients/{id}/users")
 def admin_fetch_client_users(
