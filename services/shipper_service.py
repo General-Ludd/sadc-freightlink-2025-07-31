@@ -180,7 +180,7 @@ def create_enterprise_shipper(db: Session, shipper_data: CorporationBase, direct
     return {"company": company, "director": director}
 
 
-def create_standard_shipper(db: Session, shipper_data: CorporationBase, director_data: DirectorCreate, client_profile: CorporationProfile, financial_data: Shipper_Financial_Account_Create):
+def create_standard_shipper(db: Session, shipper_data: CorporationBase, director_data: DirectorCreate, client_profile_data: CorporationProfile, financial_data: Shipper_Financial_Account_Create):
     #Create Enterprise Shipper
     company = Corporation(
         type="Standard",
