@@ -229,11 +229,8 @@ def create_standard_shipper(db: Session, shipper_data: CorporationBase, director
         dropsides=client_profile_data.dropsides,
         skeletals=client_profile_data.skeletals,
         pantechs=client_profile_data.pantechs,
-        bottom_dumpers=client_profile_data.bottom_dumpers,
         side_tippers=client_profile_data.side_tippers,
         low_beds=client_profile_data.low_beds,
-        timber_trailers=client_profile_data.timber_trailers,
-        sugar_cane_trailers=client_profile_data.sugar_cane_trailers,
     )
     db.add(client_profile)
     db.commit()

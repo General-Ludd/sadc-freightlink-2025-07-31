@@ -58,11 +58,8 @@ class CorporationProfile(BaseModel):
     flatbeds_with_twistlocks: bool = False
     skeletals: bool = False
     pantechs: bool = False
-    bottom_dumpers: bool = False
     side_tippers: bool = False
     low_beds: bool = False
-    timber_trailers: bool = False
-    sugar_cane_trailers: bool = False
 
 class CorporationUpdate(BaseModel):
     legal_business_name: Optional[str] = None
