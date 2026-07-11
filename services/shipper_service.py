@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from models.brokerage.finance import FinancialAccounts
-from models.user import User, Director, Corporation_Profile
-from models.shipper import Corporation, Consignor
+from models.user import User, Director
+from models.shipper import Corporation, Consignor, Corporation_Profile
 from schemas.shipper import CorporationBase, ShipperCreate, ConsignorCreate, FacilityCreation
 from schemas.user import UserCreate, DirectorCreate
 from schemas.shipper import FacilityCreate, CorporationProfile
