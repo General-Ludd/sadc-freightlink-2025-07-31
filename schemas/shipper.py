@@ -52,17 +52,17 @@ class CorporationProfile(BaseModel):
     maximum_git_insurance_required: int
     number_of_transport_providers_currently_used: int
     primary_routes: str
-    tautliners: bool
-    flatbeds: bool
-    dropsides: bool
-    flatbeds_with_twistlocks: bool
-    skeletals: bool
-    pantechs: bool
-    bottom_dumpers: bool
-    side_tippers: bool
-    low_beds: bool
-    timber_trailers: bool
-    sugar_cane_trailers: bool
+    tautliners: bool = False
+    flatbeds: bool = False
+    dropsides: bool = False
+    flatbeds_with_twistlocks: bool = False
+    skeletals: bool = False
+    pantechs: bool = False
+    bottom_dumpers: bool = False
+    side_tippers: bool = False
+    low_beds: bool = False
+    timber_trailers: bool = False
+    sugar_cane_trailers: bool = False
 
 class CorporationUpdate(BaseModel):
     legal_business_name: Optional[str] = None
