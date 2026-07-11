@@ -218,7 +218,7 @@ def create_standard_shipper(db: Session, shipper_data: CorporationBase, director
     db.refresh(director)
 
     client_profile = Corporation_Profile(
-        commodities=client_profile_data.commodities
+        commodities=client_profile_data.commodities,
         commodity_description=client_profile_data.commodity_description,
         maximum_git_insurance_required=client_profile_data.maximum_git_insurance_required,
         number_of_transport_providers_currently_used=client_profile_data.number_of_transport_providers_currently_used,
