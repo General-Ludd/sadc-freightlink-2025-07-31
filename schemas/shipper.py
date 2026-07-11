@@ -46,6 +46,24 @@ class CorporationBase(BaseModel):
     business_proof_of_address: Optional[str] = None
     tax_clearence_certificate: Optional[str] = None
 
+class CorporationProfile(BaseModel):
+    commodities: str
+    commodity_description: str
+    maximum_git_insurance_required: int
+    number_of_transport_providers_currently_used: int
+    primary_routes: str
+    tautliners: bool
+    flatbeds: bool
+    dropsides: bool
+    flatbeds_with_twistlocks: bool
+    skeletals: bool
+    pantechs: bool
+    bottom_dumpers: bool
+    side_tippers: bool
+    low_beds: bool
+    timber_trailers: bool
+    sugar_cane_trailers: bool
+
 class CorporationUpdate(BaseModel):
     legal_business_name: Optional[str] = None
     business_address: Optional[str] = None

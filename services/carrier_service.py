@@ -37,7 +37,7 @@ def create_fleet_carrier(db: Session, carrier_data: CarrierCreate, director_data
     db.refresh(company)
 
     director = CarrierUser(
-        role="Director",
+        role=director_data.role,
         first_name=director_data.first_name,
         last_name=director_data.last_name,
         nationality=director_data.nationality,

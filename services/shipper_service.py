@@ -2,11 +2,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from models.brokerage.finance import FinancialAccounts
-from models.user import User, Director
+from models.user import User, Director, Corporation_Profile
 from models.shipper import Corporation, Consignor
 from schemas.shipper import CorporationBase, ShipperCreate, ConsignorCreate, FacilityCreation
 from schemas.user import UserCreate, DirectorCreate
-from schemas.shipper import FacilityCreate
+from schemas.shipper import FacilityCreate, CorporationProfile
 from schemas.brokerage.finance import Shipper_Financial_Account_Create, Enterprise_Financial_Account_Create
 from utils.auth import hash_password
 from utils.notifications import create_notification
@@ -75,7 +75,7 @@ def create_facility_shipper(
         email=manager_data.email,
         password_hash=hash_password(manager_data.password),
         id_document=manager_data.id_document,
-        is_admin=True,
+        is_director=False,
         is_verified=True,
         status="Active",
         company_id=company.id,
@@ -137,6 +137,7 @@ def create_enterprise_shipper(db: Session, shipper_data: CorporationBase, direct
     db.refresh(company)
 
     director = Director(
+        role=director_data.role,
         first_name=director_data.first_name,
         last_name=director_data.last_name,
         id_number=director_data.id_number,
@@ -146,7 +147,7 @@ def create_enterprise_shipper(db: Session, shipper_data: CorporationBase, direct
         email=director_data.email,
         password_hash=hash_password(director_data.password),
         id_document=director_data.id_document,
-        is_admin=True,
+        is_director=False,
         is_verified=False,
         company_id=company.id,
     )
@@ -179,7 +180,7 @@ def create_enterprise_shipper(db: Session, shipper_data: CorporationBase, direct
     return {"company": company, "director": director}
 
 
-def create_standard_shipper(db: Session, shipper_data: CorporationBase, director_data: DirectorCreate, financial_data: Shipper_Financial_Account_Create):
+def create_standard_shipper(db: Session, shipper_data: CorporationBase, director_data: DirectorCreate, client_profile: CorporationProfile, financial_data: Shipper_Financial_Account_Create):
     #Create Enterprise Shipper
     company = Corporation(
         type="Standard",
@@ -198,6 +199,7 @@ def create_standard_shipper(db: Session, shipper_data: CorporationBase, director
     db.refresh(company)
 
     director = Director(
+        role=director_data.role,
         first_name=director_data.first_name,
         last_name=director_data.last_name,
         id_number=director_data.id_number,
@@ -207,13 +209,35 @@ def create_standard_shipper(db: Session, shipper_data: CorporationBase, director
         email=director_data.email,
         password_hash=hash_password(director_data.password_hash),
         id_document=director_data.id_document,
-        is_director=True,
+        is_director=False,
         is_verified=False,
         company_id=company.id,
     )
     db.add(director)
     db.commit()
     db.refresh(director)
+
+    client_profile = Corporation_Profile(
+        commodities=client_profile_data.commodities
+        commodity_description=client_profile_data.commodity_description,
+        maximum_git_insurance_required=client_profile_data.maximum_git_insurance_required,
+        number_of_transport_providers_currently_used=client_profile_data.number_of_transport_providers_currently_used,
+        primary_routes=client_profile_data.primary_routes,
+        tautliners=client_profile_data.tautliners,
+        flatbeds=client_profile_data.flatbeds,
+        flatbeds_with_twistlocks=client_profile_data.flatbeds_with_twistlocks,
+        dropsides=client_profile_data.dropsides,
+        skeletals=client_profile_data.skeletals,
+        pantechs=client_profile_data.pantechs,
+        bottom_dumpers=client_profile_data.bottom_dumpers,
+        side_tippers=client_profile_data.side_tippers,
+        low_beds=client_profile_data.low_beds,
+        timber_trailers=client_profile_data.timber_trailers,
+        sugar_cane_trailers=client_profile_data.sugar_cane_trailers,
+    )
+    db.add(client_profile)
+    db.commit()
+    db.refresh(client_profile)
 
     account = FinancialAccounts(
         id=company.id,
@@ -222,13 +246,6 @@ def create_standard_shipper(db: Session, shipper_data: CorporationBase, director
         business_country_of_incorporation=shipper_data.country_of_incorporation,
         business_registration_number=shipper_data.business_registration_number,
         business_address=shipper_data.business_address,
-        directors_first_name=director_data.first_name,
-        directors_last_name=director_data.last_name,
-        directors_nationality=director_data.nationality,
-        directors_id_number=director_data.id_number,
-        directors_home_address=director_data.home_address,
-        directors_phone_number=director_data.phone_number,
-        directors_email_address=director_data.email,
     )
     db.add(account)
     db.commit()
@@ -255,6 +272,7 @@ def create_brokerage_firm(db: Session, shipper_data: CorporationBase, director_d
     db.refresh(company)
 
     director = Director(
+        role=director_data.role,
         first_name=director_data.first_name,
         last_name=director_data.last_name,
         id_number=director_data.id_number,
@@ -264,7 +282,7 @@ def create_brokerage_firm(db: Session, shipper_data: CorporationBase, director_d
         email=director_data.email,
         password_hash=hash_password(director_data.password_hash),
         id_document=director_data.id_document,
-        is_director=True,
+        is_director=False,
         is_verified=False,
         company_id=company.id,
     )

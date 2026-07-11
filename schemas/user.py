@@ -43,7 +43,7 @@ class CarrierUsers(BaseModel):
     email: EmailStr
     phone_number: str
     id_document: str
-    proof_of_address: str
+    proof_of_address: Optional[str] = None
     password_hash: str
 
 class CarrierUserResponse(BaseModel):
@@ -162,6 +162,7 @@ class DriverUpdate(BaseModel):
 #////////////////////////////////////////////USER\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\#
 #//////////////////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\#
 class DirectorCreate(BaseModel):
+    role: str
     first_name: str
     last_name: str
     nationality: str
@@ -171,7 +172,7 @@ class DirectorCreate(BaseModel):
     email: EmailStr
     password_hash: str
     id_document: str
-    proof_of_address: str
+    proof_of_address: Optional[str] = None
 
 class DirectorUpdate(BaseModel):
     first_name: Optional[str] = None

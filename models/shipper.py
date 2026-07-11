@@ -28,6 +28,32 @@ class Corporation(Base):
     created_at = Column(DateTime(timezone=True), default=get_sast_time)
     updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)
 
+class Corporation_Profile(Base):
+    __tablename__ = "corporate_client_profile"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    commodities = Column(String)
+    commodity_description = Column(String)
+    maximum_git_insurance_required = Column(Integer)
+    number_of_transport_providers_currently_used = Column(Integer)
+    primary_routes = Column(String)
+    tautliners = Column(Boolean, default=False)
+    flatbeds = Column(Boolean, default=False)
+    flatbeds_with_twistlocks = Column(Boolean, default=False)
+    dropsides = Column(Boolean, default=False)
+    skeletals = Column(Boolean, default=False)
+    pantechs = Column(Boolean, default=False)
+    bottom_dumpers = Column(Boolean, default=False)
+    side_tippers = Column(Boolean, default=False)
+    low_beds = Column(Boolean, default=False)
+    timber_trailers = Column(Boolean, default=False)
+    sugar_cane_trailers = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), default=get_sast_time)
+    updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)
+
+
+    
+
 class Consignor(Base):
     __tablename__ = "consignors"
 
