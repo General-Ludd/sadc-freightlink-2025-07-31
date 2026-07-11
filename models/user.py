@@ -173,7 +173,7 @@ class Director(Base):
     email = Column(String, nullable=False)
     password_hash = Column(String, nullable=False)
     id_document = Column(String, nullable=False)
-    proof_of_address = Column(String, nullable=False)
+    proof_of_address = Column(String, nullable=True)
     is_director = Column(Boolean, default=False)
     is_verified = Column(Boolean, default=False)
     status = Column(Enum("Un-verified", "Active", "Under Investigation", "Suspended", "Deleted"), default="Un-verified") #Update in Database                                     
