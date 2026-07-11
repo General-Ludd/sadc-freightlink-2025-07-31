@@ -4,9 +4,9 @@ from db.database import SessionLocal
 from models.brokerage.finance import FinancialAccounts, Shipment_Invoice, Interim_Invoice, Invoices
 from models.spot_bookings.ftl_shipment import FTL_SHIPMENT
 from models.spot_bookings.power_shipment import POWER_SHIPMENT
-from models.shipper import Corporation, Client_Notification
+from models.shipper import Corporation, Client_Notification, Corporation_Profile
 from schemas.brokerage.finance import Shipper_Financial_Account_Create, Client_Financial_Account_Update
-from schemas.shipper import CorporationBase, CorporationResponse, CorporationUpdate
+from schemas.shipper import CorporationBase, CorporationResponse, CorporationUpdate, CorporationProfile
 from schemas.user import DirectorCreate, DirectorResponse, ShipperUserResponse
 from services.shipper_service import create_standard_shipper
 from utils.auth import get_current_user, verify_password, hash_password
@@ -53,11 +53,12 @@ def get_current_user_name(
 def create_standard_shipper_endpoint(
     shipper_data: CorporationBase,
     director_data: DirectorCreate,
+    client_profile_data: CorporationProfile,
     financial_data: Shipper_Financial_Account_Create,
     db: Session = Depends(get_db)
 ):
     try:
-        result = create_standard_shipper(db, shipper_data, director_data, financial_data)
+        result = create_standard_shipper(db, shipper_data, director_data, client_profile_data, financial_data)
         return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
