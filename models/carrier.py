@@ -46,6 +46,8 @@ class Carrier_Profile(Base):
     id = Column(Integer, autoincrement=True, primary_key=True, index=True)
     carrier_id = Column(Integer, nullable=False)
     primary_routes = Column(String)
+    hazchem_certified = Column(Boolean, default=False)
+    rib_certification = Column(Boolean, default=False)
     rigid_tautliners = Column(Integer)
     triaxle_tautliners = Column(Integer)
     superlink_tautliners = Column(Integer)
