@@ -34,7 +34,7 @@ class CarrierDirectorCreate(BaseModel):
     password: str
 
 class CarrierUsers(BaseModel):
-    role: Optional[str] = None
+    role: str
     first_name: str
     last_name: str
     nationality: str

@@ -83,7 +83,7 @@ class CarrierUser(Base):
     email = Column(String, nullable=False)
     phone_number = Column(String, nullable=False)
     id_document = Column(String, nullable=False)
-    proof_of_address = Column(String, nullable=False)
+    proof_of_address = Column(String, nullable=True)
     password_hash = Column(String, nullable=True)
     company_id = Column(Integer, nullable=False)
     company_name = Column(String, nullable=False)

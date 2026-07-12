@@ -37,6 +37,31 @@ class CarrierCreate(BaseModel):
     git_insurance_certificate: str
     liability_insurance_certificate: str
 
+class CarrierProfile(BaseModel):
+    primary_routes: Optional [str] = None
+    rigid_tautliners: int
+    triaxle_tautliners: int
+    superlink_tautliners: int
+    rigid_flatbeds: int
+    triaxle_flatbeds: int
+    superlink_flatbeds: int
+    rigid_flatbeds_with_twistlocks: int
+    triaxle_flatbeds_with_twistlocks: int
+    superlink_flatbeds_with_twistlocks: int
+    rigid_dropsides: int
+    triaxle_dropside: int
+    superlink_dropside: int
+    triaxle_skeletals: int
+    superlink_skeletals: int
+    triaxle_pantechs: int
+    superlink_pantechs: int
+    triaxle_side_tippers: int
+    superlink_side_tippers: int
+    rigid_end_tipper: int
+    triaxle_end_tipper: int
+    low_beds: int
+
+
 class CarrierAccountUpdate(BaseModel):
     legal_business_name: Optional[str] = None
     

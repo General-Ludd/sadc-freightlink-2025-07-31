@@ -40,6 +40,37 @@ class Carrier(Base):
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
+class Carrier_Profile(Base):
+    __tablename__ = "carrier_profile"
+
+    id = Column(Integer, autoincrement=True, primary_key=True, index=True)
+    carrier_id = Column(Integer, nullable=False)
+    primary_routes = Column(String)
+    rigid_tautliners = Column(Integer)
+    triaxle_tautliners = Column(Integer)
+    superlink_tautliners = Column(Integer)
+    rigid_flatbeds = Column(Integer)
+    triaxle_flatbeds = Column(Integer)
+    superlink_flatbeds = Column(Integer)
+    rigid_flatbeds_with_twistlocks = Column(Integer)
+    triaxle_flatbeds_with_twistlocks = Column(Integer)
+    superlink_flatbeds_with_twistlocks = Column(Integer)
+    rigid_dropsides = Column(Integer)
+    triaxle_dropside = Column(Integer)
+    superlink_dropside = Column(Integer)
+    triaxle_skeletals = Column(Integer)
+    superlink_skeletals = Column(Integer)
+    rigid_pantechs = Column(Integer)
+    triaxle_pantechs = Column(Integer)
+    triaxle_side_tippers = Column(Integer)
+    superlink_side_tippers = Column(Integer)
+    low_beds = Column(Integer)
+    rigid_end_tipper = Column(Integer)
+    triaxle_end_tipper = Column(Integer)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
 class Notification(Base):
     __tablename__ = "notifications"
 

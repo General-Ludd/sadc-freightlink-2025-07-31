@@ -6,9 +6,9 @@ from db.database import SessionLocal
 from models.brokerage.assigned_lanes import Assigned_Ftl_Lanes
 from models.brokerage.assigned_shipments import Assigned_Spot_Ftl_Shipments, Assigned_Power_Shipments
 from models.brokerage.finance import CarrierFinancialAccounts
-from models.carrier import Carrier, Notification, Carrier_Notification
+from models.carrier import Carrier, Carrier_Profile, Notification, Carrier_Notification
 from schemas.brokerage.finance import CarrierFinancialAccountResponse, Carrier_FinancialAccount_Create, CarrierFinancialAccountUpdate
-from schemas.carrier import CarrierCompanyResponse, CarrierCreate
+from schemas.carrier import CarrierCompanyResponse, CarrierCreate, CarrierProfile
 from schemas.user import CarrierUserResponse, DriverCreate, DriverResponse, CarrierUsers, PasswordResetCodeResponse
 from schemas.vehicle import TrailerCreate, TrailerResponse, VehicleCreate, VehicleResponse, VehicleUpdate
 from services.carrier_service import fleet_create_driver, create_fleet_carrier
@@ -51,10 +51,11 @@ def process_fleet_carrier_registration(
     carrier_data: CarrierCreate,
     director_data: CarrierUsers,
     financial_data: Carrier_FinancialAccount_Create,
+    carrier_profile: CarrierProfile,
     db: Session = Depends(get_db),
 ):
     try:
-        results = create_fleet_carrier(db, carrier_data, director_data, financial_data)
+        results = create_fleet_carrier(db, carrier_data, director_data, financial_data, carrier_profile)
         return {f"Fleet Carrier Registrations successful. please login into your account and await verification"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

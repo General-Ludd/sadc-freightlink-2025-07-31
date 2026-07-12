@@ -1,16 +1,16 @@
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from models.brokerage.finance import CarrierFinancialAccounts
-from models.carrier import Carrier, Carrier_Notification
+from models.carrier import Carrier, Carrier_Profile, Carrier_Notification
 from models.user import CarrierDirector, CarrierUser
 from models.user import Driver
 from schemas.brokerage.finance import Carrier_FinancialAccount_Create
 from schemas.user import DriverCreate
 from schemas.user import CarrierDirectorCreate, CarrierUsers
-from schemas.carrier import CarrierCreate, CreateFleetCarrier
+from schemas.carrier import CarrierCreate, CreateFleetCarrier, CarrierProfile
 from utils.auth import hash_password
 
-def create_fleet_carrier(db: Session, carrier_data: CarrierCreate, director_data: CarrierUsers, financial_data: Carrier_FinancialAccount_Create):
+def create_fleet_carrier(db: Session, carrier_data: CarrierCreate, director_data: CarrierUsers, financial_data: Carrier_FinancialAccount_Create, carrier_profile: CarrierProfile):
     # Create Fleet Carrier
     company = Carrier(
         type="Fleet",
@@ -83,6 +83,35 @@ def create_fleet_carrier(db: Session, carrier_data: CarrierCreate, director_data
     db.add(financial_account)
     db.commit()
     db.refresh(financial_account)
+
+    carrier_profile = Carrier_Profile(
+        carrier_id=company_id,
+        primary_routes=carrier_profile_data.primary_routes,
+        rigid_tautliners=carrier_profile_data.rigid_tautliners,
+        triaxle_tautliners=carrier_profile_data.triaxle_tautliners,
+        superlink_tautliners=carrier_profile_data.superlink_tautliners,
+        rigid_flatbeds=carrier_profile_data.rigid_flatbeds,
+        triaxle_flatbeds=carrier_profile_data.triaxle_flatbeds,
+        superlink_flatbeds=carrier_profile_data.superlink_flatbeds,
+        rigid_flatbeds_with_twistlocks=carrier_profile_data.rigid_flatbeds_with_twistlocks,
+        triaxle_flatbeds_with_twistlocks=carrier_profile_data.triaxle_flatbeds_with_twistlocks,
+        superlink_flatbeds_with_twistlocks=carrier_profile_data.superlink_flatbeds_with_twistlocks,
+        rigid_dropsides=carrier_profile_data.rigid_dropsides,
+        triaxle_dropside=carrier_profile_data.triaxle_dropside,
+        superlink_dropside=carrier_profile_data.superlink_dropside,
+        triaxle_skeletals=carrier_profile_data.triaxle_skeletals,
+        superlink_skeletals=carrier_profile_data.superlink_skeletals,
+        triaxle_pantechs=carrier_profile_data.triaxle_pantechs,
+        superlink_pantechs=carrier_profile_data.superlink_pantechs,
+        triaxle_side_tippers=carrier_profile_data.triaxle_side_tippers,
+        superlink_side_tippers=carrier_profile_data.superlink_side_tippers,
+        rigid_end_tipper=carrier_profile_data.rigid_end_tipper,
+        triaxle_end_tipper=carrier_profile_data.triaxle_end_tipper,
+        low_beds=carrier_profile_data.low_beds,
+    )
+    db.add(carrier_profile)
+    db.commit()
+    db.refresh(carrier_profile)
 
 
     return {"Fleet carrier account successfully registered"}
