@@ -40,7 +40,7 @@ class CarrierCreate(BaseModel):
 class CarrierProfile(BaseModel):
     primary_routes: Optional [str] = None
     hazchem_certified: bool = False
-    rib_certification bool = False
+    rib_certification: bool = False
     rigid_tautliners: int
     triaxle_tautliners: int
     superlink_tautliners: int
