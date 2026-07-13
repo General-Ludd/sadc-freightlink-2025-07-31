@@ -97,7 +97,6 @@ def create_fleet_carrier(db: Session, carrier_data: CarrierCreate, director_data
         triaxle_skeletals=carrier_profile_data.triaxle_skeletals,
         superlink_skeletals=carrier_profile_data.superlink_skeletals,
         triaxle_pantechs=carrier_profile_data.triaxle_pantechs,
-        superlink_pantechs=carrier_profile_data.superlink_pantechs,
         triaxle_side_tippers=carrier_profile_data.triaxle_side_tippers,
         superlink_side_tippers=carrier_profile_data.superlink_side_tippers,
         rigid_end_tipper=carrier_profile_data.rigid_end_tipper,

@@ -56,7 +56,6 @@ class CarrierProfile(BaseModel):
     triaxle_skeletals: int
     superlink_skeletals: int
     triaxle_pantechs: int
-    superlink_pantechs: int
     triaxle_side_tippers: int
     superlink_side_tippers: int
     rigid_end_tipper: int
