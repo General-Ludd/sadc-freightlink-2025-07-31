@@ -67,3 +67,7 @@ class AdminPermissionsSchema(BaseModel):
     delete_administrator: Optional[bool] = False
     suspend_administrator: Optional[bool] = False
     activate_administrator: Optional[bool] = False
+####################################################
+    view_platform_revenue: Optional[bool] = False
+    update_vehicle_rates: Optional[bool] = False
+    update_platform_commission_rates: Optional[bool] = False

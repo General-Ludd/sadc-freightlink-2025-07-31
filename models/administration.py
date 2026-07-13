@@ -79,5 +79,8 @@ class Platform_Super_and_Support_Admins_Permissions(Base):
     delete_administrator = Column(Boolean, default=False)
     suspend_administrator = Column(Boolean, default=False)
     activate_administrator = Column(Boolean, default=False)
+    view_platform_revenue = Column(Boolean, default=False)
+    update_vehicle_rates = Column(Boolean, default=False)
+    update_platform_commission_rates = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), default=get_sast_time)
     updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)
