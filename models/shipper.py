@@ -32,6 +32,7 @@ class Corporation_Profile(Base):
     __tablename__ = "corporate_client_profile"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    company_id = Column(Integer, nullable=True)
     finance_department_email = Column(String)
     proof_of_delivery_email = Column(String)
     commodities = Column(String)
