@@ -36,6 +36,7 @@ def create_admin_endpoint(
     user_data: CreateAdministrationUser,
     permissions_data: AdminPermissionsSchema,
     db: Session = Depends(get_db)
+    current_user: dict = Depends(get_current_admin),
 ):
     try:
         result = create_admin_super_user(db, user_data, permissions_data)
