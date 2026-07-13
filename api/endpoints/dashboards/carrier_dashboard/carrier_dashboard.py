@@ -51,11 +51,11 @@ def process_fleet_carrier_registration(
     carrier_data: CarrierCreate,
     director_data: CarrierUsers,
     financial_data: Carrier_FinancialAccount_Create,
-    carrier_profile: CarrierProfile,
+    carrier_profile_data: CarrierProfile,
     db: Session = Depends(get_db),
 ):
     try:
-        results = create_fleet_carrier(db, carrier_data, director_data, financial_data, carrier_profile)
+        results = create_fleet_carrier(db, carrier_data, director_data, financial_data, carrier_profile_data)
         return {f"Fleet Carrier Registrations successful. please login into your account and await verification"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

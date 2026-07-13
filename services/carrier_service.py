@@ -10,7 +10,7 @@ from schemas.user import CarrierDirectorCreate, CarrierUsers
 from schemas.carrier import CarrierCreate, CreateFleetCarrier, CarrierProfile
 from utils.auth import hash_password
 
-def create_fleet_carrier(db: Session, carrier_data: CarrierCreate, director_data: CarrierUsers, financial_data: Carrier_FinancialAccount_Create, carrier_profile: CarrierProfile):
+def create_fleet_carrier(db: Session, carrier_data: CarrierCreate, director_data: CarrierUsers, financial_data: Carrier_FinancialAccount_Create, carrier_profile_data: CarrierProfile):
     # Create Fleet Carrier
     company = Carrier(
         type="Fleet",
