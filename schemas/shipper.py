@@ -47,6 +47,8 @@ class CorporationBase(BaseModel):
     tax_clearence_certificate: Optional[str] = None
 
 class CorporationProfile(BaseModel):
+    finance_department_email: str
+    proof_of_delivery_email: str
     commodities: str
     commodity_description: str
     maximum_git_insurance_required: int

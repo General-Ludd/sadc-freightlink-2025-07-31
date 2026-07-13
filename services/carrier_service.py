@@ -78,7 +78,7 @@ def create_fleet_carrier(db: Session, carrier_data: CarrierCreate, director_data
     db.refresh(financial_account)
 
     carrier_profile = Carrier_Profile(
-        carrier_id=company_id,
+        carrier_id=company.id,
         primary_routes=carrier_profile_data.primary_routes,
         hazchem_certified=carrier_profile_data.hazchem_certified,
         rib_certification=carrier_profile_data.rib_certification,
