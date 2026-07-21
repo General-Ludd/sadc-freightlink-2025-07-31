@@ -302,7 +302,7 @@ def admin_create_client_spot_ftl_endpoint(
             detail=str(e)
         )
 
-@router.post("/admin/fetch-client/{id}/routes")
+@router.get("/admin/fetch-client/{id}/routes")
 def admin_fetch_client_routes(
     client_id: int,
     db: Session = Depends(get_db),
