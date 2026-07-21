@@ -316,13 +316,24 @@ def admin_fetch_client_routes(
         shipments = (
             db.query(FTL_SHIPMENT)
             .filter(FTL_SHIPMENT.shipper_company_id == client_id)
-            .order_by(FTL_SHIPMENT.created_at.desc())
+            .order_by(FTL_SHIPMENT.created_at.desc())   # Latest first
             .all()
         )
 
         routes = []
+        seen_routes = set()
 
         for shipment in shipments:
+
+            route_key = (
+                shipment.origin_city_province,
+                shipment.destination_city_province,
+            )
+
+            if route_key in seen_routes:
+                continue
+
+            seen_routes.add(route_key)
 
             # Count all bookings on this lane
             previous_bookings = (
