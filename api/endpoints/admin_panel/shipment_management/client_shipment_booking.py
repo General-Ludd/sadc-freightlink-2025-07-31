@@ -309,30 +309,6 @@ def admin_fetch_client_routes(
     current_user: dict = Depends(get_current_admin),
 ):
     try:
-        shipments = db.query(FTL_SHIPMENT).filter(FTL_SHIPMENT.shipper_company_id == client_id).all()
-
-        routes = [shipment.origin_city_province for shipment in shipments]
-
-        return routes
-
-    except HTTPException:
-        raise
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=400,
-            detail=str(e)
-        )
-SUCCESS_STATUSES = ["Assigned", "In-Transit", "Completed"]
-FAILED_STATUSES = ["Cancelled", "Failed"]
-
-
-def admin_fetch_client_routes(
-    client_id: int,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_admin),
-):
-    try:
 
         shipments = (
             db.query(FTL_SHIPMENT)
