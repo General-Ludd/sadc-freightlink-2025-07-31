@@ -302,6 +302,9 @@ def admin_create_client_spot_ftl_endpoint(
             detail=str(e)
         )
 
+SUCCESS_STATUSES = ["Assigned", "In-Transit", "Completed"]
+FAILED_STATUSES = ["Cancelled", "Failed"]
+
 @router.get("/admin/fetch-client/{client_id}/routes")
 def admin_fetch_client_routes(
     client_id: int,
