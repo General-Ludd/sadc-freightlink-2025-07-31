@@ -301,3 +301,125 @@ def admin_create_client_spot_ftl_endpoint(
             status_code=400,
             detail=str(e)
         )
+
+def admin_fetch_client_routes(
+    client_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_admin),
+):
+    try:
+        shipments = db.query(FTL_SHIPMENT).filter(FTL_SHIPMENT.shipper_company_id == client_id).all()
+
+        routes = [shipment.origin_city_province for shipment in shipments]
+
+        return routes
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=str(e)
+
+SUCCESS_STATUSES = ["Assigned", "In-Transit", "Completed"]
+FAILED_STATUSES = ["Cancelled", "Failed"]
+
+
+def admin_fetch_client_routes(
+    client_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_admin),
+):
+    try:
+
+        shipments = (
+            db.query(FTL_SHIPMENT)
+            .filter(FTL_SHIPMENT.shipper_company_id == client_id)
+            .order_by(FTL_SHIPMENT.created_at.desc())
+            .all()
+        )
+
+        routes = []
+
+        for shipment in shipments:
+
+            # Count all bookings on this lane
+            previous_bookings = (
+                db.query(FTL_SHIPMENT)
+                .filter(
+                    FTL_SHIPMENT.shipper_company_id == client_id,
+                    FTL_SHIPMENT.origin_city_province == shipment.origin_city_province,
+                    FTL_SHIPMENT.destination_city_province == shipment.destination_city_province,
+                )
+                .count()
+            )
+
+            # Successful shipments
+            successful = (
+                db.query(FTL_SHIPMENT)
+                .filter(
+                    FTL_SHIPMENT.shipper_company_id == client_id,
+                    FTL_SHIPMENT.origin_city_province == shipment.origin_city_province,
+                    FTL_SHIPMENT.destination_city_province == shipment.destination_city_province,
+                    FTL_SHIPMENT.status.in_(SUCCESS_STATUSES),
+                )
+                .count()
+            )
+
+            # Failed shipments
+            failed = (
+                db.query(FTL_SHIPMENT)
+                .filter(
+                    FTL_SHIPMENT.shipper_company_id == client_id,
+                    FTL_SHIPMENT.origin_city_province == shipment.origin_city_province,
+                    FTL_SHIPMENT.destination_city_province == shipment.destination_city_province,
+                    FTL_SHIPMENT.status.in_(FAILED_STATUSES),
+                )
+                .count()
+            )
+
+            total = successful + failed
+
+            success_rate = (
+                round((successful / total) * 100, 2)
+                if total > 0
+                else 0
+            )
+
+            routes.append({
+                "LSI": shipment.id,
+                "trip_type": shipment.trip_type,
+                "last_booked": shipment.created_at,
+                "previous_bookings": previous_bookings,
+
+                "origin": shipment.origin_city_province,
+                "destination": shipment.destination_city_province,
+                "distance": shipment.distance,
+
+                "truck_type": shipment.required_truck_type,
+                "equipment_type": shipment.equipment_type,
+
+                "trailer_type": shipment.trailer_type,
+                "trailer_length": shipment.trailer_length,
+
+                "minimum_weight_bracket": shipment.minimum_weight_bracket,
+                "commodity": shipment.commodity,
+
+                "rate": shipment.quote,
+
+                "success_rate": success_rate,
+
+                "route_preview_embed": shipment.route_preview_embed,
+            })
+
+        return routes
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=str(e),
+        )

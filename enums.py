@@ -180,6 +180,8 @@ class Shipment_Mode(str, Enum):
 class Trip_Type(str, Enum):
     SINGLESTOP = "Single-Stop"
     MULTISTOP = "Multi-Stop"
+    ROUNDTRIP = "Round-Trip"
+    ROUNDTRIPBUNDLE= "Round-Trip Bundle"
 
 class Load_Type(str, Enum):
     LIVELOADING = "Live Loading"
