@@ -339,7 +339,7 @@ def admin_fetch_client_routes(
                     FTL_SHIPMENT.shipper_company_id == client_id,
                     FTL_SHIPMENT.origin_city_province == shipment.origin_city_province,
                     FTL_SHIPMENT.destination_city_province == shipment.destination_city_province,
-                    FTL_SHIPMENT.status.in_(SUCCESS_STATUSES),
+                    FTL_SHIPMENT.shipment_status.in_(SUCCESS_STATUSES),
                 )
                 .count()
             )
@@ -351,7 +351,7 @@ def admin_fetch_client_routes(
                     FTL_SHIPMENT.shipper_company_id == client_id,
                     FTL_SHIPMENT.origin_city_province == shipment.origin_city_province,
                     FTL_SHIPMENT.destination_city_province == shipment.destination_city_province,
-                    FTL_SHIPMENT.status.in_(FAILED_STATUSES),
+                    FTL_SHIPMENT.shipment_status.in_(FAILED_STATUSES),
                 )
                 .count()
             )
