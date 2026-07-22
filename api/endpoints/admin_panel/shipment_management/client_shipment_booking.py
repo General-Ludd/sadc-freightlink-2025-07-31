@@ -6,6 +6,7 @@ from models.user import Director
 from models.spot_bookings.ftl_shipment import FTL_SHIPMENT, FTL_Shipment_Docs
 from models.spot_bookings.shipment_facility import ContactPerson, ShipmentFacility
 from enums import Axle_Configuration, EquipmentType, Lorry, Recurrence_Days, Recurrence_Frequency, TrailerLength, TrailerType, TruckType
+from schemas.spot_bookings.route_booking import Admin_Bulk_Create_Route
 from schemas.spot_bookings.dedicated_lanes_ftl_shipment import FTL_Lane_Create,  SpotFTLLaneQuoteRequest
 from schemas.spot_bookings.ftl_shipment import FTL_Shipment_Booking, Admin_Client_FTL_Shipment_Booking, FTL_Shipment_docs_create
 from schemas.shipment_facility import ShipmentFacilityCreate, FacilityContactCreate
@@ -13,6 +14,7 @@ from schemas.spot_bookings.power_shipment import POWER_Shipment_docs_create, Pow
 from services.finance.finance import calculate_spot_ftl_lane_quote, calculate_spot_ftl_quote, calculate_spot_power_quote
 from services.spot_bookings.dedicated_lanes_ftl_shipment import create_dedicated_lane_ftl_shipment
 from services.spot_bookings.ftl_shipment import create_ftl_shipment, admin_create_client_ftl_shipment
+from services.spot_booking.route_booking import admin_bulk_create_client_ftl_shipments
 from sqlalchemy.orm import Session
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
@@ -302,6 +304,27 @@ def admin_create_client_spot_ftl_endpoint(
             detail=str(e)
         )
 
+@router.post("/admin/client-bulk-route-booking")
+def admin_client_bulk_route_bookin(
+    route_data: Admin_Bulk_Create_Route,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_admin),
+):
+    try:
+        result = admin_bulk_create_client_ftl_shipments(
+            db,
+            route_data,
+            current_user=current_user)
+        return result
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=str(e)
+        )
+
 SUCCESS_STATUSES = ["Assigned", "In-Transit", "Completed"]
 FAILED_STATUSES = ["Cancelled", "Failed"]
 
@@ -414,3 +437,4 @@ def admin_fetch_client_routes(
             status_code=400,
             detail=str(e),
         )
+

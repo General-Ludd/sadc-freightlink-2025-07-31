@@ -6,7 +6,9 @@ from enums import Recurrence_Frequency, Recurrence_Days
 from enums import EquipmentType,Trip_Type, Load_Type, Priority_Level, TrailerLength, TrailerType, TruckType
 
 class Admin_Bulk_Create_Route(Base):
-    last_shipment_id
+    client_id,
+    user_id,
+    previous_shipment_id
     pickup_date: Date
     number_of_trucks_required: int
     rate: int

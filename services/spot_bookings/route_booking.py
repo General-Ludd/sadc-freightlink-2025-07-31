@@ -7,6 +7,7 @@ from models.brokerage.finance import BrokerageLedger, FinancialAccounts, Brokers
 from models.spot_bookings.shipment_facility import ShipmentFacility, ContactPerson
 from schemas.brokerage.loadboard import LoadBoardEntryCreate
 from schemas.spot_bookings.ftl_shipment import FTL_Shipment_Booking, Enterprise_FTL_Shipment_Booking, Admin_Client_FTL_Shipment_Booking, FTL_Shipment_docs_create
+from schemas.spot_bookings.route_booking import Admin_Bulk_Create_Route
 from schemas.shipment_facility import ShipmentFacilityCreate, FacilityContactCreate
 from schemas.shipper import ConsignorCreate
 from schemas.brokerage.finance import Broker_Brokerage_TransactionCreate
@@ -21,21 +22,16 @@ from utils.billing import BillingEngine
 from utils.google_maps import AddressInput, RouteETAInput, calculate_distance, get_eta_and_polyline
 from utils.consignor_service import get_or_create_consignor
 
-def admin_create_client_ftl_shipment(
+def admin_bulk_create_client_ftl_shipment(
         db: Session,
-        shipment_data: Admin_Client_FTL_Shipment_Booking,
-        pickup_facility_data: ShipmentFacilityCreate,
-        dropoff_facility_data: ShipmentFacilityCreate,
-        pickup_contact_data: FacilityContactCreate,
-        dropoff_contact_data: FacilityContactCreate,
-        shipment_documents_data: FTL_Shipment_docs_create,
+        route_data: Admin_Bulk_Create_Route,
         current_user: dict,
 ):
     print(f"current_user: {current_user}")
     
     # Extract the company_id from the current user
-    company_id = shipment_data.client_id
-    user_id = shipment_data.user_id
+    company_id = route_data.client_id
+    user_id = route_data.user_id
     if not company_id:
         raise HTTPException(
             status_code=400,
@@ -62,43 +58,18 @@ def admin_create_client_ftl_shipment(
     if enterprise_financial_account.status != "Active":
         raise HTTPException(status_code=403, detail="Financial account is not active. Please await activation to create and finance  a shipment.")
 
-    facility = None
-    facility_financial_account = None
-
-    if shipment_data.facility_id:
-        facility = db.query(Corporation).filter(Corporation.id == shipment_data.facility_id).first()
-        if not facility:
-            raise HTTPException(status_code=400, detail="Facility shipping account not found or not active.")
-        if not facility.is_verified:
-            raise HTTPException(status_code=403, detail="Facility shipping account is not verified.")
-        if facility.status != "Active":
-            raise HTTPException(status_code=403, detail="Facility account is not active.")
-
-        facility_financial_account = db.query(FinancialAccounts).filter(
-            FinancialAccounts.id == facility.id
-        ).first()
-
-        if not facility_financial_account:
-            raise HTTPException(status_code=404, detail="Facility financial account not found.")
-        if not facility_financial_account.is_verified:
-            raise HTTPException(status_code=403, detail="Facility financial account is not verified.")
-        if facility_financial_account.status != "Active":
-            raise HTTPException(status_code=403, detail="Facility financial account inactive.")
-
-        # Facility booking path
-        billing_account = facility_financial_account
-        billing_company = facility
-
-    else:
-        # ENTERPRISE DIRECT BOOKING PATH
-        billing_account = enterprise_financial_account
-        billing_company = enterprise
+    previous_shipment = db.query(FTL_SHIPMENT).filter(FTL_SHIPMENT.id == route_data.previous_shipment_id).first()
+    previous_pickup_facility = db.query(ShipmentFacility).filter(ShipmentFacility.id == previous_shipment.pickup_facility_id).first()
+    previous_delivery_facility = db.query(ShipmentFacility).filter(ShipmentFacility.id == previous_shipment.delivery_facility_id).first()
+    previous_pickup_contact = db.query(ContactPerson).filter(ContactPerson.id == previous_pickup_facility.contact_person).first()
+    previous_delivery_contact = db.query(ContactPerson).filter(ContactPerson.id == previous_delivery_facility.contact_person).first()
+    previous_docs = db.query(FTL_Shipment_Docs).filter(FTL_Shipment_Docs.shipment_id == previous_shipment.id).first()
 
     # Step 1: Calculate Distance and Transit Time
     try:
         distance_data = calculate_distance(AddressInput(
-            origin_address=shipment_data.origin_address,
-            destination_address=shipment_data.destination_address
+            origin_address=previous_shipment.origin_address,
+            destination_address=previous_shipment.destination_address
         ))
         distance = distance_data["distance"]  # Distance in kilometers
         estimated_transit_time = distance_data["duration"]  # Transit time as text
@@ -117,10 +88,10 @@ def admin_create_client_ftl_shipment(
     # Step 2: get ETA Date, ETA Window, Polylines
     try:
         trip_data = get_eta_and_polyline(RouteETAInput(
-            origin_address=shipment_data.origin_address,
-            destination_address=shipment_data.destination_address,
-            start_date=shipment_data.pickup_date,
-            start_time=pickup_facility_data.end_time,
+            origin_address=previous_shipment.origin_address,
+            destination_address=previous_shipment.destination_address,
+            start_date=route_data.pickup_date,
+            start_time=previous_pickup_facility.end_time,
         ))
         eta_date = trip_data["eta_date"]  # Distance in kilometers
         eta_window = trip_data["eta_window"]  # Transit time as text
@@ -136,27 +107,27 @@ def admin_create_client_ftl_shipment(
     # ---------------------------------------
 
     is_admin_booking = isinstance(
-        shipment_data,
-        Admin_Client_FTL_Shipment_Booking
+        route_data,
+        Admin_Bulk_Create_Route
     )
 
     if is_admin_booking:
 
         # If admin entered a shipment rate use it
-        if shipment_data.shipment_rate is not None:
+        if route_data.rate is not None:
 
-            quote_per_shipment = shipment_data.shipment_rate
+            quote_per_shipment = route_data.rate
 
         else:
             # Use market rate
             quote_per_shipment = calculate_quote_for_shipment(
                 db=db,
-                required_truck_type=safe_str(shipment_data.required_truck_type),
-                equipment_type=safe_str(shipment_data.equipment_type),
-                trailer_type=safe_str(shipment_data.trailer_type),
-                trailer_length=safe_str(shipment_data.trailer_length),
+                required_truck_type=safe_str(previous_shipment.required_truck_type),
+                equipment_type=safe_str(previous_shipment.equipment_type),
+                trailer_type=safe_str(previous_shipment.trailer_type),
+                trailer_length=safe_str(previous_shipment.trailer_length),
                 distance=distance,
-                minimum_weight_bracket=shipment_data.minimum_weight_bracket
+                minimum_weight_bracket=previous_shipment.minimum_weight_bracket
             )
 
     else:
@@ -164,15 +135,15 @@ def admin_create_client_ftl_shipment(
         # Normal client booking
         quote_per_shipment = calculate_quote_for_shipment(
             db=db,
-            required_truck_type=safe_str(shipment_data.required_truck_type),
-            equipment_type=safe_str(shipment_data.equipment_type),
-            trailer_type=safe_str(shipment_data.trailer_type),
-            trailer_length=safe_str(shipment_data.trailer_length),
+            required_truck_type=safe_str(previous_shipment.required_truck_type),
+            equipment_type=safe_str(previous_shipment.equipment_type),
+            trailer_type=safe_str(previous_shipment.trailer_type),
+            trailer_length=safe_str(previous_shipment.trailer_length),
             distance=distance,
-            minimum_weight_bracket=shipment_data.minimum_weight_bracket
+            minimum_weight_bracket=previous_shipment.minimum_weight_bracket
         )
 
-    number_of_trucks = shipment_data.number_of_required_trucks or 1
+    number_of_trucks = route_data.number_of_required_trucks or 1
 
     created_shipments = []
 
@@ -206,47 +177,47 @@ def admin_create_client_ftl_shipment(
         raise HTTPException(status_code=500, detail=f"Shipment billing process failed: {str(e)}")
 
     pickup_contact = ContactPerson(
-        first_name=pickup_contact_data.first_name,
-        last_name=pickup_contact_data.last_name,
-        phone_number=pickup_contact_data.phone_number,
-        email=pickup_contact_data.email,
+        first_name=previous_pickup_contact.first_name,
+        last_name=previous_pickup_contact.last_name,
+        phone_number=previous_pickup_contact.phone_number,
+        email=previous_pickup_contact.email,
     )
     db.add(pickup_contact)
     db.flush()
 
     dropoff_contact = ContactPerson(
-        first_name=dropoff_contact_data.first_name,
-        last_name=dropoff_contact_data.last_name,
-        phone_number=dropoff_contact_data.phone_number,
-        email=dropoff_contact_data.email,
+        first_name=previous_pickup_contact.first_name,
+        last_name=previous_pickup_contact.last_name,
+        phone_number=previous_pickup_contact.phone_number,
+        email=previous_pickup_contact.email,
     )
     db.add(dropoff_contact)
     db.flush()
 
     pickup_facility = ShipmentFacility(
-        shipper_company_id=billing_company.id,
+        shipper_company_id=route_data.client_id,
         type="Pickup",
-        address=shipment_data.origin_address,
-        name=pickup_facility_data.name,
-        scheduling_type=pickup_facility_data.scheduling_type,
-        start_time=pickup_facility_data.start_time,
-        end_time=pickup_facility_data.end_time,
+        address=previous_shipment.origin_address,
+        name=previous_pickup_contact.name,
+        scheduling_type=previous_pickup_contact.scheduling_type,
+        start_time=previous_pickup_contact.start_time,
+        end_time=previous_pickup_contact.end_time,
         contact_person_relationship=pickup_contact,
-        facility_notes=pickup_facility_data.facility_notes,
+        facility_notes=previous_pickup_contact.facility_notes,
     )
     db.add(pickup_facility)
     db.flush()
 
     dropoff_facility = ShipmentFacility(
-        shipper_company_id=billing_company.id,
+        shipper_company_id=route_data.client_id,
         type="Dropoff",
-        address=shipment_data.destination_address,
-        name=dropoff_facility_data.name,
-        scheduling_type=dropoff_facility_data.scheduling_type,
-        start_time=dropoff_facility_data.start_time,
-        end_time=dropoff_facility_data.end_time,
+        address=previous_delivery_facility.destination_address,
+        name=previous_delivery_facility.name,
+        scheduling_type=previous_delivery_facility.scheduling_type,
+        start_time=previous_delivery_facility.start_time,
+        end_time=previous_delivery_facility.end_time,
         contact_person_relationship=dropoff_contact,
-        facility_notes=dropoff_facility_data.facility_notes,
+        facility_notes=previous_delivery_facility.facility_notes,
     )
     db.add(dropoff_facility)
     db.flush()
@@ -254,8 +225,8 @@ def admin_create_client_ftl_shipment(
     for truck_number in range(number_of_trucks):
 
         truck_reference = (
-            f"{shipment_data.customer_reference_number}-T{truck_number+1}"
-            if shipment_data.customer_reference_number
+            f"{previous_shipment.customer_reference_number}-T{truck_number+1}"
+            if previous_shipment.customer_reference_number
             else f"TRUCK-{truck_number+1}"
         )
         # Step 1: Create the FTL shipment
@@ -263,41 +234,41 @@ def admin_create_client_ftl_shipment(
             type="FTL",
             trip_type="1 Pickup, 1 Delivery",
             load_type="Live Loading",
-            shipper_company_id=billing_company.id,
-            shipper_user_id=user_id,
-            required_truck_type=shipment_data.required_truck_type,
-            equipment_type=shipment_data.equipment_type,
-            trailer_type=shipment_data.trailer_type,
-            trailer_length=shipment_data.trailer_length,
-            minimum_weight_bracket=shipment_data.minimum_weight_bracket,
-            minimum_git_cover_amount=shipment_data.minimum_git_cover_amount,
-            minimum_liability_cover_amount=shipment_data.minimum_liability_cover_amount,
-            origin_address=shipment_data.origin_address,
+            shipper_company_id=route_data.client_id,
+            shipper_user_id=route_data.user_id,
+            required_truck_type=previous_shipment.required_truck_type,
+            equipment_type=previous_shipment.equipment_type,
+            trailer_type=previous_shipment.trailer_type,
+            trailer_length=previous_shipment.trailer_length,
+            minimum_weight_bracket=previous_shipment.minimum_weight_bracket,
+            minimum_git_cover_amount=previous_shipment.minimum_git_cover_amount,
+            minimum_liability_cover_amount=previous_shipment.minimum_liability_cover_amount,
+            origin_address=previous_shipment.origin_address,
             complete_origin_address=complete_origin_address,
             origin_city_province=origin_city_province,
             origin_country=origin_country,
             origin_region=origin_region,
-            destination_address=shipment_data.destination_address,
+            destination_address=previous_shipment.destination_address,
             complete_destination_address=complete_destination_address,
             destination_city_province=destination_city_province,
             destination_country=destination_country,
             destination_region=destination_region,
-            pickup_date=shipment_data.pickup_date,
+            pickup_date=route_data.pickup_date,
             pickup_appointment=(f"{pickup_facility_data.start_time} - {pickup_facility_data.start_time}"),
-            priority_level=shipment_data.priority_level,
+            priority_level=previous_shipment.priority_level,
             pickup_facility_id=pickup_facility.id,
             delivery_facility_id=dropoff_facility.id,
             customer_reference_number=truck_reference,
-            shipment_weight=shipment_data.shipment_weight,
-            commodity=shipment_data.commodity,
-            temperature_control=shipment_data.temperature_control,
-            hazardous_materials=shipment_data.hazardous_materials,
-            packaging_quantity=shipment_data.packaging_quantity,
-            packaging_type=shipment_data.packaging_type,
-            pickup_number=shipment_data.pickup_number,
-            pickup_notes=shipment_data.pickup_notes,
-            delivery_number=shipment_data.delivery_number,
-            delivery_notes=shipment_data.delivery_notes,
+            shipment_weight=previous_shipment.shipment_weight,
+            commodity=previous_shipment.commodity,
+            temperature_control=previous_shipment.temperature_control,
+            hazardous_materials=previous_shipment.hazardous_materials,
+            packaging_quantity=previous_shipment.packaging_quantity,
+            packaging_type=previous_shipment.packaging_type,
+            pickup_number=previous_shipment.pickup_number,
+            pickup_notes=previous_shipment.pickup_notes,
+            delivery_number=previous_shipment.delivery_number,
+            delivery_notes=previous_shipment.delivery_notes,
             estimated_transit_time=estimated_transit_time,
             distance=distance,
             eta_date=eta_date,
@@ -314,12 +285,12 @@ def admin_create_client_ftl_shipment(
 
         shipment_document = FTL_Shipment_Docs(
             shipment_id=shipment.id,
-            commercial_invoice=shipment_documents_data.commercial_invoice,
-            packaging_list=shipment_documents_data.packaging_list,
-            customs_declaration_form=shipment_documents_data.customs_declaration_form,
-            import_or_export_permits=shipment_documents_data.import_or_export_permits,
-            certificate_of_origin=shipment_documents_data.certificate_of_origin,
-            da5501orsad500=shipment_documents_data.da5501orsad500,
+            commercial_invoice=previous_docs.commercial_invoice,
+            packaging_list=previous_docs.packaging_list,
+            customs_declaration_form=previous_docs.customs_declaration_form,
+            import_or_export_permits=previous_docs.import_or_export_permits,
+            certificate_of_origin=previous_docs.certificate_of_origin,
+            da5501orsad500=previous_docs.da5501orsad500,
         )
         db.add(shipment_document)
         db.commit()
@@ -354,7 +325,7 @@ def admin_create_client_ftl_shipment(
         # Brokerage calculation
         # ---------------------------------------
 
-        if is_admin_booking and shipment_data.commission_rate is not None:
+        if is_admin_booking and route_data.commission_rate is not None:
 
             platform_commission = shipment_data.commission_rate
 
@@ -417,7 +388,7 @@ def admin_create_client_ftl_shipment(
         rate_per_km, rate_per_ton = calculate_rates(
             carrier_payable=carrier_payable,
             distance=distance,
-            minimum_weight_bracket=shipment_data.minimum_weight_bracket,  # Example weight, can be adjusted dynamically
+            minimum_weight_bracket=previous_shipment.minimum_weight_bracket,  # Example weight, can be adjusted dynamically
         )
 
         # Step 7: Create a loadboard entry
@@ -426,43 +397,43 @@ def admin_create_client_ftl_shipment(
             type=shipment.type,
             trip_type=shipment.trip_type,
             load_type=shipment.load_type,
-            minimum_weight_bracket=shipment_data.minimum_weight_bracket,
-            minimum_git_cover_amount=shipment_data.minimum_git_cover_amount,
-            minimum_liability_cover_amount=shipment_data.minimum_liability_cover_amount,
+            minimum_weight_bracket=shipment.minimum_weight_bracket,
+            minimum_git_cover_amount=shipment.minimum_git_cover_amount,
+            minimum_liability_cover_amount=shipment.minimum_liability_cover_amount,
             distance=distance,
             shipment_rate=carrier_payable,
             rate_per_km=int(rate_per_km),  # Convert to integer (e.g., cents)
             rate_per_ton=int(rate_per_ton),  # Convert to integer
             payment_terms=billing_account.payment_terms,  # Dynamic payout method
             payment_date=BillingEngine.get_next_billing_date(payment_terms, shipment_data.pickup_date) + timedelta(days=2),
-            required_truck_type=shipment_data.required_truck_type,
-            equipment_type=shipment_data.equipment_type,
-            trailer_type=shipment_data.trailer_type,
-            trailer_length=shipment_data.trailer_length,
-            origin_address=shipment_data.origin_address,
+            required_truck_type=shipment.required_truck_type,
+            equipment_type=shipment.equipment_type,
+            trailer_type=shipment.trailer_type,
+            trailer_length=shipment.trailer_length,
+            origin_address=shipment.origin_address,
             complete_origin_address=complete_origin_address,
             origin__city_province=origin_city_province,
             origin_country=origin_country,
             origin_region=origin_region,
-            destination_address=shipment_data.destination_address,
+            destination_address=shipment.destination_address,
             complete_destination_address=complete_destination_address,
             destination_city_province=destination_city_province,
             destination_country=destination_country,
             destination_region=destination_region,
             route_preview_embed=route_preview_embed,
-            pickup_date=shipment_data.pickup_date,
-            priority_level=shipment_data.priority_level,
+            pickup_date=shipment.pickup_date,
+            priority_level=shipment.priority_level,
             customer_reference_number=truck_reference,
-            shipment_weight=shipment_data.shipment_weight,
-            commodity=shipment_data.commodity,
-            temperature_control=shipment_data.temperature_control,
-            hazardous_metarials=shipment_data.hazardous_materials,
-            packaging_quantity=shipment_data.packaging_quantity,
-            packaging_type=shipment_data.packaging_type,
-            pickup_number=shipment_data.pickup_number,
-            pickup_notes=shipment_data.pickup_notes,
-            delivery_number=shipment_data.delivery_number,
-            delivery_notes=shipment_data.delivery_notes,
+            shipment_weight=shipment.shipment_weight,
+            commodity=shipment.commodity,
+            temperature_control=shipment.temperature_control,
+            hazardous_metarials=shipment.hazardous_materials,
+            packaging_quantity=shipment.packaging_quantity,
+            packaging_type=shipment.packaging_type,
+            pickup_number=shipment.pickup_number,
+            pickup_notes=shipment.pickup_notes,
+            delivery_number=shipment.delivery_number,
+            delivery_notes=shipment.delivery_notes,
             estimated_transit_time=estimated_transit_time,
             pickup_facility_name=pickup_facility_data.name,
             pickup_scheduling_type=pickup_facility_data.scheduling_type,
@@ -489,43 +460,43 @@ def admin_create_client_ftl_shipment(
             type=loadboard_data.type,
             trip_type=loadboard_data.trip_type,
             load_type=loadboard_data.load_type,
-            minimum_weight_bracket=shipment_data.minimum_weight_bracket,
-            minimum_git_cover_amount=shipment_data.minimum_git_cover_amount,
-            minimum_liability_cover_amount=shipment_data.minimum_liability_cover_amount,
+            minimum_weight_bracket=shipment.minimum_weight_bracket,
+            minimum_git_cover_amount=shipment.minimum_git_cover_amount,
+            minimum_liability_cover_amount=shipment.minimum_liability_cover_amount,
             distance=distance,
             shipment_rate=loadboard_data.shipment_rate,
             rate_per_km=loadboard_data.rate_per_km,
             rate_per_ton=loadboard_data.rate_per_ton,
             payment_terms=loadboard_data.payment_terms,
             payment_date=loadboard_data.payment_date,
-            required_truck_type=shipment_data.required_truck_type,
-            equipment_type=shipment_data.equipment_type,
-            trailer_type=shipment_data.trailer_type,
-            trailer_length=shipment_data.trailer_length,
-            origin_address=shipment_data.origin_address,
+            required_truck_type=shipment.required_truck_type,
+            equipment_type=shipment.equipment_type,
+            trailer_type=shipment.trailer_type,
+            trailer_length=shipment.trailer_length,
+            origin_address=shipment.origin_address,
             complete_origin_address=complete_origin_address,
             origin_city_province=origin_city_province,
             origin_country=origin_country,
             origin_region=origin_region,
-            destination_address=shipment_data.destination_address,
+            destination_address=shipment.destination_address,
             complete_destination_address=complete_destination_address,
             destination_city_province=destination_city_province,
             destination_country=destination_country,
             destination_region=destination_region,
             route_preview_embed=route_preview_embed,
-            pickup_date=shipment_data.pickup_date,
-            priority_level=shipment_data.priority_level,
+            pickup_date=shipment.pickup_date,
+            priority_level=shipment.priority_level,
             customer_reference_number=truck_reference,
-            shipment_weight=shipment_data.shipment_weight,
-            commodity=shipment_data.commodity,
-            temperature_control=shipment_data.temperature_control,
-            hazardous_metarials=shipment_data.hazardous_materials,
-            packaging_quantity=shipment_data.packaging_quantity,
-            packaging_type=shipment_data.packaging_type,
-            pickup_number=shipment_data.pickup_number,
-            pickup_notes=shipment_data.pickup_notes,
-            delivery_number=shipment_data.delivery_number,
-            delivery_notes=shipment_data.delivery_notes,
+            shipment_weight=shipment.shipment_weight,
+            commodity=shipment.commodity,
+            temperature_control=shipment.temperature_control,
+            hazardous_metarials=shipment.hazardous_materials,
+            packaging_quantity=shipment.packaging_quantity,
+            packaging_type=shipment.packaging_type,
+            pickup_number=shipment.pickup_number,
+            pickup_notes=shipment.pickup_notes,
+            delivery_number=shipment.delivery_number,
+            delivery_notes=shipment.delivery_notes,
             estimated_transit_time=estimated_transit_time,
             eta_date=shipment.eta_date,
             eta_window=shipment.eta_window,
