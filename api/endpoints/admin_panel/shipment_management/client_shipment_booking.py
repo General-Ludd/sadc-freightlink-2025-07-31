@@ -14,7 +14,7 @@ from schemas.spot_bookings.power_shipment import POWER_Shipment_docs_create, Pow
 from services.finance.finance import calculate_spot_ftl_lane_quote, calculate_spot_ftl_quote, calculate_spot_power_quote
 from services.spot_bookings.dedicated_lanes_ftl_shipment import create_dedicated_lane_ftl_shipment
 from services.spot_bookings.ftl_shipment import create_ftl_shipment, admin_create_client_ftl_shipment
-from services.spot_booking.route_booking import admin_bulk_create_client_ftl_shipments
+from services.spot_bookings.route_booking import admin_bulk_create_client_ftl_shipments
 from sqlalchemy.orm import Session
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
