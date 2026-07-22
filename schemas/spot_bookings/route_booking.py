@@ -5,7 +5,7 @@ from enums import Recurrence_Frequency, Recurrence_Days
 
 from enums import EquipmentType,Trip_Type, Load_Type, Priority_Level, TrailerLength, TrailerType, TruckType
 
-class Admin_Bulk_Create_Route(Base):
+class Admin_Bulk_Create_Route(BaseModel):
     client_id,
     user_id,
     previous_shipment_id
