@@ -9,7 +9,7 @@ class Admin_Bulk_Create_Route(BaseModel):
     client_id: int
     user_id: int
     previous_shipment_id: int
-    pickup_date: Date
+    pickup_date: date
     number_of_trucks_required: int
     rate: int
     commission: int
