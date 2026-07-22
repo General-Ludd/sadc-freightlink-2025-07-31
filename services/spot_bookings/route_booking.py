@@ -58,6 +58,8 @@ def admin_bulk_create_client_ftl_shipment(
     if enterprise_financial_account.status != "Active":
         raise HTTPException(status_code=403, detail="Financial account is not active. Please await activation to create and finance  a shipment.")
 
+    billing_account = enterprise_financial_account
+
     previous_shipment = db.query(FTL_SHIPMENT).filter(FTL_SHIPMENT.id == route_data.previous_shipment_id).first()
     previous_pickup_facility = db.query(ShipmentFacility).filter(ShipmentFacility.id == previous_shipment.pickup_facility_id).first()
     previous_delivery_facility = db.query(ShipmentFacility).filter(ShipmentFacility.id == previous_shipment.delivery_facility_id).first()
