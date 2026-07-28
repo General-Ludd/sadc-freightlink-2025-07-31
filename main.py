@@ -197,11 +197,10 @@ app.include_router(financial_deposits.router, prefix="/api", tags=["Nedbank Depo
 
 @app.on_event("startup")
 def startup_event():
-    print("🚀 Starting background vehicle tracking...")
+    print("🚀 Starting background services...")
+
     threading.Thread(target=start_tracking_scheduler, daemon=True).start()
 
-@app.on_event("startup")
-def startup_event():
     start_ftl_loadboard_scheduler(interval_minutes=1)
 
 @app.get("/")

@@ -26,6 +26,11 @@ from apscheduler.triggers.interval import IntervalTrigger
 from sqlalchemy.orm import Session
 from services.loadboard_updater import run_ftl_load_expiry
 from fastapi import APIRouter, Request, HTTPException, status, Response, Depends
+from services.broadcaster.daily_loadboard_email_service import (
+    send_daily_loadboard_broadcast,
+)
+
+
 
 router = APIRouter()
 
@@ -128,3 +133,24 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
 
         stop_ftl_loadboard_scheduler()
+
+
+    scheduler.add_job(
+        func=run_ftl_expiry_job,
+        trigger=IntervalTrigger(minutes=interval_minutes),
+        id="ftl_load_expiry",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+
+    scheduler.add_job(
+        func=run_daily_email_job,
+        trigger="cron",
+        hour=8,
+        minute=55,
+        id="daily_loadboard_email",
+        replace_existing=True,
+    )
+
+    scheduler.start()
