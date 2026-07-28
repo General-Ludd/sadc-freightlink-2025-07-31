@@ -303,7 +303,7 @@ def admin_bulk_create_client_ftl_shipment(
         # --- Generate Invoice ---
         shipment_invoice = BillingEngine.create_shipment_invoice(
             db=db,
-            company_id=billing_company.id,
+            company_id=billing_account.id,
             financial_account=billing_account,
             shipment_id=shipment.id,
             shipment_type=shipment.type,
@@ -369,9 +369,9 @@ def admin_bulk_create_client_ftl_shipment(
         brokerage_transaction = BrokerageLedger(
             shipment_id=shipment.id,
             shipment_type=shipment.type,
-            shipper_company_id=billing_company.id,
-            shipper_type=billing_company.type,
-            shipper_company_name=billing_company.legal_business_name,
+            shipper_company_id=billing_account.id,
+            shipper_type=billing_account.type,
+            shipper_company_name=billing_account.legal_business_name,
             booking_amount=quote_per_shipment,
             shipment_invoice_id=shipment_invoice.id,
             shipment_invoice_due_date=shipment_invoice.due_date,
