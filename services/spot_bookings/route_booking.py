@@ -329,7 +329,7 @@ def admin_bulk_create_client_ftl_shipment(
 
         if is_admin_booking and route_data.commission is not None:
 
-            platform_commission = shipment_data.commission
+            platform_commission = route_data.commission
 
             # Keep your existing transaction fee logic
             brokerage_details = calculate_brokerage_details(
@@ -407,7 +407,7 @@ def admin_bulk_create_client_ftl_shipment(
             rate_per_km=int(rate_per_km),  # Convert to integer (e.g., cents)
             rate_per_ton=int(rate_per_ton),  # Convert to integer
             payment_terms=billing_account.payment_terms,  # Dynamic payout method
-            payment_date=BillingEngine.get_next_billing_date(payment_terms, shipment_data.pickup_date) + timedelta(days=2),
+            payment_date=BillingEngine.get_next_billing_date(payment_terms, route_data.pickup_date) + timedelta(days=2),
             required_truck_type=shipment.required_truck_type,
             equipment_type=shipment.equipment_type,
             trailer_type=shipment.trailer_type,
