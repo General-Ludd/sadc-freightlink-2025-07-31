@@ -52,6 +52,8 @@ from fastapi import Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from triggers.ftl_loadboard_scheduler import start_ftl_loadboard_scheduler
+from triggers.ftl_loadboard_scheduler import run_daily_email_job
+from services.broadcaster.daily_loadboard_email_service import send_daily_loadboard_broadcast
 
 from triggers.scheduler import start_tracking_scheduler
 
@@ -202,6 +204,8 @@ def startup_event():
     threading.Thread(target=start_tracking_scheduler, daemon=True).start()
 
     start_ftl_loadboard_scheduler(interval_minutes=1)
+    # Only adds the job to the already running scheduler
+    run_daily_email_job()
 
 @app.get("/")
 def read_root():

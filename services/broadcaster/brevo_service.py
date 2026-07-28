@@ -8,7 +8,7 @@ router = APIRouter()
 load_dotenv()
 
 BREVO_API_URL = "https://api.brevo.com/v3/smtp/email"
-BREV0_API_KEY = os.getenv("BREVO_KEY")
+BREVO_API_KEY = os.getenv("BREVO_API_KEY")
 BREVO_SENDER_NAME = os.getenv("BREVO_SENDER_NAME")
 BREVO_SENDER_EMAIL = os.getenv("BREVO_SENDER_EMAIL")
 

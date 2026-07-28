@@ -71,6 +71,36 @@ def run_ftl_expiry_job():
         print("=" * 80)
         print(str(e))
 
+def run_daily_email_job():
+    """
+    APScheduler wrapper for the daily transporter broadcast.
+    """
+
+    print("")
+    print("=" * 80)
+    print("STARTING DAILY LOADBOARD EMAIL BROADCAST")
+    print("=" * 80)
+
+    db = SessionLocal()
+
+    try:
+        send_daily_loadboard_broadcast(db)
+
+        print("")
+        print("=" * 80)
+        print("DAILY LOADBOARD EMAIL BROADCAST COMPLETE")
+        print("=" * 80)
+
+    except Exception as e:
+
+        print("")
+        print("=" * 80)
+        print("DAILY LOADBOARD EMAIL FAILED")
+        print("=" * 80)
+        print(str(e))
+
+    finally:
+        db.close()
 
 def start_ftl_loadboard_scheduler(interval_minutes: int = 1):
 
@@ -83,6 +113,7 @@ def start_ftl_loadboard_scheduler(interval_minutes: int = 1):
         timezone=ZoneInfo("Africa/Johannesburg")
     )
 
+    # Load expiry job
     scheduler.add_job(
         func=run_ftl_expiry_job,
         trigger=IntervalTrigger(minutes=interval_minutes),
@@ -92,13 +123,28 @@ def start_ftl_loadboard_scheduler(interval_minutes: int = 1):
         coalesce=True,
     )
 
+    # Daily broadcast job
+    scheduler.add_job(
+        func=run_daily_email_job,
+        trigger="cron",
+        hour=14,
+        minute=37,
+        id="daily_loadboard_email",
+        replace_existing=True,
+    )
+
     scheduler.start()
 
     print("")
     print("=" * 80)
-    print("FTL LOAD EXPIRY SCHEDULER STARTED")
-    print(f"Runs every {interval_minutes} minute(s)")
+    print("REGISTERED APSCHEDULER JOBS")
     print("=" * 80)
+
+    for job in scheduler.get_jobs():
+        print(f"Job ID      : {job.id}")
+        print(f"Next Run    : {job.next_run_time}")
+        print(f"Trigger     : {job.trigger}")
+        print("-" * 80)
 
     return scheduler
 
@@ -124,33 +170,10 @@ if __name__ == "__main__":
     start_ftl_loadboard_scheduler(1)
 
     try:
-
         import time
 
         while True:
             time.sleep(60)
 
     except KeyboardInterrupt:
-
         stop_ftl_loadboard_scheduler()
-
-
-    scheduler.add_job(
-        func=run_ftl_expiry_job,
-        trigger=IntervalTrigger(minutes=interval_minutes),
-        id="ftl_load_expiry",
-        replace_existing=True,
-        max_instances=1,
-        coalesce=True,
-    )
-
-    scheduler.add_job(
-        func=run_daily_email_job,
-        trigger="cron",
-        hour=8,
-        minute=55,
-        id="daily_loadboard_email",
-        replace_existing=True,
-    )
-
-    scheduler.start()
