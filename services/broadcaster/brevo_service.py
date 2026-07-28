@@ -1,16 +1,23 @@
-import requests
-from typing import List
-from dotenv import load_dotenv
+from sib_api_v3_sdk import Configuration
+from sib_api_v3_sdk import ApiClient
 import os
-from fastapi import APIRouter, HTTPException
+from dotenv import load_dotenv
 
-router = APIRouter()
 load_dotenv()
 
 BREVO_API_URL = "https://api.brevo.com/v3/smtp/email"
 BREVO_API_KEY = os.getenv("BREVO_API_KEY")
 BREVO_SENDER_NAME = os.getenv("BREVO_SENDER_NAME")
 BREVO_SENDER_EMAIL = os.getenv("BREVO_SENDER_EMAIL")
+
+print("=" * 60)
+print("BREVO API KEY CHECK")
+print("=" * 60)
+print("Exists:", BREVO_API_KEY is not None)
+print("Length:", len(BREVO_API_KEY) if BREVO_API_KEY else 0)
+print("Prefix:", BREVO_API_KEY[:20] if BREVO_API_KEY else None)
+print("Suffix:", BREVO_API_KEY[-10:] if BREVO_API_KEY else None)
+print("=" * 60)
 
 def send_email(
     recipients: List[str],

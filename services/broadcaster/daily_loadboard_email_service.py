@@ -1,35 +1,134 @@
 from sqlalchemy import distinct
 from sqlalchemy.orm import Session
 
+
 from models.user import CarrierUser
 
-from services.broadcaster.brevo_service import send_email
-from services.broadcaster.loadboard_email_template import daily_loadboard_template
+
+from .brevo_contacts import (
+    sync_carrier_contacts
+)
 
 
-def send_daily_loadboard_broadcast(db: Session):
+from services.broadcaster.brevo_campaigns import (
+    create_campaign,
+    send_campaign
+)
 
-    print("Fetching carrier email addresses...")
+
+from .loadboard_email_template import (
+    daily_loadboard_template
+)
+
+
+
+BREVO_TRANSPORTER_LIST_ID = 3
+
+
+
+
+
+def send_daily_loadboard_broadcast(
+        db: Session
+):
+
+
+    print(
+        "Starting Daily Loadboard Broadcast"
+    )
+
+
 
     emails = [
+
         row[0]
-        for row in db.query(distinct(CarrierUser.email))
-        .filter(CarrierUser.email.isnot(None))
+
+        for row in
+
+        db.query(
+            distinct(
+                CarrierUser.email
+            )
+        )
+
+        .filter(
+            CarrierUser.email.isnot(None)
+        )
+
         .all()
+
     ]
 
+
+
     if not emails:
-        print("No carrier email addresses found.")
+
+        print(
+            "No carriers found"
+        )
+
         return
 
-    print(f"Recipients: {len(emails)}")
+
+
+    print(
+        f"{len(emails)} carriers found"
+    )
+
+
+
+    #
+    # Sync contacts
+    #
+
+    sync_carrier_contacts(
+        emails
+    )
+
+
+
+    #
+    # Generate HTML
+    #
 
     html = daily_loadboard_template()
 
-    send_email(
-        recipients=emails,
-        subject="Today's Adhoc Transport Requirements",
+
+
+    #
+    # Create campaign
+    #
+
+    campaign = create_campaign(
+
+        subject=
+        "Today's Available Transport Requirements",
+
         html_content=html,
+
+        list_id=
+        BREVO_TRANSPORTER_LIST_ID
+
     )
 
-    print("Daily loadboard email sent.")
+
+
+    print(
+        "Campaign Created:",
+        campaign
+    )
+
+
+
+    #
+    # Send immediately
+    #
+
+    send_campaign(
+        campaign.id
+    )
+
+
+    print(
+        "Broadcast completed"
+    )
