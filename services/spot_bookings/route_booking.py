@@ -256,7 +256,7 @@ def admin_bulk_create_client_ftl_shipment(
             destination_country=destination_country,
             destination_region=destination_region,
             pickup_date=route_data.pickup_date,
-            pickup_appointment=(f"{pickup_facility_data.start_time} - {pickup_facility_data.start_time}"),
+            pickup_appointment=(f"{previous_pickup_facility.start_time} - {previous_pickup_facility.start_time}"),
             priority_level=previous_shipment.priority_level,
             pickup_facility_id=pickup_facility.id,
             delivery_facility_id=dropoff_facility.id,
