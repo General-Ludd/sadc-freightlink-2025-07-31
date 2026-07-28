@@ -371,7 +371,7 @@ def admin_bulk_create_client_ftl_shipment(
             shipment_type=shipment.type,
             shipper_company_id=billing_account.id,
             shipper_type=enterprise.type,
-            shipper_company_name=billing_account.legal_business_name,
+            shipper_company_name=enterprise.legal_business_name,
             booking_amount=quote_per_shipment,
             shipment_invoice_id=shipment_invoice.id,
             shipment_invoice_due_date=shipment_invoice.due_date,
