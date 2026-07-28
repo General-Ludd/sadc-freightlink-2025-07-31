@@ -205,7 +205,7 @@ def startup_event():
 
     start_ftl_loadboard_scheduler(interval_minutes=1)
     # Only adds the job to the already running scheduler
-    run_daily_email_job()
+    start_ftl_loadboard_scheduler()
 
 @app.get("/")
 def read_root():

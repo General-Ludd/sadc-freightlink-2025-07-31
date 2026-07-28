@@ -142,7 +142,7 @@ def create_dedicated_lane_ftl_shipment(
         return val.value if hasattr(val, "value") else str(val)
 
     try:
-        quote_per_shipment = calculate_quote_for_shipment(
+        system_quote_per_shipment = calculate_quote_for_shipment(
             db=db,
             required_truck_type=safe_str(shipment_data.required_truck_type),
             equipment_type=safe_str(shipment_data.equipment_type),
@@ -153,6 +153,24 @@ def create_dedicated_lane_ftl_shipment(
         )
     except HTTPException as e:
         raise HTTPException(status_code=500, detail=f"Quote calculation failed: {e.detail}")
+
+    if shipment_data.offered_rate_per_shipment is not None:
+        booking_amount_per_shipment = shipment_data.offered_rate_per_shipment
+
+        minimum_allowed = system_quote_per_shipment * 0.80
+
+        if booking_amount_per_shipment < minimum_allowed:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"The offered shipment rate "
+                    f"(R{booking_amount_per_shipment:,.2f}) "
+                    f"is below the minimum acceptable rate of "
+                    f"R{minimum_allowed:,.2f}."
+                ),
+            )
+    else:
+        booking_amount_per_shipment = system_quote_per_shipment
 
     payment_term = financial_account.payment_terms.strip().upper()
 
@@ -174,14 +192,14 @@ def create_dedicated_lane_ftl_shipment(
         shipments_per_interval=shipment_data.shipments_per_interval,
         skip_weekends=shipment_data.skip_weekends
     )
-    shipment_dates = recurrence_calculator.get_recurrence_dates(total_shipments=quote_per_shipment)
+    shipment_dates = recurrence_calculator.get_recurrence_dates(total_shipments=booking_amount_per_shipment)
 
     # Step 5: Calculate Total Shipments
     total_shipments = recurrence_calculator.calculate_total_shipments(total_shipments=len(shipment_dates))
 
     try:
         total_shipments_quote = calculate_total_shipment_quote(
-            qoute_per_shipment=quote_per_shipment,
+            qoute_per_shipment=booking_amount_per_shipment,
             total_shipments=total_shipments
         )
     except HTTPException as e:
@@ -242,7 +260,7 @@ def create_dedicated_lane_ftl_shipment(
         estimated_transit_time=estimated_transit_time,  # Assign directly
         distance=distance,
         route_preview_embed=route_preview_embed,
-        qoute_per_shipment=quote_per_shipment,
+        qoute_per_shipment=booking_amount_per_shipment,
         contract_quote=total_shipments_quote,
         recurrence_frequency=shipment_data.recurrence_frequency,
         recurrence_days=recurrence_days_str,
@@ -385,7 +403,7 @@ def create_dedicated_lane_ftl_shipment(
                 delivery_notes=shipment_data.delivery_notes,
                 distance=distance,
                 estimated_transit_time=estimated_transit_time,
-                quote=quote_per_shipment,
+                quote=booking_amount_per_shipment,
                 route_preview_embed=route_preview_embed,
                 shipment_status="Booked",
                 trip_status="Scheduled"
@@ -418,7 +436,7 @@ def create_dedicated_lane_ftl_shipment(
                     shipment_id=sub_shipment.id,
                     shipment_type=sub_shipment.type,
                     due_date=parent_invoice.due_date,
-                    amount=quote_per_shipment,
+                    amount=booking_amount_per_shipment,
                     company_id=company_id,
                     payment_terms=financial_account.payment_terms,
                     #New

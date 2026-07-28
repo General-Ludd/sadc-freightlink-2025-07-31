@@ -8,6 +8,7 @@ from enums import EquipmentType, Load_Type, Priority_Level, TrailerLength, Trail
 
 class FTL_Shipment_Booking(BaseModel):
     consignor_id: Optional [int] = None
+    offered_shipment_rate: Optional[int] = None
     required_truck_type: TruckType
     equipment_type: EquipmentType
     trailer_type: Optional[TrailerType] = None

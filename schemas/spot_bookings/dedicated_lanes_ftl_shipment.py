@@ -25,6 +25,7 @@ class individual_shipment_or_lane_request(BaseModel):
 
 class FTL_Lane_Create(BaseModel):
     load_type: Load_Type
+    offered_rate_per_shipment: Optional[int] = None
     required_truck_type: TruckType
     equipment_type: EquipmentType
     trailer_type: Optional[TrailerType] = None

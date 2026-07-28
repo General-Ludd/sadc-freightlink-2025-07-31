@@ -34,8 +34,6 @@ def create_campaign(
         },
 
 
-        type="classic",
-
 
         html_content=html_content,
 

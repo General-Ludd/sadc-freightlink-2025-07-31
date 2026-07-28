@@ -113,17 +113,24 @@ def create_ftl_shipment(
     except HTTPException as e:
         raise HTTPException(status_code=500, detail=f"Quote calculation failed: {e.detail}")
 
+    system_quote = quote_per_shipment
+
+    if shipment_data.offered_shipment_rate is not None:
+        booking_amount = shipment_data.offered_shipment_rate
+    else:
+        booking_amount = system_quote
+
     try:
         if financial_account.payment_terms == "PAB":
-            if financial_account.credit_balance >= quote_per_shipment:
-                financial_account.credit_balance -= quote_per_shipment
+            if financial_account.credit_balance >= booking_amount:
+                financial_account.credit_balance -= booking_amount
             else:
                 raise HTTPException(
                     status_code=402,
                     detail=f"Shipment booking failed due to insufficient funds. Please deposit at least R{quote_per_shipment:.2f} to proceed."
                 )
         else:
-            projected_balance = financial_account.total_outstanding + quote_per_shipment
+            projected_balance = financial_account.total_outstanding + booking_amount
             if projected_balance <= financial_account.spending_limit:
                 financial_account.total_outstanding = projected_balance
             else:
@@ -234,7 +241,7 @@ def create_ftl_shipment(
         eta_date=eta_date,
         eta_window=eta_window,
         polyline=polyline,
-        quote=quote_per_shipment,
+        quote=booking_amount,
         payment_terms=financial_account.payment_terms,
         route_preview_embed=route_preview_embed,
     )
@@ -270,7 +277,7 @@ def create_ftl_shipment(
         pickup_date=shipment.pickup_date,
         distance=shipment.distance,
         transit_time=shipment.estimated_transit_time,
-        total_cost=quote_per_shipment
+        total_cost=booking_amount
     )
     shipment.invoice_id = shipment_invoice.id
     shipment.invoice_due_date = shipment_invoice.due_date
@@ -283,7 +290,7 @@ def create_ftl_shipment(
     # Step 4: Calculate brokerage details
     brokerage_details = calculate_brokerage_details(
         db=db,
-        booking_amount=quote_per_shipment,
+        booking_amount=booking_amount,
         shipment_type="FTL",
         payment_method=financial_account.payment_terms,
     )
@@ -295,7 +302,7 @@ def create_ftl_shipment(
         shipper_company_id=company_id,
         shipper_type=shipper.type,
         shipper_company_name=shipper.legal_business_name,
-        booking_amount=quote_per_shipment,
+        booking_amount=booking_amount,
         shipment_invoice_id=shipment_invoice.id,
         shipment_invoice_due_date=shipment_invoice.due_date,
         shipment_invoice_status=shipment_invoice.status,
