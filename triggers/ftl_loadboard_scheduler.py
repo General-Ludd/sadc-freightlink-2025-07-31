@@ -128,7 +128,7 @@ def start_ftl_loadboard_scheduler(interval_minutes: int = 1):
         func=run_daily_email_job,
         trigger="cron",
         hour=18,
-        minute=15,
+        minute=18,
         id="daily_loadboard_email",
         replace_existing=True,
     )
