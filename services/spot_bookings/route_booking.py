@@ -188,10 +188,10 @@ def admin_bulk_create_client_ftl_shipment(
     db.flush()
 
     dropoff_contact = ContactPerson(
-        first_name=previous_pickup_contact.first_name,
-        last_name=previous_pickup_contact.last_name,
-        phone_number=previous_pickup_contact.phone_number,
-        email=previous_pickup_contact.email,
+        first_name=previous_delivery_contact.first_name,
+        last_name=previous_delivery_contact.last_name,
+        phone_number=previous_delivery_contact.phone_number,
+        email=previous_delivery_contact.email,
     )
     db.add(dropoff_contact)
     db.flush()
@@ -200,12 +200,12 @@ def admin_bulk_create_client_ftl_shipment(
         shipper_company_id=route_data.client_id,
         type="Pickup",
         address=previous_shipment.origin_address,
-        name=previous_pickup_contact.name,
-        scheduling_type=previous_pickup_contact.scheduling_type,
-        start_time=previous_pickup_contact.start_time,
-        end_time=previous_pickup_contact.end_time,
+        name=previous_pickup_facility.name,
+        scheduling_type=previous_pickup_facility.scheduling_type,
+        start_time=previous_pickup_facility.start_time,
+        end_time=previous_pickup_facility.end_time,
         contact_person_relationship=pickup_contact,
-        facility_notes=previous_pickup_contact.facility_notes,
+        facility_notes=previous_pickup_facility.facility_notes,
     )
     db.add(pickup_facility)
     db.flush()

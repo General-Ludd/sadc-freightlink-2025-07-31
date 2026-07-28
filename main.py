@@ -51,6 +51,7 @@ from services.nexus import quote_service
 from fastapi import Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from triggers.ftl_loadboard_scheduler import start_ftl_loadboard_scheduler
 
 from triggers.scheduler import start_tracking_scheduler
 
@@ -198,6 +199,10 @@ app.include_router(financial_deposits.router, prefix="/api", tags=["Nedbank Depo
 def startup_event():
     print("🚀 Starting background vehicle tracking...")
     threading.Thread(target=start_tracking_scheduler, daemon=True).start()
+
+@app.on_event("startup")
+def startup_event():
+    start_ftl_loadboard_scheduler(interval_minutes=1)
 
 @app.get("/")
 def read_root():
