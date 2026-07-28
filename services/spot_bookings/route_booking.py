@@ -213,7 +213,7 @@ def admin_bulk_create_client_ftl_shipment(
     dropoff_facility = ShipmentFacility(
         shipper_company_id=route_data.client_id,
         type="Dropoff",
-        address=previous_delivery_facility.destination_address,
+        address=previous_shipment.destination_address,
         name=previous_delivery_facility.name,
         scheduling_type=previous_delivery_facility.scheduling_type,
         start_time=previous_delivery_facility.start_time,
