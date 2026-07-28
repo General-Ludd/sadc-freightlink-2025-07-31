@@ -327,9 +327,9 @@ def admin_bulk_create_client_ftl_shipment(
         # Brokerage calculation
         # ---------------------------------------
 
-        if is_admin_booking and route_data.commission_rate is not None:
+        if is_admin_booking and route_data.commission is not None:
 
-            platform_commission = shipment_data.commission_rate
+            platform_commission = shipment_data.commission
 
             # Keep your existing transaction fee logic
             brokerage_details = calculate_brokerage_details(
