@@ -2,7 +2,7 @@ from sqlalchemy import distinct
 from sqlalchemy.orm import Session
 
 
-from models.user import CarrierUser
+from models.user import CarrierUser, CarrierUsersMailList
 
 
 from .brevo_contacts import (
@@ -47,12 +47,12 @@ def send_daily_loadboard_broadcast(
 
         db.query(
             distinct(
-                CarrierUser.email
+                CarrierUsersMailList.email
             )
         )
 
         .filter(
-            CarrierUser.email.isnot(None)
+            CarrierUsersMailList.email.isnot(None)
         )
 
         .all()

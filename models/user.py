@@ -94,6 +94,20 @@ class CarrierUser(Base):
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
+class CarrierUsersMailList(Base):
+    __tablename__ = "carrier_users_mail_list"
+
+    id = Column(Integer, unique=True, primary_key=True)
+    role = Column(String, nullable=True)
+    first_name = Column(String, nullable=False)
+    last_name = Column(String, nullable=False)
+    company = Column(String, nullable=False)
+    company_id = Column(Integer, nullable=True)
+    phone_number = Column(String, nullable=False)
+    email = Column(String, nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
 class Driver(Base):
     __tablename__ = "fleet_drivers"
 
