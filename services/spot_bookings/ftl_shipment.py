@@ -267,16 +267,19 @@ def create_ftl_shipment(
     payment_terms = financial_account.payment_terms
 
     # --- Generate Invoice ---
-    shipment_invoice = billing_engine.initialize_shipment_billing(
+    billing_result = billing_engine.initialize_shipment_billing(
         db=db,
         shipper=shipper,
         shipment=shipment,
         financial_account=financial_account,
-        booking_amount=booking_amount
+        booking_amount=booking_amount,
     )
-    shipment.invoice_id = billing_result.invoice.id
-    shipment.invoice_due_date = billing_result.invoice.due_date
-    shipment.invoice_status = billing_result.invoice.status
+
+    invoice = billing_result.invoice
+
+    shipment.invoice_id = invoice.id
+    shipment.invoice_due_date = invoice.due_date
+    shipment.invoice_status = invoice.status
 
     db.add(shipment)
     db.commit()
@@ -298,9 +301,9 @@ def create_ftl_shipment(
         shipper_type=shipper.type,
         shipper_company_name=shipper.legal_business_name,
         booking_amount=booking_amount,
-        shipment_invoice_id=billing_result.invoice.id,
-        shipment_invoice_due_date=billing_result.due_date,
-        shipment_invoice_status=billing_resultstatus,
+        shipment_invoice_id=invoice.id,
+        shipment_invoice_due_date=invoice.due_date,
+        shipment_invoice_status=invoice.status,
         platform_commission=brokerage_details[0],
         transaction_fee=brokerage_details[1],
         true_platform_earnings=brokerage_details[2],
