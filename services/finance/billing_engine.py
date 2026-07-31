@@ -1059,7 +1059,7 @@ class BillingEngine:
 
             payment_terms=str(account.payment_terms),
 
-            business_name=shipper.legal_business_name,
+            business_name=context.shipper.legal_business_name,
 
             contact_person_name=getattr(
                 shipment,
@@ -1067,9 +1067,9 @@ class BillingEngine:
                 "",
             ),
 
-            business_email=shipper.business_email,
+            business_email=context.shipper.business_email,
 
-            billing_address=shipper.business_address,
+            billing_address=context.shipper.business_address,
 
             #
             # Shipment
@@ -1203,7 +1203,7 @@ class BillingEngine:
                 "",
             ),
 
-            business_email=shipper.business_email,
+            business_email=context.shipper.business_email,
 
             billing_address=shipment.billing_address,
 
