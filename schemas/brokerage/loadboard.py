@@ -34,7 +34,7 @@ class LoadBoardEntryCreate(BaseModel):
     rate_per_km: int
     rate_per_ton: int
     payment_terms: str
-    payment_date: date
+    payment_date: str
     required_truck_type: str
     equipment_type: str
     trailer_type: Optional[str] = None
