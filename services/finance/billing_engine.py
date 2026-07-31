@@ -183,6 +183,8 @@ class BillingEngine:
 
             db=db,
 
+            shipper=shipper,
+
             shipment=shipment,
 
             financial_account=financial_account,
