@@ -306,7 +306,7 @@ def admin_bulk_create_client_ftl_shipment(
             shipper=enterprise,
             shipment=shipment,
             financial_account=billing_account,
-            total_cost=quote_per_shipment
+            booking_amount=quote_per_shipment
         )
 
         invoice = billing_result.invoice
