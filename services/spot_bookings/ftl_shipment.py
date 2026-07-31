@@ -1267,26 +1267,31 @@ def admin_create_client_ftl_shipment(
         payment_terms = billing_account.payment_terms
 
         # --- Generate Invoice ---
-        shipment_invoice = BillingEngine.create_shipment_invoice(
+        billing_result = billing_engine.initialize_shipment_billing(
             db=db,
-            company_id=billing_company.id,
+            shipper=shipper,
+            shipment=shipment,
             financial_account=billing_account,
-            shipment_id=shipment.id,
-            shipment_type=shipment.type,
-            origin_address=shipment.origin_address,
-            destination_address=shipment.destination_address,
-            pickup_date=shipment.pickup_date,
-            distance=shipment.distance,
-            transit_time=shipment.estimated_transit_time,
-            total_cost=quote_per_shipment
+            booking_amount=booking_amount,
         )
-        shipment.invoice_id = shipment_invoice.id
-        shipment.invoice_due_date = shipment_invoice.due_date
-        shipment.invoice_status = shipment_invoice.status
+
+        invoice = billing_result.invoice
+
+        shipment.invoice_id = invoice.id
+        shipment.invoice_due_date = invoice.due_date
+        shipment.invoice_status = invoice.status
 
         db.add(shipment)
         db.commit()
         db.refresh(shipment)
+
+        # Step 4: Calculate brokerage details
+        brokerage_details = calculate_brokerage_details(
+            db=db,
+            booking_amount=booking_amount,
+            shipment_type="FTL",
+            payment_method=billing_account.payment_terms,
+        )
 
         # Step 4: Calculate brokerage details
         # ---------------------------------------
@@ -1339,9 +1344,9 @@ def admin_create_client_ftl_shipment(
             shipper_type=billing_company.type,
             shipper_company_name=billing_company.legal_business_name,
             booking_amount=quote_per_shipment,
-            shipment_invoice_id=shipment_invoice.id,
-            shipment_invoice_due_date=shipment_invoice.due_date,
-            shipment_invoice_status=shipment_invoice.status,
+            shipment_invoice_id=invoice.id,
+            shipment_invoice_due_date=invoice.due_date,
+            shipment_invoice_status=invoice.status,
             platform_commission=platform_commission,
             transaction_fee=transaction_fee,
             true_platform_earnings=true_platform_earnings,
@@ -1373,7 +1378,7 @@ def admin_create_client_ftl_shipment(
             rate_per_km=int(rate_per_km),  # Convert to integer (e.g., cents)
             rate_per_ton=int(rate_per_ton),  # Convert to integer
             payment_terms=billing_account.payment_terms,  # Dynamic payout method
-            payment_date=BillingEngine.get_next_billing_date(payment_terms, shipment_data.pickup_date) + timedelta(days=2),
+            payment_date=(invoice.due_date + timedelta(days=2)),
             required_truck_type=shipment_data.required_truck_type,
             equipment_type=shipment_data.equipment_type,
             trailer_type=shipment_data.trailer_type,
