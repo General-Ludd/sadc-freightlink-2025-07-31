@@ -208,7 +208,18 @@ class BillingEngine:
         # ----------------------------------------------------------
 
         context = self._calculate_billing_policy(context)
+            
+        print("\n" + "=" * 80)
+        print("BILLING POLICY")
+        print("=" * 80)
 
+        print("Payment Type:", context.payment_type)
+        print("Payment Terms:", context.payment_terms)
+        print("Payment Days:", context.payment_days)
+        print("Payment Trigger:", context.payment_trigger)
+        print("Statement Required:", context.statement_required)
+        print("Statement Cycle:", context.statement_cycle_policy)
+        print("Statement Days:", context.statement_days)
         # ----------------------------------------------------------
         # Stage 2
         # Billing Date
@@ -226,20 +237,24 @@ class BillingEngine:
 
         context = self._calculate_statement_cycle(context)
 
+        print("\nSTATEMENT DATE:", context.statement_date)
+        print("STATEMENT CYCLE:", context.statement_cycle)
+        print("SUBMISSION DATE:", context.submission_date)
         # ----------------------------------------------------------
         # Stage 4
         # Determine Submission Date
         # ----------------------------------------------------------
 
         context = self._calculate_submission_date(context)
-
+        print("\nSUBMISSION DATE:", context.submission_date)
         # ----------------------------------------------------------
         # Stage 5
         # Calculate Due Date
         # ----------------------------------------------------------
 
         context = self._calculate_due_date(context)
-
+        print("\nDUE DATE:", context.due_date)
+        print("EXPECTED PAYMENT:", context.expected_payment_date)
         # ----------------------------------------------------------
         # Stage 6
         # Create Invoice
