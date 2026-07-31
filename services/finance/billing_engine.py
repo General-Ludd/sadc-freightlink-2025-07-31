@@ -80,6 +80,8 @@ class BillingContext:
 
     db: Session
 
+    shipper: object
+
     shipment: object
 
     financial_account: FinancialAccounts
