@@ -271,7 +271,7 @@ def create_ftl_shipment(
         db=db,
         shipment=shipment,
         financial_account=financial_account,
-        booking=booking_amount
+        booking_amount=booking_amount
     )
     shipment.invoice_id = shipment_invoice.id
     shipment.invoice_due_date = shipment_invoice.due_date
