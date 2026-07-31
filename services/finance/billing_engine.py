@@ -296,7 +296,7 @@ class BillingEngine:
         if context.shipment.id is None:
             raise ValueError("Shipment must be saved before billing.")
 
-        if context.shipment.company_id is None:
+        if context.shipment.shipper_company_id is None:
             raise ValueError("Shipment company is missing.")
 
         if context.financial_account.payment_type is None:
@@ -1048,7 +1048,7 @@ class BillingEngine:
             # Customer
             #
 
-            company_id=shipment.company_id,
+            company_id=shipment.shipper_company_id,
 
             financial_account_id=account.id,
 
@@ -1184,7 +1184,7 @@ class BillingEngine:
             # Customer
             #
 
-            company_id=shipment.company_id,
+            company_id=shipment.shipper_company_id,
 
             financial_account_id=account.id,
 
@@ -1358,7 +1358,7 @@ class BillingEngine:
             # Customer
             #
 
-            company_id=shipment.company_id,
+            company_id=shipment.shipper_company_id,
 
             financial_account_id=account.id,
 
