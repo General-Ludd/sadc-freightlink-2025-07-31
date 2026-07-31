@@ -21,7 +21,7 @@ class Ftl_Load_Board(Base):
     rate_per_km = Column(Integer, nullable=False)
     rate_per_ton = Column(Integer, nullable=False)
     payment_terms = Column(String, nullable=False)
-    payment_date = Column(Date)
+    payment_date = Column(String)
     status = Column(Enum("Available", "Assigned", "Cancelled", "Failed"), default="Available")
     required_truck_type = Column(String, nullable=True)
     equipment_type = Column(String, nullable=True)

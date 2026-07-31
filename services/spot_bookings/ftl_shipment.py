@@ -335,7 +335,7 @@ def create_ftl_shipment(
         rate_per_km=int(rate_per_km),  # Convert to integer (e.g., cents)
         rate_per_ton=int(rate_per_ton),  # Convert to integer
         payment_terms=financial_account.payment_terms,  # Dynamic payout method
-        payment_date=shipment.payment_terms,
+        payment_date=BillingEngine.get_next_billing_date(payment_terms, shipment.pickup_date) + timedelta(days=2),
         required_truck_type=shipment_data.required_truck_type,
         equipment_type=shipment_data.equipment_type,
         trailer_type=shipment_data.trailer_type,
