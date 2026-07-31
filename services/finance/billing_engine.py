@@ -1421,91 +1421,91 @@ class BillingEngine:
 
         return context
 
-# ------------------------------------------------------------------
-# UPDATE FINANCIAL ACCOUNT
-# ------------------------------------------------------------------
+    # ------------------------------------------------------------------
+    # UPDATE FINANCIAL ACCOUNT
+    # ------------------------------------------------------------------
 
-def _update_financial_account(
-    self,
-    context: BillingContext,
-) -> BillingContext:
-    """
-    Updates the customer's Financial Account after an invoice
-    has been created.
+    def _update_financial_account(
+        self,
+        context: BillingContext,
+    ) -> BillingContext:
+        """
+        Updates the customer's Financial Account after an invoice
+        has been created.
 
-    This reserves credit immediately for credit customers and
-    processes immediate payments for prepaid customers.
+        This reserves credit immediately for credit customers and
+        processes immediate payments for prepaid customers.
 
-    Nothing outside the Billing Engine should manipulate the
-    customer's finance balances.
-    """
+        Nothing outside the Billing Engine should manipulate the
+        customer's finance balances.
+        """
 
-    account = context.financial_account
+        account = context.financial_account
 
-    amount = Decimal(context.booking_amount)
+        amount = Decimal(context.booking_amount)
 
-    payment_type = context.payment_type
+        payment_type = context.payment_type
 
-    #
-    # ----------------------------------------------------------
-    # PAYMENT AT BOOKING
-    # ----------------------------------------------------------
-    #
+        #
+        # ----------------------------------------------------------
+        # PAYMENT AT BOOKING
+        # ----------------------------------------------------------
+        #
 
-    if payment_type == "PAB":
+        if payment_type == "PAB":
 
-        account.credit_balance = (
-            Decimal(account.credit_balance or 0)
-            - amount
-        )
+            account.credit_balance = (
+                Decimal(account.credit_balance or 0)
+                - amount
+            )
 
-        account.available_credit = (
-            Decimal(account.available_credit or 0)
-            - amount
-        )
+            account.available_credit = (
+                Decimal(account.available_credit or 0)
+                - amount
+            )
 
-        context.invoice.status = "Paid"
+            context.invoice.status = "Paid"
 
-        context.invoice.is_paid = True
+            context.invoice.is_paid = True
 
-        context.invoice.paid_amount = amount
+            context.invoice.paid_amount = amount
 
-        context.invoice.due_amount = Decimal(0)
+            context.invoice.due_amount = Decimal(0)
 
-    #
-    # ----------------------------------------------------------
-    # CREDIT / CONTRACT ACCOUNT
-    # ----------------------------------------------------------
-    #
+        #
+        # ----------------------------------------------------------
+        # CREDIT / CONTRACT ACCOUNT
+        # ----------------------------------------------------------
+        #
 
-    else:
+        else:
 
-        account.projected_balance = (
-            Decimal(account.projected_balance or 0)
-            + amount
-        )
+            account.projected_balance = (
+                Decimal(account.projected_balance or 0)
+                + amount
+            )
 
-        context.invoice.status = "Outstanding"
+            context.invoice.status = "Outstanding"
 
-        context.invoice.is_paid = False
+            context.invoice.is_paid = False
 
-        context.invoice.paid_amount = Decimal(0)
+            context.invoice.paid_amount = Decimal(0)
 
-        context.invoice.due_amount = amount
+            context.invoice.due_amount = amount
 
-    #
-    # ----------------------------------------------------------
-    # Persist
-    # ----------------------------------------------------------
-    #
+        #
+        # ----------------------------------------------------------
+        # Persist
+        # ----------------------------------------------------------
+        #
 
-    context.db.add(account)
+        context.db.add(account)
 
-    context.db.add(context.invoice)
+        context.db.add(context.invoice)
 
-    context.db.flush()
+        context.db.flush()
 
-    return context
+        return context
 
     # ------------------------------------------------------------------
     # BUILD BILLING RESULT
