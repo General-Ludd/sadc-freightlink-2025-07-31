@@ -301,7 +301,7 @@ def admin_bulk_create_client_ftl_shipment(
         payment_terms = billing_account.payment_terms
 
         # --- Generate Invoice ---
-        shipment_invoice = billing_engine.initialize_shipment_billing(
+        billing_result = billing_engine.initialize_shipment_billing(
             db=db,
             shipper=enterprise,
             shipment=shipment,
