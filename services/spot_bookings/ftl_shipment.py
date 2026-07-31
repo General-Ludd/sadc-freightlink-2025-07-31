@@ -274,9 +274,9 @@ def create_ftl_shipment(
         financial_account=financial_account,
         booking_amount=booking_amount
     )
-    shipment.invoice_id = shipment_invoice.id
-    shipment.invoice_due_date = shipment_invoice.due_date
-    shipment.invoice_status = shipment_invoice.status
+    shipment.invoice_id = billing_result.invoice.id
+    shipment.invoice_due_date = billing_result.invoice.due_date
+    shipment.invoice_status = billing_result.invoice.status
 
     db.add(shipment)
     db.commit()
@@ -298,9 +298,9 @@ def create_ftl_shipment(
         shipper_type=shipper.type,
         shipper_company_name=shipper.legal_business_name,
         booking_amount=booking_amount,
-        shipment_invoice_id=shipment_invoice.id,
-        shipment_invoice_due_date=shipment_invoice.due_date,
-        shipment_invoice_status=shipment_invoice.status,
+        shipment_invoice_id=billing_result.invoice.id,
+        shipment_invoice_due_date=billing_result.due_date,
+        shipment_invoice_status=billing_resultstatus,
         platform_commission=brokerage_details[0],
         transaction_fee=brokerage_details[1],
         true_platform_earnings=brokerage_details[2],
@@ -332,7 +332,7 @@ def create_ftl_shipment(
         rate_per_km=int(rate_per_km),  # Convert to integer (e.g., cents)
         rate_per_ton=int(rate_per_ton),  # Convert to integer
         payment_terms=financial_account.payment_terms,  # Dynamic payout method
-        payment_date=BillingEngine.get_next_billing_date(payment_terms, shipment_data.pickup_date) + timedelta(days=2),
+        payment_date=shipment.payment_terms,
         required_truck_type=shipment_data.required_truck_type,
         equipment_type=shipment_data.equipment_type,
         trailer_type=shipment_data.trailer_type,
