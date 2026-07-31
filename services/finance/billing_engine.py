@@ -173,6 +173,7 @@ class BillingEngine:
     def initialize_shipment_billing(
         self,
         db: Session,
+        shipper,
         shipment,
         financial_account: FinancialAccounts,
         booking_amount: Decimal,
@@ -1054,7 +1055,7 @@ class BillingEngine:
 
             payment_terms=str(account.payment_terms),
 
-            business_name=shipment.business_name,
+            business_name=shipper.legal_business_name,
 
             contact_person_name=getattr(
                 shipment,
@@ -1062,9 +1063,9 @@ class BillingEngine:
                 "",
             ),
 
-            business_email=shipment.business_email,
+            business_email=shipper.business_email,
 
-            billing_address=shipment.billing_address,
+            billing_address=shipper.business_address,
 
             #
             # Shipment
@@ -1190,7 +1191,7 @@ class BillingEngine:
 
             payment_terms=str(account.payment_terms),
 
-            business_name=shipment.business_name,
+            business_name=shipper.legal_business_name,
 
             contact_person_name=getattr(
                 shipment,
@@ -1198,7 +1199,7 @@ class BillingEngine:
                 "",
             ),
 
-            business_email=shipment.business_email,
+            business_email=shipper.business_email,
 
             billing_address=shipment.billing_address,
 
@@ -1364,7 +1365,7 @@ class BillingEngine:
 
             payment_terms=str(account.payment_terms),
 
-            business_name=shipment.business_name,
+            business_name=shipper.legal_business_name,
 
             contact_person_name=getattr(
                 shipment,
@@ -1372,7 +1373,7 @@ class BillingEngine:
                 "",
             ),
 
-            business_email=shipment.business_email,
+            business_email=shipper.business_email,
 
             billing_address=shipment.billing_address,
 

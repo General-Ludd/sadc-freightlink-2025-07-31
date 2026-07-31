@@ -269,6 +269,7 @@ def create_ftl_shipment(
     # --- Generate Invoice ---
     shipment_invoice = billing_engine.initialize_shipment_billing(
         db=db,
+        shipper=shipper,
         shipment=shipment,
         financial_account=financial_account,
         booking_amount=booking_amount
