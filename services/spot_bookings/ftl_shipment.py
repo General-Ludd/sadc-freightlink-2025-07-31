@@ -11,7 +11,7 @@ from schemas.shipment_facility import ShipmentFacilityCreate, FacilityContactCre
 from schemas.shipper import ConsignorCreate
 from schemas.brokerage.finance import Broker_Brokerage_TransactionCreate
 from services.brokerage.brokerage_service import calculate_brokerage_details, create_brokerage_ledger_entry
-from services.finance.billing_engine import BillingEngine
+from services.finance.billing_engine import billing_engine
 from models.brokerage.loadboard import Ftl_Load_Board
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -267,7 +267,7 @@ def create_ftl_shipment(
     payment_terms = financial_account.payment_terms
 
     # --- Generate Invoice ---
-    shipment_invoice = BillingEngine.initialize_shipment_billing(
+    shipment_invoice = billing_engine.initialize_shipment_billing(
         db=db,
         shipment=shipment,
         financial_account=financial_account,
