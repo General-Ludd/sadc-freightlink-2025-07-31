@@ -188,7 +188,7 @@ class BillingEngine:
 
             booking_amount=booking_amount,
 
-            company_id=shipment.company_id,
+            company_id=shipment.shipper_company_id,
 
             shipment_type=shipment.type,
 
