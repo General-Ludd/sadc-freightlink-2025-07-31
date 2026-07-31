@@ -269,16 +269,9 @@ def create_ftl_shipment(
     # --- Generate Invoice ---
     shipment_invoice = BillingEngine.initialize_shipment_billing(
         db=db,
-        company_id=company_id,
+        shipment=shipment,
         financial_account=financial_account,
-        shipment_id=shipment.id,
-        shipment_type=shipment.type,
-        origin_address=shipment.origin_address,
-        destination_address=shipment.destination_address,
-        pickup_date=shipment.pickup_date,
-        distance=shipment.distance,
-        transit_time=shipment.estimated_transit_time,
-        total_cost=booking_amount
+        booking=booking_amount
     )
     shipment.invoice_id = shipment_invoice.id
     shipment.invoice_due_date = shipment_invoice.due_date
