@@ -609,7 +609,40 @@ class FinancialAccounts(Base):
     __tablename__ = "financial_accounts"
 
     id = Column(Integer, primary_key=True, index=True)
+    payment_type = Column(String, nullable=True)
     payment_terms = Column(Enum(PaymentTerms), nullable=False)
+    # ==========================================================
+    # PAYMENT POLICY
+    # ==========================================================
+    payment_type = Column(Enum("PAB", "COD", "Credit Account", "Contract Account", "Instant EFT", "Credit Card", name="payment_type"),nullable=False)
+    payment_terms = Column(Enum(PaymentTerms), nullable=True)
+    payment_days = Column(Integer, nullable=True)
+    payment_trigger = Column(Enum("Booking Date", "Pickup Date", "Delivery Date", "Invoice Date", "POD Approved", "Statement Date", "Manual", name="payment_trigger"),nullable=True)
+    # ==========================================================
+    # STATEMENT POLICY
+    # ==========================================================
+    statement_required = Column(Boolean, default=False)
+    statement_cycle = Column(Enum("Weekly", "Fortnightly", "Twice Monthly", "Monthly", "Custom", name="statement_cycle"),nullable=True)
+    statement_days = Column(JSON, nullable=True)
+    statement_generation = Column(Enum("Same Day", "Next Business Day", "Manual", name="statement_generation"), nullable=True)
+    finance_department_email = Column(String)
+    # ==========================================================
+    # POD POLICY
+    # ==========================================================
+    pod_required = Column(Boolean, default=False)
+    pod_submission_method = Column(Enum("Email", "Portal", "API", "Manual", name="pod_submission_method"),nullable=True)
+    pod_submission_email = Column(String, nullable=True)
+    pod_cutoff_days = Column(JSON, nullable=True)
+    pod_special_requirements = Column(String, nullable=True)
+    # ==========================================================
+    # MISSED CUT-OFF POLICY
+    # ==========================================================
+    missed_cutoff_action = Column(Enum("Move To Next Statement", "Hold For Review", "Reject", "Finance Approval", name="missed_cutoff_action"),nullable=True)
+    # ==========================================================
+    # PAYMENT RUN POLICY
+    # ==========================================================
+    payment_run_type = Column(Enum("Immediate", "Daily", "Weekly", "Fortnightly", "Monthly", "Custom", name="payment_run_type"),nullable=True)
+    payment_run_days = Column(JSON, nullable=True)
     company_name = Column(String, nullable=False)
     business_country_of_incorporation = Column(String, nullable=False)
     business_registration_number = Column(String, nullable=False)

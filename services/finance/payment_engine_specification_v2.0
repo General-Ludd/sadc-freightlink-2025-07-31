@@ -1,0 +1,624 @@
+SADC FREIGHTLINK Payment Engine Specification v2.0
+Objective
+
+The Payment Engine is responsible for calculating, managing, and tracking the complete financial lifecycle of every customer booking, from booking creation until the invoice is fully settled.
+
+The engine must support:
+
+Payment at Booking (PAB)
+Cash on Delivery (COD)
+Credit Accounts
+NET Payment Terms
+Statement-based payments
+POD-based payments
+Invoice-based payments
+Enterprise Accounts Payable workflows
+Future ERP integrations
+
+The Payment Engine must never hardcode payment dates. Instead, it calculates payment schedules from the client's configured Financial Account.
+
+Payment Types
+
+The first decision the engine makes is:
+
+How is this booking being paid?
+
+Supported payment types:
+
+Payment Type	Description
+Payment at Booking (PAB)	Customer pays immediately before booking is confirmed.
+Instant EFT	Immediate electronic payment.
+Credit / Debit Card	Immediate payment through payment gateway.
+Cash on Delivery (COD)	Customer pays after delivery before POD is released or according to agreed COD workflow.
+Credit Account	Customer has approved credit terms.
+Contract Account	Dedicated lane or contract billing.
+Engine Decision Tree
+
+Every booking follows this workflow.
+
+Booking Created
+        │
+        ▼
+Determine Payment Type
+        │
+        ├── PAB
+        │      │
+        │      ▼
+        │ Process Payment
+        │
+        ├── COD
+        │      │
+        │      ▼
+        │ Wait For Delivery
+        │
+        └── Credit Account
+               │
+               ▼
+Read Financial Account
+               │
+               ▼
+Calculate Payment Schedule
+               │
+               ▼
+Create Invoice
+Credit Account Workflow
+
+If Payment Type = Credit Account
+
+the engine must determine
+
+What starts the payment countdown?
+
+Possible trigger events:
+
+Booking Date
+Pickup Date
+Delivery Date
+Invoice Date
+POD Approval Date
+Statement Date
+Manual Date
+
+This becomes
+
+Payment Trigger
+Statement Workflow
+
+If
+
+Payment Trigger
+
+=
+
+Statement Date
+
+the engine executes
+
+Shipment Delivered
+
+↓
+
+Required Documents Complete?
+
+↓
+
+No
+
+↓
+
+Await Documents
+
+↓
+
+Yes
+
+↓
+
+Determine Statement
+
+↓
+
+Included?
+
+↓
+
+No
+
+↓
+
+Move To Next Statement
+
+↓
+
+Yes
+
+↓
+
+Statement Generated
+
+↓
+
+Start NET Countdown
+Statement Cycle
+
+Supported statement cycles
+
+Weekly
+
+Fortnightly
+
+Twice Monthly
+
+Monthly
+
+Custom
+
+Examples
+
+Weekly
+
+Every Friday
+
+Twice Monthly
+
+10th
+
+23rd
+
+Monthly
+
+Last day of month
+
+POD Workflow
+
+If POD is required
+
+Delivered
+
+↓
+
+POD Uploaded
+
+↓
+
+POD Valid?
+
+↓
+
+No
+
+↓
+
+Await Correct POD
+
+↓
+
+Yes
+
+↓
+
+Eligible For Statement
+
+POD validation includes
+
+Signature
+Stamp
+Customer Name
+Special Rules
+Attachments
+Statement Assignment
+
+The engine determines
+
+Which statement should this shipment belong to?
+
+Example
+
+Statement Days
+
+10
+
+23
+
+Shipment completed
+
+7 August
+
+↓
+
+Current Statement
+
+10 August
+
+Shipment completed
+
+18 August
+
+↓
+
+23 August
+
+Shipment completed
+
+25 August
+
+↓
+
+10 September
+
+Missed Cut-off Logic
+
+If required documents are submitted after the statement cut-off
+
+the engine checks
+
+Missed CutoffRule
+
+Supported rules
+
+Move To Next Statement
+
+Hold For Manual Review
+
+Reject
+
+Finance Approval Required
+
+Statement Generation
+
+When the statement date arrives
+
+the engine
+
+Marks shipment
+
+Included In Statement
+
+Stores
+
+Statement Date
+
+Starts payment countdown
+
+Payment Terms
+
+Payment Terms only determine
+
+How many days after the trigger event payment is due.
+
+Examples
+
+NET7
+
+↓
+
+7 days
+
+NET30
+
+↓
+
+30 days
+
+NET45
+
+↓
+
+45 days
+
+No assumptions about months.
+
+Due Date Calculation
+Due Date
+
+=
+
+Trigger Event
+
++
+
+NET Days
+
+Examples
+
+Invoice
+
+1 August
+
+NET30
+
+↓
+
+31 August
+
+Statement
+
+10 August
+
+NET30
+
+↓
+
+9 September
+
+POD Approved
+
+18 August
+
+NET15
+
+↓
+
+2 September
+
+Payment Run
+
+Many customers only process payments on certain days.
+
+Supported
+
+Daily
+
+Weekly
+
+Fortnightly
+
+Monthly
+
+Custom
+
+Examples
+
+Weekly
+
+Friday
+
+Monthly
+
+Last Working Day
+
+Twice Monthly
+
+15th
+
+30th
+
+Expected Payment Date
+
+The engine adjusts
+
+Due Date
+
+↓
+
+Payment Run
+
+↓
+
+Expected Payment Date
+
+Example
+
+Due
+
+22 September
+
+Payment Run
+
+Friday
+
+↓
+
+Expected Payment
+
+25 September
+
+Invoice Lifecycle
+
+Every invoice moves through predefined financial states.
+
+Draft
+
+↓
+
+Pending
+
+↓
+
+Awaiting Documents
+
+↓
+
+Awaiting Statement
+
+↓
+
+Statement Generated
+
+↓
+
+NET Countdown
+
+↓
+
+Due
+
+↓
+
+Awaiting Payment
+
+↓
+
+Paid
+
+↓
+
+Overdue
+Shipment Financial Lifecycle
+
+Every shipment has its own payment lifecycle.
+
+Booked
+
+↓
+
+Collected
+
+↓
+
+Delivered
+
+↓
+
+Awaiting POD
+
+↓
+
+POD Approved
+
+↓
+
+Awaiting Statement
+
+↓
+
+Included In Statement
+
+↓
+
+NET Countdown
+
+↓
+
+Due
+
+↓
+
+Paid
+Payment at Booking (PAB)
+
+PAB is treated differently.
+
+Workflow
+
+Booking Request
+
+↓
+
+Payment Required
+
+↓
+
+Payment Successful?
+
+↓
+
+No
+
+↓
+
+Booking Cancelled
+
+↓
+
+Yes
+
+↓
+
+Invoice Created
+
+↓
+
+Invoice Status
+
+SETTLED
+
+↓
+
+Shipment Confirmed
+
+No due date exists.
+
+No statement exists.
+
+No credit exists.
+
+Cash on Delivery (COD)
+
+COD is also separate.
+
+Workflow
+
+Booking Created
+
+↓
+
+Shipment Delivered
+
+↓
+
+Await Customer Payment
+
+↓
+
+Payment Received
+
+↓
+
+Invoice Settled
+
+↓
+
+Release POD
+
+The platform should allow configurable COD rules, because some customers pay:
+
+Immediately upon delivery.
+Before the POD is released.
+Within a short agreed period after delivery.
+Financial Dates Stored Per Shipment
+
+Every shipment should store:
+
+Booking Date
+
+Pickup Date
+
+Delivery Date
+
+Invoice Date
+
+POD Uploaded Date
+
+POD Approved Date
+
+Statement Date
+
+Payment Trigger Date
+
+Due Date
+
+Expected Payment Date
+
+Actual Payment Date
+
+These dates are calculated once and persisted for reporting and cash-flow forecasting.
+
+Financial Account Responsibilities
+
+The Financial Account becomes the source of truth for payment behaviour.
+
+It answers:
+
+What payment type does this customer use?
+What starts the payment countdown?
+Is a statement required?
+What is the statement cycle?
+What are the statement cut-off dates?
+Are PODs required?
+What documents are required?
+What happens if the cut-off is missed?
+What are the payment terms?
+What is the payment run schedule?
+
+The Payment Engine reads these settings and applies them uniformly to every shipment, eliminating client-specific logic from the codebase.

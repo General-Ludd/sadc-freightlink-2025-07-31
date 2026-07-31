@@ -11,13 +11,14 @@ from schemas.shipment_facility import ShipmentFacilityCreate, FacilityContactCre
 from schemas.shipper import ConsignorCreate
 from schemas.brokerage.finance import Broker_Brokerage_TransactionCreate
 from services.brokerage.brokerage_service import calculate_brokerage_details, create_brokerage_ledger_entry
+from services.finance.billing_engine import BillingEngine
 from models.brokerage.loadboard import Ftl_Load_Board
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from services.brokerage.carrier_loadboard_service import calculate_rates, determine_payout_method
 from services.finance.finance import handle_30_day_pay, handle_credit_card, handle_instant_eft
 from services.shipment_service import calculate_quote_for_shipment
-from utils.billing import BillingEngine
+#from utils.billing import BillingEngine ###revert to it if need be
 from utils.google_maps import AddressInput, RouteETAInput, calculate_distance, get_eta_and_polyline
 from utils.consignor_service import get_or_create_consignor
 
@@ -266,7 +267,7 @@ def create_ftl_shipment(
     payment_terms = financial_account.payment_terms
 
     # --- Generate Invoice ---
-    shipment_invoice = BillingEngine.create_shipment_invoice(
+    shipment_invoice = BillingEngine.initialize_shipment_billing(
         db=db,
         company_id=company_id,
         financial_account=financial_account,
