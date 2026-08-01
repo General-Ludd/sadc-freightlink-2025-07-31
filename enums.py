@@ -32,7 +32,9 @@ class PaymentTerms(str, Enum):
     NET_7 = "NET-7"
     NET_10 = "NET-10"
     NET_15 = "NET-15"
-    NET_30 = "30 Days from Statement"
+    NET_30 = "30 Days from statement"
+    NET_45 = "45 Days from statement"
+    NET_60 = "60 Days from statement"
     EOM = "EOM"
 
 class Recurrence_Frequency(str, Enum):
