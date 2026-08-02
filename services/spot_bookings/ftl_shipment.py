@@ -970,8 +970,8 @@ def admin_create_client_ftl_shipment(
         shipment_documents_data: FTL_Shipment_docs_create,
         current_user: dict,
 ):
-    print(f"current_user: {current_user}")
-    
+    print("========== Admin Client CREATE FTL SHIPMENT START ==========")
+    print("STEP 01 - Validate Current User")
     # Extract the company_id from the current user
     company_id = shipment_data.client_id
     user_id = shipment_data.user_id
@@ -981,6 +981,7 @@ def admin_create_client_ftl_shipment(
             detail="User does not belong to a company"
         )
 
+    print("STEP 02 - Get Enterprise Company")
     enterprise = db.query(Corporation).filter(Corporation.id == company_id).first()
     if not enterprise:
         raise HTTPException(status_code=400, detail="Enterprise shipper account not found or not active, please contact support to request account activation.")
@@ -988,12 +989,15 @@ def admin_create_client_ftl_shipment(
         raise HTTPException(status_code=403, detail="Enterprise shipper account is not verified. Please await verification to create a shipment.")
     if enterprise.status != "Active":
         raise HTTPException(status_code=403, detail="Enterprise shipper account is not active. Please await account activation to create a shipment.")
+    print("STEP 03 - Validate Enterprise")
 
+    print("STEP 04 - Load Enterprise Financial Account")
     # Step 3: Retrieve Financial Account & Generate Payment Dates Based on Terms
     enterprise_financial_account = db.query(FinancialAccounts).filter(
         FinancialAccounts.id == company_id
     ).first()
-    
+
+    print("STEP 05 - Validate Enterprise Financial Account")
     if not enterprise_financial_account:
         raise HTTPException(status_code=404, detail="Financial account not found.")
     if not enterprise_financial_account.is_verified:
@@ -1024,6 +1028,7 @@ def admin_create_client_ftl_shipment(
         if facility_financial_account.status != "Active":
             raise HTTPException(status_code=403, detail="Facility financial account inactive.")
 
+        print("STEP 06 - Determine Billing Company")
         # Facility booking path
         billing_account = facility_financial_account
         billing_company = facility
@@ -1034,6 +1039,7 @@ def admin_create_client_ftl_shipment(
         billing_company = enterprise
 
     # Step 1: Calculate Distance and Transit Time
+    print("STEP 10 - Calculate Route Distance")
     try:
         distance_data = calculate_distance(AddressInput(
             origin_address=shipment_data.origin_address,
@@ -1053,6 +1059,7 @@ def admin_create_client_ftl_shipment(
     except HTTPException as e:
         raise HTTPException(status_code=500, detail=f"Distance calculation failed: {e.detail}")
 
+    print("STEP 11 - Calculate ETA and Polyline")
     # Step 2: get ETA Date, ETA Window, Polylines
     try:
         trip_data = get_eta_and_polyline(RouteETAInput(
@@ -1073,7 +1080,7 @@ def admin_create_client_ftl_shipment(
     # ---------------------------------------
     # Determine shipment rate
     # ---------------------------------------
-
+    print("STEP 12 - Determine Shipment Rate")
     is_admin_booking = isinstance(
         shipment_data,
         Admin_Client_FTL_Shipment_Booking
@@ -1099,7 +1106,7 @@ def admin_create_client_ftl_shipment(
             )
 
     else:
-
+        print("STEP 14 - Calculate Total Booking Amount")
         # Normal client booking
         quote_per_shipment = calculate_quote_for_shipment(
             db=db,
@@ -1144,6 +1151,7 @@ def admin_create_client_ftl_shipment(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Shipment billing process failed: {str(e)}")
 
+    print("STEP 17 - Create Pickup Contact")
     pickup_contact = ContactPerson(
         first_name=pickup_contact_data.first_name,
         last_name=pickup_contact_data.last_name,
@@ -1153,6 +1161,7 @@ def admin_create_client_ftl_shipment(
     db.add(pickup_contact)
     db.flush()
 
+    print("STEP 18 - Create Dropoff Contact")
     dropoff_contact = ContactPerson(
         first_name=dropoff_contact_data.first_name,
         last_name=dropoff_contact_data.last_name,
@@ -1162,6 +1171,7 @@ def admin_create_client_ftl_shipment(
     db.add(dropoff_contact)
     db.flush()
 
+    print("STEP 19 - Create Pickup Facility")
     pickup_facility = ShipmentFacility(
         shipper_company_id=billing_company.id,
         type="Pickup",
@@ -1176,6 +1186,7 @@ def admin_create_client_ftl_shipment(
     db.add(pickup_facility)
     db.flush()
 
+    print("STEP 20 - Create Dropoff Facility")
     dropoff_facility = ShipmentFacility(
         shipper_company_id=billing_company.id,
         type="Dropoff",
@@ -1190,6 +1201,7 @@ def admin_create_client_ftl_shipment(
     db.add(dropoff_facility)
     db.flush()
 
+    print("STEP 21 - Begin Shipment Creation Loop")
     for truck_number in range(number_of_trucks):
 
         truck_reference = (
@@ -1249,8 +1261,9 @@ def admin_create_client_ftl_shipment(
         db.add(shipment)
         db.commit()
         db.refresh(shipment)
+        print("STEP 24 - Save Shipment")
 
-
+        print("STEP 25 - Create Shipment Documents")
         shipment_document = FTL_Shipment_Docs(
             shipment_id=shipment.id,
             commercial_invoice=shipment_documents_data.commercial_invoice,
@@ -1260,12 +1273,14 @@ def admin_create_client_ftl_shipment(
             certificate_of_origin=shipment_documents_data.certificate_of_origin,
             da5501orsad500=shipment_documents_data.da5501orsad500,
         )
+        print("STEP 26 - Save Shipment Documents")
         db.add(shipment_document)
         db.commit()
         db.refresh(shipment_document)
 
         payment_terms = billing_account.payment_terms
 
+        print("STEP 27 - Initialize Billing Engine")
         # --- Generate Invoice ---
         billing_result = billing_engine.initialize_shipment_billing(
             db=db,
@@ -1274,9 +1289,10 @@ def admin_create_client_ftl_shipment(
             financial_account=billing_account,
             booking_amount=booking_amount,
         )
-
+        print("STEP 28 - Billing Engine Complete")
         invoice = billing_result.invoice
 
+        print("STEP 29 - Update Shipment Invoice Fields")
         shipment.invoice_id = invoice.id
         shipment.invoice_due_date = invoice.due_date
         shipment.invoice_status = invoice.status
@@ -1285,6 +1301,7 @@ def admin_create_client_ftl_shipment(
         db.commit()
         db.refresh(shipment)
 
+        print("STEP 31 - Calculate Brokerage")
         # Step 4: Calculate brokerage details
         brokerage_details = calculate_brokerage_details(
             db=db,
@@ -1302,6 +1319,7 @@ def admin_create_client_ftl_shipment(
 
             platform_commission = shipment_data.commission_rate
 
+            print("STEP 32 - Calculate Commission")
             # Keep your existing transaction fee logic
             brokerage_details = calculate_brokerage_details(
                 db=db,
@@ -1336,6 +1354,7 @@ def admin_create_client_ftl_shipment(
                 payment_method=billing_account.payment_terms,
             )
 
+        print("STEP 33 - Create Brokerage Ledger")
         # Step 5: Create the brokerage transaction
         brokerage_transaction = BrokerageLedger(
             shipment_id=shipment.id,
