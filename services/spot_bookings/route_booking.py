@@ -312,7 +312,7 @@ def admin_bulk_create_client_ftl_shipment(
         invoice = billing_result.invoice
 
         shipment.invoice_id = invoice.id
-        shipment.invoice_due_date = invoice.due_date
+        shipment.invoice_due_date = invoice.expected_payment_date
         shipment.invoice_status = invoice.status
 
         db.add(shipment)
@@ -371,7 +371,7 @@ def admin_bulk_create_client_ftl_shipment(
             shipper_company_name=enterprise.legal_business_name,
             booking_amount=quote_per_shipment,
             shipment_invoice_id=invoice.id,
-            shipment_invoice_due_date=invoice.due_date,
+            shipment_invoice_due_date=invoice.expected_payment_date,
             shipment_invoice_status=invoice.status,
             platform_commission=platform_commission,
             transaction_fee=transaction_fee,
@@ -404,7 +404,7 @@ def admin_bulk_create_client_ftl_shipment(
             rate_per_km=int(rate_per_km),  # Convert to integer (e.g., cents)
             rate_per_ton=int(rate_per_ton),  # Convert to integer
             payment_terms=billing_account.payment_terms,  # Dynamic payout method
-            payment_date=(invoice.due_date + timedelta(days=2)),
+            payment_date=(invoice.expected_payment_date + timedelta(days=1)),
             required_truck_type=shipment.required_truck_type,
             equipment_type=shipment.equipment_type,
             trailer_type=shipment.trailer_type,

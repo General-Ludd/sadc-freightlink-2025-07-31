@@ -278,7 +278,7 @@ def create_ftl_shipment(
     invoice = billing_result.invoice
 
     shipment.invoice_id = invoice.id
-    shipment.invoice_due_date = invoice.due_date
+    shipment.invoice_due_date = invoice.expected_payment_date
     shipment.invoice_status = invoice.status
 
     db.add(shipment)
@@ -302,7 +302,7 @@ def create_ftl_shipment(
         shipper_company_name=shipper.legal_business_name,
         booking_amount=booking_amount,
         shipment_invoice_id=invoice.id,
-        shipment_invoice_due_date=invoice.due_date,
+        shipment_invoice_due_date=invoice.expected_payment_date,
         shipment_invoice_status=invoice.status,
         platform_commission=brokerage_details[0],
         transaction_fee=brokerage_details[1],
@@ -335,7 +335,7 @@ def create_ftl_shipment(
         rate_per_km=int(rate_per_km),  # Convert to integer (e.g., cents)
         rate_per_ton=int(rate_per_ton),  # Convert to integer
         payment_terms=financial_account.payment_terms,  # Dynamic payout method
-        payment_date=(invoice.due_date + timedelta(days=2)),
+        payment_date=(invoice.expected_payment_date + timedelta(days=1)),
         required_truck_type=shipment_data.required_truck_type,
         equipment_type=shipment_data.equipment_type,
         trailer_type=shipment_data.trailer_type,
@@ -755,7 +755,7 @@ def broker_create_ftl_shipment(
         total_cost=quote_per_shipment
     )
     shipment.invoice_id = shipment_invoice.id
-    shipment.invoice_due_date = shipment_invoice.due_date
+    shipment.invoice_due_date = invoice.due_date
     shipment.invoice_status = shipment_invoice.status
 
     db.add(shipment)
@@ -1294,7 +1294,7 @@ def admin_create_client_ftl_shipment(
 
         print("STEP 29 - Update Shipment Invoice Fields")
         shipment.invoice_id = invoice.id
-        shipment.invoice_due_date = invoice.due_date
+        shipment.invoice_due_date = invoice.expected_payment_date
         shipment.invoice_status = invoice.status
 
         db.add(shipment)
