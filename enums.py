@@ -36,6 +36,7 @@ class PaymentTerms(str, Enum):
     NET_45 = "45 Days from statement"
     NET_60 = "60 Days from statement"
     EOM = "EOM"
+    COD = "Cash on delivery"
 
 class Recurrence_Frequency(str, Enum):
     DAILY = "Daily"
