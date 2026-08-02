@@ -311,19 +311,26 @@ def admin_client_bulk_route_bookin(
     current_user: dict = Depends(get_current_admin),
 ):
     try:
-        result = admin_bulk_create_client_ftl_shipment(
-            db,
-            route_data,
-            current_user=current_user)
-        return result
-    except HTTPException:
+        return admin_bulk_create_client_ftl_shipment(
+            db=db,
+            route_data=route_data,
+            current_user=current_user
+        )
+
+    except HTTPException as e:
+        print("=================================")
+        print("HTTPException")
+        print("Status:", e.status_code)
+        print("Detail:", e.detail)
+        print("=================================")
         raise
 
     except Exception as e:
-        raise HTTPException(
-            status_code=400,
-            detail=str(e)
-        )
+        print("=================================")
+        print("UNHANDLED EXCEPTION")
+        traceback.print_exc()
+        print("=================================")
+        raise
 
 SUCCESS_STATUSES = ["Assigned", "In-Transit", "Completed"]
 FAILED_STATUSES = ["Cancelled", "Failed"]
