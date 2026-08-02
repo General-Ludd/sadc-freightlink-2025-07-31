@@ -1284,7 +1284,7 @@ def admin_create_client_ftl_shipment(
         # --- Generate Invoice ---
         billing_result = billing_engine.initialize_shipment_billing(
             db=db,
-            shipper=shipper,
+            shipper=enterprise,
             shipment=shipment,
             financial_account=billing_account,
             booking_amount=booking_amount,
