@@ -997,14 +997,14 @@ def admin_create_client_ftl_shipment(
         FinancialAccounts.id == company_id
     ).first()
 
-    print("STEP 05 - Validate Enterprise Financial Account")
+    print("Financial Account Query Completed")
     if not enterprise_financial_account:
         raise HTTPException(status_code=404, detail="Financial account not found.")
     if not enterprise_financial_account.is_verified:
         raise HTTPException(status_code=403, detail="Financial account is not verified. Please await verification to create and finance a shipment.")
     if enterprise_financial_account.status != "Active":
         raise HTTPException(status_code=403, detail="Financial account is not active. Please await activation to create and finance  a shipment.")
-
+    
     facility = None
     facility_financial_account = None
 
