@@ -106,6 +106,10 @@ class BillingContext:
 
     statement_batch: Optional[str] = None
 
+    statement_period_start: Optional[date] = None
+
+    statement_period_end: Optional[date] = None
+
     due_date: Optional[date] = None
 
     expected_payment_date: Optional[date] = None
@@ -121,6 +125,9 @@ class BillingContext:
 
 @dataclass
 class BillingResult:
+    """
+    Immutable billing result returned to the booking workflow.
+    """
 
     success: bool
 
@@ -128,7 +135,7 @@ class BillingResult:
 
     billing_date: date
 
-    submission_date: date
+    submission_date: Optional[date]
 
     statement_date: Optional[date]
 
@@ -136,9 +143,13 @@ class BillingResult:
 
     statement_batch: Optional[str]
 
-    due_date: date
+    statement_period_start: Optional[date]
 
-    expected_payment_date: date
+    statement_period_end: Optional[date]
+
+    due_date: Optional[date]
+
+    expected_payment_date: Optional[date]
 
     payment_terms: str
 
@@ -228,7 +239,24 @@ class BillingEngine:
         # The statement/payment dates may differ.
         # ----------------------------------------------------------
 
-        context.billing_date = date.today()
+        if context.payment_trigger == "Booking Date":
+
+            context.billing_date = date.today()
+
+        elif context.payment_trigger == "Pickup Date":
+
+            context.billing_date = context.shipment.pickup_date
+
+        elif context.payment_trigger == "Delivery Date":
+
+            context.billing_date = (
+                context.shipment.delivery_date
+                or context.shipment.pickup_date
+            )
+
+        else:
+
+            context.billing_date = date.today()
 
         # ----------------------------------------------------------
         # Stage 3
@@ -464,6 +492,15 @@ class BillingEngine:
 
         context.payment_run_type = payment_run_type
         context.payment_run_days = payment_run_days
+        context.payment_run_rule = account.payment_run_rule
+        context.fixed_payment_day = account.fixed_payment_day
+        context.payment_run_weekday = account.payment_run_weekday
+        context.nth_week = account.nth_week
+        context.payment_business_days_only = account.payment_business_days_only
+        context.grace_days = account.grace_days
+
+        context.statement_cutoff_type = account.statement_cutoff_type
+        context.statement_generation = account.statement_generation
 
         return context
 
@@ -478,32 +515,31 @@ class BillingEngine:
         """
         Calculates the statement cycle this shipment belongs to.
 
-        This function determines:
+        Determines:
 
             • Statement Date
             • Statement Cycle
             • Statement Batch
-
-        It does NOT calculate payment due dates.
+            • Statement Period Start
+            • Statement Period End
         """
 
         from datetime import timedelta
         import calendar
 
-        shipment_date = context.shipment.pickup_date
+        shipment_date = context.shipment.pickup_date or date.today()
 
-        if shipment_date is None:
-            shipment_date = date.today()
-
-        #
         # ---------------------------------------------------------
-        # CLIENT DOES NOT REQUIRE STATEMENTS
+        # NO STATEMENTS REQUIRED
         # ---------------------------------------------------------
-        #
 
         if not context.statement_required:
 
             context.statement_date = shipment_date + timedelta(days=1)
+
+            context.statement_period_start = shipment_date
+
+            context.statement_period_end = shipment_date
 
             context.statement_cycle = "Immediate"
 
@@ -514,11 +550,9 @@ class BillingEngine:
 
             return context
 
-        #
         # ---------------------------------------------------------
         # WEEKLY
         # ---------------------------------------------------------
-        #
 
         if context.statement_cycle_policy == "Weekly":
 
@@ -528,9 +562,14 @@ class BillingEngine:
 
             context.statement_date = statement_date
 
+            context.statement_period_start = (
+                statement_date - timedelta(days=6)
+            )
+
+            context.statement_period_end = statement_date
+
             context.statement_cycle = (
-                f"Week Ending "
-                f"{statement_date.strftime('%d %b %Y')}"
+                f"Week Ending {statement_date.strftime('%d %b %Y')}"
             )
 
             context.statement_batch = (
@@ -540,39 +579,45 @@ class BillingEngine:
 
             return context
 
-        #
         # ---------------------------------------------------------
         # FORTNIGHTLY
         # ---------------------------------------------------------
-        #
 
         if context.statement_cycle_policy == "Fortnightly":
+
+            last_day = calendar.monthrange(
+                shipment_date.year,
+                shipment_date.month,
+            )[1]
 
             if shipment_date.day <= 15:
 
                 statement_date = shipment_date.replace(day=15)
 
+                context.statement_period_start = shipment_date.replace(day=1)
+
+                context.statement_period_end = statement_date
+
                 cycle = (
-                    f"1 - 15 "
-                    f"{shipment_date.strftime('%B %Y')}"
+                    f"1 - 15 {shipment_date.strftime('%B %Y')}"
                 )
 
             else:
 
-                last_day = calendar.monthrange(
-                    shipment_date.year,
-                    shipment_date.month
-                )[1]
-
                 statement_date = shipment_date.replace(day=last_day)
 
+                context.statement_period_start = shipment_date.replace(day=16)
+
+                context.statement_period_end = statement_date
+
                 cycle = (
-                    f"16 - {last_day} "
-                    f"{shipment_date.strftime('%B %Y')}"
+                    f"16 - {last_day} {shipment_date.strftime('%B %Y')}"
                 )
 
             context.statement_date = statement_date
+
             context.statement_cycle = cycle
+
             context.statement_batch = (
                 f"FORTNIGHT-{context.company_id}-"
                 f"{statement_date.strftime('%Y%m%d')}"
@@ -580,11 +625,9 @@ class BillingEngine:
 
             return context
 
-        #
         # ---------------------------------------------------------
         # TWICE MONTHLY
         # ---------------------------------------------------------
-        #
 
         if context.statement_cycle_policy == "Twice Monthly":
 
@@ -598,35 +641,42 @@ class BillingEngine:
             first_day = statement_days[0]
             second_day = statement_days[1]
 
-            #
-            # BEFORE FIRST CUT-OFF
-            #
+            last_day = calendar.monthrange(
+                shipment_date.year,
+                shipment_date.month,
+            )[1]
 
             if shipment_date.day < first_day:
 
                 statement_date = shipment_date.replace(day=first_day)
 
-                cycle = (
-                    f"1 - {first_day-1} "
-                    f"{shipment_date.strftime('%B %Y')}"
+                context.statement_period_start = shipment_date.replace(day=1)
+
+                context.statement_period_end = (
+                    statement_date - timedelta(days=1)
                 )
 
-            #
-            # BEFORE SECOND CUT-OFF
-            #
+                cycle = (
+                    f"1 - {first_day - 1} "
+                    f"{shipment_date.strftime('%B %Y')}"
+                )
 
             elif shipment_date.day < second_day:
 
                 statement_date = shipment_date.replace(day=second_day)
 
-                cycle = (
-                    f"{first_day} - {second_day-1} "
-                    f"{shipment_date.strftime('%B %Y')}"
+                context.statement_period_start = shipment_date.replace(
+                    day=first_day
                 )
 
-            #
-            # NEXT MONTH FIRST CUT-OFF
-            #
+                context.statement_period_end = (
+                    statement_date - timedelta(days=1)
+                )
+
+                cycle = (
+                    f"{first_day} - {second_day - 1} "
+                    f"{shipment_date.strftime('%B %Y')}"
+                )
 
             else:
 
@@ -643,28 +693,94 @@ class BillingEngine:
                 statement_date = date(
                     next_year,
                     next_month,
-                    first_day
+                    first_day,
                 )
 
-                last_day = calendar.monthrange(
-                    shipment_date.year,
-                    shipment_date.month
-                )[1]
+                context.statement_period_start = shipment_date.replace(
+                    day=second_day
+                )
+
+                context.statement_period_end = shipment_date.replace(
+                    day=last_day
+                )
 
                 cycle = (
                     f"{second_day} {shipment_date.strftime('%b')} - "
-                    f"{first_day-1} "
+                    f"{first_day - 1} "
                     f"{statement_date.strftime('%b %Y')}"
                 )
 
             context.statement_date = statement_date
+
             context.statement_cycle = cycle
+
             context.statement_batch = (
                 f"TWICE-{context.company_id}-"
                 f"{statement_date.strftime('%Y%m%d')}"
             )
 
             return context
+
+        # ---------------------------------------------------------
+        # MONTHLY
+        # ---------------------------------------------------------
+
+        if context.statement_cycle_policy == "Monthly":
+
+            statement_day = context.statement_days[0]
+
+            last_day = calendar.monthrange(
+                shipment_date.year,
+                shipment_date.month,
+            )[1]
+
+            statement_day = min(statement_day, last_day)
+
+            if shipment_date.day <= statement_day:
+
+                statement_date = shipment_date.replace(day=statement_day)
+
+            else:
+
+                if shipment_date.month == 12:
+
+                    statement_date = date(
+                        shipment_date.year + 1,
+                        1,
+                        statement_day,
+                    )
+
+                else:
+
+                    statement_date = date(
+                        shipment_date.year,
+                        shipment_date.month + 1,
+                        statement_day,
+                    )
+
+            context.statement_date = statement_date
+
+            context.statement_period_start = shipment_date.replace(day=1)
+
+            context.statement_period_end = shipment_date.replace(day=last_day)
+
+            context.statement_cycle = shipment_date.strftime("%B %Y")
+
+            context.statement_batch = (
+                f"MONTHLY-{context.company_id}-"
+                f"{statement_date.strftime('%Y%m%d')}"
+            )
+
+            return context
+
+        # ---------------------------------------------------------
+        # UNSUPPORTED
+        # ---------------------------------------------------------
+
+        raise ValueError(
+            f"Unsupported statement cycle: "
+            f"{context.statement_cycle_policy}"
+        )
 
         #
         # ---------------------------------------------------------
@@ -675,6 +791,19 @@ class BillingEngine:
         if context.statement_cycle_policy == "Monthly":
 
             statement_day = context.statement_days[0]
+
+            last_day = calendar.monthrange(
+                shipment_date.year,
+                shipment_date.month
+            )[1]
+
+            #
+            # If the configured statement day exceeds the
+            # number of days in the month, use the month's
+            # last day instead.
+            #
+
+            statement_day = min(statement_day, last_day)
 
             if shipment_date.day <= statement_day:
 
@@ -842,64 +971,32 @@ class BillingEngine:
         context: BillingContext,
     ) -> BillingContext:
         """
-        Calculates the contractual payment due date.
-
-        The due date is calculated using the client's
-        configured payment trigger and payment days.
-
-        Examples
-        --------
-        PAB
-            Due immediately.
-
-        COD
-            Pickup + 1 day.
-
-        NET30 from Statement
-            Statement Date + 30 days.
-
-        NET15 from Invoice
-            Invoice Date + 15 days.
+        Calculates the contractual payment due date and expected payment date.
         """
 
         from datetime import timedelta
+        import calendar
 
         shipment = context.shipment
 
         booking_date = context.billing_date
-
         pickup_date = shipment.pickup_date
-
-        delivery_date = getattr(
-            shipment,
-            "delivery_date",
-            None
-        )
+        delivery_date = getattr(shipment, "delivery_date", None)
 
         payment_type = context.payment_type
-
         payment_trigger = context.payment_trigger
-
         payment_days = context.payment_days or 0
 
-        #
         # ----------------------------------------------------------
-        # PAYMENT AT BOOKING
+        # Immediate payment methods
         # ----------------------------------------------------------
-        #
 
-        if payment_type == "PAB":
+        if payment_type in ("PAB", "Instant EFT", "Credit Card"):
 
             context.due_date = booking_date
             context.expected_payment_date = booking_date
 
             return context
-
-        #
-        # ----------------------------------------------------------
-        # CASH ON DELIVERY
-        # ----------------------------------------------------------
-        #
 
         if payment_type == "COD":
 
@@ -910,99 +1007,128 @@ class BillingEngine:
 
             return context
 
-        #
         # ----------------------------------------------------------
-        # INSTANT EFT
+        # Determine trigger date
         # ----------------------------------------------------------
-        #
 
-        if payment_type == "Instant EFT":
+        if payment_trigger == "Booking Date":
 
-            context.due_date = booking_date
-            context.expected_payment_date = booking_date
+            trigger_date = booking_date
 
+        elif payment_trigger == "Pickup Date":
+
+            trigger_date = pickup_date
+
+        elif payment_trigger == "Delivery Date":
+
+            trigger_date = delivery_date or pickup_date
+
+        elif payment_trigger == "Invoice Date":
+
+            trigger_date = context.submission_date
+
+        elif payment_trigger == "Statement Date":
+
+            trigger_date = context.statement_date
+
+        elif payment_trigger == "POD Approved":
+
+            # Estimated until POD workflow exists
+            trigger_date = context.submission_date
+
+        elif payment_trigger == "Manual":
+
+            context.due_date = None
+            context.expected_payment_date = None
             return context
 
-        #
+        else:
+
+            raise ValueError(
+                f"Unsupported payment trigger: {payment_trigger}"
+            )
+
         # ----------------------------------------------------------
-        # CREDIT CARD
+        # Contractual due date
         # ----------------------------------------------------------
-        #
-
-        if payment_type == "Credit Card":
-
-            context.due_date = booking_date
-            context.expected_payment_date = booking_date
-
-            return context
-
-        #
-        # ----------------------------------------------------------
-        # CREDIT / CONTRACT ACCOUNTS
-        # ----------------------------------------------------------
-        #
-
-        trigger_date = None
-
-        match payment_trigger:
-
-            case "Booking Date":
-                trigger_date = booking_date
-
-            case "Pickup Date":
-                trigger_date = pickup_date
-
-            case "Delivery Date":
-
-                if delivery_date is None:
-                    delivery_date = pickup_date
-
-                trigger_date = delivery_date
-
-            case "Invoice Date":
-                trigger_date = context.submission_date
-
-            case "POD Approved":
-
-                #
-                # During booking the POD does not exist.
-                # Estimate approval as the submission date.
-                #
-
-                trigger_date = context.submission_date
-
-            case "Statement Date":
-                trigger_date = context.statement_date
-
-            case "Manual":
-
-                #
-                # Finance team will manually update later.
-                #
-
-                context.due_date = None
-                context.expected_payment_date = None
-
-                return context
-
-            case _:
-
-                raise ValueError(
-                    f"Unsupported payment trigger: "
-                    f"{payment_trigger}"
-                )
-
-        #
-        # ----------------------------------------------------------
-        # CALCULATE DUE DATE
-        # ----------------------------------------------------------
-        #
 
         due_date = trigger_date + timedelta(days=payment_days)
 
+        if context.grace_days:
+
+            due_date += timedelta(days=context.grace_days)
+
         context.due_date = due_date
 
-        context.expected_payment_date = due_date
+        expected_payment = due_date
+
+        # ----------------------------------------------------------
+        # Fixed Day Of Month
+        # ----------------------------------------------------------
+
+        if context.payment_run_rule == "Fixed Day Of Month":
+
+            payment_day = context.fixed_payment_day or due_date.day
+
+            if due_date.day > payment_day:
+
+                if due_date.month == 12:
+
+                    year = due_date.year + 1
+                    month = 1
+
+                else:
+
+                    year = due_date.year
+                    month = due_date.month + 1
+
+            else:
+
+                year = due_date.year
+                month = due_date.month
+
+            last_day = calendar.monthrange(year, month)[1]
+
+            payment_day = min(payment_day, last_day)
+
+            expected_payment = date(
+                year,
+                month,
+                payment_day,
+            )
+
+        # ----------------------------------------------------------
+        # Weekly Payment Run
+        # ----------------------------------------------------------
+
+        elif context.payment_run_rule == "Weekly":
+
+            weekday_map = {
+                "Monday": 0,
+                "Tuesday": 1,
+                "Wednesday": 2,
+                "Thursday": 3,
+                "Friday": 4,
+            }
+
+            weekday = weekday_map.get(
+                context.payment_run_weekday,
+                4,
+            )
+
+            days = (weekday - due_date.weekday()) % 7
+
+            expected_payment = due_date + timedelta(days=days)
+
+        # ----------------------------------------------------------
+        # Immediate Payment Run
+        # ----------------------------------------------------------
+
+        elif context.payment_run_rule == "Immediate":
+
+            expected_payment = due_date
+
+        context.expected_payment_date = expected_payment
 
         return context
 
@@ -1015,61 +1141,54 @@ class BillingEngine:
         context: BillingContext,
     ) -> BillingContext:
         """
-        Creates and persists a Shipment Invoice.
-
-        This method is responsible for:
-
-        • Building the invoice
-        • Populating finance information
-        • Saving it to the database
-        • Updating the BillingContext
+        Creates a Shipment Invoice.
         """
 
         shipment = context.shipment
         account = context.financial_account
 
-        # ----------------------------------------------------------
-        # BUILD BASE INVOICE
-        # ----------------------------------------------------------
-
         invoice = Shipment_Invoice(
 
-            #
+            # --------------------------------------------------
             # Invoice Information
-            #
+            # --------------------------------------------------
 
             invoice_type="Service",
 
             shipment_id=shipment.id,
-
             shipment_type=shipment.type,
 
             contract_id=getattr(shipment, "contract_id", None),
-
             contract_type=getattr(shipment, "contract_type", None),
 
             description=f"{shipment.type} Shipment",
 
             status="Outstanding",
-
             is_paid=False,
-
             is_applied=False,
 
-            #
+            # --------------------------------------------------
             # Billing
-            #
+            # --------------------------------------------------
 
             billing_date=context.billing_date,
+            submission_date=context.submission_date,
+            statement_date=context.statement_date,
+
+            statement_cycle=context.statement_cycle,
+            statement_batch=context.statement_batch,
+
+            statement_period_start=context.statement_period_start,
+            statement_period_end=context.statement_period_end,
 
             due_date=context.due_date,
+            expected_payment_date=context.expected_payment_date,
 
-            #
+            # --------------------------------------------------
             # Customer
-            #
+            # --------------------------------------------------
 
             company_id=shipment.shipper_company_id,
-
             financial_account_id=account.id,
 
             payment_terms=str(account.payment_terms),
@@ -1083,57 +1202,38 @@ class BillingEngine:
             ),
 
             business_email=context.shipper.business_email,
-
             billing_address=context.shipper.business_address,
 
-            #
+            # --------------------------------------------------
             # Shipment
-            #
+            # --------------------------------------------------
 
             origin_address=shipment.origin_address,
-
             destination_address=shipment.destination_address,
 
             pickup_date=shipment.pickup_date,
 
             distance=shipment.distance,
-
             transit_time=shipment.estimated_transit_time,
 
-            #
+            # --------------------------------------------------
             # Charges
-            #
+            # --------------------------------------------------
 
             base_amount=context.booking_amount,
 
-            other_surcharges=0,
-
-            vat=0,
+            other_surcharges=Decimal("0.00"),
+            vat=Decimal("0.00"),
 
             total=context.booking_amount,
-
             due_amount=context.booking_amount,
 
-            paid_amount=0,
-
-            late_fees=0,
+            paid_amount=Decimal("0.00"),
+            late_fees=Decimal("0.00"),
         )
 
-        #
-        # ----------------------------------------------------------
-        # SAVE
-        # ----------------------------------------------------------
-        #
-
         context.db.add(invoice)
-
         context.db.flush()
-
-        #
-        # ----------------------------------------------------------
-        # UPDATE CONTEXT
-        # ----------------------------------------------------------
-        #
 
         context.invoice = invoice
 
@@ -1561,6 +1661,10 @@ class BillingEngine:
 
             statement_batch=context.statement_batch,
 
+            statement_period_start=context.statement_period_start,
+
+            statement_period_end=context.statement_period_end,
+
             due_date=context.due_date,
 
             expected_payment_date=context.expected_payment_date,
@@ -1574,9 +1678,7 @@ class BillingEngine:
             billing_status=context.billing_status,
 
             message="Billing successfully initialized.",
-        )
-
-
+    )
 # ==============================================================================
 # SINGLETON
 # ==============================================================================

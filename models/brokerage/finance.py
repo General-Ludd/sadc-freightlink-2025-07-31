@@ -359,6 +359,13 @@ class Shipment_Invoice(Base):
     billing_date = Column(Date)
     is_subinvoice = Column(Boolean,default=False)
     due_date = Column(Date, nullable=True)
+    statement_date = Column(Date, nullable=True)
+    submission_date = Column(Date, nullable=True)
+    expected_payment_date = Column(Date, nullable=True)
+    statement_cycle = Column(String, nullable=True)
+    statement_batch = Column(String, nullable=True)
+    statement_period_start = Column(Date, nullable=True)
+    statement_period_end = Column(Date, nullable=True)
     description = Column(String, nullable=True)
     status = Column(String)
     is_paid = Column(Boolean, default=False)
@@ -609,8 +616,6 @@ class FinancialAccounts(Base):
     __tablename__ = "financial_accounts"
 
     id = Column(Integer, primary_key=True, index=True)
-    payment_type = Column(String, nullable=True)
-    payment_terms = Column(Enum(PaymentTerms), nullable=False)
     # ==========================================================
     # PAYMENT POLICY
     # ==========================================================
@@ -625,6 +630,10 @@ class FinancialAccounts(Base):
     statement_cycle = Column(Enum("Weekly", "Fortnightly", "Twice Monthly", "Monthly", "Custom", name="statement_cycle"),nullable=True)
     statement_days = Column(JSON, nullable=True)
     statement_generation = Column(Enum("Same Day", "Next Business Day", "Manual", name="statement_generation"), nullable=True)
+    # ==========================================================
+    # STATEMENT CUT-OFF POLICY
+    # ==========================================================
+    statement_cutoff_type = Column(Enum("Calendar", "Business Day", "Custom", name="statement_cutoff_type"), nullable=True)
     finance_department_email = Column(String)
     # ==========================================================
     # POD POLICY
@@ -643,6 +652,29 @@ class FinancialAccounts(Base):
     # ==========================================================
     payment_run_type = Column(Enum("Immediate", "Daily", "Weekly", "Fortnightly", "Monthly", "Custom", name="payment_run_type"),nullable=True)
     payment_run_days = Column(JSON, nullable=True)
+    # ==========================================================
+    # ADVANCED PAYMENT RUN POLICY
+    # ==========================================================
+    # Determines how payment dates are calculated.
+    payment_run_rule = Column(Enum("Immediate", "Next Payment Run", "Fixed Day Of Month", "Last Day Of Month", "Last Business Day", "Nth Weekday", "Manual", name="payment_run_rule"), nullable=True)
+    # Example:
+    # 15 = Pay on the 15th
+    # 30 = Pay on the 30th
+    fixed_payment_day = Column(Integer, nullable=True)
+    # Example:
+    # Monday
+    # Tuesday
+    # Friday
+    payment_run_weekday = Column(Enum("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday", name="payment_run_weekday"), nullable=True)
+    # Example:
+    # First Friday
+    # Second Wednesday
+    # Last Thursday
+    nth_week = Column(Integer, nullable=True)
+    # Ignore weekends when calculating payment dates.
+    payment_business_days_only = Column(Boolean, default=True)
+    # Extra days after the calculated due date.
+    grace_days = Column(Integer, default=0)
     company_name = Column(String, nullable=False)
     business_country_of_incorporation = Column(String, nullable=False)
     business_registration_number = Column(String, nullable=False)
