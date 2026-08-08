@@ -182,10 +182,12 @@ class Shipment_Mode(str, Enum):
     DEDICATEDPOWERLANE = "Dedicated POWER Lane"
 
 class Trip_Type(str, Enum):
-    SINGLESTOP = "Single-Stop"
-    MULTISTOP = "Multi-Stop"
-    ROUNDTRIP = "Round-Trip"
-    ROUNDTRIPBUNDLE= "Round-Trip Bundle"
+    ONE_WAY = "One-Way"
+    ONE_WAY_MULTI_STOP = "One Way Multi-Stop"
+    ONE_WAY_BUNDLE = "One Way Bundle"
+    ROUND_TRIP = "Round Trip"
+    ROUND_TRIP_MULTI_STOP = "Round Trip Multi-Stop"
+    ROUND_TRIP_BUNDLE = "Round Trip Bundle"
 
 class Load_Type(str, Enum):
     LIVELOADING = "Live Loading"

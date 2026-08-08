@@ -29,6 +29,7 @@ class ShipmentFacility(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     shipper_company_id = Column(Integer, nullable=True)
+    stop_sequence = Column(Integer, nullable=False)
     type = Column(String, nullable=True)  # e.g., "Pickup" or "Dropoff"
     address = Column(String, nullable=False)
     name = Column(String, nullable=True)

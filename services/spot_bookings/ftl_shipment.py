@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from typing import Optional
+from typing import Optional, List
 from datetime import timedelta
 from models.shipper import Corporation, Consignor
 from models.spot_bookings.ftl_shipment import FTL_SHIPMENT, FTL_Shipment_Docs, shipment_status_Update
@@ -967,8 +967,10 @@ def admin_create_client_ftl_shipment(
         dropoff_facility_data: ShipmentFacilityCreate,
         pickup_contact_data: FacilityContactCreate,
         dropoff_contact_data: FacilityContactCreate,
-        shipment_documents_data: FTL_Shipment_docs_create,
-        current_user: dict,
+        stop_facilities_data: Optional[List[ShipmentFacilityCreate]] = None,
+        stop_contacts_data: Optional[List[FacilityContactCreate]] = None,
+        shipment_documents_data: FTL_Shipment_docs_create = None,
+        current_user: dict = None,
 ):
     print("========== Admin Client CREATE FTL SHIPMENT START ==========")
     print("STEP 01 - Validate Current User")
@@ -1041,10 +1043,23 @@ def admin_create_client_ftl_shipment(
     # Step 1: Calculate Distance and Transit Time
     print("STEP 10 - Calculate Route Distance")
     try:
-        distance_data = calculate_distance(AddressInput(
-            origin_address=shipment_data.origin_address,
-            destination_address=shipment_data.destination_address
-        ))
+        distance_data = calculate_distance(
+            AddressInput(
+                origin_address=shipment_data.origin_address,
+                waypoints=[
+                    address
+                    for address in [
+                        shipment_data.stop_1_address,
+                        shipment_data.stop_2_address,
+                        shipment_data.stop_3_address,
+                        shipment_data.stop_4_address,
+                        shipment_data.stop_5_address,
+                    ]
+                    if address and address.strip()
+                ],
+                destination_address=shipment_data.destination_address,
+            )
+        )
         distance = distance_data["distance"]  # Distance in kilometers
         estimated_transit_time = distance_data["duration"]  # Transit time as text
         complete_origin_address = distance_data["complete_origin_address"]
@@ -1151,29 +1166,117 @@ def admin_create_client_ftl_shipment(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Shipment billing process failed: {str(e)}")
 
-    print("STEP 17 - Create Pickup Contact")
+    print("STEP 17 - Validate Stop Facility Data")
+
+    # Normalize optional stop data
+    stop_facilities_data = stop_facilities_data or []
+    stop_contacts_data = stop_contacts_data or []
+
+    # ---------------------------------------------------------
+    # Determine which stop addresses were supplied
+    # ---------------------------------------------------------
+
+    stop_addresses = [
+        shipment_data.stop_1_address,
+        shipment_data.stop_2_address,
+        shipment_data.stop_3_address,
+        shipment_data.stop_4_address,
+        shipment_data.stop_5_address,
+    ]
+
+    supplied_stop_addresses = [
+        address.strip()
+        for address in stop_addresses
+        if address and address.strip()
+    ]
+
+    # ---------------------------------------------------------
+    # Validate that stop addresses are sequential
+    # ---------------------------------------------------------
+
+    encountered_empty_stop = False
+
+    for index, address in enumerate(stop_addresses, start=1):
+
+        if address and address.strip():
+
+            if encountered_empty_stop:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"Invalid stop sequence. "
+                        f"stop_{index}_address was provided while an earlier "
+                        f"stop address is missing."
+                    )
+                )
+
+        else:
+            encountered_empty_stop = True
+
+    # ---------------------------------------------------------
+    # Number of stop addresses must match facility/contact data
+    # ---------------------------------------------------------
+
+    if len(stop_facilities_data) != len(supplied_stop_addresses):
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"The shipment contains "
+                f"{len(supplied_stop_addresses)} stop address(es), "
+                f"but {len(stop_facilities_data)} stop facility record(s) "
+                f"were provided."
+            )
+        )
+
+    if len(stop_contacts_data) != len(supplied_stop_addresses):
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"The shipment contains "
+                f"{len(supplied_stop_addresses)} stop address(es), "
+                f"but {len(stop_contacts_data)} stop contact record(s) "
+                f"were provided."
+            )
+        )
+
+    print(
+        f"STEP 17 COMPLETE - "
+        f"{len(supplied_stop_addresses)} stop(s) detected"
+    )
+
+
+    # =========================================================
+    # PICKUP CONTACT
+    # =========================================================
+
+    print("STEP 18 - Create Pickup Contact")
+
     pickup_contact = ContactPerson(
         first_name=pickup_contact_data.first_name,
         last_name=pickup_contact_data.last_name,
         phone_number=pickup_contact_data.phone_number,
         email=pickup_contact_data.email,
     )
+
     db.add(pickup_contact)
     db.flush()
 
-    print("STEP 18 - Create Dropoff Contact")
-    dropoff_contact = ContactPerson(
-        first_name=dropoff_contact_data.first_name,
-        last_name=dropoff_contact_data.last_name,
-        phone_number=dropoff_contact_data.phone_number,
-        email=dropoff_contact_data.email,
+    print(
+        f"Pickup Contact Created - ID: {pickup_contact.id}"
     )
-    db.add(dropoff_contact)
-    db.flush()
+
+
+    # =========================================================
+    # PICKUP FACILITY
+    # =========================================================
 
     print("STEP 19 - Create Pickup Facility")
+
     pickup_facility = ShipmentFacility(
         shipper_company_id=billing_company.id,
+        stop_sequence=1,
         type="Pickup",
         address=shipment_data.origin_address,
         name=pickup_facility_data.name,
@@ -1183,13 +1286,124 @@ def admin_create_client_ftl_shipment(
         contact_person_relationship=pickup_contact,
         facility_notes=pickup_facility_data.facility_notes,
     )
+
     db.add(pickup_facility)
     db.flush()
 
-    print("STEP 20 - Create Dropoff Facility")
+    print(
+        f"Pickup Facility Created - ID: {pickup_facility.id}"
+    )
+
+
+    # =========================================================
+    # STOP FACILITIES
+    # =========================================================
+
+    stop_facility_ids = []
+
+    print(
+        f"STEP 20 - Create {len(supplied_stop_addresses)} Stop Facility/F"
+    )
+
+    for index, stop_address in enumerate(
+        supplied_stop_addresses,
+        start=1
+    ):
+
+        print(
+            f"Creating Stop {index} - {stop_address}"
+        )
+
+        stop_facility_data = stop_facilities_data[index - 1]
+        stop_contact_data = stop_contacts_data[index - 1]
+
+        # -----------------------------------------------------
+        # Create Stop Contact
+        # -----------------------------------------------------
+
+        stop_contact = ContactPerson(
+            first_name=stop_contact_data.first_name,
+            last_name=stop_contact_data.last_name,
+            phone_number=stop_contact_data.phone_number,
+            email=stop_contact_data.email,
+        )
+
+        db.add(stop_contact)
+        db.flush()
+
+        print(
+            f"Stop {index} Contact Created - "
+            f"ID: {stop_contact.id}"
+        )
+
+        # -----------------------------------------------------
+        # Create Stop Facility
+        # -----------------------------------------------------
+
+        stop_facility = ShipmentFacility(
+            shipper_company_id=billing_company.id,
+            stop_sequence=index + 1,
+            type="Stop",
+            address=stop_address,
+            name=stop_facility_data.name,
+            scheduling_type=stop_facility_data.scheduling_type,
+            start_time=stop_facility_data.start_time,
+            end_time=stop_facility_data.end_time,
+            contact_person_relationship=stop_contact,
+            facility_notes=stop_facility_data.facility_notes,
+        )
+
+        db.add(stop_facility)
+        db.flush()
+
+        stop_facility_ids.append(stop_facility.id)
+
+        print(
+            f"Stop {index} Facility Created - "
+            f"ID: {stop_facility.id}, "
+            f"Sequence: {stop_facility.stop_sequence}"
+        )
+
+
+    # =========================================================
+    # DROP-OFF / FINAL FACILITY
+    # =========================================================
+
+    print("STEP 21 - Create Final Facility Contact")
+
+    dropoff_contact = ContactPerson(
+        first_name=dropoff_contact_data.first_name,
+        last_name=dropoff_contact_data.last_name,
+        phone_number=dropoff_contact_data.phone_number,
+        email=dropoff_contact_data.email,
+    )
+
+    db.add(dropoff_contact)
+    db.flush()
+
+    print(
+        f"Final Facility Contact Created - "
+        f"ID: {dropoff_contact.id}"
+    )
+
+
+    print("STEP 22 - Create Final Facility")
+
+    # ---------------------------------------------------------
+    # Determine whether final facility is Delivery or Return
+    # ---------------------------------------------------------
+
+    if shipment_data.trip_type == "Round-Trip":
+        final_facility_type = "Return"
+    else:
+        final_facility_type = "Delivery"
+
+    final_facility_sequence = len(stop_facility_ids) + 2
+
     dropoff_facility = ShipmentFacility(
         shipper_company_id=billing_company.id,
-        type="Dropoff",
+        stop_sequence=final_facility_sequence,
+        type=final_facility_type,
         address=shipment_data.destination_address,
         name=dropoff_facility_data.name,
         scheduling_type=dropoff_facility_data.scheduling_type,
@@ -1198,8 +1412,16 @@ def admin_create_client_ftl_shipment(
         contact_person_relationship=dropoff_contact,
         facility_notes=dropoff_facility_data.facility_notes,
     )
+
     db.add(dropoff_facility)
     db.flush()
+
+    print(
+        f"Final Facility Created - "
+        f"ID: {dropoff_facility.id}, "
+        f"Type: {final_facility_type}, "
+        f"Sequence: {dropoff_facility.stop_sequence}"
+    )
 
     print("STEP 21 - Begin Shipment Creation Loop")
     for truck_number in range(number_of_trucks):
@@ -1212,7 +1434,7 @@ def admin_create_client_ftl_shipment(
         # Step 1: Create the FTL shipment
         shipment = FTL_SHIPMENT(
             type="FTL",
-            trip_type="1 Pickup, 1 Delivery",
+            trip_type=shipment_data.trip_type,
             load_type="Live Loading",
             shipper_company_id=billing_company.id,
             shipper_user_id=user_id,
@@ -1228,6 +1450,11 @@ def admin_create_client_ftl_shipment(
             origin_city_province=origin_city_province,
             origin_country=origin_country,
             origin_region=origin_region,
+            stop_1_address=shipment_data.stop_1_address if shipment_data.stop_1_address else None,
+            stop_2_address=shipment_data.stop_2_address if shipment_data.stop_2_address else None,
+            stop_3_address=shipment_data.stop_3_address if shipment_data.stop_3_address else None,
+            stop_4_address=shipment_data.stop_4_address if shipment_data.stop_4_address else None,
+            stop_5_address=shipment_data.stop_5_address if shipment_data.stop_5_address else None,
             destination_address=shipment_data.destination_address,
             complete_destination_address=complete_destination_address,
             destination_city_province=destination_city_province,
@@ -1237,6 +1464,11 @@ def admin_create_client_ftl_shipment(
             pickup_appointment=(f"{pickup_facility_data.start_time} - {pickup_facility_data.start_time}"),
             priority_level=shipment_data.priority_level,
             pickup_facility_id=pickup_facility.id,
+            stop_1_facility_id=stop_facility_ids[0] if len(stop_facility_ids) > 0 else None,
+            stop_2_facility_id=stop_facility_ids[1] if len(stop_facility_ids) > 1 else None,
+            stop_3_facility_id=stop_facility_ids[2] if len(stop_facility_ids) > 2 else None,
+            stop_4_facility_id=stop_facility_ids[3] if len(stop_facility_ids) > 3 else None,
+            stop_5_facility_id=stop_facility_ids[4] if len(stop_facility_ids) > 4 else None,
             delivery_facility_id=dropoff_facility.id,
             customer_reference_number=truck_reference,
             shipment_weight=shipment_data.shipment_weight,
@@ -1407,6 +1639,11 @@ def admin_create_client_ftl_shipment(
             origin__city_province=origin_city_province,
             origin_country=origin_country,
             origin_region=origin_region,
+            stop_1_address=shipment_data.stop_1_address if shipment_data.stop_1_address else None,
+            stop_2_address=shipment_data.stop_2_address if shipment_data.stop_2_address else None,
+            stop_3_address=shipment_data.stop_3_address if shipment_data.stop_3_address else None,
+            stop_4_address=shipment_data.stop_4_address if shipment_data.stop_4_address else None,
+            stop_5_address=shipment_data.stop_5_address if shipment_data.stop_5_address else None,
             destination_address=shipment_data.destination_address,
             complete_destination_address=complete_destination_address,
             destination_city_province=destination_city_province,
@@ -1436,6 +1673,11 @@ def admin_create_client_ftl_shipment(
             pickup_last_name=pickup_contact_data.last_name,
             pickup_phone_number=pickup_contact_data.phone_number,
             pickup_email=pickup_contact_data.email,
+            stop_1_facility_id=shipment_data.stop_1_facility_id if shipment_data.stop_1_facility_id else None,
+            stop_2_facility_id=shipment_data.stop_2_facility_id if shipment_data.stop_2_facility_id else None,
+            stop_3_facility_id=shipment_data.stop_3_facility_id if shipment_data.stop_3_facility_id else None,
+            stop_4_facility_id=shipment_data.stop_4_facility_id if shipment_data.stop_4_facility_id else None,
+            stop_5_facility_id=shipment_data.stop_5_facility_id if shipment_data.stop_5_facility_id else None,
             delivery_facility_name=dropoff_facility_data.name,
             delivery_scheduling_type=dropoff_facility_data.scheduling_type,
             delivery_start_time=dropoff_facility_data.start_time,

@@ -63,6 +63,7 @@ class Admin_Client_FTL_Shipment_Booking(BaseModel):
     facility_id: Optional [int] = None
     client_id: int
     user_id: int
+    trip_type: str
     shipment_rate: Optional[int] = None
     commission_rate: Optional[int] = None
     number_of_required_trucks: int
@@ -74,6 +75,11 @@ class Admin_Client_FTL_Shipment_Booking(BaseModel):
     minimum_git_cover_amount: Optional[int] = None
     minimum_liability_cover_amount: Optional[int] = None
     origin_address: str
+    stop_1_address: Optional[str] = None
+    stop_2_address: Optional[str] = None
+    stop_3_address: Optional[str] = None
+    stop_4_address: Optional[str] = None
+    stop_5_address: Optional[str] = None
     destination_address: str
     pickup_date: date
     priority_level: Priority_Level

@@ -1,5 +1,5 @@
 from datetime import date
-from typing import Optional
+from typing import Optional, List
 from models.shipper import Corporation
 from models.brokerage.finance import FinancialAccounts
 from models.user import Director
@@ -282,7 +282,9 @@ def admin_create_client_spot_ftl_endpoint(
     dropoff_facility_data: ShipmentFacilityCreate,
     pickup_contact_data: FacilityContactCreate,
     dropoff_contact_data: FacilityContactCreate,
-    shipment_documents_data: FTL_Shipment_docs_create,
+    stop_facilities_data: Optional[List[ShipmentFacilityCreate]] = None,
+    stop_contacts_data: Optional[List[FacilityContactCreate]] = None,
+    shipment_documents_data: FTL_Shipment_docs_create = None,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_admin),
 ):
@@ -294,6 +296,8 @@ def admin_create_client_spot_ftl_endpoint(
             dropoff_facility_data,
             pickup_contact_data,
             dropoff_contact_data,
+            stop_facilities_data,
+            stop_contacts_data,
             shipment_documents_data,
             current_user=current_user)
         return result

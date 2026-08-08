@@ -397,6 +397,7 @@ class BillingEngine:
         payment_terms = account.payment_terms
 
         if payment_type in (
+            "COD",
             "Credit Account",
             "Contract Account",
         ) and payment_terms is None:
@@ -422,6 +423,7 @@ class BillingEngine:
         payment_trigger = account.payment_trigger
 
         if payment_type in (
+            "COD"
             "Credit Account",
             "Contract Account",
         ):
