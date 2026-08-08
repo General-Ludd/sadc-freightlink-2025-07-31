@@ -69,11 +69,11 @@ class LoadBoardEntryCreate(BaseModel):
     pickup_last_name: str
     pickup_phone_number: str
     pickup_email: EmailStr
-    stop_1_facility_id: Optional[str] = None
-    stop_2_facility_id: Optional[str] = None
-    stop_3_facility_id: Optional[str] = None
-    stop_4_facility_id: Optional[str] = None
-    stop_5_facility_id: Optional[str] = None
+    stop_1_facility_id: Optional[int] = None
+    stop_2_facility_id: Optional[int] = None
+    stop_3_facility_id: Optional[int] = None
+    stop_4_facility_id: Optional[int] = None
+    stop_5_facility_id: Optional[int] = None
     delivery_facility_name: str
     delivery_scheduling_type: str
     delivery_start_time: time
