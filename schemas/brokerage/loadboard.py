@@ -40,6 +40,11 @@ class LoadBoardEntryCreate(BaseModel):
     trailer_type: Optional[str] = None
     trailer_length: Optional[str] = None
     origin_address: str
+    stop_1_address: Optional[str] = None
+    stop_2_address: Optional[str] = None
+    stop_3_address: Optional[str] = None
+    stop_4_address: Optional[str] = None
+    stop_5_address: Optional[str] = None
     destination_address: str
     pickup_date: date
     priority_level: str
@@ -64,6 +69,11 @@ class LoadBoardEntryCreate(BaseModel):
     pickup_last_name: str
     pickup_phone_number: str
     pickup_email: EmailStr
+    stop_1_facility_id: Optional[str] = None
+    stop_2_facility_id: Optional[str] = None
+    stop_3_facility_id: Optional[str] = None
+    stop_4_facility_id: Optional[str] = None
+    stop_5_facility_id: Optional[str] = None
     delivery_facility_name: str
     delivery_scheduling_type: str
     delivery_start_time: time
