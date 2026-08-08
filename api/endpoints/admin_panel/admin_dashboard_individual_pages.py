@@ -1592,7 +1592,7 @@ def admin_get_ftl_shipment_id(
                     contact = (
                         db.query(ContactPerson)
                         .filter(
-                            ContactPerson.facility_id == facility.id
+                            ContactPerson.id == facility.contact_person
                         )
                         .first()
                     )
