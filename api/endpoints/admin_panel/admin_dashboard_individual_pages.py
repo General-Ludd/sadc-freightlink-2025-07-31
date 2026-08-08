@@ -1918,7 +1918,6 @@ def admin_get_ftl_shipment_id(
             status_code=500,
             detail=str(e)
         )
-```
 
 
 @router.get("/admin/exchange-ftl-load/{id}")
