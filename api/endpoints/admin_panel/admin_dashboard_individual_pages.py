@@ -15,6 +15,7 @@ from models.Exchange.auction import Exchange_FTL_Shipment_Bid, Exchange_FTL_Lane
 from models.brokerage.loadboards.exchange_loadboards import Exchange_Ftl_Load_Board, Exchange_Ftl_Lane_LoadBoard
 from models.brokerage.assigned_lanes import Assigned_Ftl_Lanes
 from models.brokerage.assigned_shipments import Assigned_Spot_Ftl_Shipments, Assigned_Power_Shipments
+from models.spot_bookings.shipment_facility import ShipmentFacility, ContactPerson
 from schemas.brokerage.finance import Individual_Sevice_Invoices_Request
 from schemas.vehicle import Individual_Shipper_Trailer_Response, Shipper_Trailers_Summary_Response, ShipperTrailerCreate
 from services.vehicle_service import create_shipper_trailer
