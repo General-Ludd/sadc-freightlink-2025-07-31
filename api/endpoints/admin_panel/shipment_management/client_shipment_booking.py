@@ -170,7 +170,7 @@ def admin_fetch_client_users(
         )
 
         # ============================================================
-        # 3. GET PICKUP FACILITY
+        # 3. GET PICKUP FACILITY + CONTACT
         # ============================================================
 
         pickup_facility = (
@@ -181,8 +181,19 @@ def admin_fetch_client_users(
             .first()
         )
 
+        pickup_contact = (
+            db.query(ContactPerson)
+            .filter(
+                ContactPerson.id == pickup_facility.contact_person
+            )
+            .first()
+            if pickup_facility
+            and pickup_facility.contact_person
+            else None
+        )
+
         # ============================================================
-        # 4. GET DELIVERY FACILITY
+        # 4. GET DELIVERY FACILITY + CONTACT
         # ============================================================
 
         delivery_facility = (
@@ -193,64 +204,75 @@ def admin_fetch_client_users(
             .first()
         )
 
-        # ============================================================
-        # 5. GET PICKUP CONTACT
-        # ============================================================
-
-        pickup_contact = (
-            db.query(ContactPerson)
-            .filter(
-                ContactPerson.id == pickup_facility.contact_person
-            )
-            .first()
-            if pickup_facility and pickup_facility.contact_person
-            else None
-        )
-
-        # ============================================================
-        # 6. GET DELIVERY CONTACT
-        # ============================================================
-
         delivery_contact = (
             db.query(ContactPerson)
             .filter(
                 ContactPerson.id == delivery_facility.contact_person
             )
             .first()
-            if delivery_facility and delivery_facility.contact_person
+            if delivery_facility
+            and delivery_facility.contact_person
             else None
         )
 
         # ============================================================
-        # 7. BUILD DYNAMIC STOP DATA
+        # 5. BUILD DYNAMIC STOP ADDRESSES
         # ============================================================
         #
-        # We support:
+        # IMPORTANT:
         #
-        # stop_1_address
-        # stop_2_address
-        # stop_3_address
-        # stop_4_address
-        # stop_5_address
+        # This array contains ONLY addresses.
         #
-        # and:
+        # No facility information.
+        # No contact information.
+        # No facility IDs.
         #
-        # stop_1_facility_id
-        # stop_2_facility_id
-        # stop_3_facility_id
-        # stop_4_facility_id
-        # stop_5_facility_id
+        # Example:
         #
-        # Only stops that actually exist will be returned.
+        # "stops": [
+        #     {
+        #         "stop_number": 1,
+        #         "address": "Lusikisiki, 4820, South Africa"
+        #     },
+        #     {
+        #         "stop_number": 2,
+        #         "address": "Mthatha, South Africa"
+        #     }
+        # ]
         #
         # ============================================================
 
-        stops = []
+        stop_addresses = []
+
+        for stop_number in range(1, 6):
+
+            stop_address = getattr(
+                shipment,
+                f"stop_{stop_number}_address",
+                None
+            )
+
+            if stop_address:
+                stop_addresses.append({
+                    "stop_number": stop_number,
+                    "address": stop_address
+                })
+
+        # ============================================================
+        # 6. BUILD DYNAMIC STOP FACILITIES + CONTACTS
+        # ============================================================
+        #
+        # Facility/contact information is kept completely separate
+        # from shipment_details.stops.
+        #
+        # ============================================================
+
+        stop_facilities = []
 
         for stop_number in range(1, 6):
 
             # --------------------------------------------------------
-            # Get stop address dynamically
+            # Get stop address
             # --------------------------------------------------------
 
             stop_address = getattr(
@@ -260,7 +282,7 @@ def admin_fetch_client_users(
             )
 
             # --------------------------------------------------------
-            # Get stop facility ID dynamically
+            # Get stop facility ID
             # --------------------------------------------------------
 
             stop_facility_id = getattr(
@@ -270,8 +292,7 @@ def admin_fetch_client_users(
             )
 
             # --------------------------------------------------------
-            # If neither address nor facility exists,
-            # this stop does not exist.
+            # If there is no stop at all, skip it
             # --------------------------------------------------------
 
             if not stop_address and not stop_facility_id:
@@ -281,7 +302,7 @@ def admin_fetch_client_users(
             stop_contact = None
 
             # ========================================================
-            # QUERY STOP FACILITY
+            # QUERY FACILITY
             # ========================================================
 
             if stop_facility_id:
@@ -295,7 +316,7 @@ def admin_fetch_client_users(
                 )
 
             # ========================================================
-            # QUERY STOP CONTACT
+            # QUERY CONTACT PERSON
             # ========================================================
 
             if (
@@ -313,26 +334,18 @@ def admin_fetch_client_users(
                 )
 
             # ========================================================
-            # BUILD STOP OBJECT
+            # BUILD STOP FACILITY OBJECT
             # ========================================================
 
-            stops.append({
+            stop_facilities.append({
 
                 "stop_number": stop_number,
 
-                # ----------------------------------------------------
-                # ADDRESS
-                # ----------------------------------------------------
-
                 "address": stop_address,
-
-                # ----------------------------------------------------
-                # FACILITY
-                # ----------------------------------------------------
 
                 "facility": {
 
-                    "id": (
+                    "facility_id": (
                         stop_facility.id
                         if stop_facility
                         else stop_facility_id
@@ -375,10 +388,6 @@ def admin_fetch_client_users(
                     ),
                 },
 
-                # ----------------------------------------------------
-                # CONTACT
-                # ----------------------------------------------------
-
                 "contact": {
 
                     "first_name": (
@@ -408,7 +417,7 @@ def admin_fetch_client_users(
             })
 
         # ============================================================
-        # 8. BUILD RESPONSE
+        # 7. RETURN RESPONSE
         # ============================================================
 
         return {
@@ -452,10 +461,12 @@ def admin_fetch_client_users(
                 ),
 
                 # ----------------------------------------------------
-                # DYNAMIC STOPS
+                # STOPS
+                #
+                # ONLY ADDRESSES ARE RETURNED HERE
                 # ----------------------------------------------------
 
-                "stops": stops,
+                "stops": stop_addresses,
 
                 # ----------------------------------------------------
                 # DESTINATION
@@ -643,11 +654,9 @@ def admin_fetch_client_users(
 
             # ========================================================
             # DYNAMIC STOP FACILITIES + CONTACTS
-            #
-            # These appear BETWEEN pickup and delivery.
             # ========================================================
 
-            "stop_facilities": stops,
+            "stop_facilities": stop_facilities,
 
             # ========================================================
             # DELIVERY FACILITY
