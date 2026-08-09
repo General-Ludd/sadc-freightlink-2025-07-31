@@ -510,6 +510,38 @@ def get_individual_spot_ftl_loadboard_shipment(
             detail=str(e)
         )
 
+@router.get("/public-spot/ftl-loadboard") #UnTested
+def get_public_spot_ftl_loadboard_loads(db: Session = Depends(get_db)):      
+    try:
+        # Query all records from the "dedicated_lanes_loadboard" table
+        shipments = db.query(Ftl_Load_Board).filter(Ftl_Load_Board.status == "Available").all()
+
+        return {
+            "shipments": [{
+                "id": shipment.shipment_id,
+                "trip_type": shipment.trip_type,
+                "rate": shipment.shipment_rate,
+                "distance": shipment.distance,
+                "route_preview_embed": shipment.route_preview_embed,
+                "rate_per_kilometer": shipment.rate_per_km,
+                "origin": shipment.origin_city_province,
+                "pickup_date": shipment.pickup_date,
+                "pickup_appointment": shipment.pickup_appointment,
+                "destination": shipment.destination_city_province,
+                "eta_date": shipment.eta_date,
+                "eta_window": shipment.eta_window,
+                "required_truck_type": shipment.required_truck_type,
+                "equipment_type": shipment.equipment_type,
+                "trailer_type": shipment.trailer_type,
+                "trailer_length": shipment.trailer_length,
+                "minimum_weight_bracket": shipment.minimum_weight_bracket,
+                "commodity": shipment.commodity,
+                "hazardous_materials": shipment.hazardous_metarials
+            } for shipment in shipments]
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
 @router.get("/public-spot/ftl-loadboard/{id}")
 def get_public_individual_spot_ftl_loadboard_shipment(
     id: int,
