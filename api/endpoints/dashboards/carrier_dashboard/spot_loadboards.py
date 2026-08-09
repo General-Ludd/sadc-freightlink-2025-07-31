@@ -83,11 +83,132 @@ def get_individual_spot_ftl_loadboard_shipment(
     current_user: dict = Depends(get_current_user)
 ):
     try:
-        shipment = db.query(Ftl_Load_Board).filter(Ftl_Load_Board.shipment_id == id).first()
+        # ============================================================
+        # GET LOADBOARD SHIPMENT
+        # ============================================================
+        shipment = (
+            db.query(Ftl_Load_Board)
+            .filter(Ftl_Load_Board.shipment_id == id)
+            .first()
+        )
 
         if not shipment:
-            raise HTTPException(status_code=404, detail="Shipment not found")
+            raise HTTPException(
+                status_code=404,
+                detail="Shipment not found"
+            )
 
+        # ============================================================
+        # BUILD STOP DATA DYNAMICALLY
+        # ============================================================
+        stops = []
+
+        # Check stop_1 through stop_5 dynamically
+        for stop_number in range(1, 6):
+
+            # Get the facility ID from:
+            # stop_1_facility_id
+            # stop_2_facility_id
+            # ...
+            facility_id = getattr(
+                shipment,
+                f"stop_{stop_number}_facility_id",
+                None
+            )
+
+            # Get the corresponding stop address:
+            # stop_1_address
+            # stop_2_address
+            # ...
+            stop_address = getattr(
+                shipment,
+                f"stop_{stop_number}_address",
+                None
+            )
+
+            # If there is no facility ID, this stop does not exist
+            if not facility_id:
+                continue
+
+            # ========================================================
+            # GET STOP FACILITY
+            # ========================================================
+            stop_facility = (
+                db.query(ShipmentFacility)
+                .filter(ShipmentFacility.id == facility_id)
+                .first()
+            )
+
+            # ========================================================
+            # GET CONTACT PERSON USING FACILITY ID
+            # ========================================================
+            stop_contact = (
+                db.query(ContactPerson)
+                .filter(ContactPerson.id == stop_facility.contact_person)
+                .first()
+            )
+
+            # ========================================================
+            # BUILD STOP RESPONSE
+            # ========================================================
+            stop_data = {
+                "stop_number": stop_number,
+                "address": stop_address,
+
+                "facility": {
+                    "id": facility_id,
+                    "name": (
+                        stop_facility.name
+                        if stop_facility
+                        else None
+                    ),
+                    "scheduling_type": (
+                        stop_facility.scheduling_type
+                        if stop_facility
+                        else None
+                    ),
+                    "operating_hours": (
+                        f"{stop_facility.start_time} - "
+                        f"{stop_facility.end_time}"
+                        if stop_facility
+                        else None
+                    ),
+                    "facility_notes": (
+                        stop_facility.facility_notes
+                        if stop_facility
+                        else None
+                    ),
+                },
+
+                "contact_person": {
+                    "first_name": (
+                        stop_contact.first_name
+                        if stop_contact
+                        else None
+                    ),
+                    "last_name": (
+                        stop_contact.last_name
+                        if stop_contact
+                        else None
+                    ),
+                    "phone_number": (
+                        stop_contact.phone_number
+                        if stop_contact
+                        else None
+                    ),
+                    "email": (
+                        stop_contact.email
+                        if stop_contact
+                        else None
+                    ),
+                },
+            }
+
+            stops.append(stop_data)
+
+        # ============================================================
+        # RETURN RESPONSE
+        # ============================================================
         return {
             "shipment_details": {
                 "id": shipment.shipment_id,
@@ -97,11 +218,21 @@ def get_individual_spot_ftl_loadboard_shipment(
                 "status": shipment.status,
                 "required_truck_type": shipment.required_truck_type,
                 "equipment_type": shipment.equipment_type,
-                "trailer_type": shipment.trailer_type if shipment.trailer_type else "N/A",
-                "trailer_length": shipment.trailer_length if shipment.trailer_length else "N/A",
+                "trailer_type": (
+                    shipment.trailer_type
+                    if shipment.trailer_type
+                    else "N/A"
+                ),
+                "trailer_length": (
+                    shipment.trailer_length
+                    if shipment.trailer_length
+                    else "N/A"
+                ),
                 "minimum_weight_bracket": shipment.minimum_weight_bracket,
                 "minimum_git_cover_amount": shipment.minimum_git_cover_amount,
-                "minimum_liability_cover_amount": shipment.minimum_liability_cover_amount,
+                "minimum_liability_cover_amount": (
+                    shipment.minimum_liability_cover_amount
+                ),
                 "origin": shipment.origin_city_province,
                 "destination": shipment.destination_city_province,
                 "distance": shipment.distance,
@@ -124,27 +255,77 @@ def get_individual_spot_ftl_loadboard_shipment(
                 "delivery_number": shipment.delivery_number,
                 "delivery_notes": shipment.delivery_notes,
             },
+
+            # ========================================================
+            # PICKUP FACILITY
+            # ========================================================
             "pickup_facility": {
                 "name": shipment.pickup_facility_name,
                 "address": shipment.origin_address,
                 "scheduling_type": shipment.pickup_scheduling_type,
-                "operating_hours": f"{shipment.pickup_start_time} - {shipment.pickup_end_time}",
-                "contact_person": f"{shipment.pickup_first_name} {shipment.pickup_last_name}",
+                "operating_hours": (
+                    f"{shipment.pickup_start_time} - "
+                    f"{shipment.pickup_end_time}"
+                ),
+                "contact_person": (
+                    f"{shipment.pickup_first_name} "
+                    f"{shipment.pickup_last_name}"
+                ),
                 "phone_number": shipment.pickup_phone_number,
                 "email": shipment.pickup_email,
+                "facility_notes": shipment.pickup_facility_notes,
             },
+
+            # ========================================================
+            # STOPS
+            #
+            # This will automatically contain:
+            # []                         -> no stops
+            #
+            # or
+            #
+            # [
+            #   stop 1,
+            #   stop 2,
+            #   stop 3
+            # ]
+            #
+            # ========================================================
+            "stops": stops,
+
+            # ========================================================
+            # DELIVERY FACILITY
+            # ========================================================
             "delivery_facility": {
                 "name": shipment.delivery_facility_name,
                 "address": shipment.destination_address,
                 "scheduling_type": shipment.delivery_scheduling_type,
-                "operating_hours": f"{shipment.delivery_start_time} - {shipment.delivery_end_time}",
-                "contact_person": f"{shipment.delivery_first_name} {shipment.delivery_last_name}",
+                "operating_hours": (
+                    f"{shipment.delivery_start_time} - "
+                    f"{shipment.delivery_end_time}"
+                ),
+                "contact_person": (
+                    f"{shipment.delivery_first_name} "
+                    f"{shipment.delivery_last_name}"
+                ),
                 "phone_number": shipment.delivery_phone_number,
                 "email": shipment.delivery_email,
+                "facility_notes": shipment.delivery_facility_notes,
             },
         }
+
+    except HTTPException:
+        raise
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(
+            f"ERROR GETTING SPOT FTL LOADBOARD SHIPMENT {id}: {str(e)}"
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
 
 @router.get("/public-spot/ftl-loadboard") #UnTested
 def get_all_public_spot_ftl_loadboard_loads(db: Session = Depends(get_db)):
