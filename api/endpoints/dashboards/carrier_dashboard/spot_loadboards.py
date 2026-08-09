@@ -542,74 +542,443 @@ def get_public_spot_ftl_loadboard_loads(db: Session = Depends(get_db)):
     except Exception as e:
         return {"error": str(e)}
 
+
 @router.get("/public-spot/ftl-loadboard/{id}")
 def get_public_individual_spot_ftl_loadboard_shipment(
     id: int,
     db: Session = Depends(get_db),
 ):
     try:
-        shipment = db.query(Ftl_Load_Board).filter(Ftl_Load_Board.shipment_id == id).first()
+
+        # ============================================================
+        # 1. GET LOADBOARD SHIPMENT
+        # ============================================================
+
+        shipment = (
+            db.query(Ftl_Load_Board)
+            .filter(Ftl_Load_Board.shipment_id == id)
+            .first()
+        )
 
         if not shipment:
-            raise HTTPException(status_code=404, detail="Shipment not found")
+            raise HTTPException(
+                status_code=404,
+                detail="Shipment not found"
+            )
+
+        # ============================================================
+        # 2. BUILD DYNAMIC STOP ADDRESSES
+        # ============================================================
+        #
+        # The loadboard contains:
+        #
+        # stop_1_address
+        # stop_2_address
+        # stop_3_address
+        # stop_4_address
+        # stop_5_address
+        #
+        # Only stops that actually contain an address are returned.
+        #
+        # Example:
+        #
+        # Origin
+        # Stop 1
+        # Stop 2
+        # Destination
+        #
+        # If there are no stops:
+        #
+        # Origin
+        # Destination
+        #
+        # ============================================================
+
+        stop_addresses = []
+
+        for stop_number in range(1, 6):
+
+            stop_address = getattr(
+                shipment,
+                f"stop_{stop_number}_address",
+                None
+            )
+
+            if stop_address:
+                stop_addresses.append({
+                    "stop_number": stop_number,
+                    "address": stop_address
+                })
+
+        # ============================================================
+        # 3. BUILD DYNAMIC STOP FACILITIES + CONTACTS
+        # ============================================================
+        #
+        # The loadboard stores ONLY the facility ID for stops.
+        #
+        # stop_1_facility_id
+        # stop_2_facility_id
+        # ...
+        #
+        # We use the facility ID to:
+        #
+        # 1. Query ShipmentFacility
+        # 2. Get the facility's contact_person ID
+        # 3. Query ContactPerson using that ID
+        #
+        # ============================================================
+
+        stop_facilities = []
+
+        for stop_number in range(1, 6):
+
+            # --------------------------------------------------------
+            # Get stop address
+            # --------------------------------------------------------
+
+            stop_address = getattr(
+                shipment,
+                f"stop_{stop_number}_address",
+                None
+            )
+
+            # --------------------------------------------------------
+            # Get corresponding facility ID
+            # --------------------------------------------------------
+
+            stop_facility_id = getattr(
+                shipment,
+                f"stop_{stop_number}_facility_id",
+                None
+            )
+
+            # If there is no stop address AND no facility ID,
+            # there is no stop to return.
+            if not stop_address and not stop_facility_id:
+                continue
+
+            facility = None
+            contact = None
+
+            # --------------------------------------------------------
+            # Query stop facility
+            # --------------------------------------------------------
+
+            if stop_facility_id:
+
+                facility = (
+                    db.query(ShipmentFacility)
+                    .filter(
+                        ShipmentFacility.id == stop_facility_id
+                    )
+                    .first()
+                )
+
+                # ----------------------------------------------------
+                # Query contact person associated with facility
+                # ----------------------------------------------------
+
+                if facility and facility.contact_person:
+
+                    contact = (
+                        db.query(ContactPerson)
+                        .filter(
+                            ContactPerson.id == facility.contact_person
+                        )
+                        .first()
+                    )
+
+            # --------------------------------------------------------
+            # Build stop facility response
+            # --------------------------------------------------------
+
+            stop_facilities.append({
+
+                "stop_number": stop_number,
+
+                "address": stop_address,
+
+                "facility": {
+
+                    "id": (
+                        facility.id
+                        if facility
+                        else stop_facility_id
+                    ),
+
+                    "name": (
+                        facility.name
+                        if facility
+                        else None
+                    ),
+
+                    "scheduling_type": (
+                        facility.scheduling_type
+                        if facility
+                        else None
+                    ),
+
+                    "start_time": (
+                        str(facility.start_time)
+                        if facility and facility.start_time
+                        else None
+                    ),
+
+                    "end_time": (
+                        str(facility.end_time)
+                        if facility and facility.end_time
+                        else None
+                    ),
+
+                    "facility_notes": (
+                        facility.facility_notes
+                        if facility
+                        else None
+                    ),
+                },
+
+                "contact": {
+
+                    "first_name": (
+                        contact.first_name
+                        if contact
+                        else None
+                    ),
+
+                    "last_name": (
+                        contact.last_name
+                        if contact
+                        else None
+                    ),
+
+                    "phone_number": (
+                        contact.phone_number
+                        if contact
+                        else None
+                    ),
+
+                    "email": (
+                        contact.email
+                        if contact
+                        else None
+                    ),
+                }
+            })
+
+        # ============================================================
+        # 4. RETURN RESPONSE
+        # ============================================================
 
         return {
+
+            # ========================================================
+            # SHIPMENT DETAILS
+            # ========================================================
+
             "shipment_details": {
+
                 "id": shipment.shipment_id,
+
                 "type": shipment.type,
+
                 "load_type": shipment.load_type,
+
                 "trip_type": shipment.trip_type,
+
                 "status": shipment.status,
+
                 "required_truck_type": shipment.required_truck_type,
+
                 "equipment_type": shipment.equipment_type,
-                "trailer_type": shipment.trailer_type if shipment.trailer_type else "N/A",
-                "trailer_length": shipment.trailer_length if shipment.trailer_length else "N/A",
-                "minimum_weight_bracket": shipment.minimum_weight_bracket,
-                "minimum_git_cover_amount": shipment.minimum_git_cover_amount,
-                "minimum_liability_cover_amount": shipment.minimum_liability_cover_amount,
-                "origin": shipment.origin_city_province,
-                "destination": shipment.destination_city_province,
+
+                "trailer_type": (
+                    shipment.trailer_type
+                    if shipment.trailer_type
+                    else "N/A"
+                ),
+
+                "trailer_length": (
+                    shipment.trailer_length
+                    if shipment.trailer_length
+                    else "N/A"
+                ),
+
+                "minimum_weight_bracket": (
+                    shipment.minimum_weight_bracket
+                ),
+
+                "minimum_git_cover_amount": (
+                    shipment.minimum_git_cover_amount
+                ),
+
+                "minimum_liability_cover_amount": (
+                    shipment.minimum_liability_cover_amount
+                ),
+
+                # ----------------------------------------------------
+                # ORIGIN
+                # ----------------------------------------------------
+
+                "origin": shipment.origin_address,
+
+                # ----------------------------------------------------
+                # DYNAMIC STOPS
+                #
+                # Only stop addresses are returned here.
+                # ----------------------------------------------------
+
+                "stops": stop_addresses,
+
+                # ----------------------------------------------------
+                # DESTINATION
+                # ----------------------------------------------------
+
+                "destination": shipment.destination_address,
+
                 "distance": shipment.distance,
+
                 "rate": shipment.shipment_rate,
+
                 "rate_per_km": shipment.rate_per_km,
+
                 "rate_per_ton": shipment.rate_per_ton,
+
                 "pickup_date": shipment.pickup_date,
+
                 "eta_data": shipment.eta_date,
+
                 "payment_terms": shipment.payment_terms,
+
                 "payment_date": shipment.payment_date,
-                "minimum_transit_time": shipment.estimated_transit_time,
+
+                "minimum_transit_time": (
+                    shipment.estimated_transit_time
+                ),
+
                 "route_preview": shipment.route_preview_embed,
+
                 "commodity": shipment.commodity,
-                "temperature_control": shipment.temperature_control,
-                "hazardous_materails": shipment.hazardous_metarials,
-                "packaging_quantity": shipment.packaging_quantity,
-                "packaging_type": shipment.packaging_type,
+
+                "temperature_control": (
+                    shipment.temperature_control
+                ),
+
+                "hazardous_materails": (
+                    shipment.hazardous_metarials
+                ),
+
+                "packaging_quantity": (
+                    shipment.packaging_quantity
+                ),
+
+                "packaging_type": (
+                    shipment.packaging_type
+                ),
+
                 "pickup_number": shipment.pickup_number,
+
                 "pickup_notes": shipment.pickup_notes,
+
                 "delivery_number": shipment.delivery_number,
+
                 "delivery_notes": shipment.delivery_notes,
             },
+
+            # ========================================================
+            # PICKUP FACILITY + CONTACT
+            # ========================================================
+
             "pickup_facility": {
+
                 "name": shipment.pickup_facility_name,
+
                 "address": shipment.origin_address,
-                "scheduling_type": shipment.pickup_scheduling_type,
-                "operating_hours": f"{shipment.pickup_start_time} - {shipment.pickup_end_time}",
-                "contact_person": f"{shipment.pickup_first_name} {shipment.pickup_last_name}",
-                "phone_number": shipment.pickup_phone_number,
+
+                "scheduling_type": (
+                    shipment.pickup_scheduling_type
+                ),
+
+                "operating_hours": (
+                    f"{shipment.pickup_start_time} - "
+                    f"{shipment.pickup_end_time}"
+                ),
+
+                "facility_notes": (
+                    shipment.pickup_facility_notes
+                ),
+
+                "contact_person": (
+                    f"{shipment.pickup_first_name} "
+                    f"{shipment.pickup_last_name}"
+                ),
+
+                "phone_number": (
+                    shipment.pickup_phone_number
+                ),
+
                 "email": shipment.pickup_email,
             },
+
+            # ========================================================
+            # DYNAMIC STOP FACILITIES + CONTACTS
+            #
+            # These are returned BETWEEN pickup and delivery.
+            # ========================================================
+
+            "stop_facilities": stop_facilities,
+
+            # ========================================================
+            # DELIVERY FACILITY + CONTACT
+            # ========================================================
+
             "delivery_facility": {
+
                 "name": shipment.delivery_facility_name,
+
                 "address": shipment.destination_address,
-                "scheduling_type": shipment.delivery_scheduling_type,
-                "operating_hours": f"{shipment.delivery_start_time} - {shipment.delivery_end_time}",
-                "contact_person": f"{shipment.delivery_first_name} {shipment.delivery_last_name}",
-                "phone_number": shipment.delivery_phone_number,
+
+                "scheduling_type": (
+                    shipment.delivery_scheduling_type
+                ),
+
+                "operating_hours": (
+                    f"{shipment.delivery_start_time} - "
+                    f"{shipment.delivery_end_time}"
+                ),
+
+                "facility_notes": (
+                    shipment.delivery_facility_notes
+                ),
+
+                "contact_person": (
+                    f"{shipment.delivery_first_name} "
+                    f"{shipment.delivery_last_name}"
+                ),
+
+                "phone_number": (
+                    shipment.delivery_phone_number
+                ),
+
                 "email": shipment.delivery_email,
             },
         }
+
+    except HTTPException:
+        raise
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+
+        print("============================================================")
+        print("ERROR IN get_public_individual_spot_ftl_loadboard_shipment")
+        print("============================================================")
+        print(f"Shipment ID: {id}")
+        print(f"Error: {str(e)}")
+        print("============================================================")
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
 
 @router.post("/spot/loadboard/accept-ftl-shipment", status_code=status.HTTP_202_ACCEPTED) #UnTested
 def accept_spot_ftl_shipment_from_loadboard(
