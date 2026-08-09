@@ -510,37 +510,137 @@ def get_individual_spot_ftl_loadboard_shipment(
             detail=str(e)
         )
 
-@router.get("/public-spot/ftl-loadboard") #UnTested
-def get_public_spot_ftl_loadboard_loads(db: Session = Depends(get_db)):      
+@router.get("/public-spot/ftl-loadboard")  # UnTested
+def get_public_spot_ftl_loadboard_loads(
+    db: Session = Depends(get_db)
+):
     try:
-        # Query all records from the "dedicated_lanes_loadboard" table
-        shipments = db.query(Ftl_Load_Board).filter(Ftl_Load_Board.status == "Available").all()
+
+        # ============================================================
+        # GET ALL AVAILABLE LOADS
+        # ============================================================
+
+        shipments = (
+            db.query(Ftl_Load_Board)
+            .filter(Ftl_Load_Board.status == "Available")
+            .all()
+        )
+
+        # ============================================================
+        # BUILD LOADBOARD RESPONSE
+        # ============================================================
+
+        loadboard_shipments = []
+
+        for shipment in shipments:
+
+            # --------------------------------------------------------
+            # BUILD DYNAMIC STOP ADDRESSES
+            # --------------------------------------------------------
+            #
+            # Only addresses that actually exist will be returned.
+            #
+            # Example:
+            #
+            # origin
+            # stops:
+            #   Stop 1
+            #   Stop 2
+            # destination
+            #
+            # If there are no stops:
+            #
+            # origin
+            # stops: []
+            # destination
+            #
+            # --------------------------------------------------------
+
+            stop_addresses = []
+
+            for stop_number in range(1, 6):
+
+                stop_address = getattr(
+                    shipment,
+                    f"stop_{stop_number}_address",
+                    None
+                )
+
+                if stop_address:
+                    stop_addresses.append({
+                        "stop_number": stop_number,
+                        "address": stop_address
+                    })
+
+            # --------------------------------------------------------
+            # BUILD SHIPMENT
+            # --------------------------------------------------------
+
+            loadboard_shipments.append({
+
+                "id": shipment.shipment_id,
+
+                "trip_type": shipment.trip_type,
+
+                "rate": shipment.shipment_rate,
+
+                "distance": shipment.distance,
+
+                "route_preview_embed": shipment.route_preview_embed,
+
+                "rate_per_kilometer": shipment.rate_per_km,
+
+                "origin": shipment.origin_city_province,
+
+                # ====================================================
+                # DYNAMIC STOPS
+                # ====================================================
+                "stops": stop_addresses,
+
+                "pickup_date": shipment.pickup_date,
+
+                "pickup_appointment": shipment.pickup_appointment,
+
+                "destination": shipment.destination_city_province,
+
+                "eta_date": shipment.eta_date,
+
+                "eta_window": shipment.eta_window,
+
+                "required_truck_type": shipment.required_truck_type,
+
+                "equipment_type": shipment.equipment_type,
+
+                "trailer_type": shipment.trailer_type,
+
+                "trailer_length": shipment.trailer_length,
+
+                "minimum_weight_bracket": shipment.minimum_weight_bracket,
+
+                "commodity": shipment.commodity,
+
+                "hazardous_materials": shipment.hazardous_metarials
+            })
+
+        # ============================================================
+        # RETURN RESPONSE
+        # ============================================================
 
         return {
-            "shipments": [{
-                "id": shipment.shipment_id,
-                "trip_type": shipment.trip_type,
-                "rate": shipment.shipment_rate,
-                "distance": shipment.distance,
-                "route_preview_embed": shipment.route_preview_embed,
-                "rate_per_kilometer": shipment.rate_per_km,
-                "origin": shipment.origin_city_province,
-                "pickup_date": shipment.pickup_date,
-                "pickup_appointment": shipment.pickup_appointment,
-                "destination": shipment.destination_city_province,
-                "eta_date": shipment.eta_date,
-                "eta_window": shipment.eta_window,
-                "required_truck_type": shipment.required_truck_type,
-                "equipment_type": shipment.equipment_type,
-                "trailer_type": shipment.trailer_type,
-                "trailer_length": shipment.trailer_length,
-                "minimum_weight_bracket": shipment.minimum_weight_bracket,
-                "commodity": shipment.commodity,
-                "hazardous_materials": shipment.hazardous_metarials
-            } for shipment in shipments]
+            "shipments": loadboard_shipments
         }
+
     except Exception as e:
-        return {"error": str(e)}
+
+        print("============================================================")
+        print("ERROR IN get_public_spot_ftl_loadboard_loads")
+        print("============================================================")
+        print(f"Error: {str(e)}")
+        print("============================================================")
+
+        return {
+            "error": str(e)
+        }
 
 
 @router.get("/public-spot/ftl-loadboard/{id}")
