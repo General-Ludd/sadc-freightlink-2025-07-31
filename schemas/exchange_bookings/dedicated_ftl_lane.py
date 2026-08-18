@@ -583,6 +583,7 @@ class TenderCreate(BaseModel):
     rate_includes_maintenance: bool = False
     rate_includes_insurance: bool = False
     rate_includes_tolls: bool = False
+    rate_includes_border_charges: bool = False
     rate_includes_empty_return: bool = False
     rate_includes_waiting_time: bool = False
     rate_includes_loading_assistance: bool = False
