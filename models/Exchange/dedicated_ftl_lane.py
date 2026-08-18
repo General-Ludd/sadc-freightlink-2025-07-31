@@ -334,7 +334,7 @@ class Lane_Tender_Stop(Base):
     region = Column(String)
 
     tender = relationship(
-        "lane_Tender_RFQ",
+        "Lane_Tender_RFQ",
         back_populates="stops"
     )
 
