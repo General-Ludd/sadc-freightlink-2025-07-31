@@ -1,4 +1,4 @@
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timezone
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from models.Exchange.dedicated_ftl_lane import (
@@ -31,15 +31,28 @@ def create_tender_and_publish(
 
 
         # ========================================================
-        # 2. VALIDATE TENDER CLOSING DATE
+        # 2. NORMALIZE TENDER CLOSING DATE TO UTC
+        # ========================================================
+
+        tender_closing_date = tender_data.tender_closing_date
+
+        if tender_closing_date.tzinfo is None:
+            tender_closing_date = tender_closing_date.replace(tzinfo=timezone.utc)
+        else:
+            tender_closing_date = tender_closing_date.astimezone(timezone.utc)
+
+
+        # ========================================================
+        # 3. VALIDATE TENDER CLOSING DATE
         # ========================================================
 
         contract_start_datetime = datetime.combine(
             tender_data.contract_start_date,
-            time.min
+            time.min,
+            tzinfo=timezone.utc
         )
 
-        if tender_data.tender_closing_date >= contract_start_datetime:
+        if tender_closing_date >= contract_start_datetime:
             raise HTTPException(
                 status_code=400,
                 detail="Tender closing date must be before the contract start date."
@@ -47,12 +60,30 @@ def create_tender_and_publish(
 
 
         # ========================================================
-        # 3. VALIDATE QUESTIONS DEADLINE
+        # 4. NORMALIZE QUESTIONS DEADLINE
         # ========================================================
 
-        if tender_data.questions_deadline is not None:
+        questions_deadline = tender_data.questions_deadline
 
-            if tender_data.questions_deadline >= tender_data.tender_closing_date:
+        if questions_deadline is not None:
+
+            if questions_deadline.tzinfo is None:
+                questions_deadline = questions_deadline.replace(
+                    tzinfo=timezone.utc
+                )
+            else:
+                questions_deadline = questions_deadline.astimezone(
+                    timezone.utc
+                )
+
+
+        # ========================================================
+        # 5. VALIDATE QUESTIONS DEADLINE
+        # ========================================================
+
+        if questions_deadline is not None:
+
+            if questions_deadline >= tender_closing_date:
                 raise HTTPException(
                     status_code=400,
                     detail="Questions deadline must be before the tender closing date."
