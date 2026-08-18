@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, Integer, Float, String, ForeignKey, DateTime, Enum, Date, Time
+from sqlalchemy import Boolean, Column, Integer, Float, Numeric, String, ForeignKey, DateTime, Enum, Date, Time
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import ARRAY
@@ -367,3 +367,210 @@ class ExchangeLoadBoard(Base):
     delivery_email = Column(String, nullable=False)
     created_at = Column(DateTime, nullable=False, server_default=func.now())
     updated_at = Column(DateTime, nullable=True, onupdate=func.now())
+
+
+class Lane_Tender_Loadboard(Base):
+
+    __tablename__ = "ftl_lane_tender_loadboard"
+
+    # ============================================================
+    # PRIMARY / RELATIONSHIP
+    # ============================================================
+
+    id = Column(Integer, primary_key=True, index=True)
+    tender_id = Column(Integer, ForeignKey("ftl_lane_tenders.id"), nullable=False, unique=True, index=True)
+
+    # ============================================================
+    # LOAD BOARD STATUS
+    # ============================================================
+
+    status = Column(String(50), default="draft", nullable=False, index=True)
+    published_at = Column(DateTime, nullable=True)
+    bid_opening_date = Column(DateTime, nullable=True)
+    bid_closing_date = Column(DateTime, nullable=False)
+    questions_deadline = Column(DateTime, nullable=True)
+
+    # ============================================================
+    # TENDER IDENTITY
+    # ============================================================
+
+    tender_title = Column(String(255), nullable=False)
+    tender_category = Column(String(100), nullable=False)
+    tender_length_category = Column(String(50), nullable=False)
+    scope_description = Column(String, nullable=False)
+
+    # ============================================================
+    # CONTRACT PERIOD
+    # ============================================================
+
+    contract_start_date = Column(Date, nullable=False)
+    contract_end_date = Column(Date, nullable=False)
+
+    # ============================================================
+    # ROUTING
+    # ============================================================
+
+    origin_address = Column(String, nullable=False)
+    origin_city_province = Column(String(150), nullable=True)
+    origin_country = Column(String(100), nullable=True)
+    origin_region = Column(String(100), nullable=True)
+
+    destination_address = Column(String, nullable=False)
+    destination_city_province = Column(String(150), nullable=True)
+    destination_country = Column(String(100), nullable=True)
+    destination_region = Column(String(100), nullable=True)
+
+    estimated_distance_km = Column(Integer, nullable=False)
+    actual_distance_km = Column(Integer, nullable=True)
+
+    border_customs_responsibility = Column(String(50), nullable=True)
+
+    # ============================================================
+    # CARGO
+    # ============================================================
+
+    commodity = Column(String, nullable=False)
+    load_type = Column(String(50), nullable=False)
+
+    average_shipment_weight_kg = Column(Integer, nullable=False)
+    minimum_weight_bracket_kg = Column(Integer, nullable=False)
+
+    packaging_type = Column(String(100), nullable=True)
+    packaging_quantity = Column(String(100), nullable=True)
+
+    temperature_control = Column(String(100), nullable=True)
+    target_temperature_spec = Column(String(100), nullable=True)
+
+    hazardous_materials = Column(Boolean, default=False, nullable=False)
+    hazchem_classification = Column(String(100), nullable=True)
+
+    under_bond = Column(Boolean, default=False, nullable=False)
+
+    # ============================================================
+    # VOLUME
+    # ============================================================
+
+    volume_entry_method = Column(String(30), nullable=False)
+    volume_commitment = Column(String(50), nullable=False)
+
+    # ============================================================
+    # PRICING
+    # ============================================================
+
+    pricing_basis = Column(String(50), nullable=False)
+    rate_direction = Column(String(50), nullable=False)
+
+    # ============================================================
+    # RATE INCLUSIONS
+    # ============================================================
+
+    rate_includes_fuel = Column(Boolean, default=False, nullable=False)
+    rate_includes_driver = Column(Boolean, default=False, nullable=False)
+    rate_includes_maintenance = Column(Boolean, default=False, nullable=False)
+    rate_includes_insurance = Column(Boolean, default=False, nullable=False)
+    rate_includes_tolls = Column(Boolean, default=False, nullable=False)
+    rate_includes_empty_return = Column(Boolean, default=False, nullable=False)
+    rate_includes_waiting_time = Column(Boolean, default=False, nullable=False)
+    rate_includes_loading_assistance = Column(Boolean, default=False, nullable=False)
+    rate_includes_offloading_assistance = Column(Boolean, default=False, nullable=False)
+
+    # ============================================================
+    # FUEL
+    # ============================================================
+
+    fuel_treatment_type = Column(String(100), nullable=False)
+    base_diesel_price = Column(Numeric(10, 4), nullable=True)
+    fuel_review_period = Column(String(50), nullable=True)
+    fuel_component_percentage = Column(Numeric(5, 2), nullable=True)
+
+    # ============================================================
+    # VAT / COMMERCIAL
+    # ============================================================
+
+    vat_treatment = Column(String(30), nullable=False)
+    rate_validity = Column(String(50), nullable=False)
+
+    payment_terms = Column(String(50), nullable=True)
+    custom_payment_terms = Column(String, nullable=True)
+
+    invoice_submission_frequency = Column(String(50), nullable=True)
+    invoice_submission_deadline = Column(String(100), nullable=True)
+
+    # ============================================================
+    # OPERATIONAL REQUIREMENTS
+    # ============================================================
+
+    vehicle_tracking_required = Column(Boolean, default=False, nullable=False)
+    all_time_hour_control_room = Column(Boolean, default=False, nullable=False)
+    driver_mobile_phone = Column(Boolean, default=False, nullable=False)
+    clean_compliant_equipment = Column(Boolean, default=False, nullable=False)
+    pallet_management = Column(Boolean, default=False, nullable=False)
+
+    pod_submission_local = Column(String(100), nullable=True)
+    pod_submission_long_haul = Column(String(100), nullable=True)
+    pod_submission_cross_border = Column(String(100), nullable=True)
+
+    subcontracting_policy = Column(String(50), nullable=True)
+
+    # ============================================================
+    # DOCUMENTATION / RISK
+    # ============================================================
+
+    delivery_documentation_sla = Column(String(100), nullable=True)
+    claims_risk_policy = Column(String(100), nullable=True)
+    claims_risk_requirements = Column(String, nullable=True)
+
+    # ============================================================
+    # INSURANCE
+    # ============================================================
+
+    minimum_git_cover_amount = Column(Numeric(15, 2), nullable=False)
+    minimum_liability_cover_amount = Column(Numeric(15, 2), nullable=False)
+
+    git_all_risk_required = Column(Boolean, default=False, nullable=False)
+    git_first_loss_required = Column(Boolean, default=False, nullable=False)
+    git_driver_fidelity_required = Column(Boolean, default=False, nullable=False)
+
+    # ============================================================
+    # EQUIPMENT COMPLIANCE
+    # ============================================================
+
+    tarpaulin_compliance_required = Column(Boolean, default=False, nullable=False)
+    corner_plates_required = Column(Boolean, default=False, nullable=False)
+    chock_blocks_required = Column(Boolean, default=False, nullable=False)
+    ratchets_belts_required = Column(Boolean, default=False, nullable=False)
+
+    other_equipment_requirements = Column(String, nullable=True)
+
+    # ============================================================
+    # BID EVALUATION — PUBLIC FLAGS ONLY
+    # ============================================================
+
+    evaluation_price_enabled = Column(Boolean, default=True, nullable=False)
+    evaluation_capacity_enabled = Column(Boolean, default=True, nullable=False)
+    evaluation_service_enabled = Column(Boolean, default=True, nullable=False)
+    evaluation_compliance_enabled = Column(Boolean, default=True, nullable=False)
+    evaluation_flexibility_enabled = Column(Boolean, default=True, nullable=False)
+
+    # ============================================================
+    # LOAD BOARD DISPLAY
+    # ============================================================
+
+    is_featured = Column(Boolean, default=False, nullable=False)
+    is_visible_to_carriers = Column(Boolean, default=False, nullable=False, index=True)
+
+    # ============================================================
+    # TIMESTAMPS
+    # ============================================================
+
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    # ============================================================
+    # RELATIONSHIP
+    # ============================================================
+
+    tender = relationship(
+        "Lane_Tender_RFQ",
+        back_populates="loadboard"
+    )

@@ -144,7 +144,6 @@ def shipper_get_all_ftl_shipments(
 ):
     assert "company_id" in current_user, "Missing company_id in current_user"
     company_id = current_user.get("company_id")
-
     if not company_id:
         raise HTTPException(
             status_code=400,

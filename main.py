@@ -5,6 +5,7 @@ import json
 import threading
 from fastapi.middleware.cors import CORSMiddleware
 from api.endpoints.dashboards import tracking
+from api.endpoints.dashboards.enterprise_shipper_dashboard.bookings import procurement_booking
 from api.endpoints.dashboards.enterprise_shipper_dashboard import enterprise_dashboard
 from api.endpoints.dashboards.enterprise_shipper_dashboard.facility_management import facility_sub_shipper
 from api.endpoints.dashboards.enterprise_shipper_dashboard.shipment_management import enterprise_spot_management
@@ -132,6 +133,7 @@ app.include_router(contact_us.router, prefix="/api", tags=["Contact Us"])
 #################################################Enterprise############################################
 app.include_router(enterprise_dashboard.router, prefix="/api", tags=["Enterprise Shipper Dashboard"])
 app.include_router(facility_sub_shipper.router, prefix="/api", tags=["Enterprise Facility Management"])
+app.include_router(procurement_booking.router, prefix="/api", tags=["Procurement Bookings"])
 app.include_router(enterprise_spot_management.router, prefix="/api", tags=["Enterprise Spot Shipment Management"])
 app.include_router(enterprise_exchange_management.router, prefix="/api", tags=["Enterprise Exchange Shipment Management"])
 

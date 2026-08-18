@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr
 from typing import List, Optional
-from datetime import date
+from datetime import date, datetime
 
 from enums import EquipmentType, Load_Type, Priority_Level, TrailerLength, TrailerType, TruckType, Recurrence_Frequency
 
@@ -156,3 +156,569 @@ class Exchange_Ftl_Lane_Response(BaseModel):
     # Status and Meta
     auction_status: str
     is_active: bool  # Whether the contract is active
+
+
+
+
+
+from pydantic import BaseModel, Field
+from typing import Optional
+
+
+class TenderStopCreate(BaseModel):
+
+    stop_sequence: int = Field(..., ge=1, le=5)
+    address: str = Field(..., min_length=1, max_length=500)
+
+
+class TenderStopUpdate(BaseModel):
+
+    stop_sequence: Optional[int] = Field(None, ge=1, le=5)
+    address: Optional[str] = Field(None, min_length=1, max_length=500)
+
+
+class TenderStopResponse(BaseModel):
+
+    id: int
+    tender_id: int
+    stop_sequence: int
+    address: str
+
+    class Config:
+        from_attributes = True
+
+class TenderVehicleConfigCreate(BaseModel):
+
+    configuration_type: str = Field(..., max_length=30)
+
+    truck_type: str = Field(..., max_length=150)
+    equipment_type: str = Field(..., max_length=150)
+
+    trailer_type: Optional[str] = Field(
+        None,
+        max_length=150
+    )
+
+    trailer_length: Optional[str] = Field(
+        None,
+        max_length=150
+    )
+
+
+class TenderVehicleConfigUpdate(BaseModel):
+
+    configuration_type: Optional[str] = Field(
+        None,
+        max_length=30
+    )
+
+    truck_type: Optional[str] = Field(
+        None,
+        max_length=150
+    )
+
+    equipment_type: Optional[str] = Field(
+        None,
+        max_length=150
+    )
+
+    trailer_type: Optional[str] = Field(
+        None,
+        max_length=150
+    )
+
+    trailer_length: Optional[str] = Field(
+        None,
+        max_length=150
+    )
+
+    is_active: Optional[bool] = None
+
+
+class TenderVehicleConfigResponse(BaseModel):
+
+    id: int
+    tender_id: int
+
+    configuration_type: str
+
+    truck_type: str
+    equipment_type: str
+    trailer_type: Optional[str]
+    trailer_length: Optional[str]
+
+    is_active: bool
+
+    class Config:
+        from_attributes = True
+
+class TenderVolumeProfileCreate(BaseModel):
+
+    volume_entry_method: str = Field(
+        ...,
+        max_length=30
+    )
+
+    period_sequence: int = Field(
+        ...,
+        ge=1
+    )
+
+    period_label: Optional[str] = Field(
+        None,
+        max_length=50
+    )
+
+    period_start_date: Optional[date] = None
+
+    period_end_date: Optional[date] = None
+
+    day_of_week: Optional[str] = Field(
+        None,
+        max_length=20
+    )
+
+    expected_loads: int = Field(
+        ...,
+        ge=0
+    )
+
+
+class TenderVolumeProfileUpdate(BaseModel):
+
+    volume_entry_method: Optional[str] = Field(
+        None,
+        max_length=30
+    )
+
+    period_sequence: Optional[int] = Field(
+        None,
+        ge=1
+    )
+
+    period_label: Optional[str] = Field(
+        None,
+        max_length=50
+    )
+
+    period_start_date: Optional[date] = None
+
+    period_end_date: Optional[date] = None
+
+    day_of_week: Optional[str] = Field(
+        None,
+        max_length=20
+    )
+
+    expected_loads: Optional[int] = Field(
+        None,
+        ge=0
+    )
+
+
+class TenderVolumeProfileResponse(BaseModel):
+
+    id: int
+    tender_id: int
+
+    volume_entry_method: str
+
+    period_sequence: int
+    period_label: Optional[str]
+
+    period_start_date: Optional[date]
+    period_end_date: Optional[date]
+
+    day_of_week: Optional[str]
+
+    expected_loads: int
+
+    class Config:
+        from_attributes = True
+
+class TenderAccessorialCreate(BaseModel):
+
+    charge_type: str = Field(
+        ...,
+        max_length=100
+    )
+
+    treatment: str = Field(
+        ...,
+        max_length=100
+    )
+
+    threshold_value: Optional[float] = Field(
+        None,
+        ge=0
+    )
+
+    threshold_unit: Optional[str] = Field(
+        None,
+        max_length=50
+    )
+
+    notes: Optional[str] = None
+
+
+class TenderAccessorialUpdate(BaseModel):
+
+    charge_type: Optional[str] = Field(
+        None,
+        max_length=100
+    )
+
+    treatment: Optional[str] = Field(
+        None,
+        max_length=100
+    )
+
+    threshold_value: Optional[float] = Field(
+        None,
+        ge=0
+    )
+
+    threshold_unit: Optional[str] = Field(
+        None,
+        max_length=50
+    )
+
+    notes: Optional[str] = None
+
+
+class TenderAccessorialResponse(BaseModel):
+
+    id: int
+    tender_id: int
+
+    charge_type: str
+    treatment: str
+
+    threshold_value: Optional[float]
+    threshold_unit: Optional[str]
+
+    notes: Optional[str]
+
+    class Config:
+        from_attributes = True
+
+
+class TenderCreate(BaseModel):
+
+    # ============================================================
+    # SECTION 1 — TENDER SCOPE & ROUTING
+    # ============================================================
+
+    tender_title: str = Field(
+        ...,
+        min_length=1,
+        max_length=255
+    )
+
+    scope_description: str = Field(
+        ...,
+        min_length=1
+    )
+
+    business_unit: str = Field(
+        ...,
+        max_length=100
+    )
+
+    cost_centre_project_code: str = Field(
+        ...,
+        max_length=100
+    )
+
+    tender_length_category: str = Field(
+        ...,
+        max_length=50
+    )
+
+    tender_category: str = Field(
+        ...,
+        max_length=100
+    )
+
+    contract_start_date: date
+    contract_end_date: date
+
+    origin_address: str = Field(
+        ...,
+        min_length=1,
+        max_length=500
+    )
+
+    destination_address: str = Field(
+        ...,
+        min_length=1,
+        max_length=500
+    )
+
+    border_customs_responsibility: Optional[str] = Field(
+        None,
+        max_length=50
+    )
+
+    estimated_distance_km: Optional[int] = None
+
+    priority_level: str = Field(
+        ...,
+        max_length=20
+    )
+
+    load_type: str = Field(
+        ...,
+        max_length=50
+    )
+
+    customer_reference: Optional[str] = Field(
+        None,
+        max_length=100
+    )
+
+    # ============================================================
+    # SECTION 2 — CARGO
+    # ============================================================
+
+    commodity: str = Field(
+        ...,
+        min_length=1
+    )
+
+    average_shipment_weight_kg: int = Field(
+        ...,
+        gt=0
+    )
+
+    minimum_weight_bracket_kg: int = Field(
+        ...,
+        gt=0
+    )
+
+    packaging_type: Optional[str] = Field(
+        None,
+        max_length=100
+    )
+
+    packaging_quantity: Optional[str] = Field(
+        None,
+        max_length=100
+    )
+
+    temperature_control: Optional[str] = Field(
+        None,
+        max_length=100
+    )
+
+    target_temperature_spec: Optional[str] = Field(
+        None,
+        max_length=100
+    )
+
+    hazardous_materials: bool = False
+
+    hazchem_classification: Optional[str] = Field(
+        None,
+        max_length=100
+    )
+
+    under_bond: bool = False
+
+    rib_requirements: bool = False
+
+    minimum_git_cover_amount: float = Field(
+        ...,
+        ge=0
+    )
+
+    minimum_liability_cover_amount: float = Field(
+        ...,
+        ge=0
+    )
+
+    # ============================================================
+    # SECTION 3 — VOLUME
+    # ============================================================
+
+    volume_entry_method: str = Field(
+        ...,
+        max_length=30
+    )
+
+    volume_commitment: str = Field(
+        ...,
+        max_length=50
+    )
+
+    # ============================================================
+    # SECTION 4 — PRICING
+    # ============================================================
+
+    pricing_basis: str = Field(
+        ...,
+        max_length=50
+    )
+
+    incumbent_transport_rate_per_shipment: float = Field(
+        ...,
+        ge=0
+    )
+    procurement_target_rate: float = Field(
+        ...,
+        ge=0
+    )
+
+    rate_direction: str = Field(
+        ...,
+        max_length=50
+    )
+
+    # ============================================================
+    # RATE INCLUDES
+    # ============================================================
+
+    rate_includes_fuel: bool = False
+    rate_includes_driver: bool = False
+    rate_includes_maintenance: bool = False
+    rate_includes_insurance: bool = False
+    rate_includes_tolls: bool = False
+    rate_includes_empty_return: bool = False
+    rate_includes_waiting_time: bool = False
+    rate_includes_loading_assistance: bool = False
+    rate_includes_offloading_assistance: bool = False
+
+    # ============================================================
+    # FUEL
+    # ============================================================
+
+    fuel_treatment_type: str = Field(
+        ...,
+        max_length=100
+    )
+
+    base_diesel_price: Optional[float] = Field(
+        None,
+        ge=0
+    )
+
+    fuel_review_period: Optional[str] = Field(
+        None,
+        max_length=50
+    )
+
+    fuel_component_percentage: Optional[float] = Field(
+        None,
+        ge=0,
+        le=100
+    )
+
+    # ============================================================
+    # VAT / RATE VALIDITY
+    # ============================================================
+
+    vat_treatment: str = Field(
+        ...,
+        max_length=30
+    )
+
+    rate_validity: str = Field(
+        ...,
+        max_length=50
+    )
+
+    # ============================================================
+    # TENDER PROCESS
+    # ============================================================
+
+    tender_closing_date: datetime
+
+    questions_deadline: Optional[datetime] = None
+
+    # ============================================================
+    # OPERATIONAL REQUIREMENTS
+    # ============================================================
+
+    vehicle_tracking_required: bool = False
+
+    all_time_hour_control_room: bool = False
+
+    driver_mobile_phone: bool = False
+
+    clean_compliant_equipment: bool = False
+
+    pallet_management: bool = False
+
+    pod_submission_local: Optional[str] = Field(
+        None,
+        max_length=100
+    )
+
+    pod_submission_long_haul: Optional[str] = Field(
+        None,
+        max_length=100
+    )
+
+    pod_submission_cross_border: Optional[str] = Field(
+        None,
+        max_length=100
+    )
+
+    subcontracting_policy: Optional[str] = Field(
+        None,
+        max_length=50
+    )
+
+    # ============================================================
+    # DOCUMENTATION
+    # ============================================================
+
+    delivery_documentation_sla: Optional[str] = Field(
+        None,
+        max_length=100
+    )
+
+    claims_risk_policy: Optional[str] = Field(
+        None,
+        max_length=100
+    )
+
+    claims_risk_requirements: Optional[str] = None
+
+    # ============================================================
+    # INSURANCE
+    # ============================================================
+
+    git_all_risk_required: bool = False
+    git_first_loss_required: bool = False
+    git_driver_fidelity_required: bool = False
+
+    # ============================================================
+    # EQUIPMENT COMPLIANCE
+    # ============================================================
+
+    tarpaulin_compliance_required: bool = False
+    corner_plates_required: bool = False
+    chock_blocks_required: bool = False
+    ratchets_belts_required: bool = False
+
+    other_equipment_requirements: Optional[str] = None
+
+    # ============================================================
+    # BID EVALUATION
+    # ============================================================
+
+    evaluation_price_enabled: bool = True
+    evaluation_capacity_enabled: bool = True
+    evaluation_service_enabled: bool = True
+    evaluation_compliance_enabled: bool = True
+    evaluation_flexibility_enabled: bool = True
+
+    # ============================================================
+    # CHILD RECORDS
+    # ============================================================
+
+    stops: list[TenderStopCreate] = []
+    vehicle_configurations: list[TenderVehicleConfigCreate] = []
+    volume_profiles: list[TenderVolumeProfileCreate] = []
+    accessorials: list[TenderAccessorialCreate] = []
