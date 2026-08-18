@@ -9,8 +9,81 @@ from models.Exchange.dedicated_ftl_lane import (
     Lane_Tender_Accessorial,
 )
 from models.brokerage.loadboard import Lane_Tender_Loadboard
+from models.brokerage.finance import FinancialAccounts
+from models.shipper import Corporation
+from utils.google_maps import AddressInput, calculate_distance
 
 from schemas.exchange_bookings.dedicated_ftl_lane import TenderCreate
+
+def calculate_tender_distance(
+    origin_address: str,
+    destination_address: str,
+    stops=None
+):
+    """
+    Calculate the complete tender route distance using:
+
+    Origin
+        ↓
+    Stop 1
+        ↓
+    Stop 2
+        ↓
+    ...
+        ↓
+    Destination
+
+    Uses the existing calculate_distance() function.
+    """
+
+    # ---------------------------------------------------------
+    # Build waypoint list from tender stops
+    # ---------------------------------------------------------
+
+    waypoints = []
+
+    if stops:
+        # Sort stops by stop_sequence
+        sorted_stops = sorted(
+            stops,
+            key=lambda stop: stop.stop_sequence
+        )
+
+        waypoints = [
+            stop.address.strip()
+            for stop in sorted_stops
+            if stop.address and stop.address.strip()
+        ]
+
+    # ---------------------------------------------------------
+    # Build AddressInput for existing distance function
+    # ---------------------------------------------------------
+
+    route_input = AddressInput(
+        origin_address=origin_address,
+        destination_address=destination_address,
+        waypoints=waypoints
+    )
+
+    # ---------------------------------------------------------
+    # Call existing Google Maps distance function
+    # ---------------------------------------------------------
+
+    result = calculate_distance(route_input)
+
+    # ---------------------------------------------------------
+    # Extract calculated distance
+    # ---------------------------------------------------------
+
+    distance_km = result.get("distance")
+
+    if distance_km is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Google Maps did not return a route distance."
+        )
+
+    return distance_km
 
 def create_tender_and_publish(
     db: Session,
@@ -18,6 +91,28 @@ def create_tender_and_publish(
     current_user: dict
 ):
     try:
+
+        shipper = db.query(Corporation).filter(Corporation.id == company_id).first()
+        if not shipper:
+            raise HTTPException(status_code=400, detail="Shipper account not found or not active.")
+        if not shipper.is_verified:
+            raise HTTPException(status_code=403, detail="Shipper account is not verified. Please await verification to create a shipment exchange.")
+        if shipper.status != "Active":
+            raise HTTPException(status_code=403, detail="Shipper account is not active. Please await account activation to create a shipment exchange.")
+
+        # Step 3: Retrieve Financial Account & Generate Payment Dates Based on Terms
+        financial_account = db.query(FinancialAccounts).filter(
+            FinancialAccounts.id == company_id
+        ).first()
+        
+        if not financial_account:
+            raise HTTPException(status_code=404, detail="Financial account not found.")
+        if not financial_account.is_verified:
+            raise HTTPException(status_code=403, detail="Financial account is not verified. Please await verification to create and finance a shipment exchange.")
+        if financial_account.status != "Active":
+            raise HTTPException(status_code=403, detail="Financial account is not active. Please await activation to create and finance a shipment exchange.")
+
+
 
         # ========================================================
         # 1. VALIDATE CONTRACT DATES
@@ -121,30 +216,15 @@ def create_tender_and_publish(
                 detail="Tender stop sequences must be unique."
             )
 
-        # ========================================================
-        # 6. CALCULATE / VERIFY DISTANCE
-        # ========================================================
+        # ---------------------------------------------------------
+        # Build waypoint list from tender stops
+        # ---------------------------------------------------------
 
         calculated_distance_km = calculate_tender_distance(
             origin_address=tender_data.origin_address,
             destination_address=tender_data.destination_address,
+            stops=tender_data.stops
         )
-
-        if not calculated_distance_km or calculated_distance_km <= 0:
-            raise HTTPException(
-                status_code=400,
-                detail="Unable to calculate a valid route distance."
-            )
-
-        # ========================================================
-        # 7. GET CLIENT PAYMENT TERMS
-        # ========================================================
-
-        payment_terms = get_client_payment_terms(
-            db=db,
-            client_id=tender_data.client_id,
-        )
-
         # ========================================================
         # 8. CREATE MASTER TENDER
         # ========================================================
@@ -285,7 +365,7 @@ def create_tender_and_publish(
             # PAYMENT TERMS
             # ----------------------------------------------------
 
-            payment_terms=payment_terms,
+            payment_terms=financial_account.payment_terms,
             custom_payment_terms=None,
 
             # ----------------------------------------------------
@@ -637,7 +717,7 @@ def create_tender_and_publish(
             vat_treatment=tender.vat_treatment,
             rate_validity=tender.rate_validity,
 
-            payment_terms=tender.payment_terms,
+            payment_terms=tender.financial_account.payment_terms,
             custom_payment_terms=tender.custom_payment_terms,
 
             invoice_submission_frequency=(
