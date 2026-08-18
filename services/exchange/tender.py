@@ -242,7 +242,7 @@ def create_tender_and_publish(
         # ========================================================
 
         tender = Lane_Tender_RFQ(
-            client_id=tender_data.client_id,
+            client_id=shipper.id,
 
             is_sub_tender=False,
             parent_tender_id=None,
