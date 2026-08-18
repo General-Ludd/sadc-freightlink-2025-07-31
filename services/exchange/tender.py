@@ -39,16 +39,18 @@ def create_tender_and_publish(
             time.min
         )
 
-        if tender_data.tender_closing_date <= contract_start_datetime:
+        if tender_data.tender_closing_date >= contract_start_datetime:
             raise HTTPException(
                 status_code=400,
                 detail="Tender closing date must be before the contract start date."
             )
+
+
         # ========================================================
         # 3. VALIDATE QUESTIONS DEADLINE
         # ========================================================
 
-        if tender_data.questions_deadline:
+        if tender_data.questions_deadline is not None:
 
             if tender_data.questions_deadline >= tender_data.tender_closing_date:
                 raise HTTPException(
