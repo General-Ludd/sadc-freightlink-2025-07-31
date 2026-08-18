@@ -211,6 +211,7 @@ def create_tender_and_publish(
                 tender_data.rate_includes_insurance
             ),
             rate_includes_tolls=tender_data.rate_includes_tolls,
+            rate_includes_border_charges=tender_data.rate_includes_border_charges,
             rate_includes_empty_return=(
                 tender_data.rate_includes_empty_return
             ),
