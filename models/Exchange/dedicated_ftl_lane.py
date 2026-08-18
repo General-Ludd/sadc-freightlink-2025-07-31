@@ -276,12 +276,6 @@ class Lane_Tender_RFQ(Base):
     evaluation_compliance_enabled = Column(Boolean, default=True, nullable=False)
     evaluation_flexibility_enabled = Column(Boolean, default=True, nullable=False)
 
-    evaluation_price_weight = Column(Numeric(5, 2), nullable=True)
-    evaluation_capacity_weight = Column(Numeric(5, 2), nullable=True)
-    evaluation_service_weight = Column(Numeric(5, 2), nullable=True)
-    evaluation_compliance_weight = Column(Numeric(5, 2), nullable=True)
-    evaluation_flexibility_weight = Column(Numeric(5, 2), nullable=True)
-
     # ============================================================
     # TENDER STATUS
     # ============================================================

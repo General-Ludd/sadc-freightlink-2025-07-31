@@ -29,16 +29,21 @@ def create_tender_and_publish(
                 detail="Contract end date cannot be before contract start date."
             )
 
+
         # ========================================================
         # 2. VALIDATE TENDER CLOSING DATE
         # ========================================================
 
-        if tender_data.tender_closing_date <= tender_data.contract_start_date:
+        contract_start_datetime = datetime.combine(
+            tender_data.contract_start_date,
+            time.min
+        )
+
+        if tender_data.tender_closing_date <= contract_start_datetime:
             raise HTTPException(
                 status_code=400,
                 detail="Tender closing date must be before the contract start date."
             )
-
         # ========================================================
         # 3. VALIDATE QUESTIONS DEADLINE
         # ========================================================
