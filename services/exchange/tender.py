@@ -92,7 +92,19 @@ def create_tender_and_publish(
 ):
     try:
 
-        shipper = db.query(Corporation).filter(Corporation.id == current_user.company_id).first()
+        assert "company_id" in current_user, "Missing company_id in current_user"
+        print(f"current_user: {current_user}")
+        
+        # Extract the company_id from the current user
+        company_id = current_user.get("company_id")
+        user_id = current_user.get("id")
+        if not company_id:
+            raise HTTPException(
+                status_code=400,
+                detail="User does not belong to a company"
+            )
+
+        shipper = db.query(Corporation).filter(Corporation.id == company_id).first()
         if not shipper:
             raise HTTPException(status_code=400, detail="Shipper account not found or not active.")
         if not shipper.is_verified:
