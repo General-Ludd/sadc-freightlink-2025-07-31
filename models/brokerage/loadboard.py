@@ -565,12 +565,3 @@ class Lane_Tender_Loadboard(Base):
 
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
-
-    # ============================================================
-    # RELATIONSHIP
-    # ============================================================
-
-    tender = relationship(
-        "Lane_Tender_RFQ",
-        back_populates="loadboard"
-    )
