@@ -99,6 +99,7 @@ class Lane_Tender_RFQ(Base):
     # ============================================================
 
     id = Column(Integer, primary_key=True, index=True)
+    client_id = Column(Integer, nullable=False)
     is_sub_tender = Column(Boolean, default=False, nullable=False)
     parent_tender_id = Column(Integer, ForeignKey("ftl_lane_tenders.id"), nullable=True)
 
