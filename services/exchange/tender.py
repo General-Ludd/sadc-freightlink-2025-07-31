@@ -92,7 +92,7 @@ def create_tender_and_publish(
 ):
     try:
 
-        shipper = db.query(Corporation).filter(Corporation.id == company_id).first()
+        shipper = db.query(Corporation).filter(Corporation.id == current_user.company_id).first()
         if not shipper:
             raise HTTPException(status_code=400, detail="Shipper account not found or not active.")
         if not shipper.is_verified:
@@ -102,7 +102,7 @@ def create_tender_and_publish(
 
         # Step 3: Retrieve Financial Account & Generate Payment Dates Based on Terms
         financial_account = db.query(FinancialAccounts).filter(
-            FinancialAccounts.id == company_id
+            FinancialAccounts.id == shipper.id
         ).first()
         
         if not financial_account:
