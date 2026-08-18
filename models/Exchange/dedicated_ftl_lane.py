@@ -189,6 +189,7 @@ class Lane_Tender_RFQ(Base):
     rate_includes_maintenance = Column(Boolean, default=False, nullable=False)
     rate_includes_insurance = Column(Boolean, default=False, nullable=False)
     rate_includes_tolls = Column(Boolean, default=False, nullable=False)
+    rate_includes_border_charges = Column(Boolean, default=False, nullable=False)
     rate_includes_empty_return = Column(Boolean, default=False, nullable=False)
     rate_includes_waiting_time = Column(Boolean, default=False, nullable=False)
     rate_includes_loading_assistance = Column(Boolean, default=False, nullable=False)
