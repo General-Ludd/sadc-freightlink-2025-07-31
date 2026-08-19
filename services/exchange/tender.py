@@ -912,7 +912,7 @@ def create_tender_and_publish(
         # 19. RETURN
         # ========================================================
 
-        return tender
+        return {"tender_id": tender.id}
 
     except HTTPException:
         db.rollback()
