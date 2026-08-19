@@ -76,7 +76,6 @@ def calculate_tender_distance(
     # ---------------------------------------------------------
 
     distance_km = result.get("distance")
-    polyline = result.get("polyline")
 
     if distance_km is None:
         raise HTTPException(
@@ -244,7 +243,7 @@ def create_tender_and_publish(
                 origin_address=tender_data.origin_address,
                 destination_address=tender_data.destination_address,
                 start_date=tender_data.contract_start_date,
-                start_time=tender_data.tender_closing_date,
+                start_time=time.utcnow,
             ))
             eta_date = trip_data["eta_date"]  # Distance in kilometers
             eta_window = trip_data["eta_window"]  # Transit time as text
