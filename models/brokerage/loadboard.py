@@ -422,7 +422,7 @@ class Lane_Tender_Loadboard(Base):
 
     estimated_distance_km = Column(Integer, nullable=False)
     actual_distance_km = Column(Integer, nullable=True)
-    polyline = Column(String(200), nullable=True)
+    polyline = Column(String(2000), nullable=True)
 
     border_customs_responsibility = Column(String(50), nullable=True)
 
