@@ -316,7 +316,7 @@ class Lane_Tender_RFQ(Base):
     )
 
 
-class Lane_Tender_Stop(Base):
+class Lane_Tender_RFQ_Stop(Base):
 
     __tablename__ = "ftl_lane_tender_stops"
 
