@@ -132,6 +132,7 @@ class Lane_Tender_RFQ(Base):
 
     estimated_distance_km = Column(Integer, nullable=False)
     actual_distance_km = Column(Integer, nullable=True)
+    polyline = Column(String(200), nullable=True)
 
     priority_level = Column(String(20), nullable=False)
     load_type = Column(String(50), nullable=False)

@@ -283,6 +283,7 @@ def create_tender_and_publish(
 
             estimated_distance_km=tender_data.estimated_distance_km if tender_data.estimated_distance_km else calculated_distance_km,
             actual_distance_km=calculated_distance_km,
+            polyline=polyline,
 
             priority_level=tender_data.priority_level,
             load_type=tender_data.load_type,
