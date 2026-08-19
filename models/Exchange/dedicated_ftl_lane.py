@@ -293,7 +293,7 @@ class Lane_Tender_RFQ(Base):
         "Lane_Tender_RFQ_Stop",
         back_populates="tender",
         cascade="all, delete-orphan",
-        order_by="Lane_Tender_Stop.stop_sequence"
+        order_by="Lane_Tender_RFQ_Stop.stop_sequence"
     )
 
     vehicle_configurations = relationship(
@@ -306,7 +306,7 @@ class Lane_Tender_RFQ(Base):
         "Lane_Tender_RFQ_Volume_Profile",
         back_populates="tender",
         cascade="all, delete-orphan",
-        order_by="Lane_Tender_Volume_Profile.period_sequence"
+        order_by="Lane_Tender_RFQ_Volume_Profile.period_sequence"
     )
 
     accessorials = relationship(
