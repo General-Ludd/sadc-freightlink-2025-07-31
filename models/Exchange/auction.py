@@ -1,4 +1,4 @@
-from sqlalchemy import Integer, String, Column, Float, Date, DateTime, func, Enum, Boolean, ForeignKey
+from sqlalchemy import Integer, String, Column, Float, Date, DateTime, func, Enum, Boolean, ForeignKey, Numeric
 from models.base import Base
 
 class Exchange_FTL_Shipment_Bid(Base):
@@ -52,5 +52,22 @@ class Exchange_FTL_Lane_Bid(Base):
     baked_contract_bid_amount = Column(Integer, nullable=False)
     bid_notes = Column(String, nullable=True)
     status = Column(Enum("Placed", "Outbidded", "Accepted", "Rejected", default="Placed"))
+    submitted_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+class Lane_Tender_RFQ_Bids(Base):
+    __tablename__ = 'lane_tender_bids'
+
+    id = Column(Integer, primary_key=True, index=True)
+    tender_id = Column(Integer, index=True)
+    carrier_id = Column(Integer, nullable=False)
+    carrier_name = Column(String, nullable=False)
+    fleet_size = Column(Integer, nullable=True)
+    primary_lanes = Column(String)
+    bid_per_shipment = Column(Numeric(12, 2), nullable=True)
+    slots_per_interval = Column(Integer, nullable=True)
+    per_slot_size = Column(Integer, nullable=True)
+    bid_notes = Column(String, nullable=True)
+    status = Column(Enum("Submitted", "Outbidded", "Under-Review","Accepted", "Rejected", default="Submitted"))
     submitted_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

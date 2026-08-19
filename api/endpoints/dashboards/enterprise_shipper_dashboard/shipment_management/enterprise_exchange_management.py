@@ -28,6 +28,167 @@ def get_db():
     finally:
         db.close()
 
+
+@router.get("/tender/{id}")
+def get_tender_information(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    assert "company_id" in current_user, "Missing company_id in current_user"
+    company_id = current_user.get("company_id")
+
+    if not company_id:
+        raise HTTPException(
+            status_code=400,
+            detail="User does not belong to a company"
+        )
+    try:
+        tender = db.query(Lane_Tender_RFQ).filter(Lane_Tender_RFQ.id == id).first()
+        tender_stops = db.query(Lane_Tender_RFQ_Stops).filter(Lane_Tender_RFQ_Stops.tender_id == id).all()
+        tender_vehicle_configs = db.query(Lane_Tender_RFQ_Vehicle_Configs).filter(Lane_Tender_RFQ_Vehicle_Configs.tender_id == id).all()
+        tender_volumes_profiles = db.query(Lane_Tender_RFQ_Volumes_Profiles).filter(Lane_Tender_RFQ_Volumes_Profiles.tender_id == id).all()
+        tender_accessorials = db.query(Lane_Tender_RFQ_Accessorials).filter(Lane_Tender_RFQ_Accessorials.tender_id == id).all()
+
+        bids = db.query(Lane_Tender_RFQ_Bids).filter(Lane_Tender_RFQ_Bids.tender_id == id).all()
+
+        return {
+            "tender_scope_routing_information": {
+                "id": tender.id,
+                "title": tender.title,
+                "scope_description": tender.scope_description,
+                "business_unit": tender.business_unit,
+                "cost_centre": tender.cost_centre_project_code,
+                "tender_length": tender.tender_length_category,
+                "tender_category": tender.tender_category,
+                "origin_address": tender.origin_address,
+                "stop_addresses": [stop.address for stop in tender_stops],
+                "destination_address": tender.destination_address,
+                "route_polyline": tender.polyline,
+                "border_customs_responsibility": tender.border_customs_responsibility,
+                "distance": tender.actual_distance_km,
+                "priority_level": tender.priority_level,
+                "contract_start_date": tender.contract_start_date,
+                "contract_end_date": tender.contract_end_date,
+                "customer_reference": tender.customer_reference,
+            },
+            "load_requirements_and_vehicle_configurations": {
+                "allowed_vehicle_configurations": [{
+                    "configuration_type": config.configuration_type,
+                    "truck_type": config.required_truck_type,
+                    "equipment_type": config.equipment_type,
+                    "trailer_type": config.trailer_type or "--------",
+                    "trailer_length": config.trailer_length or "--------",
+                } for config in tender_vehicle_configs],
+
+                "commodity": tender.commodity,
+                "avg_shipment_weight": tender.average_shipment_weight_kg,
+                "minimum_weight_bracket": tender.minimum_weight_bracket_kg,
+                "packaging_type": tender.packaging_type,
+                "packaging_quantity": tender.packaging_quantity,
+                "temperature_control": tender.temperature_control,
+                "hazardous_materials": tender.hazardous_materials,
+                "under_bond": tender.under_bond,
+                "rib_requirements": tender.rib_requirements,
+                "minimum_git_cover": tender.minimum_git_cover_amount,
+                "minimum_liability_cover_amount": tender.minimum_liability_cover_amount,
+                "insurance_requirements": {
+                    "minimum_git_cover": tender.minimum_git_cover_amount,
+                    "minimum_liability_cover_amount": tender.minimum_liability_cover_amount,
+                    "git_all_risk_required": tender.git_all_risk_required,
+                    "git_first_loss_required": tender.git_first_loss_required,
+                    "driver_fidelity_required": tender.driver_fidelity_required,
+                },
+                "equipment_load_securing": {
+                    "tarpaulin_required": tender.tarpaulin_compliance_required,
+                    "corner_plates_required": tender.corner_plates_required,
+                    "chock_blocks_required": tender.chock_blocks_required,
+                    "ratchets_belts_required": tender.ratchets_belts_required,
+                },
+            },
+            "seasonality_and_volume_profile":{
+                "volume_pattern_behavior": tender.volume_entry_method,
+                "volume_commitment": tender.volume_commitment,
+                "volumes": [{
+                    "period_sequence": profile.period_sequence,
+                    "period_label": profile.period_label,
+                    "period_date_start": profile.period_start_date,
+                    "period_date_end": profile.period_end_date,
+                    "day_of_week": profile.day_of_week or "",
+                    "expected_loads": profile.expected_loads,
+                } for profile in tender_volumes_profiles]
+            },
+            "rates_commercial_conditions": {
+                "rate_basis": tender.pricing_basis,
+                "current_incumbent_rate": tender.incumbent_transport_rate_per_shipment,
+                "procurement_target_rate": tender.procurement_target_rate,
+                "desired_rate_direction": tender.rate_direction,
+                "rate_inclusive_of": {
+                    "fuel": tender.rate_includes_fuel,
+                    "driver": tender.rate_includes_driver,
+                    "maintenance": tender.rate_includes_maintenance,
+                    "insurance": tender.rate_includes_insurance,
+                    "tolls": tender.rate_includes_tolls,
+                    "border_charges": tender.rate_includes_border_charges,
+                    "empty_return": tender.rate_includes_empty_return,
+                    "waiting_time": tender.rate_includes_waiting_time,
+                    "loading_assistance": tender.rate_includes_loading_assistance,
+                    "offloading_assistance": tender.rate_includes_offloading_assistance,
+                },
+                "fuel_treatment": tender.fuel_treatment_type,
+                "vat_treatment": tender.vat_treatment,
+                "base_diesel_price": tender.base_diesel_price,
+                "review_period": tender.fuel_review_period,
+                "fuel_component": tender.fuel_component_percentage,
+                "rate_validity": tender.rate_validity,
+                "questions_deadline": tender.questions_deadline,
+                "tender_closing_date": tender.tender_closing_date,
+                "supplier_bid_evaluation": {
+                    "evaluation_price_enabled": tender.evaluation_price_enabled,
+                    "evaluation_capacity_enabled": tender.evaluation_capacity_enabled,
+                    "evaluation_service_enabled": tender.evaluation_service_enabled,
+                    "evaluation_compliance_enabled": tender.evaluation_compliance_enabled,
+                    "evaluation_flexibility_enabled": tender.evaluation_flexibility_enabled,
+                },
+                "bids": [{
+                    "id": bid.id,
+                    "status": bid.status,
+                    "carrier_id": bid.carrier_id,
+                    "carrier_name": bid.carrier_name,
+                    "fleet_size": bid.fleet_size,
+                    "primary_lanes": bid.primary_lanes,
+                    "per_shipment_bid": bid.bid_per_shipment,
+                    "slots_per_interval": bid.slots_per_interval,
+                    "per_slot_size": bid.per_slot_size,
+                    "notes": bid.bid_notes,
+                    "submitted_at": bid.submitted_at,
+                } for bid in bids]
+            },
+            "operational_compliance_risk_requirements": {
+                "proof_of_delivery_submissions": {
+                    "local_hauls": tender.pod_submission_local,
+                    "long_hauls": tender.pod_submission_long_haul,
+                    "cross_border": tender.pod_submission_cross_border,
+                    "delivery_docs_sla": tender.delivery_documentation_sla,
+                },
+                "claims_risk_management_governance": {
+                    "claims_policy_framework": tender.claims_risk_policy,
+                    "special_risk_claims_protocol_": tender.claims_risk_requirements,
+                },
+                "required_operational_conditions": {
+                    "vehicle_tracking_required": tender.vehicle_tracking_required,
+                    "24_hour_control_room": tender.all_time_hour_control_room,
+                    "driver_mobile_phone": tender.driver_mobile_phone,
+                    "clean_compliant_equipment": tender.clean_compliant_equipment,
+                    "pallet_management": tender.pallet_management,
+                },
+                "subcontracting_policy": tender.subcontracting_policy,
+            },
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/enterprise/ftl-shipment-exchange/{id}")
 def get_enterprise_single_ftl_exchange_details(
     id: int,
