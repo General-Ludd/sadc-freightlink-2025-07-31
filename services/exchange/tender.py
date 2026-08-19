@@ -729,7 +729,7 @@ def create_tender_and_publish(
             vat_treatment=tender.vat_treatment,
             rate_validity=tender.rate_validity,
 
-            payment_terms=tender.financial_account.payment_terms,
+            payment_terms=financial_account.payment_terms,
             custom_payment_terms=tender.custom_payment_terms,
 
             invoice_submission_frequency=(
