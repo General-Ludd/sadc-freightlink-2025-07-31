@@ -243,7 +243,7 @@ def create_tender_and_publish(
                 origin_address=tender_data.origin_address,
                 destination_address=tender_data.destination_address,
                 start_date=tender_data.contract_start_date,
-                start_time=time.utcnow,
+                start_time=time(8, 0),
             ))
             eta_date = trip_data["eta_date"]  # Distance in kilometers
             eta_window = trip_data["eta_window"]  # Transit time as text
