@@ -11,7 +11,7 @@ from models.Exchange.dedicated_ftl_lane import (
 from models.brokerage.loadboard import Lane_Tender_Loadboard
 from models.brokerage.finance import FinancialAccounts
 from models.shipper import Corporation
-from utils.google_maps import AddressInput, calculate_distance
+from utils.google_maps import AddressInput, calculate_distance, get_eta_and_polyline
 
 from schemas.exchange_bookings.dedicated_ftl_lane import TenderCreate
 
@@ -76,6 +76,7 @@ def calculate_tender_distance(
     # ---------------------------------------------------------
 
     distance_km = result.get("distance")
+    polyline = result.get("polyline")
 
     if distance_km is None:
         raise HTTPException(
@@ -237,6 +238,19 @@ def create_tender_and_publish(
             destination_address=tender_data.destination_address,
             stops=tender_data.stops
         )
+
+        try:
+            trip_data = get_eta_and_polyline(RouteETAInput(
+                origin_address=tender_data.origin_address,
+                destination_address=tender_data.destination_address,
+                start_date=tender_data.contract_start_date,
+                start_time=tender_data.tender_closing_date,
+            ))
+            eta_date = trip_data["eta_date"]  # Distance in kilometers
+            eta_window = trip_data["eta_window"]  # Transit time as text
+            polyline = trip_data["polyline"]
+        except HTTPException as e:
+            raise HTTPException(status_code=500, detail=f"Trip info calculation failed: {e.detail}")
         # ========================================================
         # 8. CREATE MASTER TENDER
         # ========================================================
@@ -640,6 +654,7 @@ def create_tender_and_publish(
 
             estimated_distance_km=tender.estimated_distance_km,
             actual_distance_km=tender.actual_distance_km,
+            polyline=polyline,
 
             border_customs_responsibility=(
                 tender.border_customs_responsibility
