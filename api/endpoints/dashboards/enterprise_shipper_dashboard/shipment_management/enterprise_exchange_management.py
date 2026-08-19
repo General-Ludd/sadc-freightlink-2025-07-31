@@ -45,7 +45,7 @@ def get_tender_information(
         )
     try:
         tender = db.query(Lane_Tender_RFQ).filter(Lane_Tender_RFQ.id == id).first()
-        tender_stops = db.query(Lane_Tender_RFQ_Stops).filter(Lane_Tender_RFQ_Stops.tender_id == id).all()
+        tender_stops = db.query(Lane_Tender_RFQ_Stop).filter(Lane_Tender_RFQ_Stop.tender_id == id).all()
         tender_vehicle_configs = db.query(Lane_Tender_RFQ_Vehicle_Configs).filter(Lane_Tender_RFQ_Vehicle_Configs.tender_id == id).all()
         tender_volumes_profiles = db.query(Lane_Tender_RFQ_Volumes_Profiles).filter(Lane_Tender_RFQ_Volumes_Profiles.tender_id == id).all()
         tender_accessorials = db.query(Lane_Tender_RFQ_Accessorials).filter(Lane_Tender_RFQ_Accessorials.tender_id == id).all()
