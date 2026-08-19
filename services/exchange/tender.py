@@ -3,10 +3,10 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from models.Exchange.dedicated_ftl_lane import (
     Lane_Tender_RFQ,
-    Lane_Tender_Stop,
-    Lane_Tender_Vehicle_Config,
-    Lane_Tender_Volume_Profile,
-    Lane_Tender_Accessorial,
+    Lane_Tender_RFQ_Stop,
+    Lane_Tender_RFQ_Vehicle_Config,
+    Lane_Tender_RFQ_Volume_Profile,
+    Lane_Tender_RFQ_Accessorial,
 )
 from models.brokerage.loadboard import Lane_Tender_Loadboard
 from models.brokerage.finance import FinancialAccounts
@@ -535,7 +535,7 @@ def create_tender_and_publish(
 
         for stop_data in tender_data.stops:
 
-            stop = Lane_Tender_Stop(
+            stop = Lane_Tender_RFQ_Stop(
                 tender_id=tender.id,
                 stop_sequence=stop_data.stop_sequence,
                 address=stop_data.address,
@@ -549,7 +549,7 @@ def create_tender_and_publish(
 
         for vehicle_data in tender_data.vehicle_configurations:
 
-            vehicle_config = Lane_Tender_Vehicle_Config(
+            vehicle_config = Lane_Tender_RFQ_Vehicle_Config(
                 tender_id=tender.id,
                 configuration_type=(
                     vehicle_data.configuration_type
@@ -569,7 +569,7 @@ def create_tender_and_publish(
 
         for volume_data in tender_data.volume_profiles:
 
-            volume_profile = Lane_Tender_Volume_Profile(
+            volume_profile = Lane_Tender_RFQ_Volume_Profile(
                 tender_id=tender.id,
                 volume_entry_method=(
                     volume_data.volume_entry_method
@@ -590,7 +590,7 @@ def create_tender_and_publish(
 
         for accessorial_data in tender_data.accessorials:
 
-            accessorial = Lane_Tender_Accessorial(
+            accessorial = Lane_Tender_RFQ_Accessorial(
                 tender_id=tender.id,
                 charge_type=accessorial_data.charge_type,
                 treatment=accessorial_data.treatment,

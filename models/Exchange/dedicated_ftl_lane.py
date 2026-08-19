@@ -335,7 +335,7 @@ class Lane_Tender_Stop(Base):
         back_populates="stops"
     )
 
-class Lane_Tender_Vehicle_Config(Base):
+class Lane_Tender_RFQ_Vehicle_Config(Base):
 
     __tablename__ = "ftl_lane_tender_vehicle_configs"
 
@@ -356,7 +356,7 @@ class Lane_Tender_Vehicle_Config(Base):
         back_populates="vehicle_configurations"
     )
 
-class Lane_Tender_Volume_Profile(Base):
+class Lane_Tender_RFQ_Volume_Profile(Base):
 
     __tablename__ = "ftl_lane_tender_volume_profiles"
 
@@ -380,7 +380,7 @@ class Lane_Tender_Volume_Profile(Base):
         back_populates="volume_profiles"
     )
 
-class Lane_Tender_Accessorial(Base):
+class Lane_Tender_RFQ_Accessorial(Base):
 
     __tablename__ = "ftl_lane_tender_accessorials"
 
