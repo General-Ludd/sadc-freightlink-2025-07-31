@@ -151,7 +151,7 @@ def get_tender_information(
                     "minimum_liability_cover_amount": tender.minimum_liability_cover_amount,
                     "git_all_risk_required": tender.git_all_risk_required,
                     "git_first_loss_required": tender.git_first_loss_required,
-                    "driver_fidelity_required": tender.driver_fidelity_required,
+                    "driver_fidelity_required": tender.git_driver_fidelity_required,
                 },
                 "equipment_load_securing": {
                     "tarpaulin_required": tender.tarpaulin_compliance_required,
