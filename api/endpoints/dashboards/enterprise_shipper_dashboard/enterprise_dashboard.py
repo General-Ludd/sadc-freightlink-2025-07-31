@@ -593,7 +593,7 @@ def get_single_tender_summary(
         baseline_spend = tender.incumbent_contract_rate or 0
         targeted_spend = tender.procurement_target_contract_rate or 0
 
-        projected_savings = 4000000
+        projected_savings = ((tender.incumbent_contract_rate or 0) - (tender.procurement_target_contract_rate or 0))
 
         # ========================================================
         # 5. RETURN SUMMARY
@@ -627,13 +627,13 @@ def get_single_tender_summary(
                     ),
 
                     "email": (
-                        publisher.email
+                        publisher.role
                         if publisher
                         else None
                     ),
 
                     "published_on": (
-                        tender.created_at.isoformat()
+                        tender.created_at
                         if tender.created_at
                         else None
                     ),
@@ -646,12 +646,12 @@ def get_single_tender_summary(
                 "projected_savings": projected_savings,
 
                 "tender_closes": (
-                    tender.tender_closing_date.isoformat()
+                    tender.tender_closing_date.
                     if tender.tender_closing_date
                     else None
                 ),
 
-                "bid_count": len(bids),
+                "bid_count": len(bids) or 0,
             },
         }
 
