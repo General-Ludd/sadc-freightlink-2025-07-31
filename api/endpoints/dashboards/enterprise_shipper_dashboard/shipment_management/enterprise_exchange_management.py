@@ -232,6 +232,7 @@ def get_tender_information(
 
 @router.get("/tender/{id}/bids")
 def get_tender_rfq_bids(
+    id: int,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
