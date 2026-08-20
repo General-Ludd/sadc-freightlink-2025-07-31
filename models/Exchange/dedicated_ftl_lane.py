@@ -100,6 +100,7 @@ class Lane_Tender_RFQ(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     client_id = Column(Integer, nullable=False)
+    publisher_user_id = Column(Integer, Nullable=False)
     is_sub_tender = Column(Boolean, default=False, nullable=False)
     parent_tender_id = Column(Integer, ForeignKey("ftl_lane_tenders.id"), nullable=True)
 
@@ -283,7 +284,10 @@ class Lane_Tender_RFQ(Base):
     # TENDER STATUS
     # ============================================================
 
-    status = Column(String(50), default="draft", nullable=False, index=True)
+    status = Column(Enum("Draft", "Active", "Evaluating", "Awarded", "Cancelled",default="draft"), nullable=False, index=True)
+    proposed_rounds = Column(Integer, default=2, nullable=False)
+    current_tender_round = Column(Integer, default=1, nullable=False),
+    is_active = Column(Boolean, default=true),
 
     # ============================================================
     # RELATIONSHIPS

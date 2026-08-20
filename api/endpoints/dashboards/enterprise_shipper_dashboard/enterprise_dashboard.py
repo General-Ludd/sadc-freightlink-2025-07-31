@@ -542,83 +542,93 @@ def get_enterprise_shipper_tender_rfqs(
             status_code=500,
             detail="Internal server error"
         )
-    
-@router.get("/enterprise-lanes")
-def get_enterprise_shipper_lanes(
+
+@router.get("/tender/{id}/summary")
+def get_single_tender_summary(
+    id: int,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
     try:
-        # 1. Facilities under parent company
-        facilities = (
-            db.query(Corporation)
-            .filter(Corporation.parent_company_id == current_user.get("company_id"))
-            .all()
-        )
 
-        # 2. Facility IDs
-        facility_ids = [f.id for f in facilities]
+        # ========================================================
+        # 1. GET TENDER
+        # ========================================================
 
-        # 3. Scope includes parent + all facilities
-        company_scope_ids = [current_user.get("company_id")] + facility_ids
+        tender = db.query(Lane_Tender_RFQ).filter(
+            Lane_Tender_RFQ.id == id
+        ).first()
 
-        # 4. Fetch all lanes
-        lanes = (
-            db.query(FTL_Lane)
-            .filter(FTL_Lane.shipper_company_id.in_(company_scope_ids))
-            .all()
-        )
-
-        # 5. Status counts
-        status_counts = {
-            "total_lanes": len(lanes),
-            "in_progress": len([l for l in lanes if l.status == "In-Progress"]),
-            "completed": len([l for l in lanes if l.status == "Completed"]),
-            "cancelled": len([l for l in lanes if l.status == "Cancelled"]),
-            "disputed": len([l for l in lanes if l.status.lower() == "Disputed"]),
-        }
-
-        lane_list = []
-
-        for lane in lanes:
-            facility = (
-                db.query(Corporation)
-                .filter(Corporation.id == lane.shipper_company_id)
-                .first()
+        if not tender:
+            raise HTTPException(
+                status_code=404,
+                detail="Tender not found."
             )
 
-            lane_list.append({
-                "id": lane.id,
-                "status": lane.status,
-                "priority_level": lane.priority_level,
-                "type": lane.type,
-                "facility": {
-                    "name": facility.legal_business_name if facility else None,
-                    "id": facility.id if facility else None,
-                },
-                "total_contract_value": lane.contract_quote,
-                "origin": lane.origin_city_province,
-                "destination": lane.destination_city_province,
-                "distance": lane.distance,
-                "contract_start_date": lane.start_date,
-                "contract_end_date": lane.end_date,
-                "frequency": lane.recurrence_frequency,
-                "recurrence_days": lane.recurrence_days,
-                "shipments_per_interval": lane.shipments_per_interval,
-                "total_shipments": lane.total_shipments,
-                "completed_shipments": lane.progress if lane.progress else 0,
-                "rate_per_shipment": lane.qoute_per_shipment,
-                "payment_terms": lane.payment_terms,
-            })
+        # ========================================================
+        # 2. GET BIDS
+        # ========================================================
+
+        bids = db.query(
+            Lane_Tender_RFQ_Bids
+        ).filter(
+            Lane_Tender_RFQ_Bids.tender_id == tender.id
+        ).all()
+
+        # ========================================================
+        # 3. GET TENDER PUBLISHER
+        # ========================================================
+
+        publisher = None
+
+        if tender.publisher_user_id:
+            publisher = db.query(Director).filter(
+                Director.id == tender.publisher_user_id
+            ).first()
+
+        # ========================================================
+        # 4. RETURN SUMMARY
+        # ========================================================
 
         return {
-            "summary": status_counts,
-            "lanes": lane_list
+            "tender_preview": {
+                "id": tender.id,
+                "category": tender.category,
+                "round": tender.current_tender_round,
+                "proposed_rounds": tender.proposed_rounds,
+                "status": tender.status,
+                "title": tender.tender_title,
+                "lead_publisher": {
+                    "id": publisher.id if publisher else None,
+                    "name": (
+                        publisher.name
+                        if publisher and hasattr(publisher, "name")
+                        else None
+                    ),
+                    "published_on": (
+                        tender.created_at.isoformat()
+                        if tender.created_at
+                        else None
+                    ),
+                },
+                "baseline_spend": tender.incumbent_contract_rate,
+                "targeted_spend": tender.procurement_target_contract_rate,
+                "projected_savings": (tender.incumbent_contract_rate or 0 - tender.target_contract_rate or 0),
+                "tender_closes": tender.tender_close_date.isoformat() if tender.tender_close_date else None,
+                "bid_count": len(bids),
+            },
         }
 
+    except HTTPException:
+        raise
+
     except Exception as e:
-        print("Error:", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+        print("Error getting tender summary:", str(e))
+
+        raise HTTPException(
+            status_code=500,
+            detail="Internal server error"
+        )
 
 def make_aware(dt):
     """
