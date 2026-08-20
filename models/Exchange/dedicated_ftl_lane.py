@@ -287,7 +287,7 @@ class Lane_Tender_RFQ(Base):
     status = Column(Enum("Draft", "Active", "Evaluating", "Awarded", "Cancelled",default="draft"), nullable=False, index=True)
     proposed_rounds = Column(Integer, default=2, nullable=False)
     current_tender_round = Column(Integer, default=1, nullable=False),
-    is_active = Column(Boolean, default=true),
+    is_active = Column(Boolean, default=True),
 
     # ============================================================
     # RELATIONSHIPS
