@@ -594,8 +594,9 @@ def get_single_tender_summary(
         targeted_spend = tender.procurement_target_contract_rate or 0
 
         projected_savings = (
-            baseline_spend - targeted_spend
-        )
+            (tender.incumbent_contract_rate or 0)
+            - (tender.procurement_target_contract_rate or 0)
+        ),
 
         # ========================================================
         # 5. RETURN SUMMARY
