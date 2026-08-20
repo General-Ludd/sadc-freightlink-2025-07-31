@@ -492,14 +492,31 @@ def get_enterprise_shipper_tender_rfqs(
             # Calculate total potential savings
             # ----------------------------------------------------
 
-            total_savings = 0.0
+            # ----------------------------------------------------
+            # Calculate total potential savings
+            # ----------------------------------------------------
 
-            incumbent_rate = tender.incumbent_transport_rate_per_shipment or 0
+            total_savings = Decimal("0.00")
+
+            incumbent_rate = (
+                tender.incumbent_transport_rate_per_shipment
+                if tender.incumbent_transport_rate_per_shipment is not None
+                else Decimal("0.00")
+            )
 
             for bid in bids:
 
-                bid_rate = bid.bid_per_shipment or 0
-                slot_size = bid.per_slot_size or 0
+                bid_rate = (
+                    bid.bid_per_shipment
+                    if bid.bid_per_shipment is not None
+                    else Decimal("0.00")
+                )
+
+                slot_size = (
+                    Decimal(bid.per_slot_size)
+                    if bid.per_slot_size is not None
+                    else Decimal("0.00")
+                )
 
                 bid_savings = (
                     (incumbent_rate * slot_size)
