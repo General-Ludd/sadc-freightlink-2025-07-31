@@ -111,7 +111,6 @@ def get_tender_information(
                 "id": tender.id,
                 "publisher_user_id": tender.publisher_user_id,
                 "proposed_rounds": tender.proposed_rounds,
-                "current_render_round": tender.current_tender_round,
                 "title": tender.tender_title,
                 "scope_description": tender.scope_description,
                 "business_unit": tender.business_unit,
