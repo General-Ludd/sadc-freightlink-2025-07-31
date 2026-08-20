@@ -514,6 +514,8 @@ def get_enterprise_shipper_tender_rfqs(
 
             tender_rfqs.append({
                 "id": tender.id,
+                "length_category": tender.tender_length_category,
+                "category": tender.tender_category,
                 "is_subtender": tender.is_sub_tender,
                 "status": tender.status,
                 "tender_title": tender.tender_title,
