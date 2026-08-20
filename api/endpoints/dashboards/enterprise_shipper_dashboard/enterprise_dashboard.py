@@ -593,7 +593,7 @@ def get_single_tender_summary(
         return {
             "tender_preview": {
                 "id": tender.id,
-                "category": tender.category,
+                "category": tender.tender_category,
                 "round": tender.current_tender_round,
                 "proposed_rounds": tender.proposed_rounds,
                 "status": tender.status,
