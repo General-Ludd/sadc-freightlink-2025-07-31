@@ -659,8 +659,6 @@ def get_single_tender_summary(
 
                 "category": tender.tender_category,
 
-                "round": tender.current_tender_round,
-
                 "proposed_rounds": tender.proposed_rounds,
 
                 "status": tender.status,
