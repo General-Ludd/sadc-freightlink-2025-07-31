@@ -587,34 +587,72 @@ def get_single_tender_summary(
             ).first()
 
         # ========================================================
-        # 4. RETURN SUMMARY
+        # 4. CALCULATE PROJECTED SAVINGS
+        # ========================================================
+
+        baseline_spend = tender.incumbent_contract_rate or 0
+        targeted_spend = tender.procurement_target_contract_rate or 0
+
+        projected_savings = (
+            baseline_spend - targeted_spend
+        )
+
+        # ========================================================
+        # 5. RETURN SUMMARY
         # ========================================================
 
         return {
             "tender_preview": {
                 "id": tender.id,
+
                 "category": tender.tender_category,
+
                 "round": tender.current_tender_round,
+
                 "proposed_rounds": tender.proposed_rounds,
+
                 "status": tender.status,
+
                 "title": tender.tender_title,
+
                 "lead_publisher": {
-                    "id": publisher.id if publisher else None,
-                    "name": (
-                        publisher.name
-                        if publisher and hasattr(publisher, "name")
+                    "id": (
+                        publisher.id
+                        if publisher
                         else None
                     ),
+
+                    "name": (
+                        f"{publisher.first_name} {publisher.last_name}"
+                        if publisher
+                        else None
+                    ),
+
+                    "email": (
+                        publisher.email
+                        if publisher
+                        else None
+                    ),
+
                     "published_on": (
                         tender.created_at.isoformat()
                         if tender.created_at
                         else None
                     ),
                 },
-                "baseline_spend": tender.incumbent_contract_rate,
-                "targeted_spend": tender.procurement_target_contract_rate,
-                "projected_savings": (tender.incumbent_contract_rate or 0 - tender.procurement_target_contract_rate or 0),
-                "tender_closes": tender.tender_close_date.isoformat() if tender.tender_close_date else None,
+
+                "baseline_spend": baseline_spend,
+
+                "targeted_spend": targeted_spend,
+
+                "projected_savings": projected_savings,
+
+                "tender_closes": (
+                    tender.tender_close_date.isoformat()
+                    if tender.tender_close_date
+                    else None
+                ),
+
                 "bid_count": len(bids),
             },
         }
@@ -623,7 +661,11 @@ def get_single_tender_summary(
         raise
 
     except Exception as e:
-        print("Error getting tender summary:", str(e))
+
+        print(
+            "Error getting tender summary:",
+            str(e)
+        )
 
         raise HTTPException(
             status_code=500,
