@@ -447,7 +447,7 @@ def get_enterprise_shipper_shipments(
         print(str(e))
         raise HTTPException(status_code=500, detail="Internal server error")
 
-@router.get("/enterprise-tender-rfq")
+@router.get("/enterprise-tender-rfqs")
 def get_enterprise_shipper_tender_rfqs(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
