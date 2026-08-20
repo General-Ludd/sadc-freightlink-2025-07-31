@@ -645,12 +645,7 @@ def get_single_tender_summary(
 
                 "projected_savings": projected_savings,
 
-                "tender_closes": (
-                    tender.tender_closing_date.
-                    if tender.tender_closing_date
-                    else None
-                ),
-
+                "tender_closes": (tender.tender_closing_date if tender.tender_closing_date else None),
                 "bid_count": len(bids) or 0,
             },
         }
