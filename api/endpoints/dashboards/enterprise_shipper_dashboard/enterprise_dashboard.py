@@ -555,9 +555,11 @@ def get_single_tender_summary(
         # 1. GET TENDER
         # ========================================================
 
-        tender = db.query(Lane_Tender_RFQ).filter(
-            Lane_Tender_RFQ.id == id
-        ).first()
+        tender = (
+            db.query(Lane_Tender_RFQ)
+            .filter(Lane_Tender_RFQ.id == id)
+            .first()
+        )
 
         if not tender:
             raise HTTPException(
@@ -566,36 +568,47 @@ def get_single_tender_summary(
             )
 
         # ========================================================
-        # 2. GET BIDS
+        # 2. COUNT BIDS
         # ========================================================
 
-        bids = db.query(
-            Lane_Tender_RFQ_Bids
-        ).filter(
-            Lane_Tender_RFQ_Bids.tender_id == tender.id
-        ).all()
+        bid_count = (
+            db.query(Lane_Tender_RFQ_Bids)
+            .filter(
+                Lane_Tender_RFQ_Bids.tender_id == tender.id
+            )
+            .count()
+        )
 
         # ========================================================
-        # 3. GET TENDER PUBLISHER
+        # 3. GET PUBLISHER
         # ========================================================
 
         publisher = None
 
         if tender.publisher_user_id:
-            publisher = db.query(Director).filter(
-                Director.id == tender.publisher_user_id
-            ).first()
+
+            publisher = (
+                db.query(Director)
+                .filter(
+                    Director.id == tender.publisher_user_id
+                )
+                .first()
+            )
 
         # ========================================================
-        # 4. CALCULATE PROJECTED SAVINGS
+        # 4. CALCULATE FINANCIALS
         # ========================================================
 
-        baseline_spend = float(
-            tender.incumbent_contract_rate or 0
+        baseline_spend = (
+            tender.incumbent_contract_rate
+            if tender.incumbent_contract_rate is not None
+            else 0
         )
 
-        targeted_spend = float(
-            tender.procurement_target_contract_rate or 0
+        targeted_spend = (
+            tender.procurement_target_contract_rate
+            if tender.procurement_target_contract_rate is not None
+            else 0
         )
 
         projected_savings = (
@@ -603,22 +616,40 @@ def get_single_tender_summary(
         )
 
         # ========================================================
-        # 5. PUBLISHER NAME
+        # 5. PUBLISHER INFORMATION
         # ========================================================
 
+        publisher_id = None
         publisher_name = None
+        publisher_role = None
 
         if publisher:
 
-            first_name = publisher.first_name or ""
-            last_name = publisher.last_name or ""
+            publisher_id = publisher.id
 
             publisher_name = (
-                f"{first_name} {last_name}"
+                f"{publisher.first_name or ''} "
+                f"{publisher.last_name or ''}"
             ).strip()
 
+            publisher_role = publisher.role
+
         # ========================================================
-        # 6. RETURN SUMMARY
+        # 6. DATE INFORMATION
+        # ========================================================
+
+        published_on = None
+
+        if tender.created_at:
+            published_on = tender.created_at.isoformat()
+
+        tender_closes = None
+
+        if tender.tender_closing_date:
+            tender_closes = tender.tender_closing_date.isoformat()
+
+        # ========================================================
+        # 7. RETURN ONLY JSON-SAFE VALUES
         # ========================================================
 
         return {
@@ -637,26 +668,10 @@ def get_single_tender_summary(
                 "title": tender.tender_title,
 
                 "lead_publisher": {
-
-                    "id": (
-                        publisher.id
-                        if publisher
-                        else None
-                    ),
-
+                    "id": publisher_id,
                     "name": publisher_name,
-
-                    "role": (
-                        publisher.role
-                        if publisher
-                        else None
-                    ),
-
-                    "published_on": (
-                        tender.created_at.isoformat()
-                        if tender.created_at
-                        else None
-                    ),
+                    "role": publisher_role,
+                    "published_on": published_on,
                 },
 
                 "baseline_spend": baseline_spend,
@@ -665,15 +680,10 @@ def get_single_tender_summary(
 
                 "projected_savings": projected_savings,
 
-                "tender_closes": (
-                    tender.tender_closing_date.isoformat()
-                    if tender.tender_closing_date
-                    else None
-                ),
+                "tender_closes": tender_closes,
 
-                "bid_count": len(bids),
-
-            },
+                "bid_count": bid_count,
+            }
         }
 
     except HTTPException:
@@ -688,7 +698,7 @@ def get_single_tender_summary(
 
         raise HTTPException(
             status_code=500,
-            detail=f"Internal server error: {str(e)}"
+            detail=str(e)
         )
 
 def make_aware(dt):
