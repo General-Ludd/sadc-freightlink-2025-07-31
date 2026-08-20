@@ -446,143 +446,99 @@ def get_enterprise_shipper_shipments(
         print(str(e))
         raise HTTPException(status_code=500, detail="Internal server error")
 
-@router.get("/enterprise-exchange-shipments")
-def get_enterprise_shipper_shipment_exchanges(
+@router.get("/enterprise-tender-rfq")
+def get_enterprise_shipper_tender_rfqs(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
+    company_id = current_user.get("company_id")
+
+    if not company_id:
+        raise HTTPException(
+            status_code=400,
+            detail="User does not belong to a company"
+        )
+
     try:
-        # 1. Facilities under parent company
-        facilities = (
-            db.query(Corporation)
-            .filter(Corporation.parent_company_id == current_user.get("company_id"))
-            .all()
-        )
 
-        # 2. Facility IDs
-        facility_ids = [f.id for f in facilities]
+        # ========================================================
+        # 1. GET ALL TENDERS FOR THIS COMPANY
+        # ========================================================
 
-        # 3. Scope includes parent + all facilities
-        company_scope_ids = [current_user.get("company_id")] + facility_ids
+        tenders = db.query(Lane_Tender_RFQ).filter(
+            Lane_Tender_RFQ.client_id == company_id
+        ).all()
 
-        # 4. Fetch all shipments
-        shipment_exchanges = (
-            db.query(FTL_SHIPMENT_EXCHANGE)
-            .filter(FTL_SHIPMENT_EXCHANGE.shipper_company_id.in_(company_scope_ids))
-            .all()
-        )
+        tender_rfqs = []
 
-        # 5. Current SAST time
-        now = get_sast_time()
-        two_hours_from_now = now + timedelta(hours=2)
+        # ========================================================
+        # 2. PROCESS EACH TENDER
+        # ========================================================
 
-        # 6. Status counts
-        status_counts = {
-            "total_exchanges": len(shipment_exchanges),
-            "open": len([s for s in shipment_exchanges if s.auction_status == "Open"]),
-            "closing_soon": len([
-                s for s in shipment_exchanges
-                if s.auction_status == "Open"
-                and make_aware_combine(s.end_time) is not None
-                and now <= make_aware_combine(s.end_time) <= two_hours_from_now
-            ]),
-            "closed": len([s for s in shipment_exchanges if s.auction_status == "Closed"]),
-        }
+        for tender in tenders:
 
-        exchanges_list = []
+            # ----------------------------------------------------
+            # Get all bids belonging to this tender
+            # ----------------------------------------------------
 
-        for shipment in shipment_exchanges:
+            bids = db.query(
+                Lane_Tender_RFQ_Bids
+            ).filter(
+                Lane_Tender_RFQ_Bids.tender_id == tender.id
+            ).all()
 
-            # -------------------------------------------------
-            # FIXED DATETIME HANDLING
-            # -------------------------------------------------
+            # ----------------------------------------------------
+            # Calculate total potential savings
+            # ----------------------------------------------------
 
-            # end_time is real datetime → direct aware
-            end_time = make_aware_combine(shipment.end_time)
+            total_savings = 0.0
 
-            # pickup_date is a DATE (not datetime)
-            pickup_date = shipment.pickup_date  # keep as date
+            incumbent_rate = tender.incumbent_transport_rate_per_shipment or 0
 
-            facility = (
-                db.query(Corporation)
-                .filter(Corporation.id == shipment.shipper_company_id)
-                .first()
-            )
+            for bid in bids:
 
-            pickup_facility = (
-                db.query(ShipmentFacility)
-                .filter(ShipmentFacility.id == shipment.pickup_facility_id)
-                .first()
-            )
+                bid_rate = bid.bid_per_shipment or 0
+                slot_size = bid.per_slot_size or 0
 
-            # pickup_window_time uses date + time combination
-            pickup_window_time = None
-            if pickup_facility and pickup_facility.end_time:
-                pickup_window_time = make_aware_combine(
-                    pickup_facility.end_time,
-                    fallback_date=pickup_date  # required for time
+                bid_savings = (
+                    (incumbent_rate * slot_size)
+                    - (bid_rate * slot_size)
                 )
 
-            # -------------------------------------------------
-            # ETA + ROUTE POLYLINE
-            # -------------------------------------------------
-            try:
-                trip_data = get_eta_and_polyline(
-                    RouteETAInput(
-                        origin_address=shipment.origin_address,
-                        destination_address=shipment.destination_address,
-                        start_date=pickup_date,            # date only (correct)
-                        start_time=pickup_facility.end_time,     # aware datetime
-                    )
-                )
+                total_savings += bid_savings
 
-                eta_date = trip_data["eta_date"]
-                eta_window = trip_data["eta_window"]
+            # ----------------------------------------------------
+            # Add tender to response
+            # ----------------------------------------------------
 
-            except HTTPException as e:
-                raise HTTPException(
-                    status_code=500,
-                    detail=f"Trip info calculation failed: {e.detail}"
-                )
+            tender_rfqs.append({
+                "id": tender.id,
+                "is_subtender": tender.is_sub_tender,
+                "status": tender.status,
+                "tender_title": tender.tender_title,
+                "scope": tender.scope_description,
 
-            exchanges_list.append({
-                "id": shipment.id,
-                "status": shipment.auction_status,
-                "type": shipment.type,
-                "facility": {
-                    "name": facility.legal_business_name,
-                    "id": facility.id,
-                },
-                "end_time": end_time.isoformat() if end_time else None,
-                "origin": {
-                    "origin_city_province": shipment.origin_city_province,
-                    "pickup_date": pickup_date.isoformat() if pickup_date else None,
-                    "pickup_window": f"{pickup_facility.start_time.strftime('%H:%M')} - {pickup_facility.end_time.strftime('%H:%M')}",
-                },
-                "destination": {
-                    "destination_city_province": shipment.destination_city_province,
-                    "eta_date": eta_date,
-                    "eta_window": eta_window,
-                },
-                "load_details": {
-                    "distance": shipment.distance,
-                    "weight": shipment.shipment_weight,
-                    "commodity": shipment.commodity,
-                },
-                "financials": {
-                    "offer": shipment.offer_price,
-                    "leading_bid": shipment.leading_bid_amount,
-                },
+                "est_spend": tender.incumbent_contract_rate or 0,
+
+                "est_savings": total_savings,
             })
 
+        # ========================================================
+        # 3. RETURN
+        # ========================================================
+
         return {
-            "summary": status_counts,
-            "exchanges": exchanges_list
+            "tender_rfqs": tender_rfqs
         }
 
     except Exception as e:
+
         print("Error:", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error")
+
+        raise HTTPException(
+            status_code=500,
+            detail="Internal server error"
+        )
     
 @router.get("/enterprise-lanes")
 def get_enterprise_shipper_lanes(
