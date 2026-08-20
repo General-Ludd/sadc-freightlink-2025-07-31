@@ -109,7 +109,7 @@ def get_tender_information(
         return {
             "tender_scope_routing_information": {
                 "id": tender.id,
-                "title": tender.title,
+                "title": tender.tender_title,
                 "scope_description": tender.scope_description,
                 "business_unit": tender.business_unit,
                 "cost_centre": tender.cost_centre_project_code,
