@@ -649,7 +649,7 @@ def get_single_tender_summary(
 
                 "tender_closes": (
                     tender.tender_closing_date.isoformat()
-                    if tender.tender_close_date
+                    if tender.tender_closing_date
                     else None
                 ),
 
