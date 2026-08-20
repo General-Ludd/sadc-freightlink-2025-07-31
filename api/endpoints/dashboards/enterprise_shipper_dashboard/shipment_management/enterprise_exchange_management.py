@@ -110,7 +110,6 @@ def get_tender_information(
             "tender_scope_routing_information": {
                 "id": tender.id,
                 "publisher_user_id": tender.publisher_user_id,
-                "is_active": tender.is_active,
                 "title": tender.tender_title,
                 "scope_description": tender.scope_description,
                 "business_unit": tender.business_unit,
