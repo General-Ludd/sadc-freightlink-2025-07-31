@@ -204,19 +204,6 @@ def get_tender_information(
                     "evaluation_compliance_enabled": tender.evaluation_compliance_enabled,
                     "evaluation_flexibility_enabled": tender.evaluation_flexibility_enabled,
                 },
-                "bids": [{
-                    "id": bid.id,
-                    "status": bid.status,
-                    "carrier_id": bid.carrier_id,
-                    "carrier_name": bid.carrier_name,
-                    "fleet_size": bid.fleet_size,
-                    "primary_lanes": bid.primary_lanes,
-                    "per_shipment_bid": bid.bid_per_shipment,
-                    "slots_per_interval": bid.slots_per_interval,
-                    "per_slot_size": bid.per_slot_size,
-                    "notes": bid.bid_notes,
-                    "submitted_at": bid.submitted_at,
-                } for bid in bids]
             },
             "operational_compliance_risk_requirements": {
                 "proof_of_delivery_submissions": {
@@ -238,6 +225,33 @@ def get_tender_information(
                 },
                 "subcontracting_policy": tender.subcontracting_policy,
             },
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/tender/{id}/bids")
+def get_tender_rfq_bids(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    try:
+        bids = db.query(Lane_Tender_RFQ_Bids).filter(Lane_Tender_RFQ_Bids.tender_id == id).all()
+
+        return {
+            "bids": [{
+                "id": bid.id,
+                "status": bid.status,
+                "carrier_id": bid.carrier_id,
+                "carrier_name": bid.carrier_name,
+                "fleet_size": bid.fleet_size,
+                "primary_lanes": bid.primary_lanes,
+                "per_shipment_bid": bid.bid_per_shipment,
+                "slots_per_interval": bid.slots_per_interval,
+                "per_slot_size": bid.per_slot_size,
+                "notes": bid.bid_notes,
+                   "submitted_at": bid.submitted_at,
+            } for bid in bids]
         }
 
     except Exception as e:
