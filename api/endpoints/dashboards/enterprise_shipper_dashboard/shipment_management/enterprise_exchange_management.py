@@ -129,7 +129,7 @@ def get_tender_information(
             "load_requirements_and_vehicle_configurations": {
                 "allowed_vehicle_configurations": [{
                     "configuration_type": config.configuration_type,
-                    "truck_type": config.required_truck_type,
+                    "truck_type": config.truck_type,
                     "equipment_type": config.equipment_type,
                     "trailer_type": config.trailer_type or "--------",
                     "trailer_length": config.trailer_length or "--------",
