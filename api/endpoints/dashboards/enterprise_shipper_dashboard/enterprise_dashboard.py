@@ -613,7 +613,7 @@ def get_single_tender_summary(
                 },
                 "baseline_spend": tender.incumbent_contract_rate,
                 "targeted_spend": tender.procurement_target_contract_rate,
-                "projected_savings": (tender.incumbent_contract_rate or 0 - tender.target_contract_rate or 0),
+                "projected_savings": (tender.incumbent_contract_rate or 0 - tender.procurement_target_contract_rate or 0),
                 "tender_closes": tender.tender_close_date.isoformat() if tender.tender_close_date else None,
                 "bid_count": len(bids),
             },
