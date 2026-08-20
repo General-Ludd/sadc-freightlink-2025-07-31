@@ -70,4 +70,5 @@ class Lane_Tender_RFQ_Bids(Base):
     bid_notes = Column(String, nullable=True)
     status = Column(Enum("Submitted", "Outbidded", "Under-Review","Accepted", "Rejected", default="Submitted"))
     submitted_at = Column(DateTime, server_default=func.now())
+    created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
