@@ -648,7 +648,7 @@ def get_single_tender_summary(
                 "projected_savings": projected_savings,
 
                 "tender_closes": (
-                    tender.tender_close_date.isoformat()
+                    tender.tender_closing_date.isoformat()
                     if tender.tender_close_date
                     else None
                 ),
