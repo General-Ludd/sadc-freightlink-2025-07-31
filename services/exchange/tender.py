@@ -85,25 +85,14 @@ def calculate_tender_distance(
 
     return distance_km
 
-def create_tender_and_publish(
-    db: Session,
-    tender_data: TenderCreate,
-    current_user: dict
-):
+def create_tender_and_publish(db: Session, tender_data: TenderCreate, current_user: dict):
     try:
-
         assert "company_id" in current_user, "Missing company_id in current_user"
         print(f"current_user: {current_user}")
-        
-        # Extract the company_id from the current user
         company_id = current_user.get("company_id")
         user_id = current_user.get("id")
         if not company_id:
-            raise HTTPException(
-                status_code=400,
-                detail="User does not belong to a company"
-            )
-
+            raise HTTPException(status_code=400, detail="User does not belong to a company")
         shipper = db.query(Corporation).filter(Corporation.id == company_id).first()
         if not shipper:
             raise HTTPException(status_code=400, detail="Shipper account not found or not active.")
@@ -111,14 +100,7 @@ def create_tender_and_publish(
             raise HTTPException(status_code=403, detail="Shipper account is not verified. Please await verification to create a shipment exchange.")
         if shipper.status != "Active":
             raise HTTPException(status_code=403, detail="Shipper account is not active. Please await account activation to create a shipment exchange.")
-
-        # Step 3: Retrieve Financial Account & Generate Payment Dates Based on Terms
-        financial_account = (
-            db.query(FinancialAccounts)
-            .filter(FinancialAccounts.id == shipper.id)
-            .first()
-        )
-        
+        financial_account = db.query(FinancialAccounts).filter(FinancialAccounts.id == shipper.id).first()
         if not financial_account:
             raise HTTPException(status_code=404, detail="Financial account not found.")
         if not financial_account.is_verified:
@@ -126,138 +108,105 @@ def create_tender_and_publish(
         if financial_account.status != "Active":
             raise HTTPException(status_code=403, detail="Financial account is not active. Please await activation to create and finance a shipment exchange.")
 
-
-
         # ========================================================
         # 1. VALIDATE CONTRACT DATES
         # ========================================================
-
         if tender_data.contract_end_date < tender_data.contract_start_date:
-            raise HTTPException(
-                status_code=400,
-                detail="Contract end date cannot be before contract start date."
-            )
-
+            raise HTTPException(status_code=400, detail="Contract end date cannot be before the contract start date.")
 
         # ========================================================
-        # 2. NORMALIZE TENDER CLOSING DATE TO UTC
+        # 2. NORMALIZE TENDER CLOSING DATE
         # ========================================================
-
         tender_closing_date = tender_data.tender_closing_date
-
         if tender_closing_date.tzinfo is None:
             tender_closing_date = tender_closing_date.replace(tzinfo=timezone.utc)
         else:
             tender_closing_date = tender_closing_date.astimezone(timezone.utc)
 
-
         # ========================================================
         # 3. VALIDATE TENDER CLOSING DATE
         # ========================================================
-
         contract_start_datetime = datetime.combine(
             tender_data.contract_start_date,
             time.min,
             tzinfo=timezone.utc
         )
-
         if tender_closing_date >= contract_start_datetime:
-            raise HTTPException(
-                status_code=400,
-                detail="Tender closing date must be before the contract start date."
-            )
-
+            raise HTTPException(status_code=400, detail="Tender closing date must be before the contract start date.")
 
         # ========================================================
         # 4. NORMALIZE QUESTIONS DEADLINE
         # ========================================================
-
         questions_deadline = tender_data.questions_deadline
-
         if questions_deadline is not None:
-
             if questions_deadline.tzinfo is None:
-                questions_deadline = questions_deadline.replace(
-                    tzinfo=timezone.utc
-                )
+                questions_deadline = questions_deadline.replace(tzinfo=timezone.utc)
             else:
-                questions_deadline = questions_deadline.astimezone(
-                    timezone.utc
-                )
-
-
-        # ========================================================
-        # 5. VALIDATE QUESTIONS DEADLINE
-        # ========================================================
-
-        if questions_deadline is not None:
-
+                questions_deadline = questions_deadline.astimezone(timezone.utc)
             if questions_deadline >= tender_closing_date:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Questions deadline must be before the tender closing date."
-                )
+                raise HTTPException(status_code=400, detail="Questions deadline must be before the tender closing date.")
 
         # ========================================================
-        # 4. VALIDATE VOLUME PROFILES
+        # 5. VALIDATE VOLUME PROFILES
         # ========================================================
-
         for profile in tender_data.volume_profiles:
-
             if profile.period_start_date and profile.period_end_date:
-
                 if profile.period_end_date < profile.period_start_date:
                     raise HTTPException(
                         status_code=400,
-                        detail=(
-                            f"Volume profile period {profile.period_sequence} "
-                            "has an invalid date range."
-                        )
+                        detail=f"Volume profile period {profile.period_sequence} has an invalid date range."
                     )
 
-        # ============================================================
-        # 7. BUILD WAYPOINTS FOR DISTANCE CALCULATION
-        # ============================================================
-        waypoints = []
-        if tender_data.stops:
-            sorted_stops = sorted(tender_data.stops, key=lambda s: s.stop_sequence)
-            waypoints = [s.address.strip() for s in sorted_stops if s.address and s.address.strip()]
-
-        # ============================================================
-        # 8. CALL GOOGLE MAPS ENGINE AND UNPACK THE TUPLE SAFELY
-        # ============================================================
-        try:
-            route_input = AddressInput(
-                origin_address=tender_data.origin.address,
-                destination_address=tender_data.destination.address,
-                waypoints=waypoints
+        # ========================================================
+        # 6. VALIDATE STOP SEQUENCES
+        # ========================================================
+        sorted_stops = sorted(
+            tender_data.stops,
+            key=lambda s: s.stop_sequence
+        )
+        stop_sequences = [stop.stop_sequence for stop in sorted_stops]
+        expected_sequences = list(range(1, len(sorted_stops) + 1))
+        if stop_sequences != expected_sequences:
+            raise HTTPException(
+                status_code=400,
+                detail="Tender intermediate stop sequences must be consecutive starting from 1."
             )
-            
-            # Here we fetch your maps output directly
-            maps_response = calculate_distance(route_input)
-            
-            # --- THE TUPLE UNPACKING SOLUTION ---
-            # Instead of using dictionary keys like maps_response["distance"], 
-            # we capture fields directly based on their sequential position in the tuple.
-            if isinstance(maps_response, tuple):
-                distance_km = maps_response[0]
-                duration_text = maps_response[1]
-                polyline_str = maps_response[2]
-                origin_geo_data = maps_response[3]       # Contains complete addresses
-                destination_geo_data = maps_response[4]  # Contains complete addresses
-                stops_geo_list = maps_response[5] if len(maps_response) > 5 else []
-            else:
-                # Fallback safeguard in case your function returns a dictionary structure
-                distance_km = maps_response.get("distance")
-                origin_geo_data = maps_response.get("origin", {})
-                destination_geo_data = maps_response.get("destination", {})
-                stops_geo_list = maps_response.get("stops", [])
 
-        except Exception as maps_err:
+        # ========================================================
+        # 7. BUILD GOOGLE MAPS WAYPOINTS
+        # ========================================================
+        waypoints = [
+            stop.address.strip()
+            for stop in sorted_stops
+            if stop.address and stop.address.strip()
+        ]
+
+        # ========================================================
+        # 8. CALCULATE COMPLETE ROUTE
+        # ========================================================
+        try:
+            distance_data = calculate_distance(
+                AddressInput(
+                    origin_address=tender_data.origin.address,
+                    destination_address=tender_data.destination.address,
+                    waypoints=waypoints
+                )
+            )
+        except HTTPException as e:
             raise HTTPException(
                 status_code=500,
-                detail=f"Google Maps routing calculation engine failure: {str(maps_err)}"
+                detail=f"Google Maps routing calculation failed: {e.detail}"
             )
+
+        if not isinstance(distance_data, dict):
+            raise HTTPException(
+                status_code=500,
+                detail="Google Maps routing calculation returned an invalid response."
+            )
+
+        distance_km = distance_data.get("distance")
+        estimated_transit_time = distance_data.get("duration")
+        route_preview_embed = distance_data.get("google_maps_embed_url")
 
         if distance_km is None:
             raise HTTPException(
@@ -265,16 +214,61 @@ def create_tender_and_publish(
                 detail="Google Maps did not return a valid route distance."
             )
 
-        # Extract complete verified descriptions if they are dictionaries
-        verified_origin_address = (
-            origin_geo_data.get("complete_address", tender_data.origin.address) 
-            if isinstance(origin_geo_data, dict) else tender_data.origin.address
+        # ========================================================
+        # 9. EXTRACT ORIGIN GEO INFORMATION
+        # ========================================================
+        complete_origin_address = distance_data.get(
+            "complete_origin_address",
+            tender_data.origin.address
         )
-        verified_dest_address = (
-            destination_geo_data.get("complete_address", tender_data.destination.address) 
-            if isinstance(destination_geo_data, dict) else tender_data.destination.address
+        origin_city_province = distance_data.get(
+            "origin_city_province"
+        )
+        origin_country = distance_data.get(
+            "origin_country"
+        )
+        origin_region = distance_data.get(
+            "origin_region"
         )
 
+        # ========================================================
+        # 10. EXTRACT DESTINATION GEO INFORMATION
+        # ========================================================
+        complete_destination_address = distance_data.get(
+            "complete_destination_address",
+            tender_data.destination.address
+        )
+        destination_city_province = distance_data.get(
+            "destination_city_province"
+        )
+        destination_country = distance_data.get(
+            "destination_country"
+        )
+        destination_region = distance_data.get(
+            "destination_region"
+        )
+
+        # ========================================================
+        # 11. EXTRACT INTERMEDIATE STOP GEO INFORMATION
+        # ========================================================
+        calculated_stops = []
+
+        for index, stop_data in enumerate(sorted_stops, start=1):
+            calculated_stops.append({
+                "complete_address": distance_data.get(
+                    f"complete_stop_{index}_address",
+                    stop_data.address
+                ),
+                "city_province": distance_data.get(
+                    f"stop_{index}_city_province"
+                ),
+                "country": distance_data.get(
+                    f"stop_{index}_country"
+                ),
+                "region": distance_data.get(
+                    f"stop_{index}_region"
+                ),
+            })
         # ========================================================
         # 8. CREATE MASTER TENDER
         # ========================================================
