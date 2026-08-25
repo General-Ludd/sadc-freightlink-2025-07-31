@@ -87,44 +87,163 @@ AFRICAN_REGION_MAPPING = {
 
 def get_location_details(address: str):
     """
-    Fetch detailed location information (full address, city, province, country, region) from Google Maps.
+    Fetch detailed location information from Google Maps.
+
+    Returns a dictionary containing:
+        - complete_address
+        - city_province
+        - city
+        - province
+        - country
+        - region
+        - latitude
+        - longitude
     """
+
     url = "https://maps.googleapis.com/maps/api/geocode/json"
-    params = {"address": address, "key": GOOGLE_MAPS_API_KEY}
+
+    params = {
+        "address": address,
+        "key": GOOGLE_MAPS_API_KEY
+    }
 
     try:
-        response = requests.get(url, params=params)
+        response = requests.get(
+            url,
+            params=params,
+            timeout=20
+        )
+
         response.raise_for_status()
+
     except requests.exceptions.RequestException as e:
-        raise HTTPException(status_code=500, detail=f"Google Maps Geocoding API error: {str(e)}")
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Google Maps Geocoding API error: {str(e)}"
+        )
 
     data = response.json()
 
-    if "results" not in data or not data["results"]:
-        raise HTTPException(status_code=400, detail=f"Invalid address: {address}")
+    # ---------------------------------------------------------
+    # Validate Google response
+    # ---------------------------------------------------------
+
+    if data.get("status") != "OK" or not data.get("results"):
+
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid address: {address}"
+        )
 
     try:
-        result = data["results"][0]
-        complete_address = result.get("formatted_address", "Unknown address")
-        components = result.get("address_components", [])
 
-        city = province = country = "Unknown"
+        result = data["results"][0]
+
+        # -----------------------------------------------------
+        # Complete formatted address
+        # -----------------------------------------------------
+
+        complete_address = result.get(
+            "formatted_address",
+            address
+        )
+
+        # -----------------------------------------------------
+        # GPS coordinates
+        # -----------------------------------------------------
+
+        geometry = result.get("geometry", {})
+
+        location = geometry.get(
+            "location",
+            {}
+        )
+
+        latitude = location.get("lat")
+        longitude = location.get("lng")
+
+        # -----------------------------------------------------
+        # Address components
+        # -----------------------------------------------------
+
+        components = result.get(
+            "address_components",
+            []
+        )
+
+        city = None
+        province = None
+        country = None
 
         for component in components:
-            types = component.get("types", [])
-            if "locality" in types:
-                city = component.get("long_name", "Unknown")
+
+            types = component.get(
+                "types",
+                []
+            )
+
+            if (
+                "locality" in types
+                or "postal_town" in types
+            ):
+                city = component.get(
+                    "long_name"
+                )
+
             elif "administrative_area_level_1" in types:
-                province = component.get("long_name", "Unknown")
+
+                province = component.get(
+                    "long_name"
+                )
+
             elif "country" in types:
-                country = component.get("long_name", "Unknown")
 
-        region = AFRICAN_REGION_MAPPING.get(country, "Unknown Region")
+                country = component.get(
+                    "long_name"
+                )
 
-        return complete_address, f"{city}, {province}", country, region
+        # -----------------------------------------------------
+        # Fallback values
+        # -----------------------------------------------------
+
+        city = city or "Unknown"
+        province = province or "Unknown"
+        country = country or "Unknown"
+
+        city_province = (
+            f"{city}, {province}"
+        )
+
+        region = AFRICAN_REGION_MAPPING.get(
+            country,
+            "Unknown Region"
+        )
+
+        # -----------------------------------------------------
+        # Return DICTIONARY
+        # -----------------------------------------------------
+
+        return {
+            "complete_address": complete_address,
+            "city_province": city_province,
+            "city": city,
+            "province": province,
+            "country": country,
+            "region": region,
+            "latitude": latitude,
+            "longitude": longitude
+        }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error parsing geocoding response: {str(e)}")
+
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Error parsing Google Maps geocoding response: "
+                f"{str(e)}"
+            )
+        )
 
 @router.post("/calculate-distance")
 def calculate_distance(input_data: AddressInput):
