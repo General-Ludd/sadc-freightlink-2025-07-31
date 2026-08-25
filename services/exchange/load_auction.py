@@ -520,7 +520,7 @@ def create_auction_and_publish(
 
             pricing_basis=auction_data.pricing_basis,
 
-            vat_treatment=auction_data.vat_treatment,
+            vat_included=auction_data.vat_included,
 
             book_now_rate=auction_data.book_now_rate,
 
@@ -1010,7 +1010,7 @@ def create_auction_and_publish(
 
             pricing_basis=auction_data.pricing_basis,
 
-            vat_treatment=auction_data.vat_treatment,
+            vat_included=auction_data.vat_included,
 
             benchmark_rate=(
                 auction_data.procurement_target_rate
