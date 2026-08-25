@@ -344,62 +344,294 @@ def get_loadboard_tenders(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
+    # ========================================================
+    # 1. GET CURRENT USER / CARRIER
+    # ========================================================
+
     assert "company_id" in current_user, "Missing company_id in current_user"
+
     print(f"current_user: {current_user}")
-    
-    # Extract the company_id from the current user
+
     company_id = current_user.get("company_id")
+
     if not company_id:
         raise HTTPException(
             status_code=400,
             detail="User does not belong to a company"
         )
-    carrier = db.query(Carrier).filter(Carrier.id == company_id).first()
+
+    carrier = (
+        db.query(Carrier)
+        .filter(Carrier.id == company_id)
+        .first()
+    )
+
     if not carrier:
-        raise HTTPException(status_code=400, detail="Carrier not found, not verified, or not active")
+        raise HTTPException(
+            status_code=400,
+            detail="Carrier not found, not verified, or not active"
+        )
 
-    loadboard_tender = db.query(Lane_Tender_Loadboard).filter(Lane_Tender_Loadboard.is_visible_to_carriers == True).all()
-    tender = db.query(Lane_Tender_Loadboard).filter(Lane_Tender_Loadboard.id == loadboard_tender.auction_id).first()
-    client = db.query(Corporation).filter(Corporation.id == tender.client_id).first()
-    route_points = db.query(Lane_Tender_RFQ_Stop).filter(Lane_Tender_RFQ_Stop.tender_id == tender.id).all()
-    equipment_requirements = db.query(Lane_Tender_RFQ_Vehicle_Config).filter(Lane_Tender_RFQ_Vehicle_Config.tender_id == tender.id).all()
+    # ========================================================
+    # 2. GET ALL TENDERS VISIBLE TO CARRIERS
+    # ========================================================
 
-    return{
-        "id": loadboard_tender.id,
-        "closing_date": loadboard_tender.tender_closing_date,
-        "questions_deadline": loadboard_tender.questions_deadline,
-        "trip_type": loadboard_tender.trip_type,
-        "title": loadboard_tender.tender_title,
-        "shipper": client.legal_business_name,
-        "origin": route_point.origin,
-        "destination": route_point.destination,
-        "distance": loadboard_tender.actual_distance_km,
-        "polyline": loadboard_tender.polyline,
-        "contract": {
-            "start_date": loadboard_tender.contract_start_date,
-            "end_date": loadboard_tender.contract_end_date,
-        },
-        "cargo": {
-            "commodity": loadboard_tender.commodity,
-            "avg_shipment_weight": loadboard_tender.average_shipment_weight,
-            "packaging_type": loadboard_tender.packaging_type,
-            "packaging_quantity": loadboard_tender.packaging_quantity,
-            "bonded": loadboard_tender.under_bond,
-            "hazchem": {
-                "hazardous_materials": loadboard_tender.hazardous_materials,
-                "hazchem_classification": loadboard_tender.hazchem_classification,
+    loadboard_tenders = (
+        db.query(Lane_Tender_Loadboard)
+        .filter(
+            Lane_Tender_Loadboard.is_visible_to_carriers == True,
+            Lane_Tender_Loadboard.status == "open"
+        )
+        .order_by(
+            Lane_Tender_Loadboard.bid_closing_date.asc()
+        )
+        .all()
+    )
+
+    # ========================================================
+    # 3. BUILD LOADBOARD RESPONSE
+    # ========================================================
+
+    response = []
+
+    for loadboard_tender in loadboard_tenders:
+
+        # ====================================================
+        # 3.1 GET MASTER TENDER
+        # ====================================================
+
+        tender = (
+            db.query(Lane_Tender_RFQ)
+            .filter(
+                Lane_Tender_RFQ.id == loadboard_tender.tender_id
+            )
+            .first()
+        )
+
+        if not tender:
+            continue
+
+        # ====================================================
+        # 3.2 GET SHIPPER
+        # ====================================================
+
+        client = (
+            db.query(Corporation)
+            .filter(
+                Corporation.id == tender.client_id
+            )
+            .first()
+        )
+
+        # ====================================================
+        # 3.3 GET ALL ROUTE STOPS
+        # ====================================================
+
+        route_points = (
+            db.query(Lane_Tender_RFQ_Stop)
+            .filter(
+                Lane_Tender_RFQ_Stop.tender_id == tender.id
+            )
+            .order_by(
+                Lane_Tender_RFQ_Stop.stop_sequence.asc()
+            )
+            .all()
+        )
+
+        # ----------------------------------------------------
+        # Skip malformed tenders with no stops
+        # ----------------------------------------------------
+
+        if not route_points:
+            continue
+
+        # ====================================================
+        # 3.4 IDENTIFY ORIGIN / DESTINATION / STOPS
+        # ====================================================
+
+        origin_stop = route_points[0]
+
+        destination_stop = route_points[-1]
+
+        intermediate_stops = route_points[1:-1]
+
+        # ====================================================
+        # 3.5 BUILD ROUTE RESPONSE
+        # ====================================================
+
+        origin = {
+            "stop_sequence": origin_stop.stop_sequence,
+            "address": origin_stop.address,
+            "complete_address": origin_stop.complete_address,
+            "city_province": origin_stop.city_province,
+            "country": origin_stop.country,
+            "region": origin_stop.region,
+        }
+
+        destination = {
+            "stop_sequence": destination_stop.stop_sequence,
+            "address": destination_stop.address,
+            "complete_address": destination_stop.complete_address,
+            "city_province": destination_stop.city_province,
+            "country": destination_stop.country,
+            "region": destination_stop.region,
+        }
+
+        stops = [
+            {
+                "stop_sequence": stop.stop_sequence,
+                "address": stop.address,
+                "complete_address": stop.complete_address,
+                "city_province": stop.city_province,
+                "country": stop.country,
+                "region": stop.region,
+            }
+            for stop in intermediate_stops
+        ]
+
+        # ====================================================
+        # 3.6 GET EQUIPMENT REQUIREMENTS
+        # ====================================================
+
+        equipment_requirements = (
+            db.query(Lane_Tender_RFQ_Vehicle_Config)
+            .filter(
+                Lane_Tender_RFQ_Vehicle_Config.tender_id == tender.id
+            )
+            .all()
+        )
+
+        # ====================================================
+        # 3.7 BUILD TENDER CARD
+        # ====================================================
+
+        response.append({
+            # ------------------------------------------------
+            # IDENTITY
+            # ------------------------------------------------
+
+            "id": loadboard_tender.id,
+            "tender_id": tender.id,
+            "closing_date": loadboard_tender.bid_closing_date,
+            "questions_deadline": loadboard_tender.questions_deadline,
+            "title": loadboard_tender.tender_title,
+            "tender_category": loadboard_tender.tender_category,
+            "tender_length_category": (
+                loadboard_tender.tender_length_category
+            ),
+            "shipper": (
+                client.legal_business_name
+                if client
+                else None
+            ),
+            # ------------------------------------------------
+            # ROUTE
+            # ------------------------------------------------
+            "route": {
+                "origin": origin,
+                "stops": stops,
+                "destination": destination,
+                "total_stops": len(route_points),
+                "distance_km": (
+                    loadboard_tender.actual_distance_km
+                ),
+                "polyline": loadboard_tender.polyline,
             },
+            # ------------------------------------------------
+            # CONTRACT
+            # ------------------------------------------------
+            "contract": {
+                "start_date": (
+                    loadboard_tender.contract_start_date
+                ),
+                "end_date": (
+                    loadboard_tender.contract_end_date
+                ),
+            },
+            # ------------------------------------------------
+            # CARGO
+            # ------------------------------------------------
+            "cargo": {
+                "commodity": (
+                    loadboard_tender.commodity
+                ),
+                "load_type": (
+                    loadboard_tender.load_type
+                ),
+                "average_shipment_weight_kg": (
+                    loadboard_tender.average_shipment_weight_kg
+                ),
+                "minimum_weight_bracket_kg": (
+                    loadboard_tender.minimum_weight_bracket_kg
+                ),
+                "packaging_type": (
+                    loadboard_tender.packaging_type
+                ),
+                "packaging_quantity": (
+                    loadboard_tender.packaging_quantity
+                ),
+                "temperature_control": (
+                    loadboard_tender.temperature_control
+                ),
+                "target_temperature_spec": (
+                    loadboard_tender.target_temperature_spec
+                ),
+                "under_bond": (
+                    loadboard_tender.under_bond
+                ),
+                "hazchem": {
+                    "hazardous_materials": (
+                        loadboard_tender.hazardous_materials
+                    ),
+
+                    "hazchem_classification": (
+                        loadboard_tender.hazchem_classification
+                    ),
+                },
+            },
+            # ------------------------------------------------
+            # VOLUME
+            # ------------------------------------------------
             "volume": {
-                "volume_type": loadboard_tender.volume_commitment,
-                "volume": loadboard_tender.total_loads,
+                "entry_method": (
+                    loadboard_tender.volume_entry_method
+                ),
+                "commitment": (
+                    loadboard_tender.volume_commitment
+                ),
             },
-        },
-        "required_equipment_specification": [{
-            "config_type": equipment.configuration_type,
-            "truck_type": equipment.truck_type,
-            "equipment_type": equipment.equipment_type,
-            "trailer_type": equipment.trailer_type,
-        } for equipment in equipment_requirements],
+            # ------------------------------------------------
+            # EQUIPMENT
+            # ------------------------------------------------
+            "required_equipment_specification": [
+                {
+                    "config_type": (
+                        equipment.configuration_type
+                    ),
+                    "truck_type": (
+                        equipment.truck_type
+                    ),
+                    "equipment_type": (
+                        equipment.equipment_type
+                    ),
+                    "trailer_type": (
+                        equipment.trailer_type
+                    ),
+                    "trailer_length": (
+                        equipment.trailer_length
+                    ),
+                }
+                for equipment in equipment_requirements
+            ],
+        })
+
+    # ========================================================
+    # 4. RETURN ALL TENDERS
+    # ========================================================
+
+    return {
+        "count": len(response),
+        "tenders": response
     }
 
 @router.get("/tender-loadboard/{id}")
