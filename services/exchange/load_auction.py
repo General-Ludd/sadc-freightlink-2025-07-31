@@ -405,13 +405,16 @@ def create_auction_and_publish(
                 origin_address=auction_data.origin.address,
                 destination_address=auction_data.destination.address,
                 start_date=auction_data.pickup_date,
-                start_time=auction_data.origin,operating_end_time,
+                start_time=auction_data.origin.operating_end_time,
             ))
             eta_date = trip_data["eta_date"]  # Distance in kilometers
             eta_window = trip_data["eta_window"]  # Transit time as text
             polyline = trip_data["polyline"]
         except HTTPException as e:
             raise HTTPException(status_code=500, detail=f"Trip info calculation failed: {e.detail}")
+    
+        def safe_str(val):
+            return val.value if hasattr(val, "value") else str(val)
         # ============================================================
         # STEP 10 — NORMALIZE AUCTION CLOSING DATE TO UTC
         # ============================================================
