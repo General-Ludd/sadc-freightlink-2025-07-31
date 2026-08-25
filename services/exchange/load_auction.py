@@ -398,6 +398,20 @@ def create_auction_and_publish(
                     f"stop_{index}_region"
                 ),
             })
+
+        # Step 2: get ETA Date, ETA Window, Polylines
+        try:
+            trip_data = get_eta_and_polyline(RouteETAInput(
+                origin_address=auction_data.origin.address,
+                destination_address=auction_data.destination.address,
+                start_date=auction_data.pickup_date,
+                start_time=auction_data.origin,operating_end_time,
+            ))
+            eta_date = trip_data["eta_date"]  # Distance in kilometers
+            eta_window = trip_data["eta_window"]  # Transit time as text
+            polyline = trip_data["polyline"]
+        except HTTPException as e:
+            raise HTTPException(status_code=500, detail=f"Trip info calculation failed: {e.detail}")
         # ============================================================
         # STEP 10 — NORMALIZE AUCTION CLOSING DATE TO UTC
         # ============================================================
