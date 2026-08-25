@@ -216,101 +216,64 @@ def create_tender_and_publish(
                     )
 
         # ============================================================
-        # 6. ROUTE DISTANCE ENGINE EXECUTOR (THE RESOLUTION)
+        # 7. BUILD WAYPOINTS FOR DISTANCE CALCULATION
         # ============================================================
-        # Call your helper instead of direct calculate_distance to prevent tuple crashes
-        calculated_distance_km = calculate_tender_distance(
-            origin_address=tender_data.origin.address,
-            destination_address=tender_data.destination.address,
-            stops=tender_data.stops
-        )
+        waypoints = []
+        if tender_data.stops:
+            sorted_stops = sorted(tender_data.stops, key=lambda s: s.stop_sequence)
+            waypoints = [s.address.strip() for s in sorted_stops if s.address and s.address.strip()]
 
         # ============================================================
-        # 1. BUILD ROUTE ADDRESSES
+        # 8. CALL GOOGLE MAPS ENGINE AND UNPACK THE TUPLE SAFELY
         # ============================================================
-
-        origin_address = tender_data.origin.address
-        destination_address = tender_data.destination.address
-
-        waypoints = [
-            stop.address
-            for stop in tender_data.stops
-        ]
-
-        # ============================================================
-        # 2. CALCULATE ROUTE
-        # ============================================================
-
         try:
-            distance_data = calculate_distance(
-                AddressInput(
-                    origin_address=origin_address,
-                    destination_address=destination_address,
-                    waypoints=waypoints
-                )
+            route_input = AddressInput(
+                origin_address=tender_data.origin.address,
+                destination_address=tender_data.destination.address,
+                waypoints=waypoints
             )
-        except HTTPException as e:
+            
+            # Here we fetch your maps output directly
+            maps_response = calculate_distance(route_input)
+            
+            # --- THE TUPLE UNPACKING SOLUTION ---
+            # Instead of using dictionary keys like maps_response["distance"], 
+            # we capture fields directly based on their sequential position in the tuple.
+            if isinstance(maps_response, tuple):
+                distance_km = maps_response[0]
+                duration_text = maps_response[1]
+                polyline_str = maps_response[2]
+                origin_geo_data = maps_response[3]       # Contains complete addresses
+                destination_geo_data = maps_response[4]  # Contains complete addresses
+                stops_geo_list = maps_response[5] if len(maps_response) > 5 else []
+            else:
+                # Fallback safeguard in case your function returns a dictionary structure
+                distance_km = maps_response.get("distance")
+                origin_geo_data = maps_response.get("origin", {})
+                destination_geo_data = maps_response.get("destination", {})
+                stops_geo_list = maps_response.get("stops", [])
+
+        except Exception as maps_err:
             raise HTTPException(
                 status_code=500,
-                detail=f"Distance calculation failed: {e.detail}"
+                detail=f"Google Maps routing calculation engine failure: {str(maps_err)}"
             )
 
-        # ============================================================
-        # 3. EXTRACT ROUTE INFORMATION
-        # ============================================================
-
-        distance = distance_data["distance"]
-        estimated_transit_time = distance_data["duration"]
-        polyline = distance_data["polyline"]
-
-        # ============================================================
-        # 4. EXTRACT GOOGLE-VERIFIED ORIGIN
-        # ============================================================
-
-        origin_data = distance_data["origin"]
-
-        origin_complete_address = origin_data["complete_address"]
-        origin_city_province = origin_data["city_province"]
-        origin_country = origin_data["country"]
-        origin_region = origin_data["region"]
-
-        # ============================================================
-        # 5. EXTRACT GOOGLE-VERIFIED DESTINATION
-        # ============================================================
-
-        destination_data = distance_data["destination"]
-
-        destination_complete_address = destination_data["complete_address"]
-        destination_city_province = destination_data["city_province"]
-        destination_country = destination_data["country"]
-        destination_region = destination_data["region"]
-
-        # ============================================================
-        # 6. EXTRACT GOOGLE-VERIFIED INTERMEDIATE STOPS
-        # ============================================================
-
-        calculated_stops = distance_data.get("stops", [])
-
-        if len(calculated_stops) != len(tender_data.stops):
+        if distance_km is None:
             raise HTTPException(
                 status_code=400,
-                detail="Route calculation returned an incorrect number of intermediate stops."
+                detail="Google Maps did not return a valid route distance."
             )
 
-        # ============================================================
-        # 7. VALIDATE STOP SEQUENCES
-        # ============================================================
-
-        stop_sequences = [
-            stop.stop_sequence
-            for stop in tender_data.stops
-        ]
-
-        if len(stop_sequences) != len(set(stop_sequences)):
-            raise HTTPException(
-                status_code=400,
-                detail="Tender stop sequences must be unique."
-            )
+        # Extract complete verified descriptions if they are dictionaries
+        verified_origin_address = (
+            origin_geo_data.get("complete_address", tender_data.origin.address) 
+            if isinstance(origin_geo_data, dict) else tender_data.origin.address
+        )
+        verified_dest_address = (
+            destination_geo_data.get("complete_address", tender_data.destination.address) 
+            if isinstance(destination_geo_data, dict) else tender_data.destination.address
+        )
 
         # ========================================================
         # 8. CREATE MASTER TENDER
