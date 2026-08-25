@@ -147,7 +147,7 @@ class ClientShipmentAuctionStopCreate(BaseModel):
         ...,
         description="The unverified physical lookup string sent by the client.",
     )
-    stop_sequence: int = Field(..., ge=1)
+    stop_sequence: int = Field(..., ge=0)
     facility_name: str = Field(..., max_length=150)
     scheduling_type: SchedulingType
 
