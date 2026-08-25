@@ -547,7 +547,7 @@ def create_tender_and_publish(db: Session, tender_data: TenderCreate, current_us
         # ========================================================
         # 20. PUBLISH TENDER
         # ========================================================
-        tender.status = "published"
+        tender.status = "Active"
 
         # ========================================================
         # 21. COMMIT
