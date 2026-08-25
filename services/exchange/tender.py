@@ -115,7 +115,7 @@ def create_tender_and_publish(
         # Step 3: Retrieve Financial Account & Generate Payment Dates Based on Terms
         financial_account = (
             db.query(FinancialAccounts)
-            .filter(FinancialAccounts.company_id == shipper.id)
+            .filter(FinancialAccounts.id == shipper.id)
             .first()
         )
         
