@@ -450,7 +450,7 @@ def create_auction_and_publish(
             hazardous_materials=(
                 auction_data.hazardous_materials
             ),
-            hazchem_classification=hazchem_classification,
+            hazchem_classification=auction_data.hazchem_classification,
 
             under_bond=auction_data.under_bond,
             rib_requirements=auction_data.rib_requirements,
