@@ -13,6 +13,7 @@ from models.Exchange.ftl_shipment import (
 )
 from models.brokerage.finance import FinancialAccounts
 from models.shipper import Corporation
+from models.brokerage.loadboard import Shipment_Auction_Loadboard
 from utils.google_maps import AddressInput, RouteETAInput, calculate_distance, get_eta_and_polyline
 from decimal import Decimal
 
