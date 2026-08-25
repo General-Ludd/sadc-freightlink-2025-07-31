@@ -461,7 +461,7 @@ def create_auction_and_publish(
 
             packaging_type=auction_data.packaging_type,
 
-            distance=distance,
+            distance=distance_km,
             estimated_transit_time=estimated_transit_time,
             eta_date=eta_date,
             polyline=polyline,
@@ -878,7 +878,7 @@ def create_auction_and_publish(
             benchmark_rate=(
                 auction_data.procurement_target_rate
             ),
-            distance=distance,
+            distance=distance_km,
             shipment_weight=auction_data.shipment_weight
         )
 
@@ -930,7 +930,7 @@ def create_auction_and_publish(
             # IMPORTANT:
             # Use the calculated route distance, not
             # auction_data.distance.
-            distance=distance,
+            distance=distance_km,
 
             estimated_transit_time=(
                 estimated_transit_time
