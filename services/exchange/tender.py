@@ -303,8 +303,8 @@ def create_tender_and_publish(
                 tender_data.border_customs_responsibility
             ),
 
-            estimated_distance_km=tender_data.estimated_distance_km if tender_data.estimated_distance_km else calculated_distance_km,
-            actual_distance_km=distance,
+            estimated_distance_km=tender_data.estimated_distance_km if tender_data.estimated_distance_km else distance_km,
+            actual_distance_km=distance_km,
             polyline=polyline,
 
             priority_level=tender_data.priority_level,
@@ -707,7 +707,7 @@ def create_tender_and_publish(
             # ----------------------------------------------------
 
             estimated_distance_km=tender.estimated_distance_km,
-            actual_distance_km=tender.calculated_distance_km,
+            actual_distance_km=tender.distance_km,
             polyline=polyline,
 
             border_customs_responsibility=(
