@@ -350,15 +350,13 @@ def create_auction_and_publish(
             "complete_origin_address",
             auction_data.origin.address
         )
-        origin_city_province = distance_data.get(
-            "origin_city_province"
-        )
-        origin_country = distance_data.get(
-            "origin_country"
-        )
-        origin_region = distance_data.get(
-            "origin_region"
-        )
+        origin_city_province = distance_data.get("origin_city_province")
+        origin_country = distance_data.get("origin_country")
+        origin_region = distance_data.get("origin_region")
+        
+        # 💻 Added coordinates extraction
+        origin_latitude = distance_data.get("origin_latitude")
+        origin_longitude = distance_data.get("origin_longitude")
 
         # ========================================================
         # 10. EXTRACT DESTINATION GEO INFORMATION
@@ -367,15 +365,13 @@ def create_auction_and_publish(
             "complete_destination_address",
             auction_data.destination.address
         )
-        destination_city_province = distance_data.get(
-            "destination_city_province"
-        )
-        destination_country = distance_data.get(
-            "destination_country"
-        )
-        destination_region = distance_data.get(
-            "destination_region"
-        )
+        destination_city_province = distance_data.get("destination_city_province")
+        destination_country = distance_data.get("destination_country")
+        destination_region = distance_data.get("destination_region")
+        
+        # 💻 Added coordinates extraction
+        destination_latitude = distance_data.get("destination_latitude")
+        destination_longitude = distance_data.get("destination_longitude")
 
         # ========================================================
         # 11. EXTRACT INTERMEDIATE STOP GEO INFORMATION
@@ -396,6 +392,13 @@ def create_auction_and_publish(
                 ),
                 "region": distance_data.get(
                     f"stop_{index}_region"
+                ),
+                # 💻 Added coordinates extraction per sequence index
+                "latitude": distance_data.get(
+                    f"stop_{index}_latitude"
+                ),
+                "longitude": distance_data.get(
+                    f"stop_{index}_longitude"
                 ),
             })
 
