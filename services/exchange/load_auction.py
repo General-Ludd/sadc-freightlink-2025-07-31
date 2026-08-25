@@ -453,6 +453,10 @@ def create_auction_and_publish(
             pickup_date=auction_data.pickup_date,
             priority_level=auction_data.priority_level,
 
+            customer_reference_number=(
+                auction_data.customer_reference_number
+            ),
+
             shipment_weight=auction_data.shipment_weight,
             commodity=auction_data.commodity,
 
@@ -914,10 +918,6 @@ def create_auction_and_publish(
 
             pickup_date=auction_data.pickup_date,
             priority_level=auction_data.priority_level,
-
-            customer_reference_number=(
-                auction_data.customer_reference_number
-            ),
 
             shipment_weight=auction_data.shipment_weight,
             commodity=auction_data.commodity,
