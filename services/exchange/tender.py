@@ -113,9 +113,11 @@ def create_tender_and_publish(
             raise HTTPException(status_code=403, detail="Shipper account is not active. Please await account activation to create a shipment exchange.")
 
         # Step 3: Retrieve Financial Account & Generate Payment Dates Based on Terms
-        financial_account = db.query(FinancialAccounts).filter(
-            FinancialAccounts.id == shipper.id
-        ).first()
+        financial_account = (
+            db.query(FinancialAccounts)
+            .filter(FinancialAccounts.company_id == shipper.id)
+            .first()
+        )
         
         if not financial_account:
             raise HTTPException(status_code=404, detail="Financial account not found.")
