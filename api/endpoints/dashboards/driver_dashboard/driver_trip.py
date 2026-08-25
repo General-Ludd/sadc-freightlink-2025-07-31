@@ -8,7 +8,7 @@ from schemas.user import UploadPODRequest
 from models.brokerage.assigned_shipments import Assigned_Spot_Ftl_Shipments, Assigned_Power_Shipments
 from models.spot_bookings.ftl_shipment import FTL_SHIPMENT
 from models.spot_bookings.power_shipment import POWER_SHIPMENT
-from models.spot_bookings.dedicated_lane_ftl_shipment import FTL_Lane
+from models.spot_bookings.dedicated_lane_ftl_shipment import Client_Lane
 from models.brokerage.assigned_lanes import Assigned_Ftl_Lanes
 from models.brokerage.finance import FinancialAccounts, CarrierFinancialAccounts, Shipment_Invoice, Load_Invoice
 

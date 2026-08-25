@@ -206,3 +206,33 @@ class Account_Status(str, Enum):
     SUSPENDED = "Suspended"
     UNDER_INVESTIGATION = "Under-Investigation"
     DELETED = "Deleted"
+
+
+class HazchemClass(Enum):
+    """Represents the 9 standard classes of Dangerous Goods / Hazchem."""
+
+    CLASS_1 = "1.Explosives"
+    CLASS_2 = "2.Gases"
+    CLASS_3 = "3.Flammable Liquids"
+    CLASS_4 = "4.Flammable Solids"
+    CLASS_5 = "5.Oxidizing Substances and Organic Peroxides"
+    CLASS_6 = "6.Toxic and Infectious Substances"
+    CLASS_7 = "7.Radioactive Material"
+    CLASS_8 = "8.Corrosive Substances"
+    CLASS_9 = "9.Miscellaneous Dangerous Goods"
+
+    @property
+    def description(self) -> str:
+        """Returns a human-readable description of the main class."""
+        mapping = {
+            HazchemClass.CLASS_1: "Explosives",
+            HazchemClass.CLASS_2: "Gases",
+            HazchemClass.CLASS_3: "Flammable Liquids",
+            HazchemClass.CLASS_4: "Flammable Solids",
+            HazchemClass.CLASS_5: "Oxidizing Substances and Organic Peroxides",
+            HazchemClass.CLASS_6: "Toxic and Infectious Substances",
+            HazchemClass.CLASS_7: "Radioactive Material",
+            HazchemClass.CLASS_8: "Corrosive Substances",
+            HazchemClass.CLASS_9: "Miscellaneous Dangerous Goods",
+        }
+        return mapping[self]

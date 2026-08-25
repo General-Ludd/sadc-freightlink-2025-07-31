@@ -109,9 +109,10 @@ class Dedicated_Lane_BrokerageLedger(Base):
 
     # === Core Contract Details ===
     id = Column(Integer, primary_key=True, index=True)
-    contract_id = Column(Integer, index=True)
-    lane_id = Column(Integer, nullable=False)
-    lane_type = Column(String, nullable=False)
+    tender_id = Column(Integer, index=True)
+    client_lane_id = Column(Integer, nullable=False)
+    carrier_lane_id = Column(Integer, nullable=True)
+    lane_type = Column(String, nullable=True)
     lane_status = Column(String, default="Booked", nullable=False)
 
     # === Shipper Contract & Invoicing ===
@@ -120,16 +121,16 @@ class Dedicated_Lane_BrokerageLedger(Base):
     shipper_type = Column(String)
     shipper_company_registration_number = Column(String)
     shipper_company_country_of_incorporation = Column(String)
-    contract_invoice_id = Column(Integer, nullable=False)
-    contract_invoice_due_date = Column(Date, nullable=False)
-    contract_invoice_status = Column(String, nullable=False)
+    contract_invoice_id = Column(Integer, nullable=True)
+    contract_invoice_due_date = Column(Date, nullable=True)
+    contract_invoice_status = Column(String, nullable=True)
     payment_terms = Column(String, nullable=False)
 
     # === Financial Overview ===
     contract_booking_amount = Column(Integer, nullable=False)      # total shipper-side contract value
     contract_platform_commission = Column(Integer, nullable=True)  # platform gross commission
     contract_transaction_fee = Column(Integer, nullable=True)
-    contract_true_platform_earnings = Column(Integer, nullable=True)  # after transaction fees
+    contract_true_platform_earnings = Column(Integer, default=0, nullable=True)  # after transaction fees
     contract_carrier_payable = Column(Integer, nullable=True)      # total payable to all carriers combined
     contract_amount_paid = Column(Integer, default=0)
     carrier_payable_paid = Column(Integer, default=0)
@@ -143,6 +144,7 @@ class Dedicated_Lane_BrokerageLedger(Base):
     true_platform_earnings_per_shipment = Column(Integer, nullable=False)
     carrier_payable_per_shipment = Column(Integer, nullable=False)
     num_shipments_completed = Column(Integer, default=0)
+    
 
     # === Slot and Sub-Ledger Relations ===
     num_sub_assignments = Column(Integer, default=0)
@@ -152,13 +154,13 @@ class Dedicated_Lane_BrokerageLedger(Base):
     total_slots_available = Column(Integer, default=0)
     # Already have total_slots_available, total_slots_assigned, num_sub_assignments, sub_ledger_ids
     # Add:
-    shipments_per_slot = Column(Integer, nullable=False)   # new: canonical number per slot
+    shipments_per_slot = Column(Integer, nullable=True)   # new: canonical number per slot
     remainder_shipments = Column(Integer, nullable=True)   # new: shipments not evenly divisible (optional)
 
     # === Bidding / Exchange Future-Proofing ===
     # for when you implement exchanges and competitive bidding
     exchange_enabled = Column(Boolean, default=False)
-    bidding_mode = Column(Enum("Fixed", "Bid"), default="Fixed")
+    bidding_mode = Column(Enum("Fixed", "Bid"), default="bidding")
     accepted_bid_rates = Column(JSON, nullable=True)  
     # Example: {"carrier_1": 1500, "carrier_2": 1400, "carrier_3": 1550}
     # lets you track what each carrier agreed to during bidding

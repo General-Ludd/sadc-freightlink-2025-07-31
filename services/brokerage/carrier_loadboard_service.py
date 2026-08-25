@@ -9,7 +9,7 @@ from models.brokerage.assigned_shipments import Assigned_Power_Shipments, Assign
 from models.brokerage.finance import BrokerageLedger, CarrierFinancialAccounts, Dedicated_Lane_BrokerageLedger, Interim_Invoice, Lane_Interim_Invoice, Lane_Invoice, Load_Invoice
 from models.brokerage.loadboard import Dedicated_lanes_LoadBoard, Ftl_Load_Board, Power_Load_Board
 from models.carrier import Carrier
-from models.spot_bookings.dedicated_lane_ftl_shipment import FTL_Lane
+from models.spot_bookings.dedicated_lane_ftl_shipment import Client_Lane
 from models.spot_bookings.ftl_shipment import FTL_SHIPMENT
 from models.spot_bookings.power_shipment import POWER_SHIPMENT
 from models.user import Driver

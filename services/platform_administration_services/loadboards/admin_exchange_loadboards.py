@@ -9,7 +9,6 @@ from schemas.brokerage.loadboard import IndividualLoadboardShipmentRequest
 from schemas.brokerage.exchange_loadboards import Exchange_Ftl_Load_Board_Response, Exchange_Ftl_Loadboard_Summary_Response
 from schemas.exchange_bookings.auction import Exchange_FTL_Lane_Bid_Create, Exchange_FTL_Shipment_Bid_Create, Exchange_FTL_Exchange_Loadboard_BidResponse, Exchange_POWER_Shipment_Bid_Create, Exchange_Power_Exchange_Loadboard_BidResponse
 from schemas.exchange_bookings.ftl_shipment import Exchange_Ftl_Shipments_Summary_Response
-from services.exchange.auction import place_ftl_lane_bid, place_ftl_shipment_bid, place_power_shipment_bid
 from utils.administration_auth import get_current_admin
 
 router = APIRouter()

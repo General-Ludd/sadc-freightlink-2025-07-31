@@ -129,11 +129,25 @@ def get_location_details(address: str):
 @router.post("/calculate-distance")
 def calculate_distance(input_data: AddressInput):
     """
-    Calculate total distance, duration, and geolocation metadata
-    between origin, optional waypoints, and final destination.
+    Calculate complete driving route:
 
-    Existing calls using only origin_address and destination_address
-    will continue to work exactly as before.
+    Origin
+        -> Stop 1
+        -> Stop 2
+        -> ...
+        -> Destination
+
+    Returns:
+    - Total distance
+    - Total transit time
+    - Complete address information
+    - City / Province
+    - Region
+    - Country
+    - Latitude
+    - Longitude
+    - Google encoded polyline
+    - Google Maps embed URL
     """
 
     if not GOOGLE_MAPS_API_KEY:
@@ -143,247 +157,185 @@ def calculate_distance(input_data: AddressInput):
         )
 
     # =========================================================
-    # STEP 1 - Prepare Waypoints
+    # STEP 1 — PREPARE WAYPOINTS
     # =========================================================
 
     waypoints = input_data.waypoints or []
 
-    # Remove empty waypoint values
     waypoints = [
         waypoint.strip()
         for waypoint in waypoints
         if waypoint and waypoint.strip()
     ]
 
-    # Maximum of 5 waypoints
     if len(waypoints) > 5:
         raise HTTPException(
             status_code=400,
             detail="A maximum of 5 waypoints are allowed."
         )
 
-    print("========== GOOGLE MAPS DISTANCE CALCULATION ==========")
-    print(f"Origin: {input_data.origin_address}")
-    print(f"Waypoints: {waypoints}")
-    print(f"Destination: {input_data.destination_address}")
-
     # =========================================================
-    # STEP 2 - Get Origin Location Details
+    # STEP 2 — GET ORIGIN DETAILS
     # =========================================================
 
-    (
-        complete_origin_address,
-        origin_city_province,
-        origin_country,
-        origin_region
-    ) = get_location_details(
+    origin = get_location_details(
         input_data.origin_address
     )
 
     # =========================================================
-    # STEP 3 - Get Waypoint Location Details
+    # STEP 3 — GET STOP DETAILS
     # =========================================================
 
-    waypoint_details = []
+    stops = []
 
     for index, waypoint in enumerate(waypoints, start=1):
 
-        print(
-            f"Getting Google Maps details for Waypoint {index}: "
-            f"{waypoint}"
-        )
+        stop = get_location_details(waypoint)
 
-        (
-            complete_waypoint_address,
-            waypoint_city_province,
-            waypoint_country,
-            waypoint_region
-        ) = get_location_details(waypoint)
-
-        waypoint_details.append({
-            "complete_address": complete_waypoint_address,
-            "city_province": waypoint_city_province,
-            "country": waypoint_country,
-            "region": waypoint_region,
+        stops.append({
+            "stop_sequence": index,
+            "input_address": waypoint,
+            "complete_address": stop["complete_address"],
+            "city_province": stop["city_province"],
+            "city": stop["city"],
+            "province": stop["province"],
+            "country": stop["country"],
+            "region": stop["region"],
+            "latitude": stop["latitude"],
+            "longitude": stop["longitude"]
         })
 
     # =========================================================
-    # STEP 4 - Get Destination Location Details
+    # STEP 4 — GET DESTINATION DETAILS
     # =========================================================
 
-    (
-        complete_destination_address,
-        destination_city_province,
-        destination_country,
-        destination_region
-    ) = get_location_details(
+    destination = get_location_details(
         input_data.destination_address
     )
 
     # =========================================================
-    # STEP 5 - Google Distance Matrix
-    # =========================================================
-    #
-    # Google will calculate:
-    #
-    # Origin
-    #    ↓
-    # Stop 1
-    #    ↓
-    # Stop 2
-    #    ↓
-    # ...
-    #    ↓
-    # Destination
-    #
-    # We then add all individual route legs together.
+    # STEP 5 — GOOGLE DIRECTIONS API
     # =========================================================
 
-    url = "https://maps.googleapis.com/maps/api/distancematrix/json"
+    directions_url = (
+        "https://maps.googleapis.com/maps/api/directions/json"
+    )
 
-    params = {
-        "origins": input_data.origin_address,
-        "destinations": input_data.destination_address,
-        "key": GOOGLE_MAPS_API_KEY,
+    directions_params = {
+        "origin": input_data.origin_address,
+        "destination": input_data.destination_address,
+        "mode": "driving",
+        "key": GOOGLE_MAPS_API_KEY
     }
 
+    # ---------------------------------------------------------
+    # Add waypoints
+    # ---------------------------------------------------------
+
     if waypoints:
-        params["destinations"] = "|".join(
-            waypoints + [input_data.destination_address]
+
+        directions_params["waypoints"] = "|".join(
+            waypoints
         )
+
+    # =========================================================
+    # STEP 6 — REQUEST COMPLETE ROUTE
+    # =========================================================
 
     try:
-        response = requests.get(
-            url,
-            params=params
+
+        directions_response = requests.get(
+            directions_url,
+            params=directions_params,
+            timeout=20
         )
 
-        response.raise_for_status()
+        directions_response.raise_for_status()
+
+        directions_result = directions_response.json()
 
     except requests.exceptions.RequestException as e:
 
         raise HTTPException(
             status_code=500,
-            detail=f"Google Maps Distance Matrix API error: {str(e)}"
+            detail=(
+                "Google Maps Directions API error: "
+                f"{str(e)}"
+            )
         )
 
-    result = response.json()
+    # =========================================================
+    # STEP 7 — VALIDATE DIRECTIONS RESPONSE
+    # =========================================================
 
-    if result.get("status") != "OK" or not result.get("rows"):
+    if (
+        directions_result.get("status") != "OK"
+        or not directions_result.get("routes")
+    ):
 
         raise HTTPException(
             status_code=400,
-            detail="Invalid response from Google Maps API."
+            detail=(
+                "Google Maps could not calculate the complete "
+                "route between the supplied addresses."
+            )
+        )
+
+    route = directions_result["routes"][0]
+
+    # =========================================================
+    # STEP 8 — GET COMPLETE POLYLINE
+    # =========================================================
+
+    polyline = route.get(
+        "overview_polyline",
+        {}
+    ).get(
+        "points"
+    )
+
+    if not polyline:
+
+        raise HTTPException(
+            status_code=400,
+            detail="Google Maps did not return a route polyline."
         )
 
     # =========================================================
-    # IMPORTANT:
-    #
-    # Distance Matrix with:
-    #
-    # origins = Origin
-    # destinations = Stop1 | Stop2 | Destination
-    #
-    # gives:
-    #
-    # Origin -> Stop1
-    # Origin -> Stop2
-    # Origin -> Destination
-    #
-    # That is NOT what we want.
-    #
-    # Therefore we calculate each leg individually.
+    # STEP 9 — CALCULATE TOTAL DISTANCE & DURATION
     # =========================================================
-
-    route_points = [
-        input_data.origin_address,
-        *waypoints,
-        input_data.destination_address
-    ]
 
     total_distance_meters = 0
     total_duration_seconds = 0
 
-    # =========================================================
-    # STEP 6 - Calculate Each Route Leg
-    # =========================================================
+    for leg in route.get("legs", []):
 
-    for index in range(len(route_points) - 1):
-
-        leg_origin = route_points[index]
-        leg_destination = route_points[index + 1]
-
-        print(
-            f"Calculating Leg {index + 1}: "
-            f"{leg_origin} -> {leg_destination}"
+        total_distance_meters += (
+            leg["distance"]["value"]
         )
 
-        leg_params = {
-            "origins": leg_origin,
-            "destinations": leg_destination,
-            "key": GOOGLE_MAPS_API_KEY,
-        }
-
-        try:
-
-            leg_response = requests.get(
-                url,
-                params=leg_params
-            )
-
-            leg_response.raise_for_status()
-
-        except requests.exceptions.RequestException as e:
-
-            raise HTTPException(
-                status_code=500,
-                detail=(
-                    f"Google Maps Distance Matrix API error "
-                    f"for route leg {index + 1}: {str(e)}"
-                )
-            )
-
-        leg_result = leg_response.json()
-
-        try:
-
-            element = leg_result["rows"][0]["elements"][0]
-
-            if element.get("status") != "OK":
-
-                raise HTTPException(
-                    status_code=400,
-                    detail=(
-                        f"Google Maps could not calculate route "
-                        f"from '{leg_origin}' to '{leg_destination}'."
-                    )
-                )
-
-            total_distance_meters += element["distance"]["value"]
-            total_duration_seconds += element["duration"]["value"]
-
-        except HTTPException:
-            raise
-
-        except (IndexError, KeyError) as e:
-
-            raise HTTPException(
-                status_code=500,
-                detail=(
-                    f"Error parsing Google Maps response "
-                    f"for route leg {index + 1}: {str(e)}"
-                )
-            )
+        total_duration_seconds += (
+            leg["duration"]["value"]
+        )
 
     # =========================================================
-    # STEP 7 - Convert Total Route Distance
+    # STEP 10 — CONVERT DISTANCE TO KM
     # =========================================================
 
-    distance_km = total_distance_meters // 1000
+    distance_km = round(
+        total_distance_meters / 1000,
+        1
+    )
 
-    # Convert seconds into readable duration
+    # =========================================================
+    # STEP 11 — CONVERT DURATION
+    # =========================================================
+
     total_hours = total_duration_seconds // 3600
-    total_minutes = (total_duration_seconds % 3600) // 60
+
+    total_minutes = (
+        total_duration_seconds % 3600
+    ) // 60
 
     if total_hours > 0:
 
@@ -400,18 +352,17 @@ def calculate_distance(input_data: AddressInput):
         )
 
     # =========================================================
-    # STEP 8 - Google Maps Embed URL
+    # STEP 12 — GOOGLE MAPS EMBED URL
     # =========================================================
 
     embed_url = (
-        f"https://www.google.com/maps/embed/v1/directions"
+        "https://www.google.com/maps/embed/v1/directions"
         f"?key={GOOGLE_MAPS_API_KEY}"
         f"&origin={input_data.origin_address.replace(' ', '+')}"
         f"&destination={input_data.destination_address.replace(' ', '+')}"
-        f"&mode=driving"
+        "&mode=driving"
     )
 
-    # Add waypoints to Google Maps embed
     if waypoints:
 
         encoded_waypoints = "|".join(
@@ -424,64 +375,138 @@ def calculate_distance(input_data: AddressInput):
         )
 
     # =========================================================
-    # STEP 9 - Build Response
+    # STEP 13 — BUILD RESPONSE
     # =========================================================
 
     response_data = {
+
+        # =====================================================
+        # ROUTE SUMMARY
+        # =====================================================
+
         "distance": distance_km,
         "duration": duration_text,
 
-        # Origin
-        "complete_origin_address": complete_origin_address,
-        "origin_city_province": origin_city_province,
-        "origin_country": origin_country,
-        "origin_region": origin_region,
+        # =====================================================
+        # POLYLINE
+        # =====================================================
 
-        # Destination
-        "complete_destination_address": complete_destination_address,
-        "destination_city_province": destination_city_province,
-        "destination_country": destination_country,
-        "destination_region": destination_region,
+        "polyline": polyline,
 
-        # Google Maps
-        "google_maps_embed_url": embed_url,
+        # =====================================================
+        # ORIGIN
+        # =====================================================
+
+        "origin_address": input_data.origin_address,
+        "complete_origin_address": origin["complete_address"],
+        "origin_city_province": origin["city_province"],
+        "origin_country": origin["country"],
+        "origin_region": origin["region"],
+        "origin_latitude": origin["latitude"],
+        "origin_longitude": origin["longitude"],
+
+        # =====================================================
+        # STOPS
+        # =====================================================
+
+        "stops": stops,
+
+        # =====================================================
+        # DESTINATION
+        # =====================================================
+
+        "destination_address": input_data.destination_address,
+        "complete_destination_address": destination["complete_address"],
+        "destination_city_province": destination["city_province"],
+        "destination_country": destination["country"],
+        "destination_region": destination["region"],
+        "destination_latitude": destination["latitude"],
+        "destination_longitude": destination["longitude"],
+
+        # =====================================================
+        # GOOGLE MAPS
+        # =====================================================
+
+        "google_maps_embed_url": embed_url
     }
 
     # =========================================================
-    # STEP 10 - Add Waypoint Metadata Dynamically
+    # STEP 14 — FLATTEN STOP DATA
+    # =========================================================
+    #
+    # Keeps compatibility with your existing shipment fields.
     # =========================================================
 
-    for index, waypoint in enumerate(
-        waypoint_details,
-        start=1
-    ):
+    for stop in stops:
+
+        sequence = stop["stop_sequence"]
 
         response_data[
-            f"complete_stop_{index}_address"
-        ] = waypoint["complete_address"]
+            f"stop_{sequence}_address"
+        ] = stop["input_address"]
 
         response_data[
-            f"stop_{index}_city_province"
-        ] = waypoint["city_province"]
+            f"complete_stop_{sequence}_address"
+        ] = stop["complete_address"]
 
         response_data[
-            f"stop_{index}_country"
-        ] = waypoint["country"]
+            f"stop_{sequence}_city_province"
+        ] = stop["city_province"]
 
         response_data[
-            f"stop_{index}_region"
-        ] = waypoint["region"]
+            f"stop_{sequence}_country"
+        ] = stop["country"]
+
+        response_data[
+            f"stop_{sequence}_region"
+        ] = stop["region"]
+
+        response_data[
+            f"stop_{sequence}_latitude"
+        ] = stop["latitude"]
+
+        response_data[
+            f"stop_{sequence}_longitude"
+        ] = stop["longitude"]
+
+    # =========================================================
+    # STEP 15 — DEBUG LOGGING
+    # =========================================================
 
     print(
-        "========== GOOGLE MAPS CALCULATION COMPLETE =========="
+        "========== GOOGLE MAPS ROUTE COMPLETE =========="
     )
 
     print(
-        f"Total Distance: {distance_km} km"
+        f"Distance: {distance_km} km"
     )
 
     print(
-        f"Total Duration: {duration_text}"
+        f"Duration: {duration_text}"
+    )
+
+    print(
+        f"Polyline length: {len(polyline)} characters"
+    )
+
+    print(
+        f"Origin GPS: "
+        f"{origin['latitude']}, "
+        f"{origin['longitude']}"
+    )
+
+    for stop in stops:
+
+        print(
+            f"Stop {stop['stop_sequence']} GPS: "
+            f"{stop['latitude']}, "
+            f"{stop['longitude']}"
+        )
+
+    print(
+        f"Destination GPS: "
+        f"{destination['latitude']}, "
+        f"{destination['longitude']}"
     )
 
     return response_data

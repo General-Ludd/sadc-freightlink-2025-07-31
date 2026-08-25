@@ -8,7 +8,7 @@ from models.user import Director, CarrierUser, Driver
 from models.carrier import Carrier
 from models.vehicle import Vehicle, Trailer, ShipperTrailer
 from models.brokerage.finance import FinancialAccounts, CarrierFinancialAccounts, Withdrawal_Request
-from models.spot_bookings.dedicated_lane_ftl_shipment import FTL_Lane
+from models.spot_bookings.dedicated_lane_ftl_shipment import Client_Lane
 from models.spot_bookings.ftl_shipment import FTL_SHIPMENT
 from models.spot_bookings.power_shipment import POWER_SHIPMENT
 from models.brokerage.loadboards.exchange_loadboards import Exchange_Ftl_Load_Board, Exchange_Ftl_Lane_LoadBoard, Exchange_Power_Load_Board

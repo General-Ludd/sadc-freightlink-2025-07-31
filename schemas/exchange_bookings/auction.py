@@ -78,6 +78,8 @@ class Exchange_FTL_Lane_Bid_Create(BaseModel):
     per_shipment_bid_amount: int
     bid_notes: Optional [str] = None
 
+
+
 class Exchange_FTL_Lane_ShipperSide_BidResponse(BaseModel):
     id: int
     exchange_id: int
@@ -90,3 +92,14 @@ class Exchange_FTL_Lane_ShipperSide_BidResponse(BaseModel):
 
     class Config:
         orm_mode = True
+
+class Create_Tender_Bid(BaseModel):
+    tender_id: int
+    bid_per_shipment: int
+    slors_per_interval: int
+    bid_notes: Optional [str] = None
+
+class Create_Shipment_Bid(BaseModel):
+    auction_id: int
+    rate: float
+    bid_notes: Optional [str] = None

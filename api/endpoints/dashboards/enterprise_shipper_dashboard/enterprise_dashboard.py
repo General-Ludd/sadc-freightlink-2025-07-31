@@ -7,7 +7,7 @@ from db.database import SessionLocal
 from models.brokerage.finance import FinancialAccounts, Shipment_Invoice, Interim_Invoice, Invoices
 from models.spot_bookings.shipment_facility import ShipmentFacility
 from models.spot_bookings.ftl_shipment import FTL_SHIPMENT, FTL_Shipment_Dispute
-from models.spot_bookings.dedicated_lane_ftl_shipment import FTL_Lane, FTL_Lane_Dispute
+from models.spot_bookings.dedicated_lane_ftl_shipment import Client_Lane, FTL_Lane_Dispute
 from models.spot_bookings.power_shipment import POWER_SHIPMENT
 from models.Exchange.ftl_shipment import FTL_SHIPMENT_EXCHANGE
 from models.Exchange.dedicated_ftl_lane import FTL_Lane_Exchange, Lane_Tender_RFQ

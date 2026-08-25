@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from models.brokerage.finance import BrokerageLedger, Contract, Dedicated_Lane_BrokerageLedger, FinancialAccounts, Interim_Invoice, Shipment_Invoice
 from models.brokerage.loadboard import Dedicated_lanes_LoadBoard
 from models.shipper import Corporation
-from models.spot_bookings.dedicated_lane_ftl_shipment import FTL_Lane
+from models.spot_bookings.dedicated_lane_ftl_shipment import Client_Lane
 from pydantic import BaseModel
 from typing import List, Optional
 from calendar import monthrange

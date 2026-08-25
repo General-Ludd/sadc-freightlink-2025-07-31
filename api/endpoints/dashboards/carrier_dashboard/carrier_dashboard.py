@@ -218,27 +218,28 @@ def get_carrier_dashboard_home(
                 "fleet_vehicles": len(vehicles),
                 "trailers": len(trailers),
                 "drivers": len(drivers),
-                "assigned_shipments": len(assigned_shipments),
+                "awarded_shipments": len(assigned_shipments),
                 "in_progress_shipments": len(in_progress_shipments),
                 "completed_shipments": carrier.number_of_completed_shipments,
-                "assigned_lanes": len(assigned_lanes),
-                "in_progress_lanes": len(in_progress_lanes),
-                "completed_lanes": carrier.number_of_completed_dedicated_lanes,
+                "awarded_contracts": len(assigned_lanes),
+                "active_contracts": len(in_progress_lanes),
+                "completed_contracts": carrier.number_of_completed_dedicated_lanes,
                 "rating": f"{carrier.rating}/5",
                 "active_disputes": len(active_disputes),
                 "total_earned": financial_account.total_earned,
-                "total_withdrawn": financial_account.total_withdrawn,
-                "current_balance": financial_account.current_balance,
-                "holding_balance": financial_account.holding_balance,
 
                 "shipment_management_and_disputes": {
                     "active_shipments": [
                         {
                             "id": s.id,
-                            "type": "FTL" if isinstance(s, FTL) else "POWER",  # ensure we distinguish
-                            "trip_status": s.trip_status,
                             "origin": s.origin_city_province,
                             "destination": s.destination_city_province,
+                            "cargo_and_weight": {
+                                "commodity": s.commodity,
+                                "weight": s.shipment_weight,
+                            },
+                            "type": "FTL" if isinstance(s, FTL) else "POWER",  # ensure we distinguish
+                            "trip_status": s.trip_status,
                         }
                         for s in in_progress_shipments
                     ],

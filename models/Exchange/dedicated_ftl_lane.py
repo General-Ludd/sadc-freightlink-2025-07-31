@@ -328,6 +328,7 @@ class Lane_Tender_RFQ_Stop(Base):
     tender_id = Column(Integer, ForeignKey("ftl_lane_tenders.id"), nullable=False, index=True)
 
     stop_sequence = Column(Integer, nullable=False)
+    facility_name = Column(String, nullable=True)
     address = Column(Text, nullable=False)
     complete_address = Column(String)
     city_province = Column(String)

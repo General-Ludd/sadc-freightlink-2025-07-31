@@ -8,7 +8,7 @@ from models.brokerage.loadboard import Ftl_Load_Board
 from models.shipper import Corporation
 from models.user import Director, Driver
 from models.carrier import Carrier
-from models.spot_bookings.dedicated_lane_ftl_shipment import FTL_Lane
+from models.spot_bookings.dedicated_lane_ftl_shipment import Client_Lane
 from models.spot_bookings.ftl_shipment import FTL_SHIPMENT, FTL_Shipment_Docs, shipment_status_Update
 from models.spot_bookings.power_shipment import POWER_SHIPMENT
 from models.spot_bookings.shipment_facility import ContactPerson, ShipmentFacility

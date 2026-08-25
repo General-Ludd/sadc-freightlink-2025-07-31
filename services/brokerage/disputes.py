@@ -7,7 +7,7 @@ from models.brokerage.finance import BrokerageLedger, Dedicated_Lane_BrokerageLe
 from schemas.spot_bookings.ftl_shipment import FTL_Shipment_Dispute_Create
 from schemas.spot_bookings.dedicated_lanes_ftl_shipment import FTL_Lane_Dispute_Create
 from models.spot_bookings.ftl_shipment import FTL_Shipment_Dispute
-from models.spot_bookings.dedicated_lane_ftl_shipment import FTL_Lane, FTL_Lane_Dispute
+from models.spot_bookings.dedicated_lane_ftl_shipment import Client_Lane, FTL_Lane_Dispute
 from sqlalchemy.orm import Session
 from db.database import SessionLocal
 

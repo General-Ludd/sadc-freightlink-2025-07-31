@@ -6,7 +6,7 @@ from models.brokerage.assigned_shipments import Assigned_Spot_Ftl_Shipments
 from models.brokerage.finance import BrokerageLedger, CarrierFinancialAccounts, FinancialAccounts, Interim_Invoice, Load_Invoice, Brokers_Brokerage_Transactions
 from models.brokerage.loadboard import Ftl_Load_Board
 from models.carrier import Carrier
-from models.spot_bookings.dedicated_lane_ftl_shipment import FTL_Lane
+from models.spot_bookings.dedicated_lane_ftl_shipment import Client_Lane
 from models.spot_bookings.ftl_shipment import FTL_SHIPMENT, FTL_Shipment_Docs
 from models.spot_bookings.power_shipment import POWER_SHIPMENT, POWER_Shipment_Docs
 from models.Exchange.ftl_shipment import FTL_SHIPMENT_EXCHANGE

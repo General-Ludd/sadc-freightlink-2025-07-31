@@ -1,4 +1,4 @@
-from sqlalchemy import Integer, String, Column, Float, Date, DateTime, func, Enum, Boolean, ForeignKey, Numeric
+from sqlalchemy import Integer, String, Column, Float, Date, DateTime, func, Enum, Boolean, ForeignKey, Numeric, Text
 from models.base import Base
 
 class Exchange_FTL_Shipment_Bid(Base):
@@ -61,12 +61,30 @@ class Lane_Tender_RFQ_Bids(Base):
     id = Column(Integer, primary_key=True, index=True)
     tender_id = Column(Integer, index=True)
     carrier_id = Column(Integer, nullable=False)
+    bidder_user_id = Column(Integer)
     carrier_name = Column(String, nullable=False)
     fleet_size = Column(Integer, nullable=True)
     primary_lanes = Column(String)
     bid_per_shipment = Column(Numeric(12, 2), nullable=True)
     slots_per_interval = Column(Integer, nullable=True)
     per_slot_size = Column(Integer, nullable=True)
+    bid_notes = Column(String, nullable=True)
+    status = Column(Enum("Submitted", "Leading", "Outbidded", "Under-Review","Accepted", "Rejected", default="Submitted"))
+    submitted_at = Column(DateTime, server_default=func.now())
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+class Shipment_Auction_Bid(Base):
+    __tablename__ = 'shipment_auction_bids'
+
+    id = Column(Integer, primary_key=True, index=True)
+    auction_id = Column(Integer, index=True)
+    carrier_id = Column(Integer, nullable=False)
+    bidder_user_id = Column(Integer)
+    carrier_name = Column(String, nullable=False)
+    fleet_size = Column(Integer, nullable=True)
+    primary_lanes = Column(String)
+    rate = Column(Numeric(12, 2), nullable=True)
     bid_notes = Column(String, nullable=True)
     status = Column(Enum("Submitted", "Leading", "Outbidded", "Under-Review","Accepted", "Rejected", default="Submitted"))
     submitted_at = Column(DateTime, server_default=func.now())

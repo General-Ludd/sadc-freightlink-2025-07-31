@@ -213,9 +213,81 @@ def create_tender_and_publish(
                         )
                     )
 
-        # ========================================================
-        # 5. VALIDATE STOP SEQUENCES
-        # ========================================================
+        # ============================================================
+        # 1. BUILD ROUTE ADDRESSES
+        # ============================================================
+
+        origin_address = tender_data.origin.address
+        destination_address = tender_data.destination.address
+
+        waypoints = [
+            stop.address
+            for stop in tender_data.stops
+        ]
+
+        # ============================================================
+        # 2. CALCULATE ROUTE
+        # ============================================================
+
+        try:
+            distance_data = calculate_distance(
+                AddressInput(
+                    origin_address=origin_address,
+                    destination_address=destination_address,
+                    waypoints=waypoints
+                )
+            )
+        except HTTPException as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Distance calculation failed: {e.detail}"
+            )
+
+        # ============================================================
+        # 3. EXTRACT ROUTE INFORMATION
+        # ============================================================
+
+        distance = distance_data["distance"]
+        estimated_transit_time = distance_data["duration"]
+        polyline = distance_data["polyline"]
+
+        # ============================================================
+        # 4. EXTRACT GOOGLE-VERIFIED ORIGIN
+        # ============================================================
+
+        origin_data = distance_data["origin"]
+
+        origin_complete_address = origin_data["complete_address"]
+        origin_city_province = origin_data["city_province"]
+        origin_country = origin_data["country"]
+        origin_region = origin_data["region"]
+
+        # ============================================================
+        # 5. EXTRACT GOOGLE-VERIFIED DESTINATION
+        # ============================================================
+
+        destination_data = distance_data["destination"]
+
+        destination_complete_address = destination_data["complete_address"]
+        destination_city_province = destination_data["city_province"]
+        destination_country = destination_data["country"]
+        destination_region = destination_data["region"]
+
+        # ============================================================
+        # 6. EXTRACT GOOGLE-VERIFIED INTERMEDIATE STOPS
+        # ============================================================
+
+        calculated_stops = distance_data.get("stops", [])
+
+        if len(calculated_stops) != len(tender_data.stops):
+            raise HTTPException(
+                status_code=400,
+                detail="Route calculation returned an incorrect number of intermediate stops."
+            )
+
+        # ============================================================
+        # 7. VALIDATE STOP SEQUENCES
+        # ============================================================
 
         stop_sequences = [
             stop.stop_sequence
@@ -228,28 +300,6 @@ def create_tender_and_publish(
                 detail="Tender stop sequences must be unique."
             )
 
-        # ---------------------------------------------------------
-        # Build waypoint list from tender stops
-        # ---------------------------------------------------------
-
-        calculated_distance_km = calculate_tender_distance(
-            origin_address=tender_data.origin_address,
-            destination_address=tender_data.destination_address,
-            stops=tender_data.stops
-        )
-
-        try:
-            trip_data = get_eta_and_polyline(RouteETAInput(
-                origin_address=tender_data.origin_address,
-                destination_address=tender_data.destination_address,
-                start_date=tender_data.contract_start_date,
-                start_time=time(8, 0),
-            ))
-            eta_date = trip_data["eta_date"]  # Distance in kilometers
-            eta_window = trip_data["eta_window"]  # Transit time as text
-            polyline = trip_data["polyline"]
-        except HTTPException as e:
-            raise HTTPException(status_code=500, detail=f"Trip info calculation failed: {e.detail}")
         # ========================================================
         # 8. CREATE MASTER TENDER
         # ========================================================
@@ -274,15 +324,12 @@ def create_tender_and_publish(
             contract_start_date=tender_data.contract_start_date,
             contract_end_date=tender_data.contract_end_date,
 
-            origin_address=tender_data.origin_address,
-            destination_address=tender_data.destination_address,
-
             border_customs_responsibility=(
                 tender_data.border_customs_responsibility
             ),
 
-            estimated_distance_km=tender_data.estimated_distance_km if tender_data.estimated_distance_km else calculated_distance_km,
-            actual_distance_km=calculated_distance_km,
+            estimated_distance_km=tender_data.estimated_distance_km if tender_data.estimated_distance_km else distance,
+            actual_distance_km=distance,
             polyline=polyline,
 
             priority_level=tender_data.priority_level,
@@ -526,22 +573,64 @@ def create_tender_and_publish(
         )
 
         db.add(tender)
-
         db.flush()
 
-        # ========================================================
-        # 9. CREATE STOPS
-        # ========================================================
+        # ============================================================
+        # 9. CREATE ORIGIN STOP
+        # ============================================================
 
-        for stop_data in tender_data.stops:
+        origin_stop = Lane_Tender_RFQ_Stop(
+            tender_id=tender.id,
+            stop_sequence=0,
+            facility_name=tender_data.origin.facility,
+            address=tender_data.origin.address,
+            complete_address=origin_complete_address,
+            city_province=origin_city_province,
+            country=origin_country,
+            region=origin_region,
+        )
 
-            stop = Lane_Tender_RFQ_Stop(
+        db.add(origin_stop)
+
+        # ============================================================
+        # 10. CREATE INTERMEDIATE STOPS
+        # ============================================================
+
+        for stop_data, geo_data in zip(
+            tender_data.stops,
+            calculated_stops
+        ):
+            intermediate_stop = Lane_Tender_RFQ_Stop(
                 tender_id=tender.id,
+                facility_name=stop_data.facility_name,
                 stop_sequence=stop_data.stop_sequence,
                 address=stop_data.address,
+                complete_address=geo_data["complete_address"],
+                city_province=geo_data["city_province"],
+                country=geo_data["country"],
+                region=geo_data["region"],
             )
 
-            db.add(stop)
+            db.add(intermediate_stop)
+
+        # ============================================================
+        # 11. CREATE DESTINATION STOP
+        # ============================================================
+
+        destination_sequence = len(tender_data.stops) + 1
+
+        destination_stop = Lane_Tender_RFQ_Stop(
+            tender_id=tender.id,
+            stop_sequence=destination_sequence,
+            facility_name=tender_data.destination.facility_name,
+            address=tender_data.destination.address,
+            complete_address=destination_complete_address,
+            city_province=destination_city_province,
+            country=destination_country,
+            region=destination_region,
+        )
+
+        db.add(destination_stop)
 
         # ========================================================
         # 10. CREATE VEHICLE CONFIGURATIONS
@@ -641,16 +730,6 @@ def create_tender_and_publish(
             # ----------------------------------------------------
             # ROUTING
             # ----------------------------------------------------
-
-            origin_address=tender.origin_address,
-            origin_city_province=tender.origin_city_province,
-            origin_country=tender.origin_country,
-            origin_region=tender.origin_region,
-
-            destination_address=tender.destination_address,
-            destination_city_province=tender.destination_city_province,
-            destination_country=tender.destination_country,
-            destination_region=tender.destination_region,
 
             estimated_distance_km=tender.estimated_distance_km,
             actual_distance_km=tender.actual_distance_km,

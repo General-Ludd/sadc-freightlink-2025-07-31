@@ -8,6 +8,7 @@ from models.shipper import Corporation
 from models.user import Director
 from models.Exchange.ftl_shipment import FTL_SHIPMENT_EXCHANGE
 from models.Exchange.power_shipment import POWER_SHIPMENT_EXCHANGE
+from services.brokerage.tender.tender_award import award_tender_bid
 from models.brokerage.loadboards.exchange_loadboards import Exchange_Ftl_Load_Board, Exchange_Power_Load_Board
 from models.spot_bookings.shipment_facility import ContactPerson, ShipmentFacility
 from models.vehicle import ShipperTrailer
@@ -15,7 +16,6 @@ from schemas.exchange_bookings.auction import Accept_Bid, Exchange_FTL_Lane_Ship
 from schemas.exchange_bookings.dedicated_ftl_lane import Exchange_Ftl_Lane_Response, Exchange_Ftl_Lane_Summary_Response
 from schemas.exchange_bookings.ftl_shipment import Exchange_FTL_Shipment_Response, Exchange_Ftl_Shipments_Summary_Response
 from schemas.exchange_bookings.power_shipment import Exchange_Power_Shipments_Summary_Response, exchange_power_shipment_response
-from services.exchange.auction import accept_slot_based_ftl_lane_exchange_bid, accept_ftl_shipment_exchange_bid, accept_power_shipment_exchange_bid
 from services.cancellations.exchange_cancellations import cancel_exchange_ftl_booking, cancel_exchange_power_booking, cancel_exchange_ftl_lane_booking
 from utils.auth import get_current_user
 
@@ -259,6 +259,30 @@ def get_tender_rfq_bids(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/tender/{tender_id}/award-bid/{bid_id}")
+def award_tender_bid_endpoint(
+    tender_id: int,
+    bid_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    try:
+        return award_tender_bid(
+            db=db,
+            tender_id=tender_id,
+            bid_id=bid_id,
+            current_user=current_user
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print("Tender award error:", str(e))
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to award tender bid: {str(e)}"
+        )
 
 @router.get("/enterprise/ftl-shipment-exchange/{id}")
 def get_enterprise_single_ftl_exchange_details(

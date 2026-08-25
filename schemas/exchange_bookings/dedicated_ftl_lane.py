@@ -2,7 +2,7 @@ from pydantic import BaseModel, EmailStr
 from typing import List, Optional
 from datetime import date, datetime
 
-from enums import EquipmentType, Load_Type, Priority_Level, TrailerLength, TrailerType, TruckType, Recurrence_Frequency
+from enums import EquipmentType, Load_Type, Priority_Level, TrailerLength, TrailerType, TruckType, Recurrence_Frequency, HazchemClass
 
 class Exchange_FTL_Lane_Booking(BaseModel):
     load_type: Load_Type
@@ -175,6 +175,7 @@ class TenderStopUpdate(BaseModel):
 
     stop_sequence: Optional[int] = Field(None, ge=1, le=5)
     address: Optional[str] = Field(None, min_length=1, max_length=500)
+    facility_name: Optional[str] = None
 
 
 class TenderStopResponse(BaseModel):
@@ -443,17 +444,9 @@ class TenderCreate(BaseModel):
     contract_start_date: date
     contract_end_date: date
 
-    origin_address: str = Field(
-        ...,
-        min_length=1,
-        max_length=500
-    )
+    origin: TenderStopUpdate
 
-    destination_address: str = Field(
-        ...,
-        min_length=1,
-        max_length=500
-    )
+    destination: TenderStopUpdate
 
     border_customs_responsibility: Optional[str] = Field(
         None,
@@ -518,7 +511,7 @@ class TenderCreate(BaseModel):
 
     hazardous_materials: bool = False
 
-    hazchem_classification: Optional[str] = Field(
+    hazchem_classification: Optional[HazchemClass] = Field(
         None,
         max_length=100
     )
