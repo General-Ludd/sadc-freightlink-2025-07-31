@@ -286,141 +286,118 @@ def create_auction_and_publish(
                 )
             )
 
-        # Step 2: get ETA Date, ETA Window, Polylines
-        try:
-            trip_data = get_eta_and_polyline(RouteETAInput(
-                origin_address=auction_data.origin.address,
-                destination_address=auction_data.destination.address,
-                start_date=auction_data.pickup_date,
-                start_time=auction_data.destination.operating_end_time,
-            ))
-            eta_date = trip_data["eta_date"]  # Distance in kilometers
-        except HTTPException as e:
-            raise HTTPException(status_code=500, detail=f"Trip info calculation failed: {e.detail}")
-
-        # ============================================================
-        # STEP 3 — BUILD ROUTE INPUT
-        # ============================================================
-
-        origin_address = auction_data.origin.address
-        destination_address = auction_data.destination.address
-
-        waypoints = [
-            stop.address
-            for stop in auction_data.stops
-        ]
-
-        # ============================================================
-        # STEP 4 — CALCULATE ROUTE
-        # ============================================================
-
-        try:
-            distance_data = calculate_distance(
-                AddressInput(
-                    origin_address=origin_address,
-                    destination_address=destination_address,
-                    waypoints=waypoints
-                )
-            )
-
-        except HTTPException as e:
-            raise HTTPException(
-                status_code=500,
-                detail=f"Distance calculation failed: {e.detail}"
-            )
-
-        # ============================================================
-        # STEP 5 — EXTRACT ROUTE INFORMATION
-        # ============================================================
-
-        distance = distance_data["distance"]
-        estimated_transit_time = distance_data["duration"]
-        polyline = distance_data["polyline"]
-
-        route_preview_embed = distance_data.get(
-            "google_maps_embed_url"
+        # ========================================================
+        # 6. VALIDATE STOP SEQUENCES
+        # ========================================================
+        sorted_stops = sorted(
+            auction_data.stops,
+            key=lambda s: s.stop_sequence
         )
-
-        # ============================================================
-        # STEP 6 — EXTRACT ORIGIN GEO INFORMATION
-        # ============================================================
-
-        origin_data = distance_data["origin"]
-
-        complete_origin_address = origin_data["complete_address"]
-        origin_city_province = origin_data["city_province"]
-        origin_country = origin_data["country"]
-        origin_region = origin_data["region"]
-        origin_latitude = origin_data["latitude"]
-        origin_longitude = origin_data["longitude"]
-
-        # ============================================================
-        # STEP 7 — EXTRACT DESTINATION GEO INFORMATION
-        # ============================================================
-
-        destination_data = distance_data["destination"]
-
-        complete_destination_address = (
-            destination_data["complete_address"]
-        )
-
-        destination_city_province = (
-            destination_data["city_province"]
-        )
-
-        destination_country = (
-            destination_data["country"]
-        )
-
-        destination_region = (
-            destination_data["region"]
-        )
-
-        destination_latitude = (
-            destination_data["latitude"]
-        )
-
-        destination_longitude = (
-            destination_data["longitude"]
-        )
-
-        # ============================================================
-        # STEP 8 — EXTRACT INTERMEDIATE STOP GEO INFORMATION
-        # ============================================================
-
-        calculated_stops = distance_data.get("stops", [])
-
-        if len(calculated_stops) != len(auction_data.stops):
-            raise HTTPException(
-                status_code=500,
-                detail=(
-                    "Route calculation returned an inconsistent number "
-                    "of intermediate stops."
-                )
-            )
-
-        # ============================================================
-        # STEP 9 — VALIDATE STOP SEQUENCES
-        # ============================================================
-
-        stop_sequences = [
-            stop.stop_sequence
-            for stop in auction_data.stops
-        ]
-
-        expected_sequences = list(
-            range(1, len(auction_data.stops) + 1)
-        )
-
+        stop_sequences = [stop.stop_sequence for stop in sorted_stops]
+        expected_sequences = list(range(1, len(sorted_stops) + 1))
         if stop_sequences != expected_sequences:
             raise HTTPException(
                 status_code=400,
-                detail=(
-                    "Intermediate stop sequences must be consecutive "
-                    "starting from 1."
-                )
+                detail="Tender intermediate stop sequences must be consecutive starting from 1."
             )
 
+        # ========================================================
+        # 7. BUILD GOOGLE MAPS WAYPOINTS
+        # ========================================================
+        waypoints = [
+            stop.address.strip()
+            for stop in sorted_stops
+            if stop.address and stop.address.strip()
+        ]
+
+        # ========================================================
+        # 8. CALCULATE COMPLETE ROUTE
+        # ========================================================
+        try:
+            distance_data = calculate_distance(
+                AddressInput(
+                    origin_address=auction_data.origin.address,
+                    destination_address=auction_data.destination.address,
+                    waypoints=waypoints
+                )
+            )
+        except HTTPException as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Google Maps routing calculation failed: {e.detail}"
+            )
+
+        if not isinstance(distance_data, dict):
+            raise HTTPException(
+                status_code=500,
+                detail="Google Maps routing calculation returned an invalid response."
+            )
+
+        distance_km = distance_data.get("distance")
+        estimated_transit_time = distance_data.get("duration")
+        route_preview_embed = distance_data.get("google_maps_embed_url")
+
+        if distance_km is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Google Maps did not return a valid route distance."
+            )
+
+        # ========================================================
+        # 9. EXTRACT ORIGIN GEO INFORMATION
+        # ========================================================
+        complete_origin_address = distance_data.get(
+            "complete_origin_address",
+            auction_data.origin.address
+        )
+        origin_city_province = distance_data.get(
+            "origin_city_province"
+        )
+        origin_country = distance_data.get(
+            "origin_country"
+        )
+        origin_region = distance_data.get(
+            "origin_region"
+        )
+
+        # ========================================================
+        # 10. EXTRACT DESTINATION GEO INFORMATION
+        # ========================================================
+        complete_destination_address = distance_data.get(
+            "complete_destination_address",
+            auction_data.destination.address
+        )
+        destination_city_province = distance_data.get(
+            "destination_city_province"
+        )
+        destination_country = distance_data.get(
+            "destination_country"
+        )
+        destination_region = distance_data.get(
+            "destination_region"
+        )
+
+        # ========================================================
+        # 11. EXTRACT INTERMEDIATE STOP GEO INFORMATION
+        # ========================================================
+        calculated_stops = []
+
+        for index, stop_data in enumerate(sorted_stops, start=1):
+            calculated_stops.append({
+                "complete_address": distance_data.get(
+                    f"complete_stop_{index}_address",
+                    stop_data.address
+                ),
+                "city_province": distance_data.get(
+                    f"stop_{index}_city_province"
+                ),
+                "country": distance_data.get(
+                    f"stop_{index}_country"
+                ),
+                "region": distance_data.get(
+                    f"stop_{index}_region"
+                ),
+            })
         # ============================================================
         # STEP 10 — NORMALIZE AUCTION CLOSING DATE TO UTC
         # ============================================================
@@ -1160,6 +1137,6 @@ def create_auction_and_publish(
         raise HTTPException(
             status_code=500,
             detail=(
-                f"Failed to create and publish tender: {str(e)}"
+                f"Failed to create and publish auction: {str(e)}"
             )
         )
