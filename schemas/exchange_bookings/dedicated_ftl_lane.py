@@ -611,10 +611,7 @@ class TenderCreate(BaseModel):
     # VAT / RATE VALIDITY
     # ============================================================
 
-    vat_treatment: str = Field(
-        ...,
-        max_length=30
-    )
+    vat_included: bool = True
 
     rate_validity: str = Field(
         ...,

@@ -207,7 +207,7 @@ class Lane_Tender_RFQ(Base):
     fuel_review_period = Column(String(50), nullable=True)
     fuel_component_percentage = Column(Numeric(5, 2), nullable=True)
 
-    vat_treatment = Column(String(30), nullable=False)
+    vat_included = Column(Boolean)
     rate_validity = Column(String(50), nullable=False)
 
     # ============================================================

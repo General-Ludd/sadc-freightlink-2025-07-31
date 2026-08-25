@@ -488,7 +488,7 @@ class Lane_Tender_Loadboard(Base):
     # VAT / COMMERCIAL
     # ============================================================
 
-    vat_treatment = Column(String(30), nullable=False)
+    vat_included = Column(Boolean)
     rate_validity = Column(String(50), nullable=False)
 
     payment_terms = Column(String(50), nullable=True)

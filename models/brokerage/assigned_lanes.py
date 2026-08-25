@@ -132,7 +132,7 @@ class Carrier_Lane(Base):
     contract_rate = Column(Numeric(14, 2), nullable=True)
     slots_per_interval = Column(Integer, nullable=False)
     total_slots = Column(Integer, nullable=False)
-    vat_treatment = Column(String(30), nullable=False)
+    vat_included = Column(Boolean)
     rate_validity = Column(String(50), nullable=False)
 
     # ============================================================
