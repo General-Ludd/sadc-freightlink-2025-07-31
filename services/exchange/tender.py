@@ -216,6 +216,16 @@ def create_tender_and_publish(
                     )
 
         # ============================================================
+        # 6. ROUTE DISTANCE ENGINE EXECUTOR (THE RESOLUTION)
+        # ============================================================
+        # Call your helper instead of direct calculate_distance to prevent tuple crashes
+        calculated_distance_km = calculate_tender_distance(
+            origin_address=tender_data.origin.address,
+            destination_address=tender_data.destination.address,
+            stops=tender_data.stops
+        )
+
+        # ============================================================
         # 1. BUILD ROUTE ADDRESSES
         # ============================================================
 
@@ -330,7 +340,7 @@ def create_tender_and_publish(
                 tender_data.border_customs_responsibility
             ),
 
-            estimated_distance_km=tender_data.estimated_distance_km if tender_data.estimated_distance_km else distance,
+            estimated_distance_km=tender_data.estimated_distance_km if tender_data.estimated_distance_km else calculated_distance_km,
             actual_distance_km=distance,
             polyline=polyline,
 
@@ -734,7 +744,7 @@ def create_tender_and_publish(
             # ----------------------------------------------------
 
             estimated_distance_km=tender.estimated_distance_km,
-            actual_distance_km=tender.actual_distance_km,
+            actual_distance_km=tender.calculated_distance_km,
             polyline=polyline,
 
             border_customs_responsibility=(
