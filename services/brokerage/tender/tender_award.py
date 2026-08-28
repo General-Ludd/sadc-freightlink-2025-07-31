@@ -446,6 +446,8 @@ def award_tender_bid(
             Lane_Stop(
                 lane_id=client_lane.id,
                 stop_sequence=stop.stop_sequence,
+                stop_type=stop.stop_type,
+                facility_name=stop.facility_name,
                 address=stop.address,
                 complete_address=stop.complete_address,
                 city_province=stop.city_province,

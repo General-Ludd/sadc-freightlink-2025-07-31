@@ -169,6 +169,7 @@ class TenderStopCreate(BaseModel):
 
     stop_sequence: int = Field(..., ge=1, le=5)
     address: str = Field(..., min_length=1, max_length=500)
+    facility_name: Optional[str] = None
 
 
 class TenderStopUpdate(BaseModel):

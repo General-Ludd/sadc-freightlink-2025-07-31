@@ -253,6 +253,7 @@ class ClientShipmentAuctionCreate(BaseModel):
     load_type: str
     origin: ClientShipmentAuctionStopCreate
     destination: ClientShipmentAuctionStopCreate
+    number_of_trucks_required: int
     pickup_date: Optional[date] = None
     priority_level: Optional[str] = None
     customer_reference_number: Optional[str] = None

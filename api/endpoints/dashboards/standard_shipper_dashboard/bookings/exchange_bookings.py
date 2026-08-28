@@ -6,7 +6,6 @@ from schemas.exchange_bookings.ftl_shipment import Exchange_FTL_Shipment_Booking
 from schemas.exchange_bookings.power_shipment import Exchange_Power_Shipment_Booking
 from schemas.shipment_facility import FacilityContactCreate, ShipmentFacilityCreate
 from services.exchange.dedicated_ftl_lane import create_dedicated_ftl_lane_exchange
-from services.exchange.ftl_shipment import create_ftl_shipment_exchange
 from services.exchange.power_shipment import create_power_shipment_exchange
 from utils.auth import get_current_user
 

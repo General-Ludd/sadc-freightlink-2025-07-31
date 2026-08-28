@@ -85,6 +85,7 @@ class Shipment_Auction_Bid(Base):
     fleet_size = Column(Integer, nullable=True)
     primary_lanes = Column(String)
     rate = Column(Numeric(12, 2), nullable=True)
+    number_of_loads = Column(Integer)
     bid_notes = Column(String, nullable=True)
     status = Column(Enum("Submitted", "Leading", "Outbidded", "Under-Review","Accepted", "Rejected", default="Submitted"))
     submitted_at = Column(DateTime, server_default=func.now())

@@ -151,7 +151,12 @@ class Lane_Stop(Base):
     id = Column(Integer, primary_key=True, index=True)
     lane_id = Column(Integer, nullable=False, index=True)
 
+    facility_name = Column(String(150), nullable=False)
     stop_sequence = Column(Integer, nullable=False)
+    stop_type = Column(
+        String(30), nullable=False
+    )  # 'Origin', 'Intermediate', 'Destination'
+    facility_name = Column(String, nullable=True)
     address = Column(Text, nullable=False)
     complete_address = Column(String)
     city_province = Column(String)

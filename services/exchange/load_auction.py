@@ -447,7 +447,8 @@ def create_auction_and_publish(
 
             trip_type=auction_data.trip_type,
             load_type=auction_data.load_type,
-
+            number_of_trucks_required=auction_data.number_of_trucks_required,
+            slots_remaining=auction_data.number_of_trucks_required,
             payment_terms=financial_account.payment_terms,
 
             pickup_date=auction_data.pickup_date,
@@ -913,6 +914,8 @@ def create_auction_and_publish(
 
             trip_type=auction_data.trip_type,
             load_type=auction_data.load_type,
+            number_of_trucks_required=auction_data.number_of_trucks_required,
+            slots_remaining=auction_data.number_of_trucks_required,
 
             payment_terms=financial_account.payment_terms,
 

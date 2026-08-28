@@ -28,6 +28,67 @@ def get_db():
     finally:
         db.close()
 
+@router.get("/load-exchanges")
+def get_load_exchange(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    assert "company_id" in current_user, "Missing company_id in current_user"
+    company_id = current_user.get("company_id")
+
+    if not company_id:
+        raise HTTPException(
+            status_code=400,
+            detail="User does not belong to a company"
+        )
+    try:
+        print("STEP 1 - querying tender")
+
+        exchange = db.query(Client_Shipment_Auction).filter(Client_Shipment_Auction.client_id == company_id).all()
+        origin = db.query(Client_Shipment_Auction_Stop).filter(Client_Shipment_Auction_Stop.auction_id == exchange.id,
+                                                                Client_Shipment_Auction_Stop.stop_type == "Origin").first()
+        stop = db.query(Client_Shipment_Auction_Stop).filter(Client_Shipment_Auction_Stop.auction_id == exchange.id,
+                                                                Client_Shipment_Auction_Stop.stop_type == "Intermediate").all()
+        destination = db.query(Client_Shipment_Auction_Stop).filter(Client_Shipment_Auction_Stop.auction_id == exchange.id,
+                                                                    Client_Shipment_Auction_Stop.stop_type == "Destination").first()
+        primary_equipment = db.query(Client_Shipment_Auction_Vehicle_Requirement).filter(Client_Shipment_Auction_Vehicle_Requirement.auction_id == exchange.id,
+                                                                                        Client_Shipment_Auction_Vehicle_Requirement.equipment_type == "Primary").first()
+        bids = db.query(Shipment_Auction_Bid).filter(Shipment_Auction_Bid.auction_id == exchange.id).all()
+        print("STEP 1: QuerySUCCESS")
+        
+        return {
+            "exchanges": [{
+                "id": exchange.id,
+                "status": exchange.status,
+                "hazardous": exchange.hazardous_materials,
+                "hazchem_classification": exchange.hazchem_classification if exchange.hazchem_classification else None,
+                "origin": {
+                    "pickup": origin.city_province,
+                    "facility": origin.facility_name,
+                    "date": exchange.pickup_date,
+                    "pickup_window": f"{origin.operating_start_time} - {origin.operating_end_time}",
+                },
+                "load_information": {
+                    "distance": exchange.distance,
+                    "stops": len(stops),
+                    "required_equipment": f"{primary_equipment.truck_type if primary_equipment.truck_type == 'Rigid' else primary_equipment.trailer_type} - {primary_equipment.equipment_type}",
+                    "trucks_required": exchange.number_of_trucks_required,
+                },
+                "destination": {
+                    "delivery": delivery.city_province,
+                    "facility": destination.facility_name,
+                    "eta_date": exchange.eta_date,
+                    "window": f"{destination.operating_end_time} - {destination.operating_end_time}",
+                },
+                "financial": {
+                    "bids_quotes_in": len(bids) if bids else None,
+                    "lowest": "get lowest bid",
+                    "budget": exchange.procurement_target_rate
+                },
+            } for exchange in exchanges],
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/tender/{id}")
 def get_tender_information(

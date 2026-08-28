@@ -114,11 +114,13 @@ def get_shipments_loadboard(
                 "route": {
                     "origin": {
                         "pickup": origin.complete_address or origin.address,
+                        "facility_name": origin.facility_name or None,
                         "pickup_date": loadboard.pickup_date,
                         "pickup_window": pickup_window
                     },
                     "destination": {
                         "delivery": destination.complete_address or destination.address,
+                        "facility_name": destination.facility_name or None,
                         "eta_date": loadboard.eta_date,
                         "delivery_window": delivery_window
                     },

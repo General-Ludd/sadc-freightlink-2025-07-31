@@ -11,6 +11,8 @@ class Client_Shipment_Auction(Base):
     booking_reference = Column(String(100), nullable=True, index=True)
     trip_type = Column(String, nullable=False)
     load_type = Column(String, nullable=False)
+    number_of_trucks_required = Column(Integer, nullable=False)
+    slots_remaining = Column(Integer)
     client_id = Column(Integer, nullable=False)
     client_user_id = Column(Integer, nullable=False)
     payment_terms = Column(String, nullable=False)

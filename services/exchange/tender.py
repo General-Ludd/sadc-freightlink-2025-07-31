@@ -358,7 +358,7 @@ def create_tender_and_publish(db: Session, tender_data: TenderCreate, current_us
             evaluation_service_enabled=tender_data.evaluation_service_enabled,
             evaluation_compliance_enabled=tender_data.evaluation_compliance_enabled,
             evaluation_flexibility_enabled=tender_data.evaluation_flexibility_enabled,
-            status="draft"
+            status="Draft"
         )
 
         db.add(tender)
@@ -370,6 +370,8 @@ def create_tender_and_publish(db: Session, tender_data: TenderCreate, current_us
         origin_stop = Lane_Tender_RFQ_Stop(
             tender_id=tender.id,
             stop_sequence=0,
+            stop_type="Origin",
+            facility_name=tender_data.origin.facility_name,
             address=tender_data.origin.address,
             complete_address=complete_origin_address,
             city_province=origin_city_province,
@@ -388,6 +390,8 @@ def create_tender_and_publish(db: Session, tender_data: TenderCreate, current_us
             intermediate_stop = Lane_Tender_RFQ_Stop(
                 tender_id=tender.id,
                 stop_sequence=stop_data.stop_sequence,
+                stop_type="Intermediate",
+                facility_name=stop_data.facility_name,
                 address=stop_data.address,
                 complete_address=geo_data["complete_address"],
                 city_province=geo_data["city_province"],
@@ -402,6 +406,8 @@ def create_tender_and_publish(db: Session, tender_data: TenderCreate, current_us
         destination_stop = Lane_Tender_RFQ_Stop(
             tender_id=tender.id,
             stop_sequence=len(sorted_stops) + 1,
+            stop_type="Destiantion",
+            facility_name=destination.facility_name,
             address=tender_data.destination.address,
             complete_address=complete_destination_address,
             city_province=destination_city_province,

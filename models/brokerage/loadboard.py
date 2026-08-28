@@ -575,6 +575,8 @@ class Shipment_Auction_Loadboard(Base):
     trip_type = Column(String, nullable=False)
     load_type = Column(String, nullable=False)
     payment_terms = Column(String, nullable=False)
+    number_of_trucks_required = Column(Integer, nullable=False)
+    slots_remaining = Column(Integer)
     pickup_date = Column(Date)
     priority_level = Column(String, nullable=True)
     shipment_weight = Column(Integer)
