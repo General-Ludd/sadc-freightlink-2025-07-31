@@ -14,6 +14,7 @@ from schemas.brokerage.loadboard import IndividualLoadboardShipmentRequest
 from schemas.brokerage.exchange_loadboards import Exchange_Ftl_Load_Board_Response, Exchange_Ftl_Loadboard_Summary_Response
 from schemas.exchange_bookings.auction import Exchange_FTL_Lane_Bid_Create, Exchange_FTL_Shipment_Bid_Create, Exchange_FTL_Exchange_Loadboard_BidResponse, Exchange_POWER_Shipment_Bid_Create, Exchange_Power_Exchange_Loadboard_BidResponse
 from schemas.exchange_bookings.ftl_shipment import Exchange_Ftl_Shipments_Summary_Response
+from services.exchange.auction import place_auction_bid
 from utils.auth import get_current_user
 
 router = APIRouter()
@@ -257,7 +258,7 @@ def get_loadboard_shipment(
                     "my_placed_bids": [{
                         "id": bid.id,
                         "rate": bid.rate,
-                        "no_of_loads": bid.rate,
+                        "no_of_loads": bid.no_of_loads,
                         "lead_time": bid.lead_time,
                         "notes": bid.notes,
                         "submitted_at": bid.submitted_at,
@@ -356,6 +357,35 @@ def get_loadboard_shipment(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.post("place-exchange/{id}-bid")
+def place_exchange_bid(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    # ========================================================
+    # 1. GET CURRENT USER / CARRIER
+    # ========================================================
+
+    assert "company_id" in current_user, "Missing company_id in current_user"
+
+    print(f"current_user: {current_user}")
+
+    company_id = current_user.get("company_id")
+
+    if not company_id:
+        raise HTTPException(
+            status_code=400,
+            detail="User does not belong to a company"
+        )
+    try:
+        result = place_auction_bid(
+            db,
+            bid_data,
+            current_user)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/tender-loadboard")
 def get_loadboard_tenders(
