@@ -160,6 +160,7 @@ def get_load_exchange_summary(
         destination = db.query(Client_Shipment_Auction_Stop).filter(Client_Shipment_Auction_Stop.auction_id == exchange.id, Client_Shipment_Stop.stop_type == "Destination").first()
 
         if not origin:
+
             raise HTTPException(status_code=500, detail="Origin stop not found")
 
         if not destination:
