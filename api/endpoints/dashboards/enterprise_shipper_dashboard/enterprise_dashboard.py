@@ -76,7 +76,7 @@ def make_aware_combine(dt, fallback_date: date = None):
 
     return None
 
-@router.get("/enterprise-shipper/company-name")
+@router.get("/client-company-name")
 def get_enterprise_shipper_company_name(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
@@ -87,7 +87,7 @@ def get_enterprise_shipper_company_name(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.get("/enterprise-shipper/current-user-name")
+@router.get("/client-current-user-name")
 def get_current_enterprise_user_name(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)

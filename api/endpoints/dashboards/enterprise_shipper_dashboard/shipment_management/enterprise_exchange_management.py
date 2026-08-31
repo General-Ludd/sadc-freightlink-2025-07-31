@@ -181,7 +181,7 @@ def get_load_exchange_summary(
                     "hazchem_classification": exchange.hazchem_classification,
                 },
                 "trucks_required": exchange.number_of_trucks_required,
-                "corridor_specs": f"{exchange.distance} ~ {exchange.trip_type} {exchange.priority_level} priority load ({len(stops)} stops)",
+                "corridor_specs": f"{exchange.distance} km ~ {exchange.trip_type} {exchange.priority_level} priority load ({len(stops)} stops)",
                 "target_budget": exchange.procurement_target_rate,
                 "pickup_schedule": {
                     "pickup_date": exchange.pickup_date,

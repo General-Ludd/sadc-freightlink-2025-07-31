@@ -136,6 +136,8 @@ def get_shipments_loadboard(
                     "hazchem_classification": loadboard.hazchem_classification if loadboard.hazchem_classification else None
                 },
                 "required_equipment_specification": requirements,
+                "number_of_trucks_required": loadboard.number_of_trucks_required,
+                "slot_remaining": loadboard.slots_remaining,
                 "rate": {
                     "rate_basis": loadboard.pricing_basis,
                     "benchmark_rate": loadboard.benchmark_rate,
@@ -225,6 +227,8 @@ def get_loadboard_shipment(
                 "priority_level": load.priority_level,
                 "payment_terms": load.payment_terms,
                 "pickup_date": load.pickup_date,
+                "number_of_trucks_required": load.number_of_trucks_required,
+                "remaining_slots": load.remaining_slots,
                 "route": {
                     "origin": origin.city_province,
                     "stops": [
