@@ -157,7 +157,7 @@ def get_load_exchange_summary(
 
         origin = next((point for point in trip_points if point.stop_type == "Origin"), None)
         destination = next((point for point in trip_points if point.stop_type == "Destination"), None)
-        stops = next(point for point in trip_points if point.stop_type == "Intermediate")
+        stops = [point for point in trip_points if point.stop_type == "Intermediate"]
 
         if not origin:
             raise HTTPException(status_code=500, detail="Origin stop not found")
