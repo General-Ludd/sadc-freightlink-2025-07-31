@@ -155,9 +155,9 @@ def get_load_exchange_summary(
         trip_points = db.query(Client_Shipment_Auction_Stop).filter(Client_Shipment_Auction_Stop.auction_id == exchange.id).order_by(Client_Shipment_Auction_Stop.stop_sequence.asc()).all()
         bids = db.query(Shipment_Auction_Bid).filter(Shipment_Auction_Bid.auction_id == exchange.id).order_by(Shipment_Auction_Bid.rate.asc()).all()
 
-        origin = next((point for point in trip_points if point.stop_type == "Origin"), None)
-        destination = next((point for point in trip_points if point.stop_type == "Destination"), None)
-        stops = [point for point in trip_points if point.stop_type == "Intermediate"]
+        origin = db.query(Client_Shipment_Auction_Stop).filter(Client_Shipment_Auction_Stop.auction_id == exchange.id, Client_Shipment_Auction_Stop.stop_type == "Origin").first()
+        stops = db.query(Client_Shipment_Auction_Stop).filter(Client_ShipmClient_Shipment_Auction_Stopent_Stop.auction_id == exchange.id).all()
+        destination = db.query(Client_Shipment_Auction_Stop).filter(Client_Shipment_Auction_Stop.auction_id == exchange.id, Client_Shipment_Stop.stop_type == "Destination").first()
 
         if not origin:
             raise HTTPException(status_code=500, detail="Origin stop not found")
