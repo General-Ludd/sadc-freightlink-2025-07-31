@@ -90,6 +90,205 @@ def get_load_exchange(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/load-exchange/{id}/summary")
+def get_load_exchange_summary(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    assert "company_id" in current_user, "Missing company_id in current_user"
+    company_id = current_user.get("company_id")
+
+    if not company_id:
+        raise HTTPException(status_code=400, detail="User does not belong to a company")
+
+    try:
+        print("STEP 1 - querying exchange")
+
+        exchange = db.query(Client_Shipment_Auction).filter(Client_Shipment_Auction.id == id).first()
+        if not exchange:
+            raise HTTPException(status_code=404, detail="Load exchange not found")
+
+        trip_points = db.query(Client_Shipment_Auction_Stop).filter(Client_Shipment_Auction_Stop.auction_id == exchange.id).order_by(Client_Shipment_Auction_Stop.stop_sequence.asc()).all()
+        bids = db.query(Shipment_Auction_Bid).filter(Shipment_Auction_Bid.auction_id == exchange.id).order_by(Shipment_Auction_Bid.rate.asc()).all()
+
+        origin = next((point for point in trip_points if point.stop_type == "Origin"), None)
+        destination = next((point for point in trip_points if point.stop_type == "Destination"), None)
+        stops = next(point for point in trip_points if point.stop_type == "Intermediate")
+
+        if not origin:
+            raise HTTPException(status_code=500, detail="Origin stop not found")
+
+        if not destination:
+            raise HTTPException(status_code=500, detail="Destination stop not found")
+
+        return {
+            "summary": {
+                "id": exchange.id,
+                "status": exchange.status,
+                "description_info": {
+                    "commodity": exchange.commodity,
+                    "packaging": exchange.packaging_quantity if exchange.packaging_type else None,
+                    "packaging_type": exchange.packaging_type if exchange.packaging_type else None,
+                    "weight_per_shipment": exchange.shipment_weight,
+                },
+                "hazchem": {
+                    "hazardous_material": exchange.hazardous_material,
+                    "hazchem_classification": exchange.hazchem_classification,
+                },
+                "trucks_required": exchange.number_of_trucks_required,
+                "corridor_specs": f"{exchange.distance} ~ {exchange.trip_type} {exchange.priority_level} priority load ({len(stops)} stops)",
+                "target_budget": exchange.procurement_target_rate,
+                "pickup_schedule": {
+                    "pickup_date": exchange.pickup_date,
+                    "pickup_window": f"{origin.operating_start_time} - {origin.operating_end_time}",
+                },
+                "delivery_eta": {
+                    "eta_date": exchange.eta_date,
+                    "delivery_window": f"{destination.operating_start_time} - {destination.operating_end_time}",
+                },
+                "live_carrier_quotes": [{
+                    "id": bid.id,
+                    "carrier_name": bid.carrier_name,
+                    "lead_time": bid.lead_time,
+                    "rate": bid.rate,
+                    "number_of_loads": bid.number_of_loads,
+                    "notes": bid.notes,
+                    "savings": (exchange.procurement_target_rate - bid.rate) if bid.rate is not None and exchange.procurement_target_rate is not None else None,
+                } for bid in bids],
+            },
+        }
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/load-exchange/{id}")
+def get_load_exchange_information(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    assert "company_id" in current_user, "Missing company_id in current_user"
+    company_id = current_user.get("company_id")
+
+    if not company_id:
+        raise HTTPException(
+            status_code=400,
+            detail="User does not belong to a company"
+        )
+    try:
+        print("STEP 1 - querying auction")
+        exchange = db.query(Client_Shipment_Auction).filter(Client_Shipment_Auction.id == id).first()
+        if not exchange:
+            raise HTTPException(status_code=404, detail="Load exchange not found")
+
+        trip_points = db.query(Client_Shipment_Auction_Stop).filter(Client_Shipment_Auction_Stop.auction_id == exchange.id).order_by(Client_Shipment_Auction_Stop.stop_sequence.asc()).all()
+        bids = db.query(Shipment_Auction_Bid).filter(Shipment_Auction_Bid.auction_id == exchange.id).order_by(Shipment_Auction_Bid.rate.asc()).all()
+        configs = db.query(Client_Shipment_Auction_Vehicle_Requirement).filter(Client_Shipment_Auction_Vehicle_Requirement.auction_id == exchange.id).all()
+
+        origin = next((point for point in trip_points if point.stop_type == "Origin"), None)
+        destination = next((point for point in trip_points if point.stop_type == "Destination"), None)
+        stops = next(point for point in trip_points if point.stop_type == "Intermediate")
+
+        return {
+            "load_information": {
+                "id": exchange.id,
+                "shipment_reference": exchange.shipment_reference,
+                "booking_reference": exchange.booking_refence,
+                "trip_type": exchange.trip_type,
+                "load_type": exchange.load_type,
+                "payment_terms": exchange.payment_terms,
+                "pickup_date": exchange.pickup_date,
+                "priority_level": exchange.priority_level,
+                "customer_reference_number": exchange.customer_reference_number,
+                "pod_submission_local": exchange.pod_submission_local,
+                "pod_submission_long_haul": exchange.pod_submission_long_haul,
+                "pod_submission_cross_border": exchange.pod_submission_cross_border,
+                "auction_information": {
+                    "end_time": exchange.auction_closing_date,
+                    "bidding_activated": exchange.bidding_activated,
+                    "rates": {
+                        "pricing_basis": exchange.pricing_basis,
+                        "rate_direction": exchange.rate_direction,
+                        "benchmark": exchange.procurement_target_rate,
+                        "book_now_rate": exchange.book_now_rate if exchange.book_now_rate else None,
+                        "vat_inclusive": exchange.vat_included,
+                    },
+                    "bids": [{
+                        "id": bid.id,
+                        "rate": bid.rate,
+                        "number_of_loads": bid.number_of_loads,
+                        "status": bid.status,
+                        "carrier": {
+                            "id": bid.carrier_id,
+                            "name": bid.carrier_name,
+                            "fleet_size": bid.fleet_size,
+                            "primary_lanes": bid.primary_lanes,
+                        },
+                        "submitted_at": bid.submitted_at,
+                    } for bid in bids],
+                    "rate_inclusive_of": {
+                        "fuel": exchange.rate_includes_fuel,
+                        "waiting_detention_time": exchange.rate_includes_waiting_time,
+                        "driver": exchange.rate_includes_driver,
+                        "maintenance": exchange.rate_includes_maintenance,
+                        "insurance": exchange.rate_includes_insurance,
+                        "tolls": exchange.rate_includes_tolls,
+                        "border_charges": exchange.rate_includes_border_charges,
+                        "empty_return": exchange.rate_includes_empty_return,
+                        "loading_assistance_charges": exchange.rate_includes_loading_assistance,
+                        "offloading_assistance_charges": exchange.rate_includes_offloading_assistance,
+                    },
+                },
+                "load_information": {
+                    "pickup_date": exchange.pickup_date,
+                    "shipment_weight": exchange.shipment_weight,
+                    "commodity": exchange.commodity,
+                    "packaging_type": exchange.packaging_type,
+                    "packaging_quantity": exchange.packaging_quantity,
+                    "temperature_control": exchange.temperature_control,
+                    "temperature_control_spec": exchange.temperature_control_spec,
+                    "hazardous_materials": hazardous_materials,
+                    "hazchem_classification": hazchem_classification,
+                    "under_bond": exchange.under_bond,
+                    "rib_required": exchange.rib_requirements,
+                },
+                "truck_requirements": [{
+                    "configuration_type": config.configuration_type,
+                    "truck_type": config.truck_type,
+                    "equipment_type": congfig.equipment_type,
+                    "trailer_type": config.trailer_type if config.trailer_type else None,
+                    "trailer_length": config.trailer_length if config.trailer_length else None,
+                    "compliance_requirements": {
+                        "vehicle_tracking_required": exchange.vehicle_tracking_required,
+                        "all_time_hour_control_room": exchange.all_time_hour_control_room,
+                        "driver_mobile_phone": exchange.driver_mobile_phone,
+                        "clean_compliant_equipment": exchange.clean_compliant_equipment,
+                    },
+                    "accessorials_requirement": {
+                        "pallet_management": exchange.pallet_management,
+                        "tarpaulin_compliance_required": exchange.tarpaulin_compliance_required,
+                        "corner_plates_required": exchange.corner_plates_required,
+                        "chock_blocks_required": exchange.chock_blocks_required,
+                        "ratchets_belts_required": exchange.ratchets_belts_required,
+                        "other_equipment_requirements": exchange.other_equipment_requirements,
+                    },
+                } for config in configs],
+                "insurance_requirements": {
+                    "minimum_git_cover": exchange.minimum_git_cover_amount,
+                    "minimum_liability_cover": exchange.minimum_liability_cover_amount,
+                    "git_all_risk_required": exchange.git_all_risk_required,
+                    "git_first_loss_required": exchange.git_first_loss_required,
+                    "git_driver_fidelity_required": exchange.git_driver_fidelity_required,
+                },
+            },
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/tender/{id}")
 def get_tender_information(
     id: int,

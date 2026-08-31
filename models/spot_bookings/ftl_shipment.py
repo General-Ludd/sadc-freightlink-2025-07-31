@@ -6,6 +6,7 @@ class Client_Shipment(Base):
     __tablename__ = "client_shipments"
 
     id = Column(Integer, primary_key=True, index=True)
+    tracking_status = Column(String, nullable=True)
     is_subshipment = Column(Boolean, default=False, nullable=False)
     auction_id = Column(Integer, nullable=True, index=True)
     client_lane_id = Column(Integer, nullable=True, index=True)
@@ -65,6 +66,7 @@ class Client_Shipment(Base):
     # ============================================================
     # OPERATIONAL REQUIREMENTS
     # ============================================================
+    minimum_weight_bracket_kg = Column(Integer, nullable=False)
     vehicle_tracking_required = Column(Boolean, default=False, nullable=False)
     all_time_hour_control_room = Column(Boolean, default=False, nullable=False)
     driver_mobile_phone = Column(Boolean, default=False, nullable=False)

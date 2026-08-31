@@ -8,6 +8,7 @@ from models.brokerage.loadboard import Ftl_Load_Board
 from models.shipper import Corporation
 from models.user import Director
 from models.carrier import Carrier
+from models.spot_bookings.ftl_shipment import Client_Shipment, Client_Shipment_Stop, Client_Shipment_Vehicle_Requirement
 from models.spot_bookings.dedicated_lane_ftl_shipment import Client_Lane
 from models.spot_bookings.ftl_shipment import FTL_SHIPMENT, FTL_Shipment_Docs, shipment_status_Update
 from models.spot_bookings.power_shipment import POWER_SHIPMENT
@@ -32,6 +33,242 @@ def get_db():
         yield db
     finally:
         db.close()
+
+@router.get("/client-shipments")
+def get_client_shipments(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    company_id = current_user.get("company_id")
+
+    if not company_id:
+        raise HTTPException(status_code=400, detail="User does not belong to a company")
+
+    try:
+        shipments = db.query(Client_Shipment).filter(Client_Shipment.client_id == company_id).all()
+
+        if not shipments:
+            return []
+
+        shipment_data = []
+
+        for shipment in shipments:
+
+            carrier = db.query(Carrier).filter(Carrier.id == shipment.carrier_id).first()
+            vehicle = db.query(Vehicle).filter(Vehicle.id == shipment.vehicle_id).first() if shipment.vehicle_id else None
+            origin = db.query(Client_Shipment_Stop).filter(Client_Shipment_Stop.shipment_id == shipment.id, Client_Shipment_Stop.stop_type == "Origin").first()
+            stops = db.query(Client_Shipment_Stop).filter(Client_Shipment_Stop.shipment_id == shipment.id).all()
+            destination = db.query(Client_Shipment_Stop).filter(Client_Shipment_Stop.shipment_id == shipment.id, Client_Shipment_Stop.stop_type == "Destination").first()
+            config = db.query(Client_Shipment_Vehicle_Requirement).filter(Client_Shipment_Vehicle_Requirement.shipment_id == shipment.id, Client_Shipment_Vehicle_Requirement.configuration_type == "Primary").first()
+
+            shipment_data.append({
+                "id": shipment.id,
+                "auction_id": shipment.auction_id,
+                "sub_shipment": {
+                    "is_subshipment": shipment.is_subshipment,
+                    "lane_id": shipment.client_lane_id,
+                },
+                "status": shipment.status,
+                "hazchem": {
+                    "hazardous_materials": shipment.hazardous_materials,
+                    "hazchem_classification": shipment.hazchem_classification,
+                },
+                "tracking_status": shipment.tracking_status,
+                "pickup_location": {
+                    "origin": origin.pickup_address if origin else None,
+                    "facility_name": origin.facility_name if origin else None,
+                    "pickup_date": origin.pickup_date if origin else None,
+                    "window": {
+                        "start_time": origin.operating_start_time if origin else None,
+                        "end_time": origin.operating_end_time if origin else None,
+                    },
+                },
+                "corridor_transit": {
+                    "distance": shipment.distance,
+                    "trip_type": shipment.trip_type,
+                    "no_of_stops": len(stops),
+                    "equipment_truck": {
+                        "truck_type": config.truck_type if config and config.truck_type == "Rigid" else config.trailer_type if config else None,
+                        "equipment_type": config.equipment_type if config else None,
+                        "payload_capacity": shipment.minimum_weight_bracket_kg,
+                    },
+                    "cargo": {
+                        "commodity": shipment.commodity,
+                        "packaging_type": shipment.packaging_type,
+                        "packaging_quantity": shipment.packaging_quantity,
+                    },
+                    "shipment_weight": shipment.shipment_weight,
+                },
+                "carrier": {
+                    "company": carrier.legal_business_name if carrier else None,
+                    "vehicle": vehicle.license_plate if vehicle else None,
+                },
+                "delivery_destination": {
+                    "destination": destination.address if destination else None,
+                    "facility_name": destination.facility_name if destination else None,
+                    "eta_date": shipment.eta_date,
+                    "window": {
+                        "start_time": destination.operating_start_time if destination else None,
+                        "end_time": destination.operating_end_time if destination else None,
+                    },
+                    "agreed_shipment_rate": {
+                        "rate_basis": shipment.pricing_basis,
+                        "rate": shipment.rate,
+                        "rate_includes": {
+                            "vat_inclusive": shipment.vat_included,
+                            "fuel": shipment.rate_includes_fuel,
+                            "driver": shipment.rate_includes_driver,
+                            "tolls": shipment.rate_includes_tolls,
+                            "insurance": {
+                                "rate_includes_insurance": shipment.rate_includes_insurance,
+                                "insurance_requirement": shipment.minimum_git_cover_amount,
+                            },
+                            "loading_assistance": shipment.rate_includes_loading_assistance,
+                        },
+                    },
+                },
+            })
+
+        auction_groups = {}
+        lane_groups = {}
+        response = []
+
+        for shipment in shipment_data:
+
+            if shipment["auction_id"]:
+                auction_groups.setdefault(shipment["auction_id"], []).append(shipment)
+
+            elif shipment["sub_shipment"]["lane_id"] and shipment["pickup_location"]["pickup_date"]:
+                group_key = (
+                    shipment["sub_shipment"]["lane_id"],
+                    shipment["pickup_location"]["pickup_date"]
+                )
+                lane_groups.setdefault(group_key, []).append(shipment)
+
+            else:
+                response.append(shipment)
+
+        for auction_id, grouped_shipments in auction_groups.items():
+
+            if len(grouped_shipments) == 1:
+                response.append(grouped_shipments[0])
+                continue
+
+            first = grouped_shipments[0]
+
+            response.append({
+                "group_id": f"GRP-AUC-{auction_id}",
+                "group_type": "auction",
+                "auction_id": auction_id,
+                "shipment_count": len(grouped_shipments),
+                "status": first["status"],
+                "tracking_status": first["tracking_status"],
+                "pickup_location": first["pickup_location"],
+                "corridor_transit": {
+                    "distance": first["corridor_transit"]["distance"],
+                    "trip_type": first["corridor_transit"]["trip_type"],
+                    "no_of_stops": first["corridor_transit"]["no_of_stops"],
+                    "equipment_truck": first["corridor_transit"]["equipment_truck"],
+                    "cargo": first["corridor_transit"]["cargo"],
+                    "shipment_weight": sum(
+                        shipment["corridor_transit"]["shipment_weight"] or 0
+                        for shipment in grouped_shipments
+                    ),
+                },
+                "carrier": {
+                    "company": ", ".join(
+                        sorted(set(
+                            shipment["carrier"]["company"]
+                            for shipment in grouped_shipments
+                            if shipment["carrier"]["company"]
+                        ))
+                    ) or None,
+                    "vehicles": [
+                        shipment["carrier"]["vehicle"]
+                        for shipment in grouped_shipments
+                        if shipment["carrier"]["vehicle"]
+                    ],
+                },
+                "delivery_destination": {
+                    "destination": first["delivery_destination"]["destination"],
+                    "facility_name": first["delivery_destination"]["facility_name"],
+                    "eta_date": first["delivery_destination"]["eta_date"],
+                    "window": first["delivery_destination"]["window"],
+                    "agreed_shipment_rate": {
+                        "rate_basis": "Consolidated Group Rate",
+                        "rate": sum(
+                            shipment["delivery_destination"]["agreed_shipment_rate"]["rate"] or 0
+                            for shipment in grouped_shipments
+                        ),
+                        "rate_includes": first["delivery_destination"]["agreed_shipment_rate"]["rate_includes"],
+                    },
+                },
+                "shipments": grouped_shipments,
+            })
+
+        for group_key, grouped_shipments in lane_groups.items():
+
+            if len(grouped_shipments) == 1:
+                response.append(grouped_shipments[0])
+                continue
+
+            lane_id, pickup_date = group_key
+            first = grouped_shipments[0]
+
+            response.append({
+                "group_id": f"GRP-LANE-{lane_id}-{pickup_date}",
+                "group_type": "lane",
+                "client_lane_id": lane_id,
+                "shipment_count": len(grouped_shipments),
+                "status": first["status"],
+                "tracking_status": first["tracking_status"],
+                "pickup_location": first["pickup_location"],
+                "corridor_transit": {
+                    "distance": first["corridor_transit"]["distance"],
+                    "trip_type": first["corridor_transit"]["trip_type"],
+                    "no_of_stops": first["corridor_transit"]["no_of_stops"],
+                    "equipment_truck": first["corridor_transit"]["equipment_truck"],
+                    "cargo": first["corridor_transit"]["cargo"],
+                    "shipment_weight": sum(
+                        shipment["corridor_transit"]["shipment_weight"] or 0
+                        for shipment in grouped_shipments
+                    ),
+                },
+                "carrier": {
+                    "company": ", ".join(
+                        sorted(set(
+                            shipment["carrier"]["company"]
+                            for shipment in grouped_shipments
+                            if shipment["carrier"]["company"]
+                        ))
+                    ) or None,
+                    "vehicles": [
+                        shipment["carrier"]["vehicle"]
+                        for shipment in grouped_shipments
+                        if shipment["carrier"]["vehicle"]
+                    ],
+                },
+                "delivery_destination": {
+                    "destination": first["delivery_destination"]["destination"],
+                    "facility_name": first["delivery_destination"]["facility_name"],
+                    "eta_date": first["delivery_destination"]["eta_date"],
+                    "window": first["delivery_destination"]["window"],
+                    "agreed_shipment_rate": {
+                        "rate_basis": "Consolidated Group Rate",
+                        "rate": sum(
+                            shipment["delivery_destination"]["agreed_shipment_rate"]["rate"] or 0
+                            for shipment in grouped_shipments
+                        ),
+                        "rate_includes": first["delivery_destination"]["agreed_shipment_rate"]["rate_includes"],
+                    },
+                },
+                "shipments": grouped_shipments,
+            })
+
+        return response
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/contract-lanes")
 def get_client_contract_lanes(
@@ -992,4 +1229,3 @@ def get_client_contract_lane(
             },
         },
     }
-
