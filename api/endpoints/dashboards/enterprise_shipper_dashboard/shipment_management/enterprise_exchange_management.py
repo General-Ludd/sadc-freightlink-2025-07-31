@@ -176,7 +176,7 @@ def get_load_exchange_summary(
                     "weight_per_shipment": exchange.shipment_weight,
                 },
                 "hazchem": {
-                    "hazardous_material": exchange.hazardous_material,
+                    "hazardous_material": exchange.hazardous_materials,
                     "hazchem_classification": exchange.hazchem_classification,
                 },
                 "trucks_required": exchange.number_of_trucks_required,
