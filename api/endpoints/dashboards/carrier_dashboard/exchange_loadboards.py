@@ -7,7 +7,7 @@ from models.Exchange.dedicated_ftl_lane import Lane_Tender_RFQ, Lane_Tender_RFQ_
 from models.brokerage.loadboard import Shipment_Auction_Loadboard, Lane_Tender_Loadboard
 from models.shipper import Corporation
 from models.Exchange.dedicated_ftl_lane import Lane_Tender_RFQ_Stop, Lane_Tender_RFQ_Vehicle_Config, Lane_Tender_RFQ_Volume_Profile, Lane_Tender_RFQ_Accessorial
-from models.Exchange.auction import Exchange_FTL_Shipment_Bid, Exchange_FTL_Lane_Bid, Exchange_POWER_Shipment_Bid
+from models.Exchange.auction import Exchange_FTL_Shipment_Bid, Exchange_FTL_Lane_Bid, Exchange_POWER_Shipment_Bid, Shipment_Auction_Bid
 from models.brokerage.loadboards.exchange_loadboards import Exchange_Ftl_Load_Board, Exchange_Ftl_Lane_LoadBoard
 from models.carrier import Carrier
 from schemas.brokerage.loadboard import IndividualLoadboardShipmentRequest
@@ -184,6 +184,9 @@ def get_loadboard_shipment(
         ).first()
         if not auction:
             raise HTTPException(status_code=404, detail="Auction not found")
+        bids = db.query(Shipment_Auction_Bid).filter(Shipment_Auction_Bid.auction_id == auction.id,
+                                                    Shipment_Auction_Bid.carrier_id == company_id).all()
+
         client = db.query(Corporation).filter(
             Corporation.id == auction.client_id
         ).first()
@@ -251,6 +254,14 @@ def get_loadboard_shipment(
                         "bidding_allowed": load.bidding_activated,
                         "bidding_direction": load.rate_direction,
                     },
+                    "my_placed_bids": [{
+                        "id": bid.id,
+                        "rate": bid.rate,
+                        "no_of_loads": bid.rate,
+                        "lead_time": bid.lead_time,
+                        "notes": bid.notes,
+                        "submitted_at": bid.submitted_at,
+                    } for bid in bids],
                     "rates": {
                         "benchmark_rate": load.benchmark_rate,
                         "benchmark_rate_service_fee": load.benchmark_rate_service_fee,
