@@ -29,7 +29,7 @@ def get_db():
     finally:
         db.close()
 
-@r@router.get("/load-exchanges")
+@router.get("/load-exchanges")
 def get_load_exchange(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
