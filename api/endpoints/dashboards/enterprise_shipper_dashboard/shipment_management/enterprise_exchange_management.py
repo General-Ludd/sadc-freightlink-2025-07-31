@@ -29,7 +29,7 @@ def get_db():
     finally:
         db.close()
 
-@router.get("/load-exchanges")
+@r@router.get("/load-exchanges")
 def get_load_exchange(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
@@ -38,56 +38,97 @@ def get_load_exchange(
     company_id = current_user.get("company_id")
 
     if not company_id:
-        raise HTTPException(
-            status_code=400,
-            detail="User does not belong to a company"
-        )
-    try:
-        print("STEP 1 - querying tender")
+        raise HTTPException(status_code=400, detail="User does not belong to a company")
 
-        exchange = db.query(Client_Shipment_Auction).filter(Client_Shipment_Auction.client_id == company_id).all()
-        origin = db.query(Client_Shipment_Auction_Stop).filter(Client_Shipment_Auction_Stop.auction_id == exchange.id,
-                                                                Client_Shipment_Auction_Stop.stop_type == "Origin").first()
-        stop = db.query(Client_Shipment_Auction_Stop).filter(Client_Shipment_Auction_Stop.auction_id == exchange.id,
-                                                                Client_Shipment_Auction_Stop.stop_type == "Intermediate").all()
-        destination = db.query(Client_Shipment_Auction_Stop).filter(Client_Shipment_Auction_Stop.auction_id == exchange.id,
-                                                                    Client_Shipment_Auction_Stop.stop_type == "Destination").first()
-        primary_equipment = db.query(Client_Shipment_Auction_Vehicle_Requirement).filter(Client_Shipment_Auction_Vehicle_Requirement.auction_id == exchange.id,
-                                                                                        Client_Shipment_Auction_Vehicle_Requirement.equipment_type == "Primary").first()
-        bids = db.query(Shipment_Auction_Bid).filter(Shipment_Auction_Bid.auction_id == exchange.id).all()
-        print("STEP 1: QuerySUCCESS")
-        
-        return {
-            "exchanges": [{
+    try:
+        print("STEP 1 - querying exchanges")
+
+        exchanges = db.query(Client_Shipment_Auction).filter(
+            Client_Shipment_Auction.client_id == company_id
+        ).all()
+
+        print(f"STEP 1: Found {len(exchanges)} exchanges")
+
+        response = []
+
+        for exchange in exchanges:
+
+            origin = db.query(Client_Shipment_Auction_Stop).filter(
+                Client_Shipment_Auction_Stop.auction_id == exchange.id,
+                Client_Shipment_Auction_Stop.stop_type == "Origin"
+            ).first()
+
+            stops = db.query(Client_Shipment_Auction_Stop).filter(
+                Client_Shipment_Auction_Stop.auction_id == exchange.id,
+                Client_Shipment_Auction_Stop.stop_type == "Intermediate"
+            ).all()
+
+            destination = db.query(Client_Shipment_Auction_Stop).filter(
+                Client_Shipment_Auction_Stop.auction_id == exchange.id,
+                Client_Shipment_Auction_Stop.stop_type == "Destination"
+            ).first()
+
+            primary_equipment = db.query(Client_Shipment_Auction_Vehicle_Requirement).filter(
+                Client_Shipment_Auction_Vehicle_Requirement.auction_id == exchange.id,
+                Client_Shipment_Auction_Vehicle_Requirement.configuration_type == "Primary"
+            ).first()
+
+            bids = db.query(Shipment_Auction_Bid).filter(
+                Shipment_Auction_Bid.auction_id == exchange.id
+            ).all()
+
+            lowest_bid = min(
+                [bid.rate for bid in bids if bid.rate is not None],
+                default=None
+            )
+
+            print(f"Exchange {exchange.id}: {len(bids)} bids found")
+
+            response.append({
                 "id": exchange.id,
                 "status": exchange.status,
-                "hazardous": exchange.hazardous_materials,
-                "hazchem_classification": exchange.hazchem_classification if exchange.hazchem_classification else None,
-                "origin": {
-                    "pickup": origin.city_province,
-                    "facility": origin.facility_name,
-                    "date": exchange.pickup_date,
-                    "pickup_window": f"{origin.operating_start_time} - {origin.operating_end_time}",
+                "hazchem_information": {
+                    "hazardous": exchange.hazardous_materials,
+                    "hazchem_classification": exchange.hazchem_classification if exchange.hazchem_classification else None,
                 },
-                "load_information": {
+                "origin": {
+                    "pickup": origin.city_province if origin else None,
+                    "facility": origin.facility_name if origin else None,
+                    "date": exchange.pickup_date,
+                    "pickup_window": {
+                        "start_time": origin.operating_start_time,
+                        "end_time": origin.operating_end_time,
+                    },
+                },
+                "load_corridor_information": {
                     "distance": exchange.distance,
                     "stops": len(stops),
-                    "required_equipment": f"{primary_equipment.truck_type if primary_equipment.truck_type == 'Rigid' else primary_equipment.trailer_type} - {primary_equipment.equipment_type}",
+                    "required_equipment": (
+                        f"{primary_equipment.truck_type if primary_equipment.truck_type == 'Rigid' else primary_equipment.trailer_type} - {primary_equipment.equipment_type}"
+                        if primary_equipment else None
+                    ),
                     "trucks_required": exchange.number_of_trucks_required,
                 },
                 "destination": {
-                    "delivery": delivery.city_province,
-                    "facility": destination.facility_name,
+                    "delivery": destination.city_province if destination else None,
+                    "facility": destination.facility_name if destination else None,
                     "eta_date": exchange.eta_date,
-                    "window": f"{destination.operating_end_time} - {destination.operating_end_time}",
+                    "window": {
+                        "start_time": destination.operating_start_time,
+                        "end_time": destination.operating_end_time,
+                    },
                 },
                 "financial": {
-                    "bids_quotes_in": len(bids) if bids else None,
-                    "lowest": "get lowest bid",
+                    "bids_quotes_in": len(bids) if bids else 0,
+                    "lowest": lowest_bid,
                     "budget": exchange.procurement_target_rate
                 },
-            } for exchange in exchanges],
+            })
+
+        return {
+            "exchanges": response
         }
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -142,11 +183,17 @@ def get_load_exchange_summary(
                 "target_budget": exchange.procurement_target_rate,
                 "pickup_schedule": {
                     "pickup_date": exchange.pickup_date,
-                    "pickup_window": f"{origin.operating_start_time} - {origin.operating_end_time}",
+                    "pickup_window": {
+                        "start_time": origin.operating_start_time,
+                        "end_time": origin.origin.operating_end_time,
+                    },
                 },
                 "delivery_eta": {
                     "eta_date": exchange.eta_date,
-                    "delivery_window": f"{destination.operating_start_time} - {destination.operating_end_time}",
+                    "delivery_window": {
+                        "start_time": destination.operating_start_time,
+                        "end_time": destination.operating_end_time,
+                    },
                 },
                 "live_carrier_quotes": [{
                     "id": bid.id,
@@ -223,11 +270,13 @@ def get_load_exchange_information(
                         "rate": bid.rate,
                         "number_of_loads": bid.number_of_loads,
                         "status": bid.status,
+                        "potential_savings": (exchange.procurement_target_rate - bid.rate) if bid.rate is not None and exchange.procurement_target_rate is not None else None,
                         "carrier": {
                             "id": bid.carrier_id,
                             "name": bid.carrier_name,
                             "fleet_size": bid.fleet_size,
                             "primary_lanes": bid.primary_lanes,
+                            "lead_time": bid.lead_time,
                         },
                         "submitted_at": bid.submitted_at,
                     } for bid in bids],

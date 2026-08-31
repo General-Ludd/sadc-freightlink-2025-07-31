@@ -69,7 +69,7 @@ def get_client_shipments(
                     "lane_id": shipment.client_lane_id,
                 },
                 "status": shipment.status,
-                "hazchem": {
+                "hazchem_information": {
                     "hazardous_materials": shipment.hazardous_materials,
                     "hazchem_classification": shipment.hazchem_classification,
                 },
