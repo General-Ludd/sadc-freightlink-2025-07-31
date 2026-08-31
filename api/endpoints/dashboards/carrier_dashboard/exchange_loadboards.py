@@ -258,7 +258,7 @@ def get_loadboard_shipment(
                     "my_placed_bids": [{
                         "id": bid.id,
                         "rate": bid.rate,
-                        "no_of_loads": bid.no_of_loads,
+                        "no_of_loads": bid.number_of_loads,
                         "lead_time": bid.lead_time,
                         "notes": bid.notes,
                         "submitted_at": bid.submitted_at,
