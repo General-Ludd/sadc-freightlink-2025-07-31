@@ -314,7 +314,7 @@ def get_load_exchange_information(
                     "equipment_type": config.equipment_type,
                     "trailer_type": config.trailer_type if config.trailer_type else None,
                     "trailer_length": config.trailer_length if config.trailer_length else None,
-                    "minimum_weight_bracket": config.minimum_weight_bracket,
+                    "minimum_weight_bracket": exchange.minimum_weight_bracket,
                     "compliance_requirements": {
                         "vehicle_tracking_required": exchange.vehicle_tracking_required,
                         "all_time_hour_control_room": exchange.all_time_hour_control_room,
