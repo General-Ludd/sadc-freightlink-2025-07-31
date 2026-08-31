@@ -228,7 +228,7 @@ def get_loadboard_shipment(
                 "payment_terms": load.payment_terms,
                 "pickup_date": load.pickup_date,
                 "number_of_trucks_required": load.number_of_trucks_required,
-                "remaining_slots": load.remaining_slots,
+                "remaining_slots": load.slots_remaining,
                 "route": {
                     "origin": origin.city_province,
                     "stops": [
