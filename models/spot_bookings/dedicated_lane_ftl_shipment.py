@@ -57,7 +57,7 @@ class Client_Lane(Base):
     awarded_contract_rate = Column(Numeric(14, 2), nullable=True)
     awarded_rate_per_shipment_savings = Column(Numeric(14, 2), nullable=True)
     awarded_savings_contract_value = Column(Numeric(16, 2), nullable=True)
-    vat_treatment = Column(String(30), nullable=False)
+    vat_included = Column(String(30), nullable=False)
     rate_validity = Column(String(50), nullable=False)
 
     # ============================================================
