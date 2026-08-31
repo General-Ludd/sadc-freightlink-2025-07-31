@@ -187,7 +187,7 @@ def get_load_exchange_summary(
                     "pickup_date": exchange.pickup_date,
                     "pickup_window": {
                         "start_time": origin.operating_start_time,
-                        "end_time": origin.origin.operating_end_time,
+                        "end_time": origin.operating_end_time,
                     },
                 },
                 "delivery_eta": {
