@@ -247,7 +247,7 @@ def get_load_exchange_information(
             "load_information": {
                 "id": exchange.id,
                 "shipment_reference": exchange.shipment_reference,
-                "booking_reference": exchange.booking_refence,
+                "booking_reference": exchange.booking_reference,
                 "trip_type": exchange.trip_type,
                 "load_type": exchange.load_type,
                 "payment_terms": exchange.payment_terms,
