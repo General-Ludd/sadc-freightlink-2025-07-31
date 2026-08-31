@@ -302,7 +302,7 @@ def get_load_exchange_information(
                     "packaging_type": exchange.packaging_type,
                     "packaging_quantity": exchange.packaging_quantity,
                     "temperature_control": exchange.temperature_control,
-                    "temperature_control_spec": exchange.temperature_control_spec,
+                    "temperature_control_spec": exchange.target_temperature_spec,
                     "hazardous_materials": hazardous_materials,
                     "hazchem_classification": hazchem_classification,
                     "under_bond": exchange.under_bond,
