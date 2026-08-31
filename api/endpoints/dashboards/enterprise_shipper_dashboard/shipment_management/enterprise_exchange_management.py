@@ -156,7 +156,7 @@ def get_load_exchange_summary(
         bids = db.query(Shipment_Auction_Bid).filter(Shipment_Auction_Bid.auction_id == exchange.id).order_by(Shipment_Auction_Bid.rate.asc()).all()
 
         origin = db.query(Client_Shipment_Auction_Stop).filter(Client_Shipment_Auction_Stop.auction_id == exchange.id, Client_Shipment_Auction_Stop.stop_type == "Origin").first()
-        stops = db.query(Client_Shipment_Auction_Stop).filter(Client_ShipmClient_Shipment_Auction_Stop.auction_id == exchange.id).all()
+        stops = db.query(Client_Shipment_Auction_Stop).filter(Client_Shipment_Auction_Stop.auction_id == exchange.id).all()
         destination = db.query(Client_Shipment_Auction_Stop).filter(Client_Shipment_Auction_Stop.auction_id == exchange.id, Client_Shipment_Stop.stop_type == "Destination").first()
 
         if not origin:
