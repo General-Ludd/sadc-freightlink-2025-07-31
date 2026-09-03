@@ -251,6 +251,8 @@ def get_load_exchange_information(
                 "trip_type": exchange.trip_type,
                 "load_type": exchange.load_type,
                 "payment_terms": exchange.payment_terms,
+                "number_of_trucks_required": exchange.number_of_trucks_required,
+                "number_of_slots_remaining": exchange.slot_remaining,
                 "pickup_date": exchange.pickup_date,
                 "priority_level": exchange.priority_level,
                 "customer_reference_number": exchange.customer_reference_number,
@@ -296,6 +298,8 @@ def get_load_exchange_information(
                     },
                 },
                 "load_information": {
+                    "number_of_trucks_required": exchange.number_of_trucks_required,
+                    "number_of_slots_remaining": exchange.slot_remaining,
                     "pickup_date": exchange.pickup_date,
                     "shipment_weight": exchange.shipment_weight,
                     "commodity": exchange.commodity,
