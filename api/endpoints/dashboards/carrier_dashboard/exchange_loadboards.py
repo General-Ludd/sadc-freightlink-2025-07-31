@@ -369,9 +369,9 @@ def place_exchange_bid(
         raise HTTPException(status_code=400, detail="User does not belong to a company")
     try:
         result = place_auction_bid(
-            db,
             id,
             bid_data,
+            db,
             current_user
         )
         return result
