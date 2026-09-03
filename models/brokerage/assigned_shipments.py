@@ -1,9 +1,10 @@
-from sqlalchemy import Boolean, Column, Integer, Float, String, ForeignKey, DateTime, Enum, Date, Time
+from sqlalchemy import Boolean, Column, Integer, Float, String, ForeignKey, DateTime, Enum, Date, Numeric, Text, Time
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import ARRAY
 from models.base import Base
 from datetime import datetime
+from utils.sast_datetime import get_sast_time
 
 class Carrier_Shipment(Base):
     __tablename__ = "carrier_shipments"

@@ -446,8 +446,8 @@ def get_load_exchange_information(
 def award_auction_bid(
     auction_id: int,
     bid_id: int,
-    db: Session,
-    current_user: dict
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
 ):
     assert "company_id" in current_user, "Missing company_id in current_user"
     company_id = current_user.get("company_id")
