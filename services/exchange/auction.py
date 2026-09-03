@@ -519,8 +519,8 @@ def accept_ftl_shipment_exchange_bid(db: Session, bid_data: Accept_Bid, current_
 def place_auction_bid(
     id: int,
     bid_data: Create_Shipment_Bid,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
+    db: Session,
+    current_user: dict,
 ):
     company_id = current_user.get("company_id")
     user_id = current_user.get("id")
