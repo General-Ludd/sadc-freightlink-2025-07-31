@@ -240,7 +240,7 @@ def get_load_exchange_information(
         configs = db.query(Client_Shipment_Auction_Vehicle_Requirement).filter(Client_Shipment_Auction_Vehicle_Requirement.auction_id == exchange.id).all()
 
         origin = db.query(Client_Shipment_Auction_Stop).filter(Client_Shipment_Auction_Stop.auction_id == exchange.id, Client_Shipment_Auction_Stop.stop_type == "Origin").first()
-        stops = db.query(Client_Shipment_Auction_Stop).filter(Client_Shipment_Auction_Stop.auction_id == exchange.id).all()
+        stops = db.query(Client_Shipment_Auction_Stop).filter(Client_Shipment_Auction_Stop.auction_id == exchange.id, Client_Shipment_Auction_Stop.stop_type == "Intermediate").all()
         destination = db.query(Client_Shipment_Auction_Stop).filter(Client_Shipment_Auction_Stop.auction_id == exchange.id, Client_Shipment_Auction_Stop.stop_type == "Destination").first()
 
         return {
@@ -336,6 +336,101 @@ def get_load_exchange_information(
                     "git_all_risk_required": exchange.git_all_risk_required,
                     "git_first_loss_required": exchange.git_first_loss_required,
                     "git_driver_fidelity_required": exchange.git_driver_fidelity_required,
+                },
+                "route_facilities_information": {
+                    "origin_facility": {
+                        "stop_type": origin.stop_type,
+                        "city_province_country": {
+                            "city_province": origin.city_province,
+                            "country": origin.country,
+                        },
+                        "facility_name": origin.facility_name,
+                        "reference_number": origin.reference_number,
+                        "address": origin.address,
+                        "scheduling_type": origin.scheduling_type,
+                        "operating_hours": {
+                            "start_time": origin.operating_start_time,
+                            "end_time": origin.operating_end_time,
+                        },
+                        "operating_days": {
+                            "monday": origin.open_monday,
+                            "tuesday": origin.open_tuesday,
+                            "wednesday": origin.open_wednesday,
+                            "thursday": origin.open_thursday,
+                            "friday": origin.open_friday,
+                            "saturday": origin.open_saturday,
+                            "sunday": origin.open_sunday
+                        },
+                        "contact_person": {
+                            "first_name": origin.contact_first_name,
+                            "last_name": origin.contact_first_name,
+                            "phone": origin.contact_phone_number,
+                            "email": origin.contact_email,
+                        },
+                        "facility_notes": origin.notes,
+                    },
+                    "stop_facilities": [{
+                        "stop_type": stop.stop_type,
+                        "city_province_country": {
+                            "city_province": stop.city_province,
+                            "country": stop.country,
+                        },
+                        "facility_name": stop.facility_name,
+                        "reference_number": stop.reference_number,
+                        "address": stop.address,
+                        "scheduling_type": stop.scheduling_type,
+                        "operating_hours": {
+                            "start_time": stop.operating_start_time,
+                            "end_time": stop.operating_end_time,
+                        },
+                        "operating_days": {
+                            "monday": stop.open_monday,
+                            "tuesday": stop.open_tuesday,
+                            "wednesday": stop.open_wednesday,
+                            "thursday": stop.open_thursday,
+                            "friday": stop.open_friday,
+                            "saturday": stop.open_saturday,
+                            "sunday": stop.open_sunday
+                        },
+                        "contact_person": {
+                            "first_name": stop.contact_first_name,
+                            "last_name": stop.contact_first_name,
+                            "phone": stop.contact_phone_number,
+                            "email": stop.contact_email,
+                        },
+                        "facility_notes": stop.notes,
+                    } for stop in stops] if stops else None,
+                    "destination_facility": {
+                        "stop_type": destination.stop_type,
+                        "city_province_country": {
+                            "city_province": destination.city_province,
+                            "country": destination.country,
+                        },
+                        "facility_name": destination.facility_name,
+                        "reference_number": destination.reference_number,
+                        "address": destination.address,
+                        "scheduling_type": destination.scheduling_type,
+                        "operating_hours": {
+                            "start_time": destination.operating_start_time,
+                            "end_time": destination.operating_end_time,
+                        },
+                        "operating_days": {
+                            "monday": destination.open_monday,
+                            "tuesday": destination.open_tuesday,
+                            "wednesday": destination.open_wednesday,
+                            "thursday": destination.open_thursday,
+                            "friday": destination.open_friday,
+                            "saturday": destination.open_saturday,
+                            "sunday": destination.open_sunday
+                        },
+                        "contact_person": {
+                            "first_name": destination.contact_first_name,
+                            "last_name": destination.contact_first_name,
+                            "phone": destination.contact_phone_number,
+                            "email": destination.contact_email,
+                        },
+                        "facility_notes": destination.notes,
+                    },
                 },
             },
         }
