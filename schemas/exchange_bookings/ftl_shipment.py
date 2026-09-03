@@ -302,6 +302,7 @@ class ClientShipmentAuctionCreate(BaseModel):
     # INSURANCE REQUIREMENTS
     minimum_git_cover_amount: Optional[int] = 0
     minimum_liability_cover_amount: Optional[int] = 0
+    minimum_weight_bracket: int
     git_all_risk_required: bool = False
     git_first_loss_required: bool = False
     git_driver_fidelity_required: bool = False

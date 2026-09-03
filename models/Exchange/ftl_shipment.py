@@ -61,6 +61,7 @@ class Client_Shipment_Auction(Base):
     # ============================================================
     # OPERATIONAL REQUIREMENTS
     # ============================================================
+    minimum_weight_bracket = Column(Integer)
     vehicle_tracking_required = Column(Boolean, default=False, nullable=False)
     all_time_hour_control_room = Column(Boolean, default=False, nullable=False)
     driver_mobile_phone = Column(Boolean, default=False, nullable=False)
@@ -74,6 +75,7 @@ class Client_Shipment_Auction(Base):
     # ============================================================
     minimum_git_cover_amount = Column(Integer, default=0, nullable=True)
     minimum_liability_cover_amount = Column(Integer, default=0, nullable=True)
+    minimum_weight_bracket = Column(Integer)
     git_all_risk_required = Column(Boolean, default=False, nullable=False)
     git_first_loss_required = Column(Boolean, default=False, nullable=False)
     git_driver_fidelity_required = Column(Boolean, default=False, nullable=False)
