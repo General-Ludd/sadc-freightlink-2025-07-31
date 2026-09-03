@@ -92,6 +92,10 @@ class Client_Shipment(Base):
     ratchets_belts_required = Column(Boolean, default=False, nullable=False)
     other_equipment_requirements = Column(Text, nullable=True)
 
+    created_at = Column(DateTime(timezone=True), default=get_sast_time)
+    updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)
+
+
 class Client_Shipment_Stop(Base):
     __tablename__ = "client_shipment_stops"
 

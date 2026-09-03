@@ -5,6 +5,100 @@ from sqlalchemy.dialects.postgresql import ARRAY
 from models.base import Base
 from datetime import datetime
 
+class Carrier_Shipment(Base):
+    __tablename__ = "carrier_shipments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tracking_status = Column(String, nullable=True)
+    is_subshipment = Column(Boolean, default=False, nullable=False)
+    auction_id = Column(Integer, nullable=True, index=True)
+    carrier_lane_id = Column(Integer, nullable=True, index=True)
+    client_lane_id = Column(Integer, nullable=True, index=True)
+    booking_source = Column(String(50), nullable=False, default="One-Off")
+    shipment_reference = Column(String(100), unique=True, index=True)
+    booking_reference = Column(String(100), nullable=True, index=True)
+    trip_type = Column(String, nullable=False)
+    load_type = Column(String, nullable=False)
+    carrier_id = Column(Integer, nullable=False)
+    carrier_user_id = Column(Integer, nullable=False)
+    rate = Column(Numeric(14, 2), nullable=False)
+    service_fee = Column(Numeric(14, 2), nullable=True)
+    pricing_basis = Column(String(50), nullable=False)
+    vat_included = Column(Boolean, nullable=False)
+    payment_terms = Column(String, nullable=False)
+    invoice_id = Column(Integer, nullable=True)
+    invoice_due_date = Column(Date, nullable=True)
+    invoice_status = Column(String, nullable=True)
+    pickup_date = Column(Date)
+    priority_level = Column(String, nullable=True)
+    customer_reference_number = Column(String)
+    shipment_weight = Column(Integer)
+    commodity = Column(String)
+    temperature_control = Column(String)
+    target_temperature_spec = Column(String(100), nullable=True)
+    hazardous_materials = Column(Boolean, default=False, nullable=False)
+    hazchem_classification = Column(String, nullable=True)
+    under_bond = Column(Boolean, default=False) ########### Add to DB
+    rib_requirements = Column(Boolean, default=False) ####### Add to DB
+    packaging_quantity = Column(Integer)
+    packaging_type = Column(String)
+    distance = Column(Numeric(10, 2), nullable=True)
+    estimated_transit_time = Column(String)
+    eta_date = Column(Date)
+    eta_window = Column(String)
+    route_preview_embed = Column(String)
+    polyline = Column(String)
+    status = Column(String(50), nullable=False, default="Booked")
+    trip_status = Column(String(50), nullable=False, default="Schedule")
+    pod_document = Column(String, nullable=True)
+    vehicle_id = Column(Integer)
+    driver_id = Column(Integer)
+    # ============================================================
+    # RATE INCLUDES
+    # ============================================================
+    rate_includes_fuel = Column(Boolean, default=False, nullable=False)
+    rate_includes_driver = Column(Boolean, default=False, nullable=False)
+    rate_includes_maintenance = Column(Boolean, default=False, nullable=False)
+    rate_includes_insurance = Column(Boolean, default=False, nullable=False)
+    rate_includes_tolls = Column(Boolean, default=False, nullable=False)
+    rate_includes_border_charges = Column(Boolean, default=False, nullable=False)
+    rate_includes_empty_return = Column(Boolean, default=False, nullable=False)
+    rate_includes_waiting_time = Column(Boolean, default=False, nullable=False)
+    rate_includes_loading_assistance = Column(Boolean, default=False, nullable=False)
+    rate_includes_offloading_assistance = Column(Boolean, default=False, nullable=False)
+    # ============================================================
+    # OPERATIONAL REQUIREMENTS
+    # ============================================================
+    minimum_weight_bracket_kg = Column(Integer, nullable=False)
+    vehicle_tracking_required = Column(Boolean, default=False, nullable=False)
+    all_time_hour_control_room = Column(Boolean, default=False, nullable=False)
+    driver_mobile_phone = Column(Boolean, default=False, nullable=False)
+    clean_compliant_equipment = Column(Boolean, default=False, nullable=False)
+    pallet_management = Column(Boolean, default=False, nullable=False)
+    pod_submission_local = Column(String, nullable=False)
+    pod_submission_long_haul = Column(String, nullable=False)
+    pod_submission_cross_border = Column(String, nullable=False)
+    # ============================================================
+    # INSURANCE REQUIREMENTS
+    # ============================================================
+    minimum_git_cover_amount = Column(Integer, default=0, nullable=True)
+    minimum_liability_cover_amount = Column(Integer, default=0, nullable=True)
+    git_all_risk_required = Column(Boolean, default=False, nullable=False)
+    git_first_loss_required = Column(Boolean, default=False, nullable=False)
+    git_driver_fidelity_required = Column(Boolean, default=False, nullable=False)
+    # ============================================================
+    # EQUIPMENT COMPLIANCE
+    # ============================================================
+    tarpaulin_compliance_required = Column(Boolean, default=False, nullable=False)
+    corner_plates_required = Column(Boolean, default=False, nullable=False)
+    chock_blocks_required = Column(Boolean, default=False, nullable=False)
+    ratchets_belts_required = Column(Boolean, default=False, nullable=False)
+    other_equipment_requirements = Column(Text, nullable=True)
+
+    created_at = Column(DateTime(timezone=True), default=get_sast_time)
+    updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)
+
+
 class Assigned_Spot_Ftl_Shipments(Base):
     __tablename__ = "assigned_ftl_shipments"
 

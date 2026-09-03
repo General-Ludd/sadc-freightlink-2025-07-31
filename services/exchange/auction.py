@@ -6,6 +6,7 @@ from models.Exchange.dedicated_ftl_lane import FTL_Lane_Exchange
 from models.Exchange.ftl_shipment import FTL_SHIPMENT_EXCHANGE, Client_Shipment_Auction
 from models.Exchange.auction import Exchange_FTL_Lane_Bid, Exchange_FTL_Shipment_Bid, Exchange_POWER_Shipment_Bid, Shipment_Auction_Bid
 from models.Exchange.power_shipment import POWER_SHIPMENT_EXCHANGE
+from models.brokerage.assigned_shipments import Carrier_Shipment
 from models.brokerage.assigned_lanes import Assigned_Ftl_Lanes
 from models.brokerage.assigned_shipments import Assigned_Power_Shipments, Assigned_Spot_Ftl_Shipments
 from models.brokerage.finance import BrokerageLedger, CarrierFinancialAccounts, Dedicated_Lane_BrokerageLedger, Lane_Slot_Ledger, Exchange_Lane_Slot_Assignment, FinancialAccounts, Interim_Invoice, Lane_Interim_Invoice, Lane_Invoice, Load_Invoice, PlatformCommission
@@ -14,11 +15,12 @@ from models.brokerage.loadboard import Shipment_Auction_Loadboard
 from models.carrier import Carrier, Carrier_Profile, Carrier_Notification
 from models.shipper import Corporation, Client_Notification
 from models.spot_bookings.dedicated_lane_ftl_shipment import Client_Lane
-from models.spot_bookings.ftl_shipment import FTL_SHIPMENT
+from models.spot_bookings.ftl_shipment import FTL_SHIPMENT, Client_Shipment, Client_Shipment_Stop, Client_Shipment_Vehicle_Requirement
 from models.spot_bookings.power_shipment import POWER_SHIPMENT
 from models.vehicle import Vehicle
 from schemas.exchange_bookings.auction import Accept_Bid, Exchange_FTL_Lane_Bid_Create, Exchange_FTL_Shipment_Bid_Create, Exchange_POWER_Shipment_Bid_Create, Create_Tender_Bid, Create_Shipment_Bid
 from services.brokerage.carrier_loadboard_service import calculate_rates
+from services.brokerage.commission import calculate_commission
 from utils.billing import BillingEngine
 from fastapi import HTTPException, Depends, Request
 from sqlalchemy.orm import Session
@@ -658,6 +660,293 @@ def place_auction_bid(
         # FIXED: Roll back the DB session instead of bid_data
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+def accept_auction_bid(
+    auction_id: int,
+    bid_id: int,
+    db: Session,
+    current_user: dict
+):
+    company_id = current_user.get("company_id")
+    user_id = current_user.get("id")
+
+    if not company_id:
+        raise HTTPException(status_code=400, detail="User does not belong to a company")
+
+    if not user_id:
+        raise HTTPException(status_code=400, detail="User ID missing from authentication token")
+
+    try:
+        auction = db.query(Client_Shipment_Auction).filter(
+            Client_Shipment_Auction.id == auction_id
+        ).first()
+
+        if not auction:
+            raise HTTPException(status_code=404, detail="Auction not found")
+
+        if auction.slots_remaining is None or auction.slots_remaining <= 0:
+            auction.slots_remaining = 0
+            auction.status = "Closed"
+            raise HTTPException(status_code=403, detail="Sorry, the auction has closed and all slots have been awarded")
+
+        bid = db.query(Shipment_Auction_Bid).filter(
+            Shipment_Auction_Bid.id == bid_id,
+            Shipment_Auction_Bid.auction_id == auction.id
+        ).first()
+
+        if not bid:
+            raise HTTPException(status_code=404, detail="Bid not found")
+
+        if bid.status == "Withdrawn":
+            raise HTTPException(
+                status_code=403,
+                detail=f"Unfortunately the selected bid cannot be awarded as it has been withdrawn by the carrier {bid.carrier_name}"
+            )
+
+        if not bid.number_of_loads or bid.number_of_loads <= 0:
+            raise HTTPException(status_code=400, detail="Bid does not contain a valid number of loads")
+
+        number_to_assign = min(
+            bid.number_of_loads,
+            auction.slots_remaining
+        )
+
+        stops_facilities = db.query(Client_Shipment_Auction_Stop).filter(
+            Client_Shipment_Auction_Stop.auction_id == auction.id
+        ).order_by(
+            Client_Shipment_Auction_Stop.stop_sequence
+        ).all()
+
+        configs = db.query(Client_Shipment_Auction_Vehicle_Requirement).filter(
+            Client_Shipment_Auction_Vehicle_Requirement.auction_id == auction.id
+        ).all()
+
+        commission_result = calculate_commission(
+            db,
+            bid.rate
+        )
+
+        service_fee = commission_result["commission"]
+
+        created_shipments = []
+
+        for assignment_number in range(number_to_assign):
+
+            client_shipment = Client_Shipment(
+                is_subshipment=False,
+                auction_id=auction.id,
+                booking_source="Shipment Exchange",
+                shipment_reference=auction.shipment_reference if auction.shipment_reference else None,
+                booking_reference=auction.booking_reference if auction.booking_reference else None,
+                trip_type=auction.trip_type,
+                load_type=auction.load_type,
+                client_id=company_id,
+                client_user_id=user_id,
+                rate=bid.rate,
+                pricing_basis=auction.pricing_basis,
+                vat_included=auction.vat_included,
+                payment_terms=auction.payment_terms,
+                pickup_date=auction.pickup_date,
+                priority_level=auction.priority_level,
+                customer_reference_number=auction.customer_reference_number if auction.customer_reference_number else None,
+                shipment_weight=auction.shipment_weight,
+                commodity=auction.commodity,
+                temperature_control=auction.temperature_control,
+                target_temperature_spec=auction.target_temperature_spec if auction.target_temperature_spec else None,
+                hazardous_materials=auction.hazardous_materials,
+                hazchem_classification=auction.hazchem_classification if auction.hazchem_classification else None,
+                under_bond=auction.under_bond,
+                rib_requirements=auction.rib_requirements,
+                packaging_quantity=auction.packaging_quantity,
+                packaging_type=auction.packaging_type,
+                distance=auction.distance,
+                rate_includes_fuel=auction.rate_includes_fuel,
+                rate_includes_driver=auction.rate_includes_driver,
+                rate_includes_maintenance=auction.rate_includes_maintenance,
+                rate_includes_insurance=auction.rate_includes_insurance,
+                rate_includes_tolls=auction.rate_includes_tolls,
+                rate_includes_border_charges=auction.rate_includes_border_charges,
+                rate_includes_empty_return=auction.rate_includes_empty_return,
+                rate_includes_waiting_time=auction.rate_includes_waiting_time,
+                rate_includes_loading_assistance=auction.rate_includes_loading_assistance,
+                rate_includes_offloading_assistance=auction.rate_includes_offloading_assistance,
+                minimum_weight_bracket_kg=auction.minimum_weight_bracket,
+                vehicle_tracking_required=auction.vehicle_tracking_required,
+                all_time_hour_control_room=auction.all_time_hour_control_room,
+                driver_mobile_phone=auction.driver_mobile_phone,
+                clean_compliant_equipment=auction.clean_compliant_equipment,
+                pallet_management=auction.pallet_management,
+                pod_submission_local=auction.pod_submission_local,
+                pod_submission_long_haul=auction.pod_submission_long_haul,
+                pod_submission_cross_border=auction.pod_submission_cross_border,
+                minimum_git_cover_amount=auction.minimum_git_cover_amount,
+                minimum_liability_cover_amount=auction.minimum_liability_cover_amount,
+                git_all_risk_required=auction.git_all_risk_required,
+                git_first_loss_required=auction.git_first_loss_required,
+                git_driver_fidelity_required=auction.git_driver_fidelity_required,
+                tarpaulin_compliance_required=auction.tarpaulin_compliance_required,
+                corner_plates_required=auction.corner_plates_required,
+                chock_blocks_required=auction.chock_blocks_required,
+                ratchets_belts_required=auction.ratchets_belts_required,
+                other_equipment_requirements=auction.other_equipment_requirements
+            )
+
+            db.add(client_shipment)
+            db.flush()
+
+            for stop in stops_facilities:
+                db.add(
+                    Client_Shipment_Stop(
+                        shipment_id=client_shipment.id,
+                        stop_sequence=stop.stop_sequence,
+                        stop_type=stop.stop_type,
+                        address=stop.address,
+                        complete_address=stop.complete_address,
+                        city_province=stop.city_province,
+                        country=stop.country,
+                        region=stop.region,
+                        latitude=stop.latitude,
+                        longitude=stop.longitude,
+                        facility_name=stop.facility_name,
+                        scheduling_type=stop.scheduling_type,
+                        operating_start_time=stop.operating_start_time,
+                        operating_end_time=stop.operating_end_time,
+                        open_monday=stop.open_monday,
+                        open_tuesday=stop.open_tuesday,
+                        open_wednesday=stop.open_wednesday,
+                        open_thursday=stop.open_thursday,
+                        open_friday=stop.open_friday,
+                        open_saturday=stop.open_saturday,
+                        open_sunday=stop.open_sunday,
+                        contact_first_name=stop.contact_first_name,
+                        contact_last_name=stop.contact_last_name,
+                        contact_phone_number=stop.contact_phone_number,
+                        contact_email=stop.contact_email,
+                        reference_number=stop.reference_number,
+                        notes=stop.notes
+                    )
+                )
+
+            for config in configs:
+                db.add(
+                    Lane_Vehicle_Config(
+                        shipment_id=client_shipment.id,
+                        configuration_type=config.configuration_type,
+                        truck_type=config.truck_type,
+                        equipment_type=config.equipment_type,
+                        trailer_type=config.trailer_type,
+                        trailer_length=config.trailer_length,
+                        is_required=True
+                    )
+                )
+
+            carrier_shipment_reference = (
+                f"EX-{auction.id}-"
+                f"{bid.carrier_id}-"
+                f"{uuid.uuid4().hex[:8].upper()}"
+            )
+
+            carrier_shipment = Carrier_Shipment(
+                is_subshipment=False,
+                auction_id=auction.id,
+                booking_source="Shipment Exchange",
+                shipment_reference=carrier_shipment_reference,
+                booking_reference=auction.booking_reference,
+                trip_type=auction.trip_type,
+                load_type=auction.load_type,
+                carrier_id=bid.carrier_id,
+                carrier_user_id=bid.bidder_user_id,
+                rate=bid.rate,
+                service_fee=service_fee,
+                pricing_basis=auction.pricing_basis,
+                vat_included=auction.vat_included,
+                payment_terms=auction.payment_terms,
+                pickup_date=auction.pickup_date,
+                priority_level=auction.priority_level,
+                customer_reference_number=auction.customer_reference_number,
+                shipment_weight=auction.shipment_weight,
+                commodity=auction.commodity,
+                temperature_control=auction.temperature_control,
+                target_temperature_spec=auction.target_temperature_spec if auction.target_temperature_spec else None,
+                hazardous_materials=auction.hazardous_materials,
+                hazchem_classification=auction.hazchem_classification if auction.hazchem_classification else None,
+                under_bond=auction.under_bond,
+                rib_requirements=auction.rib_requirements,
+                packaging_quantity=auction.packaging_quantity,
+                packaging_type=auction.packaging_type,
+                distance=auction.distance,
+                rate_includes_fuel=auction.rate_includes_fuel,
+                rate_includes_driver=auction.rate_includes_driver,
+                rate_includes_maintenance=auction.rate_includes_maintenance,
+                rate_includes_insurance=auction.rate_includes_insurance,
+                rate_includes_tolls=auction.rate_includes_tolls,
+                rate_includes_border_charges=auction.rate_includes_border_charges,
+                rate_includes_empty_return=auction.rate_includes_empty_return,
+                rate_includes_waiting_time=auction.rate_includes_waiting_time,
+                rate_includes_loading_assistance=auction.rate_includes_loading_assistance,
+                rate_includes_offloading_assistance=auction.rate_includes_offloading_assistance,
+                minimum_weight_bracket_kg=auction.minimum_weight_bracket,
+                vehicle_tracking_required=auction.vehicle_tracking_required,
+                all_time_hour_control_room=auction.all_time_hour_control_room,
+                driver_mobile_phone=auction.driver_mobile_phone,
+                clean_compliant_equipment=auction.clean_compliant_equipment,
+                pallet_management=auction.pallet_management,
+                pod_submission_local=auction.pod_submission_local,
+                pod_submission_long_haul=auction.pod_submission_long_haul,
+                pod_submission_cross_border=auction.pod_submission_cross_border,
+                minimum_git_cover_amount=auction.minimum_git_cover_amount,
+                minimum_liability_cover_amount=auction.minimum_liability_cover_amount,
+                git_all_risk_required=auction.git_all_risk_required,
+                git_first_loss_required=auction.git_first_loss_required,
+                git_driver_fidelity_required=auction.git_driver_fidelity_required,
+                tarpaulin_compliance_required=auction.tarpaulin_compliance_required,
+                corner_plates_required=auction.corner_plates_required,
+                chock_blocks_required=auction.chock_blocks_required,
+                ratchets_belts_required=auction.ratchets_belts_required,
+                other_equipment_requirements=auction.other_equipment_requirements
+            )
+
+            db.add(carrier_shipment)
+            db.flush()
+
+            created_shipments.append({
+                "client_shipment_id": client_shipment.id,
+                "carrier_shipment_id": carrier_shipment.id
+            })
+
+        auction.slots_remaining -= number_to_assign
+
+        if auction.slots_remaining <= 0:
+            auction.slots_remaining = 0
+            auction.status = "Closed"
+
+        bid.status = "Awarded"
+
+        db.commit()
+
+        return {
+            "message": "Bid accepted successfully",
+            "auction_id": auction.id,
+            "bid_id": bid.id,
+            "carrier_id": bid.carrier_id,
+            "requested_loads": bid.number_of_loads,
+            "assigned_loads": number_to_assign,
+            "slots_remaining": auction.slots_remaining,
+            "auction_status": auction.status,
+            "rate": float(bid.rate),
+            "service_fee_per_shipment": float(service_fee),
+            "shipments": created_shipments
+        }
+
+    except HTTPException:
+        db.rollback()
+        raise
+
+    except Exception as e:
+        db.rollback()
+        print(f"ERROR ACCEPTING AUCTION BID: {type(e).__name__}: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 def place_tender_bid(
     db: Session,

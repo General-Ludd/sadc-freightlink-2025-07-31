@@ -19,6 +19,7 @@ from schemas.exchange_bookings.dedicated_ftl_lane import Exchange_Ftl_Lane_Respo
 from schemas.exchange_bookings.ftl_shipment import Exchange_FTL_Shipment_Response, Exchange_Ftl_Shipments_Summary_Response
 from schemas.exchange_bookings.power_shipment import Exchange_Power_Shipments_Summary_Response, exchange_power_shipment_response
 from services.cancellations.exchange_cancellations import cancel_exchange_ftl_booking, cancel_exchange_power_booking, cancel_exchange_ftl_lane_booking
+from services.exchange.auction import accept_auction_bid
 from utils.auth import get_current_user
 
 router = APIRouter()
@@ -440,6 +441,34 @@ def get_load_exchange_information(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/award-auction/{auction_id}/bid/{bid_id}")
+def award_auction_bid(
+    auction_id: int,
+    bid_id: int,
+    db: Session,
+    current_user: dict
+):
+    assert "company_id" in current_user, "Missing company_id in current_user"
+    company_id = current_user.get("company_id")
+
+    if not company_id:
+        raise HTTPException(
+            status_code=400,
+            detail="User does not belong to a company"
+        )
+    try:
+        result = accept_auction_bid(
+            auction_id,
+            bid_id,
+            db,
+            current_user
+        )
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/tender/{id}")
 def get_tender_information(
