@@ -546,7 +546,7 @@ def place_auction_bid(
 
         auction_loadboard = db.query(Shipment_Auction_Loadboard).filter(
             Shipment_Auction_Loadboard.auction_id == auction.id,
-            Shipment_Auction_Loadboard.is_visible_to_carrier == True
+            Shipment_Auction_Loadboard.is_visible_to_carriers == True
         ).first()
 
         if not auction_loadboard:
