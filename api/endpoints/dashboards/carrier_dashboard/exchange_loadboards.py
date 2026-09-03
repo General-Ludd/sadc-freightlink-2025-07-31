@@ -1432,3 +1432,318 @@ def get_all_power_load_exchange_bids(
     except Exception as e:
         return {"error": str(e)}
     
+
+@router.get("/public/shipment-loadboard")
+def public_get_shipments_loadboard(
+    db: Session = Depends(get_db),
+):
+    try:
+        loadboards = db.query(Shipment_Auction_Loadboard).filter(
+            Shipment_Auction_Loadboard.is_visible_to_carriers == True,
+            Shipment_Auction_Loadboard.status == "Active"
+        ).all()
+
+        response = []
+
+        for loadboard in loadboards:
+            auction_id = loadboard.auction_id
+
+            auction = db.query(Client_Shipment_Auction).filter(
+                Client_Shipment_Auction.id == auction_id
+            ).first()
+            if not auction:
+                continue
+
+            client = db.query(Corporation).filter(
+                Corporation.id == auction.client_id
+            ).first()
+
+            route_points = db.query(Client_Shipment_Auction_Stop).filter(
+                Client_Shipment_Auction_Stop.auction_id == auction_id
+            ).order_by(
+                Client_Shipment_Auction_Stop.stop_sequence.asc()
+            ).all()
+
+            origin = next(
+                (stop for stop in route_points if stop.stop_type == "Origin"),
+                None
+            )
+            destination = next(
+                (stop for stop in route_points if stop.stop_type == "Destination"),
+                None
+            )
+            intermediate_stops = [
+                stop for stop in route_points
+                if stop.stop_type == "Intermediate"
+            ]
+
+            if not origin or not destination:
+                continue
+
+            pickup_window = None
+            if origin.operating_start_time and origin.operating_end_time:
+                pickup_window = f"{origin.operating_start_time} - {origin.operating_end_time}"
+
+            delivery_window = None
+            if destination.operating_start_time and destination.operating_end_time:
+                delivery_window = f"{destination.operating_start_time} - {destination.operating_end_time}"
+
+            vehicle_configurations = db.query(
+                Client_Shipment_Auction_Vehicle_Requirement
+            ).filter(
+                Client_Shipment_Auction_Vehicle_Requirement.auction_id == auction_id
+            ).all()
+
+            requirements = [
+                {
+                    "configuration_type": config.configuration_type,
+                    "truck_type": config.truck_type,
+                    "equipment_type": config.equipment_type,
+                    "trailer_type": config.trailer_type,
+                    "trailer_length": config.trailer_length
+                }
+                for config in vehicle_configurations
+            ]
+
+            response.append({
+                "id": loadboard.auction_id,
+                "trip_type": loadboard.trip_type,
+                "client": client.legal_business_name if client else None,
+                "closing_date": loadboard.auction_closing_date,
+                "route": {
+                    "origin": {
+                        "pickup": origin.complete_address or origin.address,
+                        "facility_name": origin.facility_name or None,
+                        "pickup_date": loadboard.pickup_date,
+                        "pickup_window": pickup_window
+                    },
+                    "destination": {
+                        "delivery": destination.complete_address or destination.address,
+                        "facility_name": destination.facility_name or None,
+                        "eta_date": loadboard.eta_date,
+                        "delivery_window": delivery_window
+                    },
+                    "distance": loadboard.distance,
+                    "minimum_transit_time": loadboard.estimated_transit_time,
+                    "stops": len(intermediate_stops) if intermediate_stops else None,
+                    "polyline": loadboard.polyline
+                },
+                "commodity": loadboard.commodity,
+                "shipment_weight": loadboard.shipment_weight,
+                "hazardous_materials": {
+                    "hazardous": loadboard.hazardous_materials,
+                    "hazchem_classification": loadboard.hazchem_classification if loadboard.hazchem_classification else None
+                },
+                "required_equipment_specification": requirements,
+                "number_of_trucks_required": loadboard.number_of_trucks_required,
+                "slot_remaining": loadboard.slots_remaining,
+                "rate": {
+                    "rate_basis": loadboard.pricing_basis,
+                    "benchmark_rate": loadboard.benchmark_rate,
+                    "benchmark_service_fee": loadboard.benchmark_rate_service_fee,
+                    "book_now_rate": loadboard.book_now_rate if loadboard.book_now_rate else None,
+                    "vat_included": loadboard.vat_included,
+                    "bidding_allowed": loadboard.bidding_activated,
+                    "bidding_direction": loadboard.rate_direction
+                }
+            })
+
+        return response
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve shipment loadboard: {str(e)}"
+        )
+
+
+@router.get("/public-shipment-loadboard/{id}")
+def public_get_loadboard_shipment(
+    id: int,
+    db: Session = Depends(get_db),
+):
+    try:
+        load = db.query(Shipment_Auction_Loadboard).filter(
+            Shipment_Auction_Loadboard.auction_id == id,
+            Shipment_Auction_Loadboard.is_visible_to_carriers == True
+        ).first()
+        if not load:
+            raise HTTPException(status_code=404, detail="Loadboard shipment not found or not available")
+        auction = db.query(Client_Shipment_Auction).filter(
+            Client_Shipment_Auction.id == load.auction_id
+        ).first()
+        if not auction:
+            raise HTTPException(status_code=404, detail="Auction not found")
+        bids = db.query(Shipment_Auction_Bid).filter(Shipment_Auction_Bid.auction_id == auction.id,
+                                                    Shipment_Auction_Bid.carrier_id == company_id).all()
+
+        client = db.query(Corporation).filter(
+            Corporation.id == auction.client_id
+        ).first()
+        if not client:
+            raise HTTPException(status_code=404, detail="Client not found")
+        route_points = db.query(Client_Shipment_Auction_Stop).filter(
+            Client_Shipment_Auction_Stop.auction_id == auction.id
+        ).order_by(
+            Client_Shipment_Auction_Stop.stop_sequence.asc()
+        ).all()
+        if not route_points:
+            raise HTTPException(status_code=404, detail="Route information not found")
+        vehicle_configurations = db.query(
+            Client_Shipment_Auction_Vehicle_Requirement
+        ).filter(
+            Client_Shipment_Auction_Vehicle_Requirement.auction_id == auction.id
+        ).all()
+        origin = next(
+            (stop for stop in route_points if stop.stop_type == "Origin"),
+            None
+        )
+        destination = next(
+            (stop for stop in route_points if stop.stop_type == "Destination"),
+            None
+        )
+        intermediate_stops = [
+            stop for stop in route_points
+            if stop.stop_type == "Intermediate"
+        ]
+        if not origin:
+            raise HTTPException(status_code=500, detail="Origin stop not found")
+        if not destination:
+            raise HTTPException(status_code=500, detail="Destination stop not found")
+        return {
+            "load_information": {
+                "id": load.auction_id,
+                "client": client.legal_business_name,
+                "closing_date": load.auction_closing_date,
+                "trip_type": load.trip_type,
+                "load_type": load.load_type,
+                "priority_level": load.priority_level,
+                "payment_terms": load.payment_terms,
+                "pickup_date": load.pickup_date,
+                "number_of_trucks_required": load.number_of_trucks_required,
+                "remaining_slots": load.slots_remaining,
+                "route": {
+                    "origin": origin.city_province,
+                    "stops": [
+                        {
+                            "location": stop.city_province,
+                        }
+                        for stop in intermediate_stops
+                    ],
+                    "destination": destination.city_province,
+                    "distance": load.distance,
+                    "transit_time": load.estimated_transit_time,
+                    "eta_date": getattr(load, "eta_date", None),
+                    "polyline": load.polyline,
+                    "stop_count": len(intermediate_stops),
+                },
+                "exchange_and_bidding": {
+                    "rules": {
+                        "rate_basis": load.pricing_basis,
+                        "vat_included": load.vat_included,
+                        "bidding_allowed": load.bidding_activated,
+                        "bidding_direction": load.rate_direction,
+                    },
+                    "my_placed_bids": [{
+                        "id": bid.id,
+                        "rate": bid.rate,
+                        "no_of_loads": bid.number_of_loads,
+                        "lead_time": bid.lead_time,
+                        "notes": bid.notes,
+                        "submitted_at": bid.submitted_at,
+                    } for bid in bids],
+                    "rates": {
+                        "benchmark_rate": load.benchmark_rate,
+                        "benchmark_rate_service_fee": load.benchmark_rate_service_fee,
+                        "book_now_rate": load.book_now_rate,
+                    },
+                    "rates_inclusive_of": {
+                        "fuel": load.rate_includes_fuel,
+                        "driver": load.rate_includes_driver,
+                        "maintenance": load.rate_includes_maintenance,
+                        "insurance": load.rate_includes_insurance,
+                        "tolls": load.rate_includes_tolls,
+                        "border_fees_and_duty": load.rate_includes_border_charges,
+                        "empty_return": load.rate_includes_empty_return,
+                        "waiting_detention_time": load.rate_includes_waiting_time,
+                        "loading_assistance": load.rate_includes_loading_assistance,
+                        "offloading_assistance": load.rate_includes_offloading_assistance,
+                    },
+                },
+                "equipment": {
+                    "accepted_vehicle_configs": [
+                        {
+                            "config_type": config.configuration_type,
+                            "truck_type": config.truck_type,
+                            "equipment_type": config.equipment_type,
+                            "trailer_type": config.trailer_type,
+                            "trailer_length": config.trailer_length,
+                            "is_required": config.is_required,
+                        }
+                        for config in vehicle_configurations
+                    ],
+                    "equipment_compliance": {
+                        "tarpaulin_compliance_required": load.tarpaulin_compliance_required,
+                        "corner_plates_required": load.corner_plates_required,
+                        "chock_blocks_required": load.chock_blocks_required,
+                        "ratchets_belts_required": load.ratchets_belts_required,
+                        "other_equipment_requirements": load.other_equipment_requirements,
+                    },
+                },
+                "cargo": {
+                    "commodity": load.commodity,
+                    "weight": load.shipment_weight,
+                    "packaging_type": load.packaging_type,
+                    "packaging_quantity": load.packaging_quantity,
+                    "under_bond": load.under_bond,
+                    "hazardous": {
+                        "is_hazardous": load.hazardous_materials,
+                        "hazchem_classification": getattr(load, "hazchem_classification", None),
+                    },
+                },
+                "insurance_requirements": {
+                    "minimum_git_cover_amount": load.minimum_git_cover_amount,
+                    "minimum_liability_cover_amount": load.minimum_liability_cover_amount,
+                    "git_all_risk_required": load.git_all_risk_required,
+                    "git_first_loss_required": load.git_first_loss_required,
+                    "git_driver_fidelity_required": load.git_driver_fidelity_required,
+                },
+                "operational_requirements": {
+                    "vehicle_tracking_required": load.vehicle_tracking_required,
+                    "all_time_hour_control_room": load.all_time_hour_control_room,
+                    "driver_mobile_phone": load.driver_mobile_phone,
+                    "clean_compliant_equipment": load.clean_compliant_equipment,
+                    "pallet_management_chep": load.pallet_management,
+                    "pod_submission_local": load.pod_submission_local,
+                    "pod_submission_long_haul": load.pod_submission_long_haul,
+                    "pod_submission_cross_border": load.pod_submission_cross_border,
+                },
+                "facilities": [
+                    {
+                        "sequence": facility.stop_sequence,
+                        "type": facility.stop_type,
+                        "name": facility.facility_name,
+                        "location": facility.city_province,
+                        "country": facility.country,
+                        "scheduling_type": facility.scheduling_type,
+                        "operations_window": f"{facility.operating_start_time} - {facility.operating_end_time}",
+                        "operating_days": {
+                            "monday": facility.open_monday,
+                            "tuesday": facility.open_tuesday,
+                            "wednesday": facility.open_wednesday,
+                            "thursday": facility.open_thursday,
+                            "friday": facility.open_friday,
+                            "saturday": facility.open_saturday,
+                            "sunday": facility.open_sunday,
+                        },
+                    }
+                    for facility in route_points
+                ],
+            }
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
