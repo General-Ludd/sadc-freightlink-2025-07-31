@@ -535,7 +535,7 @@ def place_auction_bid(
     try:
         auction = db.query(Client_Shipment_Auction).filter(
             Client_Shipment_Auction.id == id,
-            Client_Shipment_Auction.is_active == True
+            Client_Shipment_Auction.status == "Active"
         ).first()
 
         if not auction:
