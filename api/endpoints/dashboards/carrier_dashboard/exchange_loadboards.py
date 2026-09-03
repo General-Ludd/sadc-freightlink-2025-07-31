@@ -357,7 +357,7 @@ def get_loadboard_shipment(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("place-exchange/{id}-bid")
+@router.post("/place-exchange/{id}-bid")
 def place_exchange_bid(
     id: int,
     db: Session = Depends(get_db),
