@@ -11,7 +11,7 @@ from models.brokerage.assigned_shipments import Assigned_Power_Shipments, Assign
 from models.brokerage.finance import BrokerageLedger, CarrierFinancialAccounts, Dedicated_Lane_BrokerageLedger, Lane_Slot_Ledger, Exchange_Lane_Slot_Assignment, FinancialAccounts, Interim_Invoice, Lane_Interim_Invoice, Lane_Invoice, Load_Invoice, PlatformCommission
 from models.brokerage.loadboards.exchange_loadboards import Exchange_Ftl_Lane_LoadBoard, Exchange_Ftl_Load_Board, Exchange_Power_Load_Board
 from models.brokerage.loadboard import Shipment_Auction_Loadboard
-from models.carrier import Carrier, Carrier_Notification
+from models.carrier import Carrier, Carrier_Profile, Carrier_Notification
 from models.shipper import Corporation, Client_Notification
 from models.spot_bookings.dedicated_lane_ftl_shipment import Client_Lane
 from models.spot_bookings.ftl_shipment import FTL_SHIPMENT
@@ -566,10 +566,10 @@ def place_auction_bid(
             raise HTTPException(status_code=403, detail="Carrier account is not Active, please request account activation")
 
         if carrier.git_cover_amount is None or carrier.git_cover_amount < auction.minimum_git_cover_amount:
-            raise HTTPException(status_code=400, detail=f"Carrier GIT cover amount of 'R{carrier.git_cover_amount or 0}' does not satisfy the tender's required minimum of 'R{auction.minimum_git_cover_amount}'")
+            raise HTTPException(status_code=400, detail=f"Carrier GIT cover amount of 'R{carrier.git_cover_amount or 0}' does not satisfy the shipments's required minimum of 'R{auction.minimum_git_cover_amount}'")
 
         if carrier.liability_insurance_cover_amount is None or carrier.liability_insurance_cover_amount < auction.minimum_liability_cover_amount:
-            raise HTTPException(status_code=400, detail=f"Carrier liability cover amount 'R{carrier.liability_insurance_cover_amount or 0}' does not satisfy the tender's required minimum of 'R{auction.minimum_liability_cover_amount}'")
+            raise HTTPException(status_code=400, detail=f"Carrier liability cover amount 'R{carrier.liability_insurance_cover_amount or 0}' does not satisfy the shipments's required minimum of 'R{auction.minimum_liability_cover_amount}'")
 
         carrier_profile = db.query(Carrier_Profile).filter(
             Carrier_Profile.carrier_id == carrier.id
