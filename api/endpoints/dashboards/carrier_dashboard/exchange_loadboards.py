@@ -1576,9 +1576,7 @@ def public_get_loadboard_shipment(
         ).first()
         if not auction:
             raise HTTPException(status_code=404, detail="Auction not found")
-        bids = db.query(Shipment_Auction_Bid).filter(Shipment_Auction_Bid.auction_id == auction.id,
-                                                    Shipment_Auction_Bid.carrier_id == company_id).all()
-
+            
         client = db.query(Corporation).filter(
             Corporation.id == auction.client_id
         ).first()
@@ -1646,14 +1644,6 @@ def public_get_loadboard_shipment(
                         "bidding_allowed": load.bidding_activated,
                         "bidding_direction": load.rate_direction,
                     },
-                    "my_placed_bids": [{
-                        "id": bid.id,
-                        "rate": bid.rate,
-                        "no_of_loads": bid.number_of_loads,
-                        "lead_time": bid.lead_time,
-                        "notes": bid.notes,
-                        "submitted_at": bid.submitted_at,
-                    } for bid in bids],
                     "rates": {
                         "benchmark_rate": load.benchmark_rate,
                         "benchmark_rate_service_fee": load.benchmark_rate_service_fee,
