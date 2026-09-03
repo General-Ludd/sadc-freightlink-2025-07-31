@@ -100,7 +100,6 @@ class Create_Tender_Bid(BaseModel):
     bid_notes: Optional [str] = None
 
 class Create_Shipment_Bid(BaseModel):
-    auction_id: int
     rate: float
     number_of_loads: int
     lead_time: str
