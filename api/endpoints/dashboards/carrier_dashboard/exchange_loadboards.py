@@ -360,30 +360,23 @@ def get_loadboard_shipment(
 @router.post("/place-exchange/{id}-bid")
 def place_exchange_bid(
     id: int,
+    bid_data: Create_Shipment_Bid,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    # ========================================================
-    # 1. GET CURRENT USER / CARRIER
-    # ========================================================
-
-    assert "company_id" in current_user, "Missing company_id in current_user"
-
-    print(f"current_user: {current_user}")
-
     company_id = current_user.get("company_id")
-
     if not company_id:
-        raise HTTPException(
-            status_code=400,
-            detail="User does not belong to a company"
-        )
+        raise HTTPException(status_code=400, detail="User does not belong to a company")
     try:
         result = place_auction_bid(
             db,
+            id,
             bid_data,
-            current_user)
+            current_user
+        )
         return result
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 

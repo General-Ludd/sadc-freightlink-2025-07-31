@@ -517,235 +517,145 @@ def accept_ftl_shipment_exchange_bid(db: Session, bid_data: Accept_Bid, current_
 ##############################################################################################################################################
 
 def place_auction_bid(
-    db: Session,
+    id: int,
     bid_data: Create_Shipment_Bid,
-    current_user: dict
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
 ):
-    # ============================================================
-    # 1. CURRENT USER
-    # ============================================================
-
     company_id = current_user.get("company_id")
     user_id = current_user.get("id")
 
     if not company_id:
-        raise HTTPException(
-            status_code=400,
-            detail="User does not belong to a company"
-        )
+        raise HTTPException(status_code=400, detail="User does not belong to a company")
 
     if not user_id:
-        raise HTTPException(
-            status_code=400,
-            detail="User ID missing from authentication token"
+        raise HTTPException(status_code=400, detail="User ID missing from authentication token")
+
+    try:
+        auction = db.query(Client_Shipment_Auction).filter(
+            Client_Shipment_Auction.id == id,
+            Client_Shipment_Auction.is_active == True
+        ).first()
+
+        if not auction:
+            raise HTTPException(status_code=404, detail="Load not found or bidding is closed")
+
+        if auction.status != "Active":
+            raise HTTPException(status_code=400, detail=f"Load is not accepting bids. Current status: {auction.status}")
+
+        auction_loadboard = db.query(Shipment_Auction_Loadboard).filter(
+            Shipment_Auction_Loadboard.auction_id == auction.id,
+            Shipment_Auction_Loadboard.is_visible_to_carrier == True
+        ).first()
+
+        if not auction_loadboard:
+            raise HTTPException(status_code=404, detail="Load is not available on the carrier loadboard")
+
+        carrier = db.query(Carrier).filter(
+            Carrier.id == company_id
+        ).first()
+
+        if not carrier:
+            raise HTTPException(status_code=404, detail="Carrier not found")
+
+        if not carrier.is_verified:
+            raise HTTPException(status_code=403, detail="Carrier company account not verified, please request account verification")
+
+        if carrier.status != "Active":
+            raise HTTPException(status_code=403, detail="Carrier account is not Active, please request account activation")
+
+        if carrier.git_cover_amount is None or carrier.git_cover_amount < auction.minimum_git_cover_amount:
+            raise HTTPException(status_code=400, detail=f"Carrier GIT cover amount of 'R{carrier.git_cover_amount or 0}' does not satisfy the tender's required minimum of 'R{auction.minimum_git_cover_amount}'")
+
+        if carrier.liability_insurance_cover_amount is None or carrier.liability_insurance_cover_amount < auction.minimum_liability_cover_amount:
+            raise HTTPException(status_code=400, detail=f"Carrier liability cover amount 'R{carrier.liability_insurance_cover_amount or 0}' does not satisfy the tender's required minimum of 'R{auction.minimum_liability_cover_amount}'")
+
+        carrier_profile = db.query(Carrier_Profile).filter(
+            Carrier_Profile.carrier_id == carrier.id
+        ).first()
+
+        if not carrier_profile:
+            raise HTTPException(status_code=400, detail="Carrier profile not found. Please complete your fleet profile before bidding.")
+
+        fleet_fields = [
+            "rigid_tautliners",
+            "triaxle_tautliners",
+            "superlink_tautliners",
+            "rigid_flatbeds",
+            "triaxle_flatbeds",
+            "superlink_flatbeds",
+            "rigid_flatbeds_with_twistlocks",
+            "triaxle_flatbeds_with_twistlocks",
+            "superlink_flatbeds_with_twistlocks",
+            "rigid_dropsides",
+            "triaxle_dropside",
+            "superlink_dropside",
+            "triaxle_skeletals",
+            "superlink_skeletals",
+            "rigid_pantechs",
+            "triaxle_pantechs",
+            "triaxle_side_tippers",
+            "superlink_side_tippers",
+            "low_beds",
+            "rigid_end_tipper",
+            "triaxle_end_tipper"
+        ]
+
+        fleet_size = sum((getattr(carrier_profile, field) or 0) for field in fleet_fields)
+
+        if fleet_size <= 0:
+            raise HTTPException(status_code=400, detail="Carrier fleet profile contains no vehicles")
+
+        if bid_data.rate is None:
+            raise HTTPException(status_code=400, detail="Bid per shipment is required")
+
+        if bid_data.rate <= 0:
+            raise HTTPException(status_code=400, detail="Bid per shipment must be greater than zero")
+
+        existing_bid = db.query(Shipment_Auction_Bid).filter(
+            Shipment_Auction_Bid.auction_id == auction.id,
+            Shipment_Auction_Bid.carrier_id == carrier.id
+        ).first()
+
+        if existing_bid:
+            raise HTTPException(status_code=400, detail="You have already placed a bid on this load exchange")
+
+        bid = Shipment_Auction_Bid(
+            auction_id=auction.id,
+            carrier_id=carrier.id,
+            bidder_user_id=user_id,
+            carrier_name=carrier.legal_business_name,
+            fleet_size=fleet_size,
+            primary_lanes=carrier_profile.primary_routes,
+            rate=bid_data.rate,
+            number_of_loads=bid_data.number_of_loads,
+            lead_time=bid_data.lead_time,
+            bid_notes=bid_data.bid_notes,
+            status="Submitted"
         )
 
-    # ============================================================
-    # 2. GET ACTIVE TENDER
-    # ============================================================
+        db.add(bid)
+        db.commit()
+        db.refresh(bid)
 
-    auction = db.query(Client_Shipment_Auction).filter(
-        Client_Shipment_Auction.id == bid_data.auction_id,
-        Client_Shipment_Auction.is_active == True
-    ).first()
+        return {
+            "message": "Load exchange bid submitted successfully",
+            "bid_id": bid.id,
+            "auction_id": auction.id,
+            "carrier_id": carrier.id,
+            "rate": float(bid.rate),
+            "number_of_loads": bid.number_of_loads,
+            "lead_time": bid.lead_time,
+            "status": bid.status
+        }
 
-    if not auction:
-        raise HTTPException(
-            status_code=404,
-            detail="TLoad not found or bidding is closed"
-        )
+    except HTTPException:
+        raise
 
-    if auction.status != "Active":
-        raise HTTPException(
-            status_code=400,
-            detail=f"Load is not accepting bids. Current status: {tender.status}"
-        )
-
-    # ============================================================
-    # 3. VERIFY TENDER LOADBOARD
-    # ============================================================
-
-    auction_loadboard = db.query(Shipment_Auction_Loadboard).filter(
-        Shipment_Auction_Loadboard.auction_id == tender.id,
-        Shipment_Auction_Loadboard.is_visible_to_carrier == True
-    ).first()
-
-    if not auction_loadboard:
-        raise HTTPException(
-            status_code=404,
-            detail="Load is not available on the carrier loadboard"
-        )
-
-    # ============================================================
-    # 4. GET CARRIER
-    # ============================================================
-
-    carrier = db.query(Carrier).filter(
-        Carrier.id == company_id
-    ).first()
-
-    if not carrier:
-        raise HTTPException(
-            status_code=404,
-            detail="Carrier not found"
-        )
-
-    if not carrier.is_verified:
-        raise HTTPException(
-            status_code=403,
-            detail=(
-                "Carrier company account not verified, "
-                "please request account verification"
-            )
-        )
-
-    if carrier.status != "Active":
-        raise HTTPException(
-            status_code=403,
-            detail=(
-                "Carrier account is not Active, "
-                "please request account activation."
-            )
-        )
-
-    # ============================================================
-    # 5. VALIDATE CARRIER INSURANCE
-    # ============================================================
-
-    if (
-        carrier.git_cover_amount is None
-        or carrier.git_cover_amount < auction.minimum_git_cover_amount
-    ):
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                f"Carrier GIT cover amount of "
-                f"'R{carrier.git_cover_amount or 0}' does not satisfy "
-                f"the tender's required minimum of "
-                f"'R{auction.minimum_git_cover_amount}'"
-            )
-        )
-
-    if (
-        carrier.liability_insurance_cover_amount is None
-        or carrier.liability_insurance_cover_amount
-        < auction.minimum_liability_cover_amount
-    ):
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                f"Carrier liability cover amount "
-                f"'R{carrier.liability_insurance_cover_amount or 0}' "
-                f"does not satisfy the tender's required minimum of "
-                f"'R{auction.minimum_liability_cover_amount}'"
-            )
-        )
-
-    # ============================================================
-    # 6. GET CARRIER PROFILE
-    # ============================================================
-
-    carrier_profile = db.query(Carrier_Profile).filter(
-        Carrier_Profile.carrier_id == carrier.id
-    ).first()
-
-    if not carrier_profile:
-        raise HTTPException(
-            status_code=400,
-            detail="Carrier profile not found. Please complete your fleet profile before bidding."
-        )
-
-    # ============================================================
-    # 7. CALCULATE FLEET SIZE
-    # ============================================================
-
-    fleet_fields = [
-        "rigid_tautliners",
-        "triaxle_tautliners",
-        "superlink_tautliners",
-        "rigid_flatbeds",
-        "triaxle_flatbeds",
-        "superlink_flatbeds",
-        "rigid_flatbeds_with_twistlocks",
-        "triaxle_flatbeds_with_twistlocks",
-        "superlink_flatbeds_with_twistlocks",
-        "rigid_dropsides",
-        "triaxle_dropside",
-        "superlink_dropside",
-        "triaxle_skeletals",
-        "superlink_skeletals",
-        "rigid_pantechs",
-        "triaxle_pantechs",
-        "triaxle_side_tippers",
-        "superlink_side_tippers",
-        "low_beds",
-        "rigid_end_tipper",
-        "triaxle_end_tipper"
-    ]
-
-    fleet_size = sum(
-        (getattr(carrier_profile, field) or 0)
-        for field in fleet_fields
-    )
-
-    if fleet_size <= 0:
-        raise HTTPException(
-            status_code=400,
-            detail="Carrier fleet profile contains no vehicles"
-        )
-
-    # ============================================================
-    # 8. VALIDATE BID RATE
-    # ============================================================
-
-    if bid_data.rate is None:
-        raise HTTPException(
-            status_code=400,
-            detail="Bid per shipment is required"
-        )
-
-    if bid_data.rate <= 0:
-        raise HTTPException(
-            status_code=400,
-            detail="Bid per shipment must be greater than zero"
-        )
-
-    # ============================================================
-    # 9. CREATE BID
-    # ============================================================
-
-    bid = Shipment_Auction_Bid(
-        auction_id=auction.id,
-        carrier_id=carrier.id,
-        bidder_user_id=user_id,
-        carrier_name=carrier.legal_business_name,
-        fleet_size=fleet_size,
-        primary_lanes=carrier_profile.primary_routes,
-        rate=bid_data.rate,
-        bid_notes=bid_data.bid_notes,
-        status="Submitted"
-    )
-
-    # ============================================================
-    # 15. SAVE
-    # ============================================================
-
-    db.add(bid)
-    db.commit()
-    db.refresh(bid)
-
-    # ============================================================
-    # 16. RESPONSE
-    # ============================================================
-
-    return {
-        "message": "Tender bid submitted successfully",
-        "bid_id": bid.id,
-        "tender_id": auction.id,
-        "carrier_id": carrier.id,
-        "rate": float(bid.rate),
-        "status": bid.status
-    }
+    except Exception as e:
+        db.rollback()
+        print(f"ERROR PLACING AUCTION BID: {type(e).__name__}: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 def place_tender_bid(
     db: Session,
