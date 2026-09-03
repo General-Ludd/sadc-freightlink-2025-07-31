@@ -442,7 +442,7 @@ def get_load_exchange_information(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/award-auction/{auction_id}/bid/{bid_id}")
+@router.post("/award-auction/{auction_id}/bid/{bid_id}")
 def award_auction_bid(
     auction_id: int,
     bid_id: int,

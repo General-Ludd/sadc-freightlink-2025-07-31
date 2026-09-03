@@ -925,7 +925,7 @@ def accept_auction_bid(
         db.commit()
 
         return {
-            "message": "Bid accepted successfully",
+            "message": "Bid awarded successfully",
             "auction_id": auction.id,
             "bid_id": bid.id,
             "carrier_id": bid.carrier_id,
@@ -934,8 +934,7 @@ def accept_auction_bid(
             "slots_remaining": auction.slots_remaining,
             "auction_status": auction.status,
             "rate": float(bid.rate),
-            "service_fee_per_shipment": float(service_fee),
-            "shipments": created_shipments
+            "combined_rate": (bid.rate * assigned_loads),
         }
 
     except HTTPException:
