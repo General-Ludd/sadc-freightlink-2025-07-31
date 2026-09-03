@@ -3,13 +3,13 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from models.spot_bookings.shipment_facility import ShipmentFacility
 from models.Exchange.dedicated_ftl_lane import FTL_Lane_Exchange
-from models.Exchange.ftl_shipment import FTL_SHIPMENT_EXCHANGE
+from models.Exchange.ftl_shipment import FTL_SHIPMENT_EXCHANGE, Client_Shipment_Auction
 from models.Exchange.auction import Exchange_FTL_Lane_Bid, Exchange_FTL_Shipment_Bid, Exchange_POWER_Shipment_Bid, Shipment_Auction_Bid
 from models.Exchange.power_shipment import POWER_SHIPMENT_EXCHANGE
 from models.brokerage.assigned_lanes import Assigned_Ftl_Lanes
 from models.brokerage.assigned_shipments import Assigned_Power_Shipments, Assigned_Spot_Ftl_Shipments
 from models.brokerage.finance import BrokerageLedger, CarrierFinancialAccounts, Dedicated_Lane_BrokerageLedger, Lane_Slot_Ledger, Exchange_Lane_Slot_Assignment, FinancialAccounts, Interim_Invoice, Lane_Interim_Invoice, Lane_Invoice, Load_Invoice, PlatformCommission
-from models.brokerage.loadboards.exchange_loadboards import Exchange_Ftl_Lane_LoadBoard, Exchange_Ftl_Load_Board, Exchange_Power_Load_Board
+from models.brokerage.loadboards.exchange_loadboards import Exchange_Ftl_Lane_LoadBoard, Exchange_Ftl_Load_Board, Exchange_Power_Load_Board, Shipment_Auction_Loadboard
 from models.carrier import Carrier, Carrier_Notification
 from models.shipper import Corporation, Client_Notification
 from models.spot_bookings.dedicated_lane_ftl_shipment import Client_Lane
