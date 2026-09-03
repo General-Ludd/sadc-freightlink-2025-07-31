@@ -105,6 +105,7 @@ def place_ftl_shipment_bid(db: Session, bid_data: Exchange_FTL_Shipment_Bid_Crea
         carrier_name=carrier.legal_business_name,
         user_id=user_id,
         bid_amount=bid_data.bid_amount,
+        number_of_loads=bid_data.number_of_loads,
         baked_bid_amount=baked_bid,
         bid_notes=bid_data.bid_notes,
         status=new_bid_status
