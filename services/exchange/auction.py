@@ -650,12 +650,12 @@ def place_auction_bid(
         }
 
     except HTTPException:
+        # Re-raise standard HTTP exceptions safely 
         raise
-
     except Exception as e:
+        # FIXED: Roll back the DB session instead of bid_data
         db.rollback()
-        print(f"ERROR PLACING AUCTION BID: {type(e).__name__}: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 def place_tender_bid(
     db: Session,
