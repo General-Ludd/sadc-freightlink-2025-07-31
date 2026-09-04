@@ -181,279 +181,602 @@ def place_auction_bid(
 from sqlalchemy import nullslast # Ensure this is imported at the top of your file
 
 
-def accept_auction_bid(
-    auction_id: int,
-    bid_id: int,
-    db: Session,
-    current_user: dict
-):
-    company_id = current_user.get("company_id")
-    user_id = current_user.get("id")
+sistance=(
+                    auction.rate_includes_offloading_assistance
+                    if auction.rate_includes_offloading_assistance is not None
+                    else False
+                ),
 
-    if not company_id:
-        raise HTTPException(status_code=400, detail="User does not belong to a company")
+                minimum_weight_bracket_kg=(
+                    auction.minimum_weight_bracket
+                    if auction.minimum_weight_bracket is not None
+                    else 0
+                ),
 
-    if not user_id:
-        raise HTTPException(status_code=400, detail="User ID missing from authentication token")
+                vehicle_tracking_required=(
+                    auction.vehicle_tracking_required
+                    if auction.vehicle_tracking_required is not None
+                    else False
+                ),
 
-    try:
-        auction = db.query(Client_Shipment_Auction).filter(
-            Client_Shipment_Auction.id == auction_id
-        ).first()
+                all_time_hour_control_room=(
+                    auction.all_time_hour_control_room
+                    if auction.all_time_hour_control_room is not None
+                    else False
+                ),
 
-        if not auction:
-            raise HTTPException(status_code=404, detail="Auction not found")
+                driver_mobile_phone=(
+                    auction.driver_mobile_phone
+                    if auction.driver_mobile_phone is not None
+                    else False
+                ),
 
-        if auction.slots_remaining == 0:
-            auction.slots_remaining = 0
-            auction.status = "Closed"
-            raise HTTPException(status_code=403, detail="Sorry, the auction has closed and all slots have been awarded")
+                clean_compliant_equipment=(
+                    auction.clean_compliant_equipment
+                    if auction.clean_compliant_equipment is not None
+                    else False
+                ),
 
-        bid = db.query(Shipment_Auction_Bid).filter(
-            Shipment_Auction_Bid.id == bid_id,
-            Shipment_Auction_Bid.auction_id == auction.id
-        ).first()
+                pallet_management=(
+                    auction.pallet_management
+                    if auction.pallet_management is not None
+                    else False
+                ),
 
-        if not bid:
-            raise HTTPException(status_code=404, detail="Bid not found")
-
-        if bid.status == "Withdrawn":
-            raise HTTPException(
-                status_code=403,
-                detail=f"Unfortunately the selected bid cannot be awarded as it has been withdrawn by the carrier {bid.carrier_name}"
-            )
-
-        number_to_assign = min(
-            bid.number_of_loads,
-            auction.slots_remaining
-        )
-
-        # 1. Fetch raw underlying data properties instead of handling relationship links
-        stops_facilities = db.query(Client_Shipment_Auction_Stop).filter(
-            Client_Shipment_Auction_Stop.auction_id == auction.id
-        ).all()
-        
-        configs = db.query(Client_Shipment_Auction_Vehicle_Requirement).filter(
-            Client_Shipment_Auction_Vehicle_Requirement.auction_id == auction.id
-        ).all()
-
-        commission_result = calculate_commission(
-            db,
-            bid.rate
-        )
-        service_fee = commission_result["commission"]
-
-        created_shipments_summary = []
-
-        # Raw storage lists to hold data structures for direct table copying
-        stops_payload = []
-        requirements_payload = []
-
-        for assignment_number in range(number_to_assign):
-
-            # 2. Add Parent Client Shipment Row
-            client_shipment = Client_Shipment(
-                is_subshipment=False,
-                auction_id=auction.id,
-                booking_source="Shipment Exchange",
-                shipment_reference=auction.shipment_reference if auction.shipment_reference else None,
-                booking_reference=auction.booking_reference if auction.booking_reference else None,
-                trip_type=auction.trip_type,
-                load_type=auction.load_type,
-                client_id=company_id,
-                client_user_id=user_id,
-                rate=bid.rate,
-                pricing_basis=auction.pricing_basis,
-                vat_included=auction.vat_included,
-                payment_terms=auction.payment_terms,
-                pickup_date=auction.pickup_date,
-                priority_level=auction.priority_level,
-                customer_reference_number=auction.customer_reference_number if auction.customer_reference_number else None,
-                shipment_weight=auction.shipment_weight,
-                commodity=auction.commodity,
-                temperature_control=auction.temperature_control,
-                target_temperature_spec=auction.target_temperature_spec if auction.target_temperature_spec else None,
-                hazardous_materials=auction.hazardous_materials,
-                hazchem_classification=auction.hazchem_classification if auction.hazchem_classification else None,
-                under_bond=auction.under_bond,
-                rib_requirements=auction.rib_requirements,
-                packaging_quantity=auction.packaging_quantity,
-                packaging_type=auction.packaging_type,
-                distance=auction.distance,
-                rate_includes_fuel=auction.rate_includes_fuel,
-                rate_includes_driver=auction.rate_includes_driver,
-                rate_includes_maintenance=auction.rate_includes_maintenance,
-                rate_includes_insurance=auction.rate_includes_insurance,
-                rate_includes_tolls=auction.rate_includes_tolls,
-                rate_includes_border_charges=auction.rate_includes_border_charges,
-                rate_includes_empty_return=auction.rate_includes_empty_return,
-                rate_includes_waiting_time=auction.rate_includes_waiting_time,
-                rate_includes_loading_assistance=auction.rate_includes_loading_assistance,
-                rate_includes_offloading_assistance=auction.rate_includes_offloading_assistance,
-                minimum_weight_bracket_kg=auction.minimum_weight_bracket,
-                vehicle_tracking_required=auction.vehicle_tracking_required,
-                all_time_hour_control_room=auction.all_time_hour_control_room,
-                driver_mobile_phone=auction.driver_mobile_phone,
-                clean_compliant_equipment=auction.clean_compliant_equipment,
-                pallet_management=auction.pallet_management,
                 pod_submission_local=auction.pod_submission_local,
+
                 pod_submission_long_haul=auction.pod_submission_long_haul,
+
                 pod_submission_cross_border=auction.pod_submission_cross_border,
+
                 minimum_git_cover_amount=auction.minimum_git_cover_amount,
+
                 minimum_liability_cover_amount=auction.minimum_liability_cover_amount,
-                git_all_risk_required=auction.git_all_risk_required,
-                git_first_loss_required=auction.git_first_loss_required,
-                git_driver_fidelity_required=auction.git_driver_fidelity_required,
-                tarpaulin_compliance_required=auction.tarpaulin_compliance_required,
-                corner_plates_required=auction.corner_plates_required,
-                chock_blocks_required=auction.chock_blocks_required,
-                ratchets_belts_required=auction.ratchets_belts_required,
-                other_equipment_requirements=auction.other_equipment_requirements
+
+                git_all_risk_required=(
+                    auction.git_all_risk_required
+                    if auction.git_all_risk_required is not None
+                    else False
+                ),
+
+                git_first_loss_required=(
+                    auction.git_first_loss_required
+                    if auction.git_first_loss_required is not None
+                    else False
+                ),
+
+                git_driver_fidelity_required=(
+                    auction.git_driver_fidelity_required
+                    if auction.git_driver_fidelity_required is not None
+                    else False
+                ),
+
+                tarpaulin_compliance_required=(
+                    auction.tarpaulin_compliance_required
+                    if auction.tarpaulin_compliance_required is not None
+                    else False
+                ),
+
+                corner_plates_required=(
+                    auction.corner_plates_required
+                    if auction.corner_plates_required is not None
+                    else False
+                ),
+
+                chock_blocks_required=(
+                    auction.chock_blocks_required
+                    if auction.chock_blocks_required is not None
+                    else False
+                ),
+
+                ratchets_belts_required=(
+                    auction.ratchets_belts_required
+                    if auction.ratchets_belts_required is not None
+                    else False
+                ),
+
+                other_equipment_requirements=(
+                    auction.other_equipment_requirements
+                )
             )
+
             db.add(client_shipment)
-            db.flush() # Only flushes the high-level parent shipment row to allocate its auto-increment ID
 
-            for i, stop in enumerate(stops_facilities):
-                # Fallback to current system timestamp if arrival/departure times are not yet populated
-                db.add(
-                    Client_Shipment_Stop(
-                        shipment_id=client_shipment.id,
-                        stop_sequence=stop.stop_sequence,
-                        stop_type=stop.stop_type,
-                        address=stop.address,
-                        complete_address=stop.complete_address,
-                        city_province=stop.city_province,
-                        country=stop.country,
-                        region=stop.region,
-                        latitude=stop.latitude,
-                        longitude=stop.longitude,
-                        facility_name=stop.facility_name,
-                        scheduling_type=stop.scheduling_type,
-                        operating_start_time=stop.operating_start_time,
-                        operating_end_time=stop.operating_end_time,
-                        open_monday=stop.open_monday,
-                        open_tuesday=stop.open_tuesday,
-                        open_wednesday=stop.open_wednesday,
-                        open_thursday=stop.open_thursday,
-                        open_friday=stop.open_friday,
-                        open_saturday=stop.open_saturday,
-                        open_sunday=stop.open_sunday,
-                        contact_first_name=stop.contact_first_name,
-                        contact_last_name=stop.contact_last_name,
-                        contact_phone_number=stop.contact_phone_number,
-                        contact_email=stop.contact_email,
-                        reference_number=stop.reference_number,
-                        notes=stop.notes,
+            # IMPORTANT:
+            # Flush ONLY this shipment so we obtain its ID.
+            db.flush()
+
+            if client_shipment.id is None:
+                raise RuntimeError(
+                    "Client shipment was created but no database ID was returned."
+                )
+
+            client_shipment_id = client_shipment.id
+
+            # ----------------------------------------------------
+            # 11B. CREATE STOPS
+            # ----------------------------------------------------
+
+            for auction_stop in auction_stops:
+
+                shipment_stop = Client_Shipment_Stop(
+                    shipment_id=client_shipment_id,
+
+                    stop_sequence=auction_stop.stop_sequence,
+
+                    stop_type=auction_stop.stop_type,
+
+                    address=auction_stop.address,
+
+                    complete_address=auction_stop.complete_address,
+
+                    city_province=auction_stop.city_province,
+
+                    country=auction_stop.country,
+
+                    region=auction_stop.region,
+
+                    latitude=auction_stop.latitude,
+
+                    longitude=auction_stop.longitude,
+
+                    facility_name=auction_stop.facility_name,
+
+                    scheduling_type=auction_stop.scheduling_type,
+
+                    operating_start_time=auction_stop.operating_start_time,
+
+                    operating_end_time=auction_stop.operating_end_time,
+
+                    open_monday=(
+                        auction_stop.open_monday
+                        if auction_stop.open_monday is not None
+                        else True
+                    ),
+
+                    open_tuesday=(
+                        auction_stop.open_tuesday
+                        if auction_stop.open_tuesday is not None
+                        else True
+                    ),
+
+                    open_wednesday=(
+                        auction_stop.open_wednesday
+                        if auction_stop.open_wednesday is not None
+                        else True
+                    ),
+
+                    open_thursday=(
+                        auction_stop.open_thursday
+                        if auction_stop.open_thursday is not None
+                        else True
+                    ),
+
+                    open_friday=(
+                        auction_stop.open_friday
+                        if auction_stop.open_friday is not None
+                        else True
+                    ),
+
+                    open_saturday=(
+                        auction_stop.open_saturday
+                        if auction_stop.open_saturday is not None
+                        else False
+                    ),
+
+                    open_sunday=(
+                        auction_stop.open_sunday
+                        if auction_stop.open_sunday is not None
+                        else False
+                    ),
+
+                    contact_first_name=auction_stop.contact_first_name,
+
+                    contact_last_name=auction_stop.contact_last_name,
+
+                    contact_phone_number=auction_stop.contact_phone_number,
+
+                    contact_email=auction_stop.contact_email,
+
+                    reference_number=auction_stop.reference_number,
+
+                    arrival_time=None,
+
+                    departure_time=None,
+
+                    notes=auction_stop.notes
+                )
+
+                db.add(shipment_stop)
+
+            # Flush stops separately.
+            db.flush()
+
+            # ----------------------------------------------------
+            # 11C. CREATE VEHICLE REQUIREMENTS
+            # ----------------------------------------------------
+
+            for requirement in auction_requirements:
+
+                # These are NOT nullable in the destination table.
+                if requirement.configuration_type is None:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=(
+                            "Auction vehicle requirement is missing "
+                            "configuration_type."
+                        )
+                    )
+
+                if requirement.truck_type is None:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=(
+                            "Auction vehicle requirement is missing "
+                            "truck_type."
+                        )
+                    )
+
+                if requirement.equipment_type is None:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=(
+                            "Auction vehicle requirement is missing "
+                            "equipment_type."
+                        )
+                    )
+
+                shipment_requirement = Client_Shipment_Vehicle_Requirement(
+                    shipment_id=client_shipment_id,
+
+                    configuration_type=requirement.configuration_type,
+
+                    truck_type=requirement.truck_type,
+
+                    equipment_type=requirement.equipment_type,
+
+                    trailer_type=requirement.trailer_type,
+
+                    trailer_length=requirement.trailer_length,
+
+                    is_required=(
+                        requirement.is_required
+                        if requirement.is_required is not None
+                        else True
                     )
                 )
 
-            for config in configs:
-                db.add(
-                    Client_Shipment_Vehicle_Requirement(
-                        shipment_id=client_shipment.id,
-                        # Fallback applied here to finish the truncated function safely
-                        configuration_type=config.configuration_type,
-                        truck_type=config.truck_type,
-                        equipment_type=config.equipment_type,
-                        trailer_type=config.trailer_type,
-                        trailer_length=config.trailer_type,
-                        is_required=True,
-                    )
-                )
+                db.add(shipment_requirement)
 
-            # 3. Add Parent Carrier Shipment Row
-            safe_carrier_id = bid.carrier_id if bid.carrier_id is not None else "UNKNOWN"
-            carrier_shipment_reference = f"EX-{auction.id}-{safe_carrier_id}-{uuid.uuid4().hex[:8].upper()}"
+            db.flush()
+
+            # ----------------------------------------------------
+            # 11D. CREATE CARRIER SHIPMENT
+            # ----------------------------------------------------
+
+            carrier_reference = (
+                f"EX-{auction.id}-"
+                f"{bid.carrier_id}-"
+                f"{uuid.uuid4().hex[:8].upper()}"
+            )
 
             carrier_shipment = Carrier_Shipment(
                 is_subshipment=False,
+
                 auction_id=auction.id,
+
                 booking_source="Shipment Exchange",
-                shipment_reference=carrier_shipment_reference,
+
+                shipment_reference=carrier_reference,
+
                 booking_reference=auction.booking_reference,
+
                 trip_type=auction.trip_type,
+
                 load_type=auction.load_type,
+
                 carrier_id=bid.carrier_id,
+
                 carrier_user_id=bid.bidder_user_id,
+
                 rate=bid.rate,
-                service_fee=0,
+
+                service_fee=service_fee,
+
                 pricing_basis=auction.pricing_basis,
+
                 vat_included=auction.vat_included,
+
                 payment_terms=auction.payment_terms,
+
                 pickup_date=auction.pickup_date,
+
                 priority_level=auction.priority_level,
+
                 customer_reference_number=auction.customer_reference_number,
+
                 shipment_weight=auction.shipment_weight,
+
                 commodity=auction.commodity,
+
                 temperature_control=auction.temperature_control,
-                target_temperature_spec=auction.target_temperature_spec if auction.target_temperature_spec else None,
-                hazardous_materials=auction.hazardous_materials,
-                hazchem_classification=auction.hazchem_classification if auction.hazchem_classification else None,
-                under_bond=auction.under_bond,
-                rib_requirements=auction.rib_requirements,
+
+                target_temperature_spec=auction.target_temperature_spec,
+
+                hazardous_materials=(
+                    auction.hazardous_materials
+                    if auction.hazardous_materials is not None
+                    else False
+                ),
+
+                hazchem_classification=auction.hazchem_classification,
+
+                under_bond=(
+                    auction.under_bond
+                    if auction.under_bond is not None
+                    else False
+                ),
+
+                rib_requirements=(
+                    auction.rib_requirements
+                    if auction.rib_requirements is not None
+                    else False
+                ),
+
                 packaging_quantity=auction.packaging_quantity,
+
                 packaging_type=auction.packaging_type,
+
                 distance=auction.distance,
-                rate_includes_fuel=auction.rate_includes_fuel,
-                rate_includes_driver=auction.rate_includes_driver,
-                rate_includes_maintenance=auction.rate_includes_maintenance,
-                rate_includes_insurance=auction.rate_includes_insurance,
-                rate_includes_tolls=auction.rate_includes_tolls,
-                rate_includes_border_charges=auction.rate_includes_border_charges,
-                rate_includes_empty_return=auction.rate_includes_empty_return,
-                rate_includes_waiting_time=auction.rate_includes_waiting_time,
-                rate_includes_loading_assistance=auction.rate_includes_loading_assistance,
-                rate_includes_offloading_assistance=auction.rate_includes_offloading_assistance,
-                minimum_weight_bracket_kg=auction.minimum_weight_bracket,
-                vehicle_tracking_required=auction.vehicle_tracking_required,
-                all_time_hour_control_room=auction.all_time_hour_control_room,
-                driver_mobile_phone=auction.driver_mobile_phone,
-                clean_compliant_equipment=auction.clean_compliant_equipment,
-                pallet_management=auction.pallet_management,
+
+                estimated_transit_time=auction.estimated_transit_time,
+
+                eta_date=auction.eta_date,
+
+                eta_window=None,
+
+                route_preview_embed=auction.route_preview_embed,
+
+                polyline=auction.polyline,
+
+                status="Booked",
+
+                trip_status="Schedule",
+
+                vehicle_id=None,
+
+                driver_id=None,
+
+                rate_includes_fuel=(
+                    auction.rate_includes_fuel
+                    if auction.rate_includes_fuel is not None
+                    else False
+                ),
+
+                rate_includes_driver=(
+                    auction.rate_includes_driver
+                    if auction.rate_includes_driver is not None
+                    else False
+                ),
+
+                rate_includes_maintenance=(
+                    auction.rate_includes_maintenance
+                    if auction.rate_includes_maintenance is not None
+                    else False
+                ),
+
+                rate_includes_insurance=(
+                    auction.rate_includes_insurance
+                    if auction.rate_includes_insurance is not None
+                    else False
+                ),
+
+                rate_includes_tolls=(
+                    auction.rate_includes_tolls
+                    if auction.rate_includes_tolls is not None
+                    else False
+                ),
+
+                rate_includes_border_charges=(
+                    auction.rate_includes_border_charges
+                    if auction.rate_includes_border_charges is not None
+                    else False
+                ),
+
+                rate_includes_empty_return=(
+                    auction.rate_includes_empty_return
+                    if auction.rate_includes_empty_return is not None
+                    else False
+                ),
+
+                rate_includes_waiting_time=(
+                    auction.rate_includes_waiting_time
+                    if auction.rate_includes_waiting_time is not None
+                    else False
+                ),
+
+                rate_includes_loading_assistance=(
+                    auction.rate_includes_loading_assistance
+                    if auction.rate_includes_loading_assistance is not None
+                    else False
+                ),
+
+                rate_includes_offloading_assistance=(
+                    auction.rate_includes_offloading_assistance
+                    if auction.rate_includes_offloading_assistance is not None
+                    else False
+                ),
+
+                minimum_weight_bracket_kg=(
+                    auction.minimum_weight_bracket
+                    if auction.minimum_weight_bracket is not None
+                    else 0
+                ),
+
+                vehicle_tracking_required=(
+                    auction.vehicle_tracking_required
+                    if auction.vehicle_tracking_required is not None
+                    else False
+                ),
+
+                all_time_hour_control_room=(
+                    auction.all_time_hour_control_room
+                    if auction.all_time_hour_control_room is not None
+                    else False
+                ),
+
+                driver_mobile_phone=(
+                    auction.driver_mobile_phone
+                    if auction.driver_mobile_phone is not None
+                    else False
+                ),
+
+                clean_compliant_equipment=(
+                    auction.clean_compliant_equipment
+                    if auction.clean_compliant_equipment is not None
+                    else False
+                ),
+
+                pallet_management=(
+                    auction.pallet_management
+                    if auction.pallet_management is not None
+                    else False
+                ),
+
                 pod_submission_local=auction.pod_submission_local,
+
                 pod_submission_long_haul=auction.pod_submission_long_haul,
+
                 pod_submission_cross_border=auction.pod_submission_cross_border,
+
                 minimum_git_cover_amount=auction.minimum_git_cover_amount,
+
                 minimum_liability_cover_amount=auction.minimum_liability_cover_amount,
-                git_all_risk_required=auction.git_all_risk_required,
-                git_first_loss_required=auction.git_first_loss_required,
-                git_driver_fidelity_required=auction.git_driver_fidelity_required,
-                tarpaulin_compliance_required=auction.tarpaulin_compliance_required,
-                corner_plates_required=auction.corner_plates_required,
-                chock_blocks_required=auction.chock_blocks_required,
-                ratchets_belts_required=auction.ratchets_belts_required,
-                other_equipment_requirements=auction.other_equipment_requirements
+
+                git_all_risk_required=(
+                    auction.git_all_risk_required
+                    if auction.git_all_risk_required is not None
+                    else False
+                ),
+
+                git_first_loss_required=(
+                    auction.git_first_loss_required
+                    if auction.git_first_loss_required is not None
+                    else False
+                ),
+
+                git_driver_fidelity_required=(
+                    auction.git_driver_fidelity_required
+                    if auction.git_driver_fidelity_required is not None
+                    else False
+                ),
+
+                tarpaulin_compliance_required=(
+                    auction.tarpaulin_compliance_required
+                    if auction.tarpaulin_compliance_required is not None
+                    else False
+                ),
+
+                corner_plates_required=(
+                    auction.corner_plates_required
+                    if auction.corner_plates_required is not None
+                    else False
+                ),
+
+                chock_blocks_required=(
+                    auction.chock_blocks_required
+                    if auction.chock_blocks_required is not None
+                    else False
+                ),
+
+                ratchets_belts_required=(
+                    auction.ratchets_belts_required
+                    if auction.ratchets_belts_required is not None
+                    else False
+                ),
+
+                other_equipment_requirements=(
+                    auction.other_equipment_requirements
+                )
             )
 
             db.add(carrier_shipment)
+
             db.flush()
 
+            if carrier_shipment.id is None:
+                raise RuntimeError(
+                    "Carrier shipment was created but no database ID was returned."
+                )
+
+            carrier_shipment_id = carrier_shipment.id
+
+            # ----------------------------------------------------
+            # 11E. LINK CREATED RECORDS
+            # ----------------------------------------------------
+
             created_shipments.append({
-                "client_shipment_id": client_shipment.id,
-                "carrier_shipment_id": carrier_shipment.id
+                "load_number": load_number,
+                "client_shipment_id": client_shipment_id,
+                "carrier_shipment_id": carrier_shipment_id
             })
 
-        auction.slots_remaining -= number_to_assign
+        # ========================================================
+        # 12. UPDATE AUCTION
+        # ========================================================
+
+        auction.slots_remaining = (
+            int(auction.slots_remaining) - number_to_assign
+        )
 
         if auction.slots_remaining <= 0:
             auction.slots_remaining = 0
             auction.status = "Closed"
 
-        bid.status = "Awarded"
+        # ========================================================
+        # 13. UPDATE BID
+        # ========================================================
+
+        bid.status = "Accepted"
+
+        # ========================================================
+        # 14. FINAL COMMIT
+        # ========================================================
 
         db.commit()
 
+        # ========================================================
+        # 15. RETURN SUCCESS
+        # ========================================================
+
         return {
             "message": "Bid awarded successfully",
+
             "auction_id": auction.id,
+
             "bid_id": bid.id,
+
             "carrier_id": bid.carrier_id,
+
             "requested_loads": bid.number_of_loads,
+
             "assigned_loads": number_to_assign,
+
             "slots_remaining": auction.slots_remaining,
+
             "auction_status": auction.status,
-            "rate": bid.rate,
-            "combined_rate": (bid.rate * number_to_assign),
+
+            "bid_status": bid.status,
+
+            "rate": float(bid.rate),
+
+            "service_fee": float(service_fee),
+
+            "combined_rate": float(
+                bid.rate * number_to_assign
+            ),
+
+            "created_shipments": created_shipments
         }
 
     except HTTPException:
@@ -461,9 +784,26 @@ def accept_auction_bid(
         raise
 
     except Exception as e:
+
         db.rollback()
-        print(f"ERROR ACCEPTING AUCTION BID: {type(e).__name__}: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+
+        import traceback
+
+        print("=" * 100)
+        print("ERROR ACCEPTING AUCTION BID")
+        print(f"ERROR TYPE: {type(e).__name__}")
+        print(f"ERROR: {str(e)}")
+        print("FULL TRACEBACK:")
+        traceback.print_exc()
+        print("=" * 100)
+
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"Failed to accept auction bid: "
+                f"{type(e).__name__}: {str(e)}"
+            )
+        )
 
 
 def place_tender_bid(

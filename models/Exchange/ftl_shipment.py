@@ -61,7 +61,6 @@ class Client_Shipment_Auction(Base):
     # ============================================================
     # OPERATIONAL REQUIREMENTS
     # ============================================================
-    minimum_weight_bracket = Column(Integer)
     vehicle_tracking_required = Column(Boolean, default=False, nullable=False)
     all_time_hour_control_room = Column(Boolean, default=False, nullable=False)
     driver_mobile_phone = Column(Boolean, default=False, nullable=False)

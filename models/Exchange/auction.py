@@ -88,7 +88,7 @@ class Shipment_Auction_Bid(Base):
     number_of_loads = Column(Integer)
     lead_time = Column(String, nullable=True)
     bid_notes = Column(String, nullable=True)
-    status = Column(Enum("Submitted", "Leading", "Outbidded", "Under-Review","Accepted", "Rejected", default="Submitted"))
+    status = Column(Enum("Submitted", "Leading", "Outbidded", "Under-Review","Awarded", "Rejected", default="Submitted"))
     submitted_at = Column(DateTime, server_default=func.now())
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
