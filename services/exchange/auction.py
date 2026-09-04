@@ -664,6 +664,8 @@ def place_auction_bid(
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
+from sqlalchemy import nullslast # Ensure this is imported at the top of your file
+
 def accept_auction_bid(
     auction_id: int,
     bid_id: int,
@@ -717,7 +719,7 @@ def accept_auction_bid(
         stops_facilities = db.query(Client_Shipment_Auction_Stop).filter(
             Client_Shipment_Auction_Stop.auction_id == auction.id
         ).all()
-        stops_facilities.sort(key=lambda s: s.stop_sequence if s.stop_sequence is not None else float('inf'))
+        
 
         configs = db.query(Client_Shipment_Auction_Vehicle_Requirement).filter(
             Client_Shipment_Auction_Vehicle_Requirement.auction_id == auction.id
@@ -798,10 +800,6 @@ def accept_auction_bid(
 
             for i, stop in enumerate(stops_facilities):
                 # Fallback to current system timestamp if arrival/departure times are not yet populated
-                safe_arrival = stop.arrival_time if stop.arrival_time is not None else datetime.min
-                safe_departure = stop.departure_time if stop.departure_time is not None else datetime.min
-                safe_sequence = stop.stop_sequence if stop.stop_sequence is not None else i
-
                 db.add(
                     Client_Shipment_Stop(
                         shipment_id=client_shipment.id,
@@ -831,9 +829,6 @@ def accept_auction_bid(
                         contact_email=stop.contact_email,
                         reference_number=stop.reference_number,
                         notes=stop.notes,
-                        # Force concrete non-null values here to satisfy SQLAlchemy sorting hooks:
-                        arrival_time=safe_arrival,
-                        departure_time=safe_departure
                     )
                 )
 
