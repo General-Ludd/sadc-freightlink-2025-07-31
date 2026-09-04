@@ -846,8 +846,6 @@ def accept_auction_bid(
                         is_required=getattr(config, 'is_required', False)
                     )
                 )
-            
-            created_shipments.append(client_shipment)
 
             # 3. Add Parent Carrier Shipment Row
             safe_carrier_id = bid.carrier_id if bid.carrier_id is not None else "UNKNOWN"
