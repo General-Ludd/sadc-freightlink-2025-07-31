@@ -913,7 +913,7 @@ def accept_auction_bid(
 
         auction.slots_remaining -= number_to_assign
 
-        if auction.slots_remaining <= 0:
+        if auction.slots_remaining == 0:
             auction.slots_remaining = 0
             auction.status = "Closed"
 
