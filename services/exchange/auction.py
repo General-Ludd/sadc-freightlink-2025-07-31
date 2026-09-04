@@ -694,96 +694,51 @@ def accept_auction_bid(
             # 11B. CREATE STOPS
             # ----------------------------------------------------
 
-            for auction_stop in auction_stops:
+            for stop in auction_stops:
 
                 shipment_stop = Client_Shipment_Stop(
-                    shipment_id=client_shipment_id,
+                    shipment_id=client_shipment.id,
 
-                    stop_sequence=auction_stop.stop_sequence,
+                    stop_sequence=stop.stop_sequence,
+                    stop_type=stop.stop_type,
 
-                    stop_type=auction_stop.stop_type,
+                    address=stop.address,
+                    complete_address=stop.complete_address,
+                    city_province=stop.city_province,
+                    country=stop.country,
+                    region=stop.region,
 
-                    address=auction_stop.address,
+                    latitude=stop.latitude,
+                    longitude=stop.longitude,
 
-                    complete_address=auction_stop.complete_address,
+                    facility_name=stop.facility_name,
+                    scheduling_type=stop.scheduling_type,
 
-                    city_province=auction_stop.city_province,
+                    operating_start_time=stop.operating_start_time,
+                    operating_end_time=stop.operating_end_time,
 
-                    country=auction_stop.country,
+                    open_monday=stop.open_monday,
+                    open_tuesday=stop.open_tuesday,
+                    open_wednesday=stop.open_wednesday,
+                    open_thursday=stop.open_thursday,
+                    open_friday=stop.open_friday,
+                    open_saturday=stop.open_saturday,
+                    open_sunday=stop.open_sunday,
 
-                    region=auction_stop.region,
+                    contact_first_name=stop.contact_first_name,
+                    contact_last_name=stop.contact_last_name,
+                    contact_phone_number=stop.contact_phone_number,
+                    contact_email=stop.contact_email,
 
-                    latitude=auction_stop.latitude,
+                    reference_number=stop.reference_number,
 
-                    longitude=auction_stop.longitude,
-
-                    facility_name=auction_stop.facility_name,
-
-                    scheduling_type=auction_stop.scheduling_type,
-
-                    operating_start_time=auction_stop.operating_start_time,
-
-                    operating_end_time=auction_stop.operating_end_time,
-
-                    open_monday=(
-                        auction_stop.open_monday
-                        if auction_stop.open_monday is not None
-                        else True
-                    ),
-
-                    open_tuesday=(
-                        auction_stop.open_tuesday
-                        if auction_stop.open_tuesday is not None
-                        else True
-                    ),
-
-                    open_wednesday=(
-                        auction_stop.open_wednesday
-                        if auction_stop.open_wednesday is not None
-                        else True
-                    ),
-
-                    open_thursday=(
-                        auction_stop.open_thursday
-                        if auction_stop.open_thursday is not None
-                        else True
-                    ),
-
-                    open_friday=(
-                        auction_stop.open_friday
-                        if auction_stop.open_friday is not None
-                        else True
-                    ),
-
-                    open_saturday=(
-                        auction_stop.open_saturday
-                        if auction_stop.open_saturday is not None
-                        else False
-                    ),
-
-                    open_sunday=(
-                        auction_stop.open_sunday
-                        if auction_stop.open_sunday is not None
-                        else False
-                    ),
-
-                    contact_first_name=auction_stop.contact_first_name,
-
-                    contact_last_name=auction_stop.contact_last_name,
-
-                    contact_phone_number=auction_stop.contact_phone_number,
-
-                    contact_email=auction_stop.contact_email,
-
-                    reference_number=auction_stop.reference_number,
-
+                    # These MUST remain None until the shipment actually
+                    # reaches the relevant tracking event.
                     arrival_time=None,
-
                     departure_time=None,
 
-                    notes=auction_stop.notes
+                    notes=stop.notes,
                 )
-
                 db.add(shipment_stop)
 
             # Flush stops separately.
