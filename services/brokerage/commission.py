@@ -17,9 +17,9 @@ def calculate_commission(
     commission rules stored in the database.
     """
 
-    if shipment_rate is None:
+    if shipment_rate is 0:
         raise CommissionCalculationError(
-            "Shipment rate is required."
+            f"Shipment rate is required to be greater then {shipment_rate}."
         )
 
     shipment_rate = Decimal(str(shipment_rate))
@@ -36,7 +36,7 @@ def calculate_commission(
             CommissionRule.active == True,
             CommissionRule.min_rate <= shipment_rate,
             (
-                (CommissionRule.max_rate.is_(None))
+                (CommissionRule.max_rate.is_(0))
                 | (CommissionRule.max_rate > shipment_rate)
             ),
         )
