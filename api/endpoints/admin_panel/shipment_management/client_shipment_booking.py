@@ -872,8 +872,8 @@ def admin_fetch_client_routes(
     try:
 
         shipments = (
-            db.query(FTL_SHIPMENT)
-            .filter(FTL_SHIPMENT.shipper_company_id == client_id)
+            db.query(Client_Shipment)
+            .filter(Client_Shipment.client_id == client_id)
             .order_by(FTL_SHIPMENT.created_at.desc())   # Latest first
             .all()
         )

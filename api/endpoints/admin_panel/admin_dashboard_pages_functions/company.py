@@ -7,7 +7,7 @@ from models.carrier import Carrier
 from models.user import CarrierUser
 from models.vehicle import Vehicle, Trailer
 from models.brokerage.finance import FinancialAccounts, Shipment_Invoice, Interim_Invoice, Invoices, CarrierFinancialAccounts, Load_Invoice, Lane_Interim_Invoice, Lane_Invoice
-from models.brokerage.assigned_shipments import Assigned_Spot_Ftl_Shipments, Assigned_Power_Shipments
+from models.brokerage.assigned_shipments import Carrier_Shipment
 from models.brokerage.assigned_lanes import Assigned_Ftl_Lanes
 from utils.auth import get_current_user
 from utils.administration_auth import verify_admin_password, get_current_admin
@@ -36,9 +36,8 @@ def admin_get_carrier_company_information(
         users = db.query(CarrierUser).filter(CarrierUser.company_id == company.id).all()
         vehicles = db.query(Vehicle).filter(Vehicle.owner_id == company.id).all()
         trailers = db.query(Trailer).filter(Trailer.owner_id == company.id).all()
-        ftl_shipments = db.query(Assigned_Spot_Ftl_Shipments).filter(Assigned_Spot_Ftl_Shipments.carrier_id == company.id).all()
-        power_shipments = db.query(Assigned_Power_Shipments).filter(Assigned_Power_Shipments.carrier_id == company.id).all()
-        ftl_lanes = db.query(Assigned_Ftl_Lanes).filter(Assigned_Ftl_Lanes.carrier_id == company.id).all()
+        ftl_shipments = db.query(Carrier_Shipment).filter(Carrier_Shipment.carrier_id == company.id).all()
+        ftl_lanes = db.query(Carrier_Lane).filter(Carrier_Lane.carrier_id == company.id).all()
 
         return {
             "company_information": {

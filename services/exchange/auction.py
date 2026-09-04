@@ -3,7 +3,9 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from models.spot_bookings.shipment_facility import ShipmentFacility
 from models.Exchange.dedicated_ftl_lane import FTL_Lane_Exchange
-from models.Exchange.ftl_shipment import FTL_SHIPMENT_EXCHANGE, Client_Shipment_Auction
+from models.Exchange.ftl_shipment import FTL_SHIPMENT_EXCHANGE, Client_Shipment_Auction, Client_Shipment_Auction_Stop, Client_Shipment_Auction_Vehicle_Requirement
+from models.spot_bookings.ftl_shipment import Client_Shipment, Client_Shipment_Stop, Client_Shipment_Vehicle_Requirement
+from models.brokerage.assigned_shipments import Carrier_Shipment
 from models.Exchange.auction import Exchange_FTL_Lane_Bid, Exchange_FTL_Shipment_Bid, Exchange_POWER_Shipment_Bid, Shipment_Auction_Bid
 from models.Exchange.power_shipment import POWER_SHIPMENT_EXCHANGE
 from models.brokerage.assigned_shipments import Carrier_Shipment
@@ -829,7 +831,7 @@ def accept_auction_bid(
 
             for config in configs:
                 db.add(
-                    Lane_Vehicle_Config(
+                    Client_Shipment_Vehicle_Requirement(
                         shipment_id=client_shipment.id,
                         configuration_type=config.configuration_type,
                         truck_type=config.truck_type,
