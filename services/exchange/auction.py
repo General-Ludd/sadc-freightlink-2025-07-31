@@ -693,7 +693,54 @@ def accept_auction_bid(
             # ----------------------------------------------------
             # 11B. CREATE STOPS
             # ----------------------------------------------------
+            for stop in auction_stops:
 
+                shipment_stop = Client_Shipment_Stop(
+                    shipment_id=client_shipment.id,
+
+                    stop_sequence=stop.stop_sequence,
+                    stop_type=stop.stop_type,
+
+                    address=stop.address,
+                    complete_address=stop.complete_address,
+                    city_province=stop.city_province,
+                    country=stop.country,
+                    region=stop.region,
+
+                    latitude=stop.latitude,
+                    longitude=stop.longitude,
+
+                    facility_name=stop.facility_name,
+                    scheduling_type=stop.scheduling_type,
+
+                    operating_start_time=stop.operating_start_time,
+                    operating_end_time=stop.operating_end_time,
+
+                    open_monday=stop.open_monday,
+                    open_tuesday=stop.open_tuesday,
+                    open_wednesday=stop.open_wednesday,
+                    open_thursday=stop.open_thursday,
+                    open_friday=stop.open_friday,
+                    open_saturday=stop.open_saturday,
+                    open_sunday=stop.open_sunday,
+
+                    contact_first_name=stop.contact_first_name,
+                    contact_last_name=stop.contact_last_name,
+                    contact_phone_number=stop.contact_phone_number,
+                    contact_email=stop.contact_email,
+
+                    reference_number=stop.reference_number,
+
+                    # These MUST remain None until the shipment actually
+                    # reaches the relevant tracking event.
+                    arrival_time=None,
+                    departure_time=None,
+
+                    notes=stop.notes,
+                )
+
+                db.add(shipment_stop)
+                db.flush()
             # ----------------------------------------------------
             # 11C. CREATE VEHICLE REQUIREMENTS
             # ----------------------------------------------------
@@ -741,20 +788,12 @@ def accept_auction_bid(
 
                     trailer_length=requirement.trailer_length,
                 )
-
                 db.add(shipment_requirement)
-
-            db.flush()
+                db.flush()
 
             # ----------------------------------------------------
             # 11D. CREATE CARRIER SHIPMENT
             # ----------------------------------------------------
-
-            carrier_reference = (
-                f"EX-{auction.id}-"
-                f"{bid.carrier_id}-"
-                f"{uuid.uuid4().hex[:8].upper()}"
-            )
 
             carrier_shipment = Carrier_Shipment(
                 is_subshipment=False,
@@ -763,7 +802,7 @@ def accept_auction_bid(
 
                 booking_source="Shipment Exchange",
 
-                shipment_reference=carrier_reference,
+                shipment_reference=auction.id,
 
                 booking_reference=auction.booking_reference,
 
@@ -995,9 +1034,7 @@ def accept_auction_bid(
                     auction.other_equipment_requirements
                 )
             )
-
             db.add(carrier_shipment)
-
             db.flush()
 
             if carrier_shipment.id is None:
