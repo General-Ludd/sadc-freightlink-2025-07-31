@@ -41,7 +41,7 @@ def calculate_commission(
             )
         )
         .order_by(
-            CommissionRule.min_rate.desc()
+            nullslast(CommissionRule.min_rate.desc()) # Force NULLs to the bottom
         )
         .first()
     )
