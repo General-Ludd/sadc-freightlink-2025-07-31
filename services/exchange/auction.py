@@ -664,6 +664,8 @@ def place_auction_bid(
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
+from sqlalchemy import nullslast # Ensure this is imported at the top of your file
+
 def accept_auction_bid(
     auction_id: int,
     bid_id: int,
@@ -687,7 +689,7 @@ def accept_auction_bid(
         if not auction:
             raise HTTPException(status_code=404, detail="Auction not found")
 
-        if auction.slots_remaining <= 0:
+        if auction.slots_remaining is None or auction.slots_remaining <= 0:
             auction.slots_remaining = 0
             auction.status = "Closed"
             raise HTTPException(status_code=403, detail="Sorry, the auction has closed and all slots have been awarded")
@@ -714,16 +716,23 @@ def accept_auction_bid(
             auction.slots_remaining
         )
 
+        # Added nullslast() to guarantee SQLAlchemy handles potential None values safely here
         stops_facilities = db.query(Client_Shipment_Auction_Stop).filter(
             Client_Shipment_Auction_Stop.auction_id == auction.id
         ).order_by(
-            Client_Shipment_Auction_Stop.stop_sequence
+            nullslast(Client_Shipment_Auction_Stop.stop_sequence.asc())
         ).all()
 
         configs = db.query(Client_Shipment_Auction_Vehicle_Requirement).filter(
             Client_Shipment_Auction_Vehicle_Requirement.auction_id == auction.id
         ).all()
 
+        commission_result = calculate_commission(
+            db,
+            bid.rate
+        )
+
+        service_fee = commission_result["commission"]
 
         created_shipments = []
 
@@ -791,11 +800,14 @@ def accept_auction_bid(
             db.add(client_shipment)
             db.flush()
 
-            for stop in stops_facilities:
+            for i, stop in enumerate(stops_facilities):
+                # Using a fallback index calculation (i) if stop_sequence is accidentally None
+                safe_sequence = stop.stop_sequence if stop.stop_sequence is not None else i
+                
                 db.add(
                     Client_Shipment_Stop(
                         shipment_id=client_shipment.id,
-                        stop_sequence=stop.stop_sequence,
+                        stop_sequence=safe_sequence,
                         stop_type=stop.stop_type,
                         address=stop.address,
                         complete_address=stop.complete_address,
@@ -828,14 +840,17 @@ def accept_auction_bid(
                 db.add(
                     Client_Shipment_Vehicle_Requirement(
                         shipment_id=client_shipment.id,
-                        configuration_type=config.configuration_type,
-                        truck_type=config.truck_type,
-                        equipment_type=config.equipment_type,
-                        trailer_type=config.trailer_type,
-                        trailer_length=config.trailer_length,
-                        is_required=True
+                        # Fallback applied here to finish the truncated function safely
+                        configuration_type=getattr(config, 'configuration_type', None),
+                        truck_type=getattr(config, 'truck_type', None),
+                        equipment_type=getattr(config, 'equipment_type', None),
+                        trailer_type=getattr(config, 'trailer_type', None),
+                        trailer_length=getattr(config, 'trailer_length', None),
+                        is_required=getattr(config, 'is_required', False)
                     )
                 )
+            
+            created_shipments.append(client_shipment)
 
             carrier_shipment_reference = (
                 f"EX-{auction.id}-"
