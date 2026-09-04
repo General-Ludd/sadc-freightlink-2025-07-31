@@ -666,6 +666,7 @@ def place_auction_bid(
 
 from sqlalchemy import nullslast # Ensure this is imported at the top of your file
 
+
 def accept_auction_bid(
     auction_id: int,
     bid_id: int,
@@ -713,11 +714,11 @@ def accept_auction_bid(
             auction.slots_remaining
         )
 
+        # 1. Fetch raw underlying data properties instead of handling relationship links
         stops_facilities = db.query(Client_Shipment_Auction_Stop).filter(
             Client_Shipment_Auction_Stop.auction_id == auction.id
         ).all()
         
-
         configs = db.query(Client_Shipment_Auction_Vehicle_Requirement).filter(
             Client_Shipment_Auction_Vehicle_Requirement.auction_id == auction.id
         ).all()
@@ -726,13 +727,15 @@ def accept_auction_bid(
             db,
             bid.rate
         )
-
         service_fee = commission_result["commission"]
 
-        created_shipments = []
+        # Raw storage lists to hold data structures for direct table copying
+        stops_payload = []
+        requirements_payload = []
 
         for assignment_number in range(number_to_assign):
 
+            # 2. Add Parent Client Shipment Row
             client_shipment = Client_Shipment(
                 is_subshipment=False,
                 auction_id=auction.id,
@@ -791,9 +794,8 @@ def accept_auction_bid(
                 ratchets_belts_required=auction.ratchets_belts_required,
                 other_equipment_requirements=auction.other_equipment_requirements
             )
-
             db.add(client_shipment)
-            db.flush()
+            db.flush() # Only flushes the high-level parent shipment row to allocate its auto-increment ID
 
             for i, stop in enumerate(stops_facilities):
                 # Fallback to current system timestamp if arrival/departure times are not yet populated
@@ -845,13 +847,9 @@ def accept_auction_bid(
             
             created_shipments.append(client_shipment)
 
-            # Defensive string builds for IDs that might resolve as None
+            # 3. Add Parent Carrier Shipment Row
             safe_carrier_id = bid.carrier_id if bid.carrier_id is not None else "UNKNOWN"
-            carrier_shipment_reference = (
-                f"EX-{auction.id}-"
-                f"{safe_carrier_id}-"
-                f"{uuid.uuid4().hex[:8].upper()}"
-            )
+            carrier_shipment_reference = f"EX-{auction.id}-{safe_carrier_id}-{uuid.uuid4().hex[:8].upper()}"
 
             carrier_shipment = Carrier_Shipment(
                 is_subshipment=False,
