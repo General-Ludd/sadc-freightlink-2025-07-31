@@ -181,7 +181,404 @@ def place_auction_bid(
 from sqlalchemy import nullslast # Ensure this is imported at the top of your file
 
 
-sistance=(
+from decimal import Decimal
+import uuid
+
+from fastapi import HTTPException
+from sqlalchemy.orm import Session
+
+# Make sure these are imported from your actual model locations
+# from models.client_shipment import Client_Shipment
+# from models.client_shipment_stop import Client_Shipment_Stop
+# from models.client_shipment_vehicle_requirement import Client_Shipment_Vehicle_Requirement
+# from models.carrier_shipment import Carrier_Shipment
+# from models.auction import Client_Shipment_Auction
+# from models.auction_stop import Client_Shipment_Auction_Stop
+# from models.auction_vehicle_requirement import Client_Shipment_Auction_Vehicle_Requirement
+# from models.auction_bid import Shipment_Auction_Bid
+# from services.commission import calculate_commission
+
+
+def accept_auction_bid(
+    auction_id: int,
+    bid_id: int,
+    db: Session,
+    current_user: dict
+):
+    """
+    Accept a carrier bid on a shipment auction.
+
+    Creates:
+        - Client Shipment(s)
+        - Client Shipment Stop(s)
+        - Client Shipment Vehicle Requirement(s)
+        - Carrier Shipment(s)
+
+    All records are created inside one database transaction.
+    If anything fails, the entire transaction is rolled back.
+    """
+
+    # ============================================================
+    # 1. AUTHENTICATION
+    # ============================================================
+
+    company_id = current_user.get("company_id")
+    user_id = current_user.get("id")
+
+    if company_id is None:
+        raise HTTPException(
+            status_code=400,
+            detail="User does not belong to a company"
+        )
+
+    if user_id is None:
+        raise HTTPException(
+            status_code=400,
+            detail="User ID missing from authentication token"
+        )
+
+    try:
+
+        # ========================================================
+        # 2. LOAD AUCTION
+        # ========================================================
+
+        auction = (
+            db.query(Client_Shipment_Auction)
+            .filter(
+                Client_Shipment_Auction.id == auction_id
+            )
+            .first()
+        )
+
+        if auction is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Auction {auction_id} not found"
+            )
+
+        # ========================================================
+        # 3. VALIDATE AUCTION
+        # ========================================================
+
+        if auction.slots_remaining is None:
+            raise HTTPException(
+                status_code=500,
+                detail=(
+                    f"Auction {auction.id} has no slots_remaining value. "
+                    "The auction record is invalid."
+                )
+            )
+
+        if auction.slots_remaining <= 0:
+            auction.slots_remaining = 0
+            auction.status = "Closed"
+
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    "Sorry, the auction has closed and all available "
+                    "slots have already been awarded."
+                )
+            )
+
+        # ========================================================
+        # 4. LOAD BID
+        # ========================================================
+
+        bid = (
+            db.query(Shipment_Auction_Bid)
+            .filter(
+                Shipment_Auction_Bid.id == bid_id,
+                Shipment_Auction_Bid.auction_id == auction.id
+            )
+            .first()
+        )
+
+        if bid is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Bid {bid_id} not found for auction {auction_id}"
+            )
+
+        # ========================================================
+        # 5. VALIDATE BID
+        # ========================================================
+
+        if bid.status == "Rejected":
+            raise HTTPException(
+                status_code=403,
+                detail="This bid has already been rejected."
+            )
+
+        if bid.status == "Outbidded":
+            raise HTTPException(
+                status_code=403,
+                detail="This bid has been outbidded and cannot be accepted."
+            )
+
+        if bid.status == "Under-Review":
+            raise HTTPException(
+                status_code=403,
+                detail="This bid is currently under review."
+            )
+
+        if bid.rate is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot accept bid because the bid rate is missing."
+            )
+
+        if bid.number_of_loads is None:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Cannot accept bid because the number of loads "
+                    "requested by the carrier is missing."
+                )
+            )
+
+        if bid.number_of_loads <= 0:
+            raise HTTPException(
+                status_code=400,
+                detail="Bid number_of_loads must be greater than zero."
+            )
+
+        if bid.carrier_id is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot accept bid because carrier_id is missing."
+            )
+
+        # ========================================================
+        # 6. DETERMINE NUMBER OF LOADS
+        # ========================================================
+
+        number_to_assign = min(
+            int(bid.number_of_loads),
+            int(auction.slots_remaining)
+        )
+
+        if number_to_assign <= 0:
+            raise HTTPException(
+                status_code=400,
+                detail="No loads are available to assign."
+            )
+
+        # ========================================================
+        # 7. LOAD AUCTION STOPS
+        # ========================================================
+
+        auction_stops = (
+            db.query(Client_Shipment_Auction_Stop)
+            .filter(
+                Client_Shipment_Auction_Stop.auction_id == auction.id
+            )
+            .order_by(
+                Client_Shipment_Auction_Stop.stop_sequence.asc()
+            )
+            .all()
+        )
+
+        if not auction_stops:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Auction {auction.id} has no routing stops. "
+                    "At least one origin and destination are required."
+                )
+            )
+
+        # ========================================================
+        # 8. LOAD VEHICLE REQUIREMENTS
+        # ========================================================
+
+        auction_requirements = (
+            db.query(Client_Shipment_Auction_Vehicle_Requirement)
+            .filter(
+                Client_Shipment_Auction_Vehicle_Requirement.auction_id
+                == auction.id
+            )
+            .all()
+        )
+
+        # ========================================================
+        # 9. COMMISSION
+        # ========================================================
+
+        commission_result = calculate_commission(
+            db=db,
+            shipment_rate=Decimal(str(bid.rate))
+        )
+
+        if commission_result is None:
+            raise HTTPException(
+                status_code=500,
+                detail="Commission calculation returned no result."
+            )
+
+        service_fee = commission_result.get("commission")
+
+        if service_fee is None:
+            raise HTTPException(
+                status_code=500,
+                detail="Commission calculation returned no commission value."
+            )
+
+        # ========================================================
+        # 10. TRACK CREATED SHIPMENTS
+        # ========================================================
+
+        created_shipments = []
+
+        # ========================================================
+        # 11. CREATE EACH AWARDED LOAD
+        # ========================================================
+
+        for load_number in range(1, number_to_assign + 1):
+
+            # ----------------------------------------------------
+            # 11A. CREATE CLIENT SHIPMENT
+            # ----------------------------------------------------
+
+            client_shipment = Client_Shipment(
+                is_subshipment=False,
+
+                auction_id=auction.id,
+
+                booking_source="Shipment Exchange",
+
+                shipment_reference=auction.shipment_reference,
+
+                booking_reference=auction.booking_reference,
+
+                trip_type=auction.trip_type,
+
+                load_type=auction.load_type,
+
+                client_id=auction.client_id,
+
+                client_user_id=auction.client_user_id,
+
+                rate=bid.rate,
+
+                pricing_basis=auction.pricing_basis,
+
+                vat_included=auction.vat_included,
+
+                payment_terms=auction.payment_terms,
+
+                pickup_date=auction.pickup_date,
+
+                priority_level=auction.priority_level,
+
+                customer_reference_number=auction.customer_reference_number,
+
+                shipment_weight=auction.shipment_weight,
+
+                commodity=auction.commodity,
+
+                temperature_control=auction.temperature_control,
+
+                target_temperature_spec=auction.target_temperature_spec,
+
+                hazardous_materials=(
+                    auction.hazardous_materials
+                    if auction.hazardous_materials is not None
+                    else False
+                ),
+
+                hazchem_classification=auction.hazchem_classification,
+
+                under_bond=(
+                    auction.under_bond
+                    if auction.under_bond is not None
+                    else False
+                ),
+
+                rib_requirements=(
+                    auction.rib_requirements
+                    if auction.rib_requirements is not None
+                    else False
+                ),
+
+                packaging_quantity=auction.packaging_quantity,
+
+                packaging_type=auction.packaging_type,
+
+                distance=auction.distance,
+
+                estimated_transit_time=auction.estimated_transit_time,
+
+                eta_date=auction.eta_date,
+
+                eta_window=None,
+
+                route_preview_embed=auction.route_preview_embed,
+
+                polyline=auction.polyline,
+
+                status="Booked",
+
+                trip_status="Schedule",
+
+                carrier_id=bid.carrier_id,
+
+                rate_includes_fuel=(
+                    auction.rate_includes_fuel
+                    if auction.rate_includes_fuel is not None
+                    else False
+                ),
+
+                rate_includes_driver=(
+                    auction.rate_includes_driver
+                    if auction.rate_includes_driver is not None
+                    else False
+                ),
+
+                rate_includes_maintenance=(
+                    auction.rate_includes_maintenance
+                    if auction.rate_includes_maintenance is not None
+                    else False
+                ),
+
+                rate_includes_insurance=(
+                    auction.rate_includes_insurance
+                    if auction.rate_includes_insurance is not None
+                    else False
+                ),
+
+                rate_includes_tolls=(
+                    auction.rate_includes_tolls
+                    if auction.rate_includes_tolls is not None
+                    else False
+                ),
+
+                rate_includes_border_charges=(
+                    auction.rate_includes_border_charges
+                    if auction.rate_includes_border_charges is not None
+                    else False
+                ),
+
+                rate_includes_empty_return=(
+                    auction.rate_includes_empty_return
+                    if auction.rate_includes_empty_return is not None
+                    else False
+                ),
+
+                rate_includes_waiting_time=(
+                    auction.rate_includes_waiting_time
+                    if auction.rate_includes_waiting_time is not None
+                    else False
+                ),
+
+                rate_includes_loading_assistance=(
+                    auction.rate_includes_loading_assistance
+                    if auction.rate_includes_loading_assistance is not None
+                    else False
+                ),
+
+                rate_includes_offloading_assistance=(
                     auction.rate_includes_offloading_assistance
                     if auction.rate_includes_offloading_assistance is not None
                     else False
