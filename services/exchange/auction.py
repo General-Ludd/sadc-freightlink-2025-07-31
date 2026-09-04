@@ -801,9 +801,11 @@ def accept_auction_bid(
             db.flush()
 
             for i, stop in enumerate(stops_facilities):
-                # Using a fallback index calculation (i) if stop_sequence is accidentally None
+                # Fallback to current system timestamp if arrival/departure times are not yet populated
+                safe_arrival = stop.arrival_time if stop.arrival_time is not None else datetime.min
+                safe_departure = stop.departure_time if stop.departure_time is not None else datetime.min
                 safe_sequence = stop.stop_sequence if stop.stop_sequence is not None else i
-                
+
                 db.add(
                     Client_Shipment_Stop(
                         shipment_id=client_shipment.id,
@@ -832,7 +834,10 @@ def accept_auction_bid(
                         contact_phone_number=stop.contact_phone_number,
                         contact_email=stop.contact_email,
                         reference_number=stop.reference_number,
-                        notes=stop.notes
+                        notes=stop.notes,
+                        # Force concrete non-null values here to satisfy SQLAlchemy sorting hooks:
+                        arrival_time=safe_arrival,
+                        departure_time=safe_departure
                     )
                 )
 
