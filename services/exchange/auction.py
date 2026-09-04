@@ -803,7 +803,7 @@ def accept_auction_bid(
                 db.add(
                     Client_Shipment_Stop(
                         shipment_id=client_shipment.id,
-                        stop_sequence=safe_sequence,
+                        stop_sequence=stop.stop_sequence,
                         stop_type=stop.stop_type,
                         address=stop.address,
                         complete_address=stop.complete_address,
