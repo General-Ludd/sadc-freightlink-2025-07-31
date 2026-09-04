@@ -664,8 +664,6 @@ def place_auction_bid(
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
-from sqlalchemy import nullslast # Ensure this is imported at the top of your file
-
 def accept_auction_bid(
     auction_id: int,
     bid_id: int,
@@ -716,12 +714,10 @@ def accept_auction_bid(
             auction.slots_remaining
         )
 
-        # Added nullslast() to guarantee SQLAlchemy handles potential None values safely here
         stops_facilities = db.query(Client_Shipment_Auction_Stop).filter(
             Client_Shipment_Auction_Stop.auction_id == auction.id
-        ).order_by(
-            nullslast(Client_Shipment_Auction_Stop.stop_sequence.asc())
         ).all()
+        stops_facilities.sort(key=lambda s: s.stop_sequence if s.stop_sequence is not None else float('inf'))
 
         configs = db.query(Client_Shipment_Auction_Vehicle_Requirement).filter(
             Client_Shipment_Auction_Vehicle_Requirement.auction_id == auction.id
