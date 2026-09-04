@@ -937,7 +937,7 @@ def accept_auction_bid(
             "slots_remaining": auction.slots_remaining,
             "auction_status": auction.status,
             "rate": float(bid.rate),
-            "combined_rate": (bid.rate * assigned_loads),
+            "combined_rate": (bid.rate * number_to_assign),
         }
 
     except HTTPException:
