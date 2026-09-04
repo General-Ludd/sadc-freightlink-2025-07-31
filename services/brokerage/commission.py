@@ -35,10 +35,8 @@ def calculate_commission(
         db.query(CommissionRule)
         .filter(
             CommissionRule.active == True,
-            CommissionRule.min_rate.isnot(None),
             CommissionRule.min_rate <= shipment_rate,
             or_(
-                CommissionRule.max_rate == None,
                 CommissionRule.max_rate > shipment_rate
             )
         )
