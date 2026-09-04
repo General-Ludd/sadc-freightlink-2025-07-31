@@ -694,56 +694,6 @@ def accept_auction_bid(
             # 11B. CREATE STOPS
             # ----------------------------------------------------
 
-            for stop in auction_stops:
-
-                shipment_stop = Client_Shipment_Stop(
-                    shipment_id=client_shipment.id,
-
-                    stop_sequence=stop.stop_sequence,
-                    stop_type=stop.stop_type,
-
-                    address=stop.address,
-                    complete_address=stop.complete_address,
-                    city_province=stop.city_province,
-                    country=stop.country,
-                    region=stop.region,
-
-                    latitude=stop.latitude,
-                    longitude=stop.longitude,
-
-                    facility_name=stop.facility_name,
-                    scheduling_type=stop.scheduling_type,
-
-                    operating_start_time=stop.operating_start_time,
-                    operating_end_time=stop.operating_end_time,
-
-                    open_monday=stop.open_monday,
-                    open_tuesday=stop.open_tuesday,
-                    open_wednesday=stop.open_wednesday,
-                    open_thursday=stop.open_thursday,
-                    open_friday=stop.open_friday,
-                    open_saturday=stop.open_saturday,
-                    open_sunday=stop.open_sunday,
-
-                    contact_first_name=stop.contact_first_name,
-                    contact_last_name=stop.contact_last_name,
-                    contact_phone_number=stop.contact_phone_number,
-                    contact_email=stop.contact_email,
-
-                    reference_number=stop.reference_number,
-
-                    # These MUST remain None until the shipment actually
-                    # reaches the relevant tracking event.
-                    arrival_time=None,
-                    departure_time=None,
-
-                    notes=stop.notes,
-                )
-                db.add(shipment_stop)
-
-            # Flush stops separately.
-            db.flush()
-
             # ----------------------------------------------------
             # 11C. CREATE VEHICLE REQUIREMENTS
             # ----------------------------------------------------
@@ -790,12 +740,6 @@ def accept_auction_bid(
                     trailer_type=requirement.trailer_type,
 
                     trailer_length=requirement.trailer_length,
-
-                    is_required=(
-                        requirement.is_required
-                        if requirement.is_required is not None
-                        else True
-                    )
                 )
 
                 db.add(shipment_requirement)
