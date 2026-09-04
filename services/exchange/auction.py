@@ -1070,7 +1070,7 @@ def accept_auction_bid(
         # 13. UPDATE BID
         # ========================================================
 
-        bid.status = "Accepted"
+        bid.status = "Awarded"
 
         # ========================================================
         # 14. FINAL COMMIT
