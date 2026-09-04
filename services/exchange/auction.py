@@ -724,12 +724,6 @@ def accept_auction_bid(
             Client_Shipment_Auction_Vehicle_Requirement.auction_id == auction.id
         ).all()
 
-        commission_result = calculate_commission(
-            db,
-            bid.rate
-        )
-
-        service_fee = commission_result["commission"]
 
         created_shipments = []
 
