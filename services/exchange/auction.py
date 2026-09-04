@@ -729,6 +729,8 @@ def accept_auction_bid(
         )
         service_fee = commission_result["commission"]
 
+        created_shipments_summary = []
+
         # Raw storage lists to hold data structures for direct table copying
         stops_payload = []
         requirements_payload = []
@@ -921,7 +923,7 @@ def accept_auction_bid(
 
         auction.slots_remaining -= number_to_assign
 
-        if auction.slots_remaining == 0:
+        if auction.slots_remaining <= 0:
             auction.slots_remaining = 0
             auction.status = "Closed"
 
