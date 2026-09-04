@@ -689,7 +689,7 @@ def accept_auction_bid(
         if not auction:
             raise HTTPException(status_code=404, detail="Auction not found")
 
-        if auction.slots_remaining is None or auction.slots_remaining <= 0:
+        if auction.slots_remaining == 0:
             auction.slots_remaining = 0
             auction.status = "Closed"
             raise HTTPException(status_code=403, detail="Sorry, the auction has closed and all slots have been awarded")
@@ -707,9 +707,6 @@ def accept_auction_bid(
                 status_code=403,
                 detail=f"Unfortunately the selected bid cannot be awarded as it has been withdrawn by the carrier {bid.carrier_name}"
             )
-
-        if not bid.number_of_loads or bid.number_of_loads <= 0:
-            raise HTTPException(status_code=400, detail="Bid does not contain a valid number of loads")
 
         number_to_assign = min(
             bid.number_of_loads,
@@ -926,7 +923,7 @@ def accept_auction_bid(
 
         auction.slots_remaining -= number_to_assign
 
-        if auction.slots_remaining <= 0:
+        if auction.slots_remaining == 0:
             auction.slots_remaining = 0
             auction.status = "Closed"
 
