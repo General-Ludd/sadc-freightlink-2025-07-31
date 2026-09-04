@@ -1,7 +1,7 @@
 from decimal import Decimal, InvalidOperation
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
-
+from sqlalchemy import nullslast # Add this import at the top
 from models.brokerage.commission import CommissionRule
 
 
