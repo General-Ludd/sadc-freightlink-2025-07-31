@@ -852,9 +852,11 @@ def accept_auction_bid(
             
             created_shipments.append(client_shipment)
 
+            # Defensive string builds for IDs that might resolve as None
+            safe_carrier_id = bid.carrier_id if bid.carrier_id is not None else "UNKNOWN"
             carrier_shipment_reference = (
                 f"EX-{auction.id}-"
-                f"{bid.carrier_id}-"
+                f"{safe_carrier_id}-"
                 f"{uuid.uuid4().hex[:8].upper()}"
             )
 
