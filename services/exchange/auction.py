@@ -687,7 +687,7 @@ def accept_auction_bid(
         if not auction:
             raise HTTPException(status_code=404, detail="Auction not found")
 
-        if auction.slots_remaining is None or auction.slots_remaining <= 0:
+        if auction.slots_remaining <= 0:
             auction.slots_remaining = 0
             auction.status = "Closed"
             raise HTTPException(status_code=403, detail="Sorry, the auction has closed and all slots have been awarded")
@@ -913,7 +913,7 @@ def accept_auction_bid(
 
         auction.slots_remaining -= number_to_assign
 
-        if auction.slots_remaining == 0:
+        if auction.slots_remaining <= 0:
             auction.slots_remaining = 0
             auction.status = "Closed"
 
@@ -930,7 +930,7 @@ def accept_auction_bid(
             "assigned_loads": number_to_assign,
             "slots_remaining": auction.slots_remaining,
             "auction_status": auction.status,
-            "rate": float(bid.rate),
+            "rate": bid.rate,
             "combined_rate": (bid.rate * number_to_assign),
         }
 
