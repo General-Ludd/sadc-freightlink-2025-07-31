@@ -860,7 +860,7 @@ def accept_auction_bid(
                 carrier_id=bid.carrier_id,
                 carrier_user_id=bid.bidder_user_id,
                 rate=bid.rate,
-                service_fee=service_fee,
+                service_fee=0,
                 pricing_basis=auction.pricing_basis,
                 vat_included=auction.vat_included,
                 payment_terms=auction.payment_terms,
