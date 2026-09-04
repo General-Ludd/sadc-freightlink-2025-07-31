@@ -1,5 +1,6 @@
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 
 from models.brokerage.commission import CommissionRule
 
@@ -12,33 +13,34 @@ def calculate_commission(
     db: Session,
     shipment_rate: Decimal,
 ) -> dict:
-    """
-    Calculate SADC FREIGHTLINK commission based on
-    commission rules stored in the database.
-    """
 
-    if shipment_rate is 0:
+    if shipment_rate is None:
         raise CommissionCalculationError(
-            f"Shipment rate is required to be greater then {shipment_rate}."
+            "Shipment rate is required."
         )
 
-    shipment_rate = Decimal(str(shipment_rate))
-
-    if shipment_rate < 0:
+    try:
+        shipment_rate = Decimal(str(shipment_rate))
+    except (InvalidOperation, ValueError, TypeError):
         raise CommissionCalculationError(
-            "Shipment rate cannot be negative."
+            "Shipment rate must be a valid number."
         )
 
-    # Find the applicable commission rule
+    if shipment_rate <= 0:
+        raise CommissionCalculationError(
+            "Shipment rate must be greater than R0.00."
+        )
+
     rule = (
         db.query(CommissionRule)
         .filter(
             CommissionRule.active == True,
+            CommissionRule.min_rate.isnot(None),
             CommissionRule.min_rate <= shipment_rate,
-            (
-                (CommissionRule.max_rate.is_(None))
-                | (CommissionRule.max_rate > shipment_rate)
-            ),
+            or_(
+                CommissionRule.max_rate == None,
+                CommissionRule.max_rate > shipment_rate
+            )
         )
         .order_by(
             CommissionRule.min_rate.desc()
@@ -52,21 +54,23 @@ def calculate_commission(
             f"R{shipment_rate:,.2f}"
         )
 
-    # -------------------------
-    # FIXED COMMISSION
-    # -------------------------
-
     if rule.commission_type == "FIXED":
 
-        commission = Decimal(rule.commission_value)
+        if rule.commission_value is None:
+            raise CommissionCalculationError(
+                f"Commission rule {rule.id} has no commission value."
+            )
 
-    # -------------------------
-    # PERCENTAGE COMMISSION
-    # -------------------------
+        commission = Decimal(str(rule.commission_value))
 
     elif rule.commission_type == "PERCENTAGE":
 
-        percentage = Decimal(rule.commission_value)
+        if rule.commission_value is None:
+            raise CommissionCalculationError(
+                f"Commission rule {rule.id} has no commission value."
+            )
+
+        percentage = Decimal(str(rule.commission_value))
 
         commission = (
             shipment_rate * percentage / Decimal("100")
@@ -77,6 +81,12 @@ def calculate_commission(
         raise CommissionCalculationError(
             f"Invalid commission type: "
             f"{rule.commission_type}"
+        )
+
+    if commission < 0:
+        raise CommissionCalculationError(
+            f"Commission cannot be negative. "
+            f"Rule {rule.id} returned R{commission:,.2f}."
         )
 
     commission = commission.quantize(
@@ -94,8 +104,6 @@ def calculate_commission(
         "commission": commission,
         "net_amount": net_amount,
         "commission_type": rule.commission_type,
-        "commission_value": Decimal(
-            rule.commission_value
-        ),
+        "commission_value": Decimal(str(rule.commission_value)),
         "rule_id": rule.id,
     }
