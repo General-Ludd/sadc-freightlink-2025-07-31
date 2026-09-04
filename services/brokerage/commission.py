@@ -36,7 +36,7 @@ def calculate_commission(
             CommissionRule.active == True,
             CommissionRule.min_rate <= shipment_rate,
             (
-                (CommissionRule.max_rate.is_(0))
+                (CommissionRule.max_rate.is_(None))
                 | (CommissionRule.max_rate > shipment_rate)
             ),
         )
