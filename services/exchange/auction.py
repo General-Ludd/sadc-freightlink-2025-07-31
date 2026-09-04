@@ -305,24 +305,6 @@ def accept_auction_bid(
         # 5. VALIDATE BID
         # ========================================================
 
-        if bid.status == "Rejected":
-            raise HTTPException(
-                status_code=403,
-                detail="This bid has already been rejected."
-            )
-
-        if bid.status == "Outbidded":
-            raise HTTPException(
-                status_code=403,
-                detail="This bid has been outbidded and cannot be accepted."
-            )
-
-        if bid.status == "Under-Review":
-            raise HTTPException(
-                status_code=403,
-                detail="This bid is currently under review."
-            )
-
         if bid.rate is None:
             raise HTTPException(
                 status_code=400,
