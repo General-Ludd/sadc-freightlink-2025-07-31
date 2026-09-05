@@ -6,7 +6,7 @@ from models.brokerage.assigned_shipments import Assigned_Spot_Ftl_Shipments
 from models.brokerage.finance import BrokerageLedger, Lane_Slot_Ledger, CarrierFinancialAccounts, FinancialAccounts, Interim_Invoice, Load_Invoice
 from models.brokerage.loadboard import Ftl_Load_Board
 from models.shipper import Corporation
-from models.user import Director, Driver, User
+from models.user import Director, Driver, CarrierUser
 from models.carrier import Carrier
 from models.spot_bookings.ftl_shipment import Client_Shipment, Client_Shipment_Stop, Client_Shipment_Vehicle_Requirement
 from models.spot_bookings.dedicated_lane_ftl_shipment import Client_Lane
