@@ -39,13 +39,116 @@ def admin_get_shipper_company_id(
 ):
     try:
         shipper_company = db.query(Corporation).filter(Corporation.id == id).first()
-        financial_account = db.query(FinancialAccounts).filter(FinancialAccounts.id == shipper_company.id).first()
-        shipper_users = db.query(Director).filter(Director.company_id == shipper_company.id).all()
-        ftl_shipments = db.query(FTL_SHIPMENT).filter(FTL_SHIPMENT.shipper_company_id == shipper_company.id).all()
-        power_shipments = db.query(POWER_SHIPMENT).filter(POWER_SHIPMENT.shipper_company_id == shipper_company.id).all()
-        ftl_lanes = db.query(FTL_Lane).filter(FTL_Lane.shipper_company_id == shipper_company.id).all()
+        if not shipper_company:
+            raise HTTPException(status_code=404, detail="Shipper company not found")
 
-        
+        financial_account = (
+            db.query(FinancialAccounts)
+            .filter(FinancialAccounts.id == shipper_company.id)
+            .first()
+        )
+
+        shipper_users = (
+            db.query(Director)
+            .filter(Director.company_id == shipper_company.id)
+            .all()
+        )
+
+        ftl_shipments = (
+            db.query(Client_Shipment)
+            .filter(Client_Shipment.client_id == shipper_company.id)
+            .all()
+        )
+
+        ftl_lanes = (
+            db.query(Client_Lane)
+            .filter(Client_Lane.client_id == shipper_company.id)
+            .all()
+        )
+
+        shipment_data = []
+
+        for shipment in ftl_shipments:
+            stops = (
+                db.query(Client_Shipment_Stop)
+                .filter(Client_Shipment_Stop.shipment_id == shipment.id)
+                .order_by(Client_Shipment_Stop.stop_sequence.asc())
+                .all()
+            )
+
+            configs = (
+                db.query(Client_Shipment_Vehicle_Requirement)
+                .filter(
+                    Client_Shipment_Vehicle_Requirement.shipment_id == shipment.id
+                )
+                .all()
+            )
+
+            origin = stops[0] if stops else None
+            destination = stops[-1] if stops else None
+
+            shipment_data.append({
+                "id": shipment.id,
+                "shipment_reference": shipment.shipment_reference,
+                "booking_reference": shipment.booking_reference,
+                "origin": (
+                    origin.city_province
+                    if origin
+                    else None
+                ),
+                "destination": (
+                    destination.city_province
+                    if destination
+                    else None
+                ),
+                "distance": shipment.distance,
+                "status": shipment.status,
+                "trip_status": shipment.trip_status,
+                "trip_type": shipment.trip_type,
+                "load_type": shipment.load_type,
+                "pickup_date": shipment.pickup_date,
+
+                "required_equipment": [
+                    {
+                        "configuration_type": config.configuration_type,
+                        "truck_type": config.truck_type,
+                        "equipment_type": config.equipment_type,
+                        "trailer_type": config.trailer_type,
+                        "trailer_length": config.trailer_length
+                    }
+                    for config in configs
+                ],
+
+                "weight_bracket": shipment.minimum_weight_bracket_kg,
+                "shipment_weight": shipment.shipment_weight,
+                "hazardous_materials": shipment.hazardous_materials,
+                "commodity": shipment.commodity,
+                "rate": shipment.rate
+            })
+
+        lane_data = []
+
+        for lane in ftl_lanes:
+            lane_data.append({
+                "id": lane.id,
+                "origin": getattr(lane, "origin_city_province", None),
+                "destination": getattr(lane, "destination_city_province", None),
+                "distance": lane.distance,
+                "status": lane.status,
+                "required_truck_type": getattr(lane, "required_truck_type", None),
+                "equipment_type": getattr(lane, "equipment_type", None),
+                "trailer_type": getattr(lane, "trailer_type", None),
+                "trailer_length": getattr(lane, "trailer_length", None),
+                "start_date": lane.start_date,
+                "end_date": lane.end_date,
+                "recurrence_frequency": lane.recurrence_frequency,
+                "recurrence_days": lane.recurrence_days,
+                "shipments_per_interval": lane.shipments_per_interval,
+                "total_shipments": lane.total_shipments,
+                "per_shipment_rate": lane.qoute_per_shipment,
+                "contract_rate": lane.contract_quote
+            })
+
         return {
             "company_information": {
                 "company_id": shipper_company.id,
@@ -68,103 +171,65 @@ def admin_get_shipper_company_id(
             },
 
             "financial_account": {
-                "account_id": financial_account.id,
-                "company_name": financial_account.company_name,
-                "payment_terms": financial_account.payment_terms,
-                "years_in_business": financial_account.years_in_business,
-                "nature_of_business": financial_account.nature_of_business,
-                "annual_turnover": financial_account.annual_turnover,
-                "annual_cashflow": financial_account.annual_cash_flow,
-                "credit_score": financial_account.credit_score,
-                "projected_monthly_bookings": financial_account.projected_monthly_bookings,
-                "spending_limit": financial_account.spending_limit,
-                "bank_name": financial_account.bank_name,
-                "branch_code": financial_account.branch_code,
-                "account_number": financial_account.account_number,
-                "account_type": financial_account.account_type,
-                "total_spent": financial_account.total_spent,
-                "average_spend": financial_account.average_spend,
-                "total_outstanding": financial_account.total_outstanding,
-                "credit_balance": financial_account.credit_balance,
-                "total_paid": financial_account.total_paid,
-                "paid_invoices": financial_account.num_paid_invoices,
-                "outstanding_invoices": financial_account.num_outstanding_invoices,
-                "over_due_invoices": financial_account.num_overdue_invoices,
-                "ongoing_interim_invoices": financial_account.ongoing_interim_invoices,
-                "verification_status": financial_account.is_verified,
-                "status": financial_account.status,
-                "created_at": financial_account.created_at,
+                "account_id": financial_account.id if financial_account else None,
+                "company_name": financial_account.company_name if financial_account else None,
+                "payment_terms": financial_account.payment_terms if financial_account else None,
+                "years_in_business": financial_account.years_in_business if financial_account else None,
+                "nature_of_business": financial_account.nature_of_business if financial_account else None,
+                "annual_turnover": financial_account.annual_turnover if financial_account else None,
+                "annual_cashflow": financial_account.annual_cash_flow if financial_account else None,
+                "credit_score": financial_account.credit_score if financial_account else None,
+                "projected_monthly_bookings": financial_account.projected_monthly_bookings if financial_account else None,
+                "spending_limit": financial_account.spending_limit if financial_account else None,
+                "bank_name": financial_account.bank_name if financial_account else None,
+                "branch_code": financial_account.branch_code if financial_account else None,
+                "account_number": financial_account.account_number if financial_account else None,
+                "account_type": financial_account.account_type if financial_account else None,
+                "total_spent": financial_account.total_spent if financial_account else None,
+                "average_spend": financial_account.average_spend if financial_account else None,
+                "total_outstanding": financial_account.total_outstanding if financial_account else None,
+                "credit_balance": financial_account.credit_balance if financial_account else None,
+                "total_paid": financial_account.total_paid if financial_account else None,
+                "paid_invoices": financial_account.num_paid_invoices if financial_account else None,
+                "outstanding_invoices": financial_account.num_outstanding_invoices if financial_account else None,
+                "over_due_invoices": financial_account.num_overdue_invoices if financial_account else None,
+                "ongoing_interim_invoices": financial_account.ongoing_interim_invoices if financial_account else None,
+                "verification_status": financial_account.is_verified if financial_account else None,
+                "status": financial_account.status if financial_account else None,
+                "created_at": financial_account.created_at if financial_account else None,
                 "financial_account_documents": {
-                    "account_confirmation_letter": financial_account.account_confirmation_letter,
-                    "bank_statement": financial_account.bank_statement,
-                    "tax_clearance_certificate": financial_account.tax_clearance_certificate,
-                    "business_credit_score_report": financial_account.business_credit_score_report,
-                    "surityship": financial_account.suretyship
+                    "account_confirmation_letter": financial_account.account_confirmation_letter if financial_account else None,
+                    "bank_statement": financial_account.bank_statement if financial_account else None,
+                    "tax_clearance_certificate": financial_account.tax_clearance_certificate if financial_account else None,
+                    "business_credit_score_report": financial_account.business_credit_score_report if financial_account else None,
+                    "surityship": financial_account.suretyship if financial_account else None
                 }
             },
 
-            "users": [{
-                "name": f"{shipper_user.first_name} - {shipper_user.last_name}",
-                "id": shipper_user.id,
-                "id_number": shipper_user.id_number,
-                "is_director": shipper_user.is_director,
-                "verification_status": shipper_user.is_verified,
-                "status": shipper_user.status
-            } for shipper_user in shipper_users],
+            "users": [
+                {
+                    "name": f"{user.first_name} - {user.last_name}",
+                    "id": user.id,
+                    "id_number": user.id_number,
+                    "is_director": user.is_director,
+                    "verification_status": user.is_verified,
+                    "status": user.status
+                }
+                for user in shipper_users
+            ],
 
             "activity": {
                 "shipments": {
-                    "ftl_shipments": [{
-                        "id": ftl_shipment.id,
-                        "origin": ftl_shipment.origin_city_province,
-                        "destination": ftl_shipment.destination_city_province,
-                        "distance": ftl_shipment.distance,
-                        "status": ftl_shipment.shipment_status,
-                        "required_truck_type": ftl_shipment.required_truck_type,
-                        "equipment_type": ftl_shipment.equipment_type,
-                        "trailer_type": ftl_shipment.trailer_type if ftl_shipment.trailer_type else None,
-                        "trailer_length": ftl_shipment.trailer_length if ftl_shipment.trailer_length else None,
-                        "weight_bracket": ftl_shipment.minimum_weight_bracket,
-                        "shipment_weight": ftl_shipment.shipment_weight,
-                        "hazardous_materials": ftl_shipment.hazardous_materials,
-                        "rate": ftl_shipment.quote
-                    } for ftl_shipment in ftl_shipments],
-
-                    "power_shipments": [{
-                        "id": power_shipment.id,
-                        "origin": power_shipment.origin_city_province,
-                        "destination": power_shipment.destination_city_province,
-                        "distance": power_shipment.distance,
-                        "status": power_shipment.status,
-                        "required_truck_type": power_shipment.required_truck_type,
-                        "axle_configuration": power_shipment.axle_configuration,
-                        "weight_bracket": power_shipment.minimum_weight_bracket,
-                        "shipment_weight": power_shipment.shipment_weight,
-                        "rate": power_shipment.quote
-                    } for power_shipment in power_shipments],
+                    "ftl_shipments": shipment_data
                 },
                 "lanes": {
-                    "ftl_lanes": [{
-                        "id": ftl_lane.id,
-                        "origin": ftl_lane.origin_city_province,
-                        "destination": ftl_lane.destination_city_province,
-                        "distance": ftl_lane.distance,
-                        "status": ftl_lane.status,
-                        "required_truck_type": ftl_lane.required_truck_type,
-                        "equipment_type": ftl_lane.equipment_type,
-                        "trailer_type": f"{ftl_lane.trailer_type if ftl_lane.trailer_type else None} ({ftl_lane.trailer_length if ftl_lane.trailer_length else None})",
-                        "start_date": ftl_lane.start_date,
-                        "end_date": ftl_lane.end_date,
-                        "recurrence_frequency": ftl_lane.recurrence_frequency,
-                        "recurrence_days": ftl_lane.recurrence_days,
-                        "shipments_per_interval": ftl_lane.shipments_per_interval,
-                        "total_shipments": ftl_lane.total_shipments,
-                        "per_shipment_rate": ftl_lane.qoute_per_shipment,
-                        "contract_rate": ftl_lane.contract_quote
-                    } for ftl_lane in ftl_lanes],
-                },
-            },
+                    "ftl_lanes": lane_data
+                }
+            }
         }
+
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
