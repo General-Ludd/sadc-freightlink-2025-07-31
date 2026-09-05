@@ -64,13 +64,13 @@ def admin_get_shipper_company_id(
 
         shipment_exchanges = (
             db.query(Client_Shipment_Auction)
-            .filter(Client_Shipment_Auction.client_id == shipper_company_id)
+            .filter(Client_Shipment_Auction.client_id == shipper_company.id)
             .all()
         )
 
         tenders = (
             db.query(Lane_Tender_RFQ)
-            .filter(Lane_Tender_RFQ.client_id == shipper_company_id)
+            .filter(Lane_Tender_RFQ.client_id == shipper_company.id)
             .all()
         )
 
