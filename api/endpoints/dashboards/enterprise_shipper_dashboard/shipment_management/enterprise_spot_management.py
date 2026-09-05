@@ -478,7 +478,7 @@ def get_client_shipment(
                     "contact_person": {
                         "first_name": carrier_user.first_name if carrier_user else None,
                         "last_name": carrier_user.last_name if carrier_user else None,
-                        "role": carrier.user.role if carrier_user else None,
+                        "role": carrier_user.role if carrier_user else None,
                         "email": carrier_user.email if carrier_user else None,
                         "phone_number": carrier_user.phone_number if carrier_user else None
                     },
