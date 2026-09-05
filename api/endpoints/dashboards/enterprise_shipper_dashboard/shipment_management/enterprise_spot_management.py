@@ -75,9 +75,9 @@ def get_client_shipments(
                 },
                 "tracking_status": shipment.tracking_status,
                 "pickup_location": {
-                    "origin": origin.pickup_address if origin else None,
+                    "origin": origin.address if origin else None,
                     "facility_name": origin.facility_name if origin else None,
-                    "pickup_date": origin.pickup_date if origin else None,
+                    "pickup_date": shipment.pickup_date if origin else None,
                     "window": {
                         "start_time": origin.operating_start_time if origin else None,
                         "end_time": origin.operating_end_time if origin else None,
