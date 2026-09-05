@@ -83,10 +83,23 @@ def admin_get_shipper_company_id(
         shipment_data = []
 
         for shipment in ftl_shipments:
-            stops = (
+            origin = (
                 db.query(Client_Shipment_Stop)
-                .filter(Client_Shipment_Stop.shipment_id == shipment.id)
-                .order_by(Client_Shipment_Stop.stop_sequence.asc())
+                .filter(Client_Shipment_Stop.shipment_id == shipment.id, Client_Shipment_Stop.stop_type == "Origin")
+                .first()
+            )
+
+            # 2. Query Destination directly
+            destination = (
+                db.query(Client_Shipment_Stop)
+                .filter(Client_Shipment_Stop.shipment_id == shipment.id, Client_Shipment_Stop.stop_type == "Destination")
+                .first()
+            )
+
+            # 3. Query Intermediate stops
+            intermediate_stops = (
+                db.query(Client_Shipment_Stop)
+                .filter(Client_Shipment_Stop.shipment_id == shipment.id, Client_Shipment_Stop.stop_type == "Intermediate")
                 .all()
             )
 
@@ -97,10 +110,6 @@ def admin_get_shipper_company_id(
                 )
                 .all()
             )
-
-            origin = stops[0] if stops else None
-            stops = stops["Intermediate"] if stops else None
-            destination = stops[-1] if stops else None
 
             shipment_data.append({
                 "id": shipment.id,
@@ -116,7 +125,7 @@ def admin_get_shipper_company_id(
                     },
                 },
                 "trip_data": {
-                    "no_of_stops": len(stops),
+                    "no_of_stops": len(intermediate_stops),
                     "distance": shipment.distance,
                     "transit_time": shipment.estimated_transit_time,
                 },
@@ -158,10 +167,19 @@ def admin_get_shipper_company_id(
         auction_data = []
 
         for auction in shipment_exchanges:
-            stops = (
+            origin = (
                 db.query(Client_Shipment_Auction_Stop)
-                .filter(Client_Shipment_Auction_Stop.auction_id == auction.id)
-                .order_by(Client_Shipment_Auction_Stop.stop_sequence.asc())
+                .filter(Client_Shipment_Auction_Stop.auction_id == auction.id, Client_Shipment_Auction_Stop.stop_type == "Origin")
+                .first()
+            )
+            destination = (
+                db.query(Client_Shipment_Auction_Stop)
+                .filter(Client_Shipment_Auction_Stop.auction_id == auction.id, Client_Shipment_Auction_Stop.stop_type == "Destination")
+                .first()
+            )
+            intermediate_stops = (
+                db.query(Client_Shipment_Auction_Stop)
+                .filter(Client_Shipment_Auction_Stop.auction_id == auction.id, Client_Shipment_Auction_Stop.stop_type == "Intermediate")
                 .all()
             )
 
@@ -172,10 +190,6 @@ def admin_get_shipper_company_id(
                 )
                 .all()
             )
-
-            origin = stops[0] if stops else None
-            trip_stops = stops["Intermediate"] if trip_stops else None
-            destination = stops[-1] if stops else None
 
             auction_data.append({
                 "id": auction.id,
@@ -193,7 +207,7 @@ def admin_get_shipper_company_id(
                     },
                 },
                 "trip_details": {
-                    "no_stops": len(trip_stops),
+                    "no_stops": len(intermediate_stops),
                     "distance": auction.distance,
                     "minimum_transit_time": auction.estimated_transit_time,
                 },
@@ -215,8 +229,20 @@ def admin_get_shipper_company_id(
         tender_data = []
 
         for tender in tenders:
-            stops = (
-                db.query(Lane_Tender_RFQ_Stop).filter(Lane_Tender_RFQ_Stop.tender_id == tender.id).all()
+            origin = (
+                db.query(Lane_Tender_RFQ_Stop)
+                .filter(Lane_Tender_RFQ_Stop.tender_id == tender.id, Lane_Tender_RFQ_Stop.stop_type == "Origin")
+                .first()
+            )
+            destination = (
+                db.query(Lane_Tender_RFQ_Stop)
+                .filter(Lane_Tender_RFQ_Stop.tender_id == tender.id, Lane_Tender_RFQ_Stop.stop_type == "Destination")
+                .first()
+            )
+            intermediate_stops = (
+                db.query(Lane_Tender_RFQ_Stop)
+                .filter(Lane_Tender_RFQ_Stop.tender_id == tender.id, Lane_Tender_RFQ_Stop.stop_type == "Intermediate")
+                .all()
             )
             equipment = (
                 db.query(Lane_Tender_RFQ_Vehicle_Config).filter(Lane_Tender_RFQ_Vehicle_Config.tender_id == tender.id).all()
@@ -224,9 +250,6 @@ def admin_get_shipper_company_id(
             volumes = (
                 db.query(Lane_Tender_RFQ_Volume_Profile).filter(Lane_Tender_RFQ_Volume_Profile.tender_id == tender.id).all()
             )
-
-            origin = stops["Origin"]
-            destination = stops["Destination"]
 
             tender_data.append({
                 "id": tender.id,
@@ -240,7 +263,10 @@ def admin_get_shipper_company_id(
                     "city_province": origin.city_province,
                     "facility_name": origin.facility_name,
                 },
-                "distance": tender.estimated_distance_km,
+                "trip_information": {
+                    "distance": tender.estimated_distance_km,
+                    "no_of_stops": len(intermediate_stops),
+                },
                 "destination": {
                     "city_province": destination.city_province,
                     "facility_name": destination.facility_name,
@@ -272,9 +298,20 @@ def admin_get_shipper_company_id(
         lane_data = []
 
         for lane in ftl_lanes:
-
-            stops = (
-                db.query(Lane_Stop).filter(Lane_Stop.lane_id == lane.id).all()
+            origin = (
+                db.query(Lane_Stop)
+                .filter(Client_Lane_Stop.lane_id == lane.id, Client_Lane_Stop.stop_type == "Origin")
+                .first()
+            )
+            destination = (
+                db.query(Lane_Stop)
+                .filter(Client_Lane_Stop.lane_id == lane.id, Client_Lane_Stop.stop_type == "Destination")
+                .first()
+            )
+            intermediate_stops = (
+                db.query(_Lane_Stop)
+                .filter(Client_Lane_Stop.lane_id == lane.id, Client_Lane_Stop.stop_type == "Intermediate")
+                .all()
             )
             equipment = (
                 db.query(Lane_Vehicle_Config).filter(Lane_Vehicle_Config.lane_id == lane.id).all()
@@ -299,7 +336,7 @@ def admin_get_shipper_company_id(
                 },
                 "trip_information": {
                     "distance": lane.distance,
-                    "no_of_stops": len(stops),
+                    "no_of_stops": len(intermediate_stops),
                 },
                 "destination": {
                     "city_province": destination.city_province,
