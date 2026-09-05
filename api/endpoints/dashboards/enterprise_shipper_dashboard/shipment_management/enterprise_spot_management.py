@@ -6,7 +6,7 @@ from models.brokerage.assigned_shipments import Assigned_Spot_Ftl_Shipments
 from models.brokerage.finance import BrokerageLedger, Lane_Slot_Ledger, CarrierFinancialAccounts, FinancialAccounts, Interim_Invoice, Load_Invoice
 from models.brokerage.loadboard import Ftl_Load_Board
 from models.shipper import Corporation
-from models.user import Director
+from models.user import Director, Driver
 from models.carrier import Carrier
 from models.spot_bookings.ftl_shipment import Client_Shipment, Client_Shipment_Stop, Client_Shipment_Vehicle_Requirement
 from models.spot_bookings.dedicated_lane_ftl_shipment import Client_Lane
@@ -14,7 +14,7 @@ from models.spot_bookings.ftl_shipment import FTL_SHIPMENT, FTL_Shipment_Docs, s
 from models.spot_bookings.power_shipment import POWER_SHIPMENT
 from models.spot_bookings.shipment_facility import ContactPerson, ShipmentFacility
 from models.user import Driver
-from models.vehicle import ShipperTrailer, Vehicle
+from models.vehicle import ShipperTrailer, Vehicle, Trailer
 from schemas.spot_bookings.dedicated_lanes_ftl_shipment import Ftl_Lanes_Summary_Response, Individual_FTL_Lane_Response, individual_shipment_or_lane_request, FTL_Lane_Dispute_Create
 from schemas.spot_bookings.ftl_shipment import FTL_Shipment_Response, FTL_Shipments_Summary_Response, FTL_Shipment_Dispute_Create
 from schemas.spot_bookings.power_shipment import POWER_SHIPMENT_RESPONSE, Power_Shipments_Summary_Response
@@ -269,6 +269,343 @@ def get_client_shipments(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/client-shipments/{id}")
+def get_client_shipment(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    company_id = current_user.get("company_id")
+    if not company_id:
+        raise HTTPException(status_code=400, detail="User does not belong to a company")
+
+    try:
+        # Shipment
+        shipment = db.query(Client_Shipment).filter(Client_Shipment.id == id).first()
+        if not shipment:
+            raise HTTPException(status_code=404, detail="Shipment not found")
+
+        # Carrier
+        carrier = db.query(Carrier).filter(Carrier.id == shipment.carrier_id).first() if shipment.carrier_id else None
+
+        # Carrier user
+        carrier_user = None
+        if carrier:
+            carrier_user_id = getattr(carrier, "user_id", None)
+            if carrier_user_id:
+                carrier_user = db.query(Director).filter(Director.id == carrier_user_id).first()
+
+        # Vehicle
+        vehicle = db.query(Vehicle).filter(Vehicle.id == shipment.vehicle_id).first() if shipment.vehicle_id else None
+
+        # Trailer linked to vehicle
+        trailer = None
+        if vehicle and getattr(vehicle, "trailer_id", None):
+            trailer = db.query(Trailer).filter(Trailer.id == vehicle.trailer_id).first()
+
+        # Driver
+        driver = db.query(Driver).filter(Driver.id == shipment.driver_id).first() if shipment.driver_id else None
+
+        # Stops
+        stops = (
+            db.query(Client_Shipment_Stop)
+            .filter(Client_Shipment_Stop.shipment_id == shipment.id)
+            .order_by(Client_Shipment_Stop.stop_sequence.asc())
+            .all()
+        )
+
+        # Vehicle requirements
+        configs = (
+            db.query(Client_Shipment_Vehicle_Requirement)
+            .filter(Client_Shipment_Vehicle_Requirement.shipment_id == shipment.id)
+            .all()
+        )
+
+        # ============================================================
+        # RESPONSE
+        # ============================================================
+
+        return {
+            "financials": {
+                "rate": shipment.rate,
+                "vat_inclusive": shipment.vat_included if shipment.vat_included is not None else "Not Applicable",
+                "payment_terms": shipment.payment_terms,
+                "rate_inclusive_of": {
+                    "rate_includes_fuel": shipment.rate_includes_fuel,
+                    "rate_includes_driver": shipment.rate_includes_driver,
+                    "rate_includes_maintenance": shipment.rate_includes_maintenance,
+                    "rate_includes_insurance": shipment.rate_includes_insurance,
+                    "tolls": shipment.rate_includes_tolls,
+                    "border_charges": shipment.rate_includes_border_charges,
+                    "empty_return": shipment.rate_includes_empty_return,
+                    "detention_time": shipment.rate_includes_waiting_time,
+                    "loading_assistance_charges": shipment.rate_includes_loading_assistance,
+                    "offloading_assistance_charges": shipment.rate_includes_offloading_assistance
+                },
+                "invoice_id": shipment.invoice_id,
+                "invoice_due_date": shipment.invoice_due_date,
+                "rate_basis": shipment.pricing_basis
+            },
+
+            "shipment_details": {
+                "id": shipment.id,
+                "is_subshipment": shipment.is_subshipment,
+                "auction_id": shipment.auction_id,
+                "lane_id": getattr(shipment, "client_lane_id", None),
+                "trip_type": shipment.trip_type,
+                "load_type": shipment.load_type,
+                "pickup_date": shipment.pickup_date,
+                "priority_level": shipment.priority_level,
+                "cargo_details": {
+                    "customer_reference_number": shipment.customer_reference_number,
+                    "commodity": shipment.commodity,
+                    "shipment_weight": shipment.shipment_weight,
+                    "packaging": {
+                        "packaging_type": shipment.packaging_type,
+                        "packaging_quantity": shipment.packaging_quantity
+                    },
+                    "temperature": {
+                        "temperature_control": shipment.temperature_control,
+                        "target_temperature_spec": shipment.target_temperature_spec
+                    },
+                    "hazchem": {
+                        "hazardous_materials": shipment.hazardous_materials,
+                        "hazchem_classification": shipment.hazchem_classification
+                    },
+                    "under_customs_bond": shipment.under_bond,
+                    "requires_rib": shipment.rib_requirements
+                }
+            },
+
+            "pod_submission_rules": {
+                "local_haul_shipments": shipment.pod_submission_local,
+                "long_haul_shipments": shipment.pod_submission_long_haul,
+                "cross_border_haul_shipments": shipment.pod_submission_cross_border
+            },
+
+            "insurance_requirements": {
+                "git_requirement": shipment.minimum_git_cover_amount,
+                "liability_requirement": shipment.minimum_liability_cover_amount,
+                "cover_spectrum": {
+                    "git_all_risk": shipment.git_all_risk_required,
+                    "first_loss": shipment.git_first_loss_required,
+                    "driver_fidelity": shipment.git_driver_fidelity_required
+                }
+            },
+
+            "equipments": [
+                {
+                    "configuration_type": config.configuration_type,
+                    "truck_type": config.truck_type,
+                    "equipment_type": config.equipment_type,
+                    "trailer_type": config.trailer_type,
+                    "trailer_length": config.trailer_length,
+                    "minimum_weight_bracket": shipment.minimum_weight_bracket_kg,
+                    "fleet_compliance_requirements": {
+                        "vehicle_tracking_required": shipment.vehicle_tracking_required,
+                        "control_room_monitoring": shipment.all_time_hour_control_room,
+                        "driver_mobile_phone": shipment.driver_mobile_phone,
+                        "clean_compliant_equipment": shipment.clean_compliant_equipment
+                    },
+                    "accessorial_rigging_gear": {
+                        "chep_pallet_management": shipment.pallet_management,
+                        "tarpaulin_required": shipment.tarpaulin_compliance_required,
+                        "corner_plates": shipment.corner_plates_required,
+                        "chock_blocks": shipment.chock_blocks_required,
+                        "ratchets_belts": shipment.ratchets_belts_required,
+                        "other_equipment_requirements": shipment.other_equipment_requirements
+                    }
+                }
+                for config in configs
+            ],
+
+            "facilities": [
+                {
+                    "stop_sequence": stop.stop_sequence,
+                    "stop_type": stop.stop_type,
+                    "facility_name": stop.facility_name,
+                    "complete_address": stop.complete_address,
+                    "scheduling_type": stop.scheduling_type,
+                    "operations_availability": {
+                        "open_monday": stop.open_monday,
+                        "open_tuesday": stop.open_tuesday,
+                        "open_wednesday": stop.open_wednesday,
+                        "open_thursday": stop.open_thursday,
+                        "open_friday": stop.open_friday,
+                        "open_saturday": stop.open_saturday,
+                        "open_sunday": stop.open_sunday,
+                        "operating_times": {
+                            "start_time": stop.operating_start_time,
+                            "end_time": stop.operating_end_time
+                        }
+                    },
+                    "contact_person": {
+                        "first_name": stop.contact_first_name,
+                        "last_name": stop.contact_last_name,
+                        "phone_number": stop.contact_phone_number,
+                        "email": stop.contact_email
+                    },
+                    "reference_number": stop.reference_number,
+                    "notes": stop.notes
+                }
+                for stop in stops
+            ],
+
+            # ========================================================
+            # ASSIGNED CARRIER
+            # ========================================================
+
+            "assigned_carrier": {
+                "carrier_information": {
+                    "id": carrier.id,
+                    "is_verified": carrier.is_verified,
+                    "status": carrier.status,
+                    "company_name": carrier.legal_business_name,
+                    "country_of_incorporation": carrier.country_of_incorporation,
+                    "business_registration_number": carrier.business_registration_number,
+                    "address": carrier.business_address,
+                    "insurance": {
+                        "goods_in_transit": {
+                            "insurer": carrier.name_of_git_cover_insurance_company,
+                            "policy_number": carrier.git_insurance_policy_number,
+                            "cover_amount": carrier.git_cover_amount
+                        },
+                        "third_party_liability": {
+                            "insurer": carrier.name_of_liability_cover_insurance_company,
+                            "policy_number": carrier.liability_insurance_policy_number,
+                            "cover_amount": carrier.liability_insurance_cover_amount
+                        }
+                    },
+                    "contact_person": {
+                        "first_name": carrier_user.first_name if carrier_user else None,
+                        "last_name": carrier_user.last_name if carrier_user else None,
+                        "role": carrier.user.role if carrier_user else None,
+                        "email": carrier_user.email if carrier_user else None,
+                        "phone_number": carrier_user.phone_number if carrier_user else None
+                    },
+                    "carrier_docs": {
+                        "registration_certificate": carrier.business_registration_certificate,
+                        "proof_of_address": carrier.proof_of_address,
+                        "brnc_certificate": carrier.brnc_certificate,
+                        "git_certificate": carrier.git_insurance_certificate,
+                        "liability_certificate": carrier.liability_insurance_certificate
+                    }
+                }
+            } if carrier else None,
+
+            # ========================================================
+            # ASSIGNED DRIVER
+            # ========================================================
+
+            "assigned_driver": {
+                "id": driver.id,
+                "is_verified": driver.is_verified,
+                "status": driver.status,
+                "nationality": driver.nationality,
+                "first_name": driver.first_name,
+                "last_name": driver.last_name,
+                "phone_number": driver.phone_number,
+                "compliance": {
+                    "id_number": driver.id_number,
+                    "passport_number": driver.passport_number,
+                    "license": {
+                        "license_number": driver.license_number,
+                        "license_expiry_date": driver.license_expiry_date
+                    },
+                    "prdp": {
+                        "prdp_number": driver.prdp_number,
+                        "prdp_expiry_date": driver.prdp_expiry_date
+                    },
+                    "docs": {
+                        "id_document": driver.id_document,
+                        "license_document": driver.license_document,
+                        "prdp_document": driver.prdp_document,
+                        "passport_document": driver.passport_document
+                    }
+                }
+            } if driver else None,
+
+            # ========================================================
+            # ASSIGNED VEHICLE + TRAILER
+            # ========================================================
+
+            "assigned_vehicle": {
+                "truck_information": {
+                    "id": vehicle.id,
+                    "is_verified": vehicle.is_verified,
+                    "status": vehicle.status,
+                    "type": vehicle.type,
+                    "make": vehicle.make,
+                    "model": vehicle.model,
+                    "year": vehicle.year,
+                    "color": vehicle.color,
+                    "axle_configuration": vehicle.axle_configuration,
+                    "equipment_type": vehicle.equipment_type,
+                    "payload_specs": {
+                        "tare_weight": vehicle.tare_weight,
+                        "gvm_weight": vehicle.gvm_weight,
+                        "payload_capacity": vehicle.payload_capacity
+                    },
+                    "compliance": {
+                        "vin": vehicle.vin,
+                        "license_plate": vehicle.license_plate,
+                        "license_expiry_date": vehicle.license_expiry_date,
+                        "docs": {
+                            "registration_or_leasing_certificate": vehicle.vrc_or_leasing,
+                            "vehicle_license_disk": vehicle.vehicle_license_disk,
+                            "roadworthy_certificate": vehicle.vehicle_road_worthy_certificate,
+                            "tracking_certificate": vehicle.vehicle_tracking_certificate
+                        }
+                    }
+                },
+
+                "trailer_information": {
+                    "id": trailer.id,
+                    "is_verified": trailer.is_verified,
+                    "status": trailer.status,
+                    "make": trailer.make,
+                    "model": trailer.model,
+                    "year": trailer.year,
+                    "color": trailer.color,
+                    "equipment_payload_specs": {
+                        "equipment_type": trailer.equipment_type,
+                        "trailer_type": trailer.trailer_type,
+                        "trailer_length": trailer.trailer_length,
+                        "payload_specs": {
+                            "tare_weight": trailer.tare_weight,
+                            "gvm_weight": trailer.gvm_weight,
+                            "payload_capacity": trailer.payload_capacity
+                        }
+                    },
+                    "compliance": {
+                        "vin": trailer.vin,
+                        "license_plate": trailer.license_plate,
+                        "license_expiry_date": trailer.license_expiry_date,
+                        "docs": {
+                            "registration_or_leasing_certificate": trailer.vrc_leasing,
+                            "license_disk": trailer.license_disk,
+                            "road_worthy_certificate": trailer.road_worthy_certificate
+                        }
+                    }
+                } if trailer else None
+            } if vehicle else None
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print("=" * 100)
+        print("ERROR GETTING CLIENT SHIPMENT")
+        print(f"SHIPMENT ID: {id}")
+        print(f"ERROR TYPE: {type(e).__name__}")
+        print(f"ERROR: {str(e)}")
+        print("=" * 100)
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve shipment: {str(e)}"
+        )
 
 @router.get("/contract-lanes")
 def get_client_contract_lanes(
