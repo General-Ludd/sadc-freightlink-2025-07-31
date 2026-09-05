@@ -8,7 +8,7 @@ from models.carrier import Carrier
 from models.vehicle import Vehicle, Vehicle_Schedule, Trailer, ShipperTrailer
 from models.brokerage.finance import FinancialAccounts, CarrierFinancialAccounts, Withdrawal_Request, Shipment_Invoice, Interim_Invoice, Invoices
 from models.spot_bookings.dedicated_lane_ftl_shipment import Client_Lane
-from models.spot_bookings.ftl_shipment import FTL_SHIPMENT
+from models.spot_bookings.ftl_shipment import FTL_SHIPMENT, Client_Shipment, Client_Shipment_Stop, Client_Shipment_Vehicle_Requirement
 from models.spot_bookings.power_shipment import POWER_SHIPMENT
 from models.brokerage.loadboard import Ftl_Load_Board, Power_Load_Board, Dedicated_lanes_LoadBoard
 from models.Exchange.auction import Exchange_FTL_Shipment_Bid, Exchange_FTL_Lane_Bid, Exchange_POWER_Shipment_Bid
@@ -60,6 +60,12 @@ def admin_get_shipper_company_id(
             .all()
         )
 
+        shipment_exchanges = (
+            db.query(Client_Shipment_Auction)
+            .fitler(Client_Shipment_Auction.client_id == shipper_company_id)
+            .all()
+        )
+
         ftl_lanes = (
             db.query(Client_Lane)
             .filter(Client_Lane.client_id == shipper_company.id)
@@ -85,68 +91,222 @@ def admin_get_shipper_company_id(
             )
 
             origin = stops[0] if stops else None
+            stops = stops["Intermediate"] if stops else None
             destination = stops[-1] if stops else None
 
             shipment_data.append({
                 "id": shipment.id,
                 "shipment_reference": shipment.shipment_reference,
                 "booking_reference": shipment.booking_reference,
-                "origin": (
-                    origin.city_province
-                    if origin
-                    else None
-                ),
-                "destination": (
-                    destination.city_province
-                    if destination
-                    else None
-                ),
-                "distance": shipment.distance,
-                "status": shipment.status,
-                "trip_status": shipment.trip_status,
-                "trip_type": shipment.trip_type,
-                "load_type": shipment.load_type,
-                "pickup_date": shipment.pickup_date,
-
+                "origin": {
+                    "city_province": origin.city_province,
+                    "facility_name": origin.facility_name,
+                    "pickup_date": shipment.pickup_date,
+                    "operating_window": {
+                        "start_time": origin.operating_start_time,
+                        "end_time": origin.operating_end_time,
+                    },
+                },
+                "trip_data": {
+                    "no_of_stops": len(stops),
+                    "distance": shipment.distance,
+                    "transit_time": shipment.estimated_transit_time,
+                },
+                "destination": {
+                    "city_province": destination.city_province,
+                    "facility_name": destination.facility_name,
+                    "eta_date": destination.eta_date,
+                    "operating_window": {
+                        "start_time": destination.operating_start_time,
+                        "end_time": destination.operating_end_time,
+                    },
+                },
                 "required_equipment": [
                     {
                         "configuration_type": config.configuration_type,
                         "truck_type": config.truck_type,
                         "equipment_type": config.equipment_type,
                         "trailer_type": config.trailer_type,
-                        "trailer_length": config.trailer_length
+                        "trailer_length": config.trailer_length,
+                        "weight_bracket": shipment.minimum_weight_bracket_kg,
                     }
                     for config in configs
                 ],
+                "cargo_information": {
+                    "shipment_weight": shipment.shipment_weight,
+                    "commodity": shipment.commodity,
+                    "hazchem": {
+                        "hazardous_materials": shipment.hazardous_materials,
+                        "hazchem_classification": shipment.hazchem_classification,
+                    },
+                },
+                "rate_structure": {
+                    "rate": shipment.rate,
+                    "rate_bsis": shipment.pricing_basis,
+                    "vat_inclusive": shipment.vat_included,
+                },
+            })
 
-                "weight_bracket": shipment.minimum_weight_bracket_kg,
-                "shipment_weight": shipment.shipment_weight,
-                "hazardous_materials": shipment.hazardous_materials,
-                "commodity": shipment.commodity,
-                "rate": shipment.rate
+        auction_data = []
+
+        for auction in shipment_exchanges:
+            stops = (
+                db.query(Client_Shipment_Auction_Stop)
+                .filter(Client_Shipment_Auction_Stop.auction_id == auction.id)
+                .order_by(Client_Shipment_Auction_Stop.stop_sequence.asc())
+                .all()
+            )
+
+            configs = (
+                db.query(Client_Shipment_Auction_Vehicle_Requirement)
+                .filter(
+                    Client_Shipment_Auction_Vehicle_Requirement.auction_id == auction.id
+                )
+                .all()
+            )
+
+            origin = stops[0] if stops else None
+            trip_stops = stops["Intermediate"] if trip_stops else None
+            destination = stops[-1] if stops else None
+
+            auction_data.append({
+                "id": auction.id,
+                "status": auction.status,
+                "closing_time": auction.auction_closing_date,
+                "trip_type": auction.trip_type,
+                "load_type": auction.load_type,
+                "origin": {
+                    "city_province": origin.city_province,
+                    "facility_name": origin.facility_name,
+                    "pickup_date": auction.pickup_date,
+                    "operation_window": {
+                        "start_time": origin.operating_start_time,
+                        "end_time": origin.operating_end_time,
+                    },
+                },
+                "trip_details": {
+                    "no_stops": len(trip_stops),
+                    "distance": auction.distance,
+                    "minimum_transit_time": auction.estimated_transit_time,
+                },
+                "destination": {
+                    "city_province": destination.city_province,
+                    "facility_name": destination.facility_name,
+                    "eta_date": auction.eta_date,
+                    "operating_window": {
+                        "start_time": destination.operating_start_time,
+                        "end_time": destination.operating_end_time,
+                    },
+                },
+                "rates": {
+                    "book_now_rate": auction.book_now_rate,
+                    "target_rate": auction.procurement_target_rate,
+                },
+            })
+
+        tender_data = []
+
+        for tender in tender:
+            stops = (
+                db.query(Lane_Tender_RFQ_Stop).filter(Lane_Tender_RFQ_Stop.tender_id == tender.id).all()
+            )
+            equipment = (
+                db.query(Lane_Tender_RFQ_Vehicle_Config).filter(Lane_Tender_RFQ_Vehicle_Config.tender_id == tender.id).all()
+            )
+            volumes = (
+                db.query(Lane_Tender_RFQ_Volume_Profile).filter(Lane_Tender_RFQ_Volume_Profile.tender_id == tender.id).all()
+            )
+
+            origin = stops["Origin"]
+            destination = stops["Destination"]
+
+            tender_data.append({
+                "id": tender.id,
+                "closing_date": tender.tender_closing_date,
+                "lenght_category": tender.tender_length_category,
+                "category": tender.tender_category,
+                "title": tender.tender_title,
+                "start_date": tender.contract_start_date,
+                "end_date": tender.contract_end_date,
+                "origin": {
+                    "city_province": origin.city_province,
+                    "facility_name": origin.facility_name,
+                },
+                "distance": tender.estimated_distance_km,
+                "destination": {
+                    "city_province": destination.city_province,
+                    "facility_name": destination.facility_name,
+                },
+                "cargo": {
+                    "commodity": tender.commodity,
+                    "avg_shipment": tender.average_shipment_weight_kg,
+                    "hazchem": {
+                        "hazardous_materials": tender.hazardous_materials,
+                        "hazchem_classification": tender.hazchem_classification,
+                    },
+                },
+                "volumes": {
+                    "total_loads": len(volumes.expected_loads),
+                    "frequency": volumes.period_label,
+                },
+                "rates": {
+                    "incumbent": {
+                        "per_shipment_rate": tender.incumbent_transport_rate_per_shipment,
+                        "contract_rate": tender.incumbent_contract_rate,
+                    },
+                    "target_rates": {
+                        "per_shipment_rate": tender.procurement_target_rate,
+                        "contract_rate": tender.procurement_target_contract_rate
+                    },
+                },
             })
 
         lane_data = []
 
         for lane in ftl_lanes:
+
+            stops = (
+                db.query(Lane_Stop).filter(Lane_Stop.lane_id == lane.id).all()
+            )
+            equipment = (
+                db.query(Lane_Vehicle_Config).filter(Lane_Vehicle_Config.lane_id == lane.id).all()
+            )
+            volumes = (
+                db.query(Lane_Volume_Profile).filter(Lane_Volume_Profile.lane_id == lane.id).all()
+            )
+
+            orign = stops["Origin"] if stops else None
+            destination = stops["Destination"] if stops else None
             lane_data.append({
                 "id": lane.id,
-                "origin": getattr(lane, "origin_city_province", None),
-                "destination": getattr(lane, "destination_city_province", None),
-                "distance": lane.distance,
                 "status": lane.status,
-                "required_truck_type": getattr(lane, "required_truck_type", None),
-                "equipment_type": getattr(lane, "equipment_type", None),
-                "trailer_type": getattr(lane, "trailer_type", None),
-                "trailer_length": getattr(lane, "trailer_length", None),
-                "start_date": lane.start_date,
-                "end_date": lane.end_date,
-                "recurrence_frequency": lane.recurrence_frequency,
-                "recurrence_days": lane.recurrence_days,
-                "shipments_per_interval": lane.shipments_per_interval,
-                "total_shipments": lane.total_shipments,
-                "per_shipment_rate": lane.qoute_per_shipment,
-                "contract_rate": lane.contract_quote
+                "lenght_category": lane.lane_length_category,
+                "category": lane.lane_category,
+                "title": lane.lane_title,
+                "start_date": lane.contract_start_date,
+                "end_date": lane.contract_end_date,
+                "origin": {
+                    "city_province": origin.city_province,
+                    "facility_name": origin.facility_name,
+                },
+                "trip_information": {
+                    "distance": lane.distance,
+                    "no_of_stops": len(stops),
+                },
+                "destination": {
+                    "city_province": destination.city_province,
+                    "facility_name": destination.facility_name,
+                },
+                "volume": {
+                    "total_loads": len(volumes.expected_loads),
+                    "frequency": volumes.period_label,
+                },
+                "rate": {
+                    "rate_per_shipment": lane.awarded_rate_per_shipment,
+                    "contract_rate": lane.awarded_contract_rate,
+                    "rate_basis": lane.pricing_basis,
+                    "vat_inclusive": lane.vat_included,
+                },
             })
 
         return {
@@ -227,7 +387,6 @@ def admin_get_shipper_company_id(
                 }
             }
         }
-
     except HTTPException:
         raise
     except Exception as e:
