@@ -64,7 +64,7 @@ def admin_get_shipper_company_id(
 
         shipment_exchanges = (
             db.query(Client_Shipment_Auction)
-            .fitler(Client_Shipment_Auction.client_id == shipper_company_id)
+            .filter(Client_Shipment_Auction.client_id == shipper_company_id)
             .all()
         )
 
