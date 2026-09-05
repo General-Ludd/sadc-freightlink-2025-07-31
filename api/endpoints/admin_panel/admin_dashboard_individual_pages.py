@@ -132,7 +132,7 @@ def admin_get_shipper_company_id(
                 "destination": {
                     "city_province": destination.city_province,
                     "facility_name": destination.facility_name,
-                    "eta_date": destination.eta_date,
+                    "eta_date": shipment.eta_date,
                     "operating_window": {
                         "start_time": destination.operating_start_time,
                         "end_time": destination.operating_end_time,
