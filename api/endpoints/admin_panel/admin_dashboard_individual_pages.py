@@ -7,8 +7,10 @@ from models.user import Director, CarrierUser, Driver
 from models.carrier import Carrier
 from models.vehicle import Vehicle, Vehicle_Schedule, Trailer, ShipperTrailer
 from models.brokerage.finance import FinancialAccounts, CarrierFinancialAccounts, Withdrawal_Request, Shipment_Invoice, Interim_Invoice, Invoices
-from models.spot_bookings.dedicated_lane_ftl_shipment import Client_Lane
+from models.spot_bookings.dedicated_lane_ftl_shipment import Client_Lane, Lane_Stop, Lane_Vehicle_Config, Lane_Volume_Profile, Lane_Accessorial
 from models.spot_bookings.ftl_shipment import FTL_SHIPMENT, Client_Shipment, Client_Shipment_Stop, Client_Shipment_Vehicle_Requirement
+from models.Exchange.dedicated_ftl_lane import Lane_Tender_RFQ, Lane_Tender_RFQ_Stop, Lane_Tender_RFQ_Vehicle_Config, Lane_Tender_RFQ_Volume_Profile, Lane_Tender_RFQ_Accessorial
+from models.Exchange.dedicated_ftl_lane import Client_Shipment_Auction, Client_Shipment_Auction_Stop, Client_Shipment_Auction_Vehicle_Requirement
 from models.spot_bookings.power_shipment import POWER_SHIPMENT
 from models.brokerage.loadboard import Ftl_Load_Board, Power_Load_Board, Dedicated_lanes_LoadBoard
 from models.Exchange.auction import Exchange_FTL_Shipment_Bid, Exchange_FTL_Lane_Bid, Exchange_POWER_Shipment_Bid
@@ -63,6 +65,12 @@ def admin_get_shipper_company_id(
         shipment_exchanges = (
             db.query(Client_Shipment_Auction)
             .fitler(Client_Shipment_Auction.client_id == shipper_company_id)
+            .all()
+        )
+
+        tenders = (
+            db.query(Lane_Tender_RFQ)
+            .filter(Lane_Tender_RFQ.client_id == shipper_company_id)
             .all()
         )
 
@@ -206,7 +214,7 @@ def admin_get_shipper_company_id(
 
         tender_data = []
 
-        for tender in tender:
+        for tender in tenders:
             stops = (
                 db.query(Lane_Tender_RFQ_Stop).filter(Lane_Tender_RFQ_Stop.tender_id == tender.id).all()
             )
