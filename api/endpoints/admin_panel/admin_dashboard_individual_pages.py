@@ -319,9 +319,7 @@ def admin_get_shipper_company_id(
             volumes = (
                 db.query(Lane_Volume_Profile).filter(Lane_Volume_Profile.lane_id == lane.id).all()
             )
-
-            orign = stops["Origin"] if stops else None
-            destination = stops["Destination"] if stops else None
+            
             lane_data.append({
                 "id": lane.id,
                 "status": lane.status,
