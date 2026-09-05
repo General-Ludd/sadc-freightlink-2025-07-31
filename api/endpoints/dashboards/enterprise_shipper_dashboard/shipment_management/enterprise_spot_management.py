@@ -292,7 +292,7 @@ def get_client_shipment(
         # Carrier user
         carrier_user = None
         if carrier:
-            carrier_user = db.query(Director).filter(Director.company_id == carrier.id).first()
+            carrier_user = db.query(CarrierUser).filter(CarrierUser.company_id == carrier.id).first()
 
         # Vehicle
         vehicle = db.query(Vehicle).filter(Vehicle.id == shipment.vehicle_id).first() if shipment.vehicle_id else None
