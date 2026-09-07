@@ -3,12 +3,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from db.database import SessionLocal
 from models.Exchange.auction import Exchange_FTL_Shipment_Bid, Exchange_POWER_Shipment_Bid, Exchange_FTL_Lane_Bid
-from models.brokerage.assigned_lanes import Assigned_Ftl_Lanes
-from models.brokerage.assigned_shipments import Assigned_Power_Shipments, Assigned_Spot_Ftl_Shipments
+from models.brokerage.assigned_lanes import Carrier_Lane
+from models.brokerage.assigned_shipments import Carrier_Shipment
 from models.brokerage.finance import CarrierFinancialAccounts, Lane_Interim_Invoice, Load_Invoice
 from models.brokerage.loadboards.exchange_loadboards import Exchange_Ftl_Load_Board, Exchange_Ftl_Lane_LoadBoard, Exchange_Power_Load_Board
 from models.carrier import Carrier
-from models.spot_bookings.ftl_shipment import FTL_SHIPMENT, FTL_Shipment_Docs
+from models.spot_bookings.ftl_shipment import Client_Shipment, Client_Shipment_Stop, Client_Shipment_Vehicle_Requirement
 from models.spot_bookings.power_shipment import POWER_SHIPMENT
 from models.spot_bookings.shipment_facility import ContactPerson, ShipmentFacility
 from schemas.brokerage.assigned_lanes import Dedicated_Ftl_Lane_Summary_Response
@@ -54,7 +54,7 @@ def get_all_carrier_shipments(
         # =========================
         # FETCH SPOT SHIPMENTS
         # =========================
-        shipments = db.query(Assigned_Spot_Ftl_Shipments).filter(
+        shipments = db.query(Carrier_Shipment).filter(
             Carrier_Shipment.carrier_id == company_id
         ).all()
 
