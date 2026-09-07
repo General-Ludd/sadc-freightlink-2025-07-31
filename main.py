@@ -108,22 +108,16 @@ async def log_requests(request: Request, call_next):
     print("\n========== REQUEST ==========")
 
     print("METHOD:", request.method)
-
     print("URL:", request.url)
 
     print("\nHEADERS:")
     print(dict(request.headers))
 
-    body = await request.body()
-
-    print("\nBODY:")
-    print(body.decode("utf-8"))
-
-    print("=============================\n")
-
     response = await call_next(request)
 
-    print("STATUS:", response.status_code)
+    print("\nSTATUS:", response.status_code)
+
+    print("=============================\n")
 
     return response
 
