@@ -69,7 +69,7 @@ def get_all_carrier_shipments(
                                                            Client_Shipment_Stop.stop_type == "Destination").first()
 
             vehicle = db.query(Vehicle).filter(Vehicle.id == shipment.vehicle_id).first
-            driver = db.query(Driver).filter(Driver.id == vehicle.primary_driver_id).first()
+            driver = db.query(Driver).filter(Driver.id == Vehicle.primary_driver_id).first()
 
             shipment_data.append({
                 "id": shipment.id,
