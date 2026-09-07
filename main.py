@@ -208,39 +208,39 @@ def read_root():
     return {"message": "Welcome to SADC FreightLink API"}
 
 @app.exception_handler(RequestValidationError)
-
 async def validation_exception_handler(
-
     request: Request,
-
     exc: RequestValidationError
-
 ):
-
-    body = await request.body()
-
     print("\n========== VALIDATION ERROR ==========")
-
     print("URL:", request.url)
-
-    print("\nBODY:")
-
-    print(body.decode())
 
     print("\nERRORS:")
 
-    print(exc.errors())
+    raw_errors = exc.errors()
+
+    # Convert bytes in Pydantic validation errors
+    # into JSON-safe strings.
+    errors = []
+
+    for error in raw_errors:
+        error = error.copy()
+
+        if isinstance(error.get("input"), (bytes, bytearray)):
+            error["input"] = error["input"].decode(
+                "utf-8",
+                errors="replace"
+            )
+
+        errors.append(error)
+
+    print(errors)
 
     print("======================================\n")
 
     return JSONResponse(
-
         status_code=422,
-
         content={
-
-            "detail": exc.errors()
-
+            "detail": errors
         }
-
     )
