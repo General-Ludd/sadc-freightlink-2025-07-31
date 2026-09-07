@@ -342,6 +342,98 @@ def carrier_get_carrier_shipment_details(
                         "rate_includes_insurance": shipment.rate_includes_insurance,
                     },
                 },
+                "facilities": {
+                    "origin": {
+                        "stop_sequence": origin.stop_sequence,
+                        "stop_type": origin.stop_type,
+                        "facility_name": origin.facility_name,
+                        "complete_address": origin.complete_address,
+                        "scheduling": {
+                            "scheduling_type": origin.scheduling_type,
+                            "operational_availability": {
+                                "open_mondays": origin.open_monday,
+                                "open_tuesdays": origin.open_tuesday,
+                                "open_wednesdays": origin.open_wednesday,
+                                "open_thursdays": origin.open_thursday,
+                                "open_fridays": origin.open_friday,
+                                "open_saturdays": origin.open_saturday,
+                                "open_sunday": orign.open_sunday,
+                                "operating_time": {
+                                    "start_time": origin.operating_start_time,
+                                    "end_time": origin.operating_end_time,
+                                },
+                            },
+                        },
+                        "contact_person": {
+                            "first_name": origin.contact_first_name,
+                            "last_name": origin.contact_last_name,
+                            "phone_number": origin.contact_phone_number,
+                            "email": origin.contact_email if origin.contact_email else None,
+                        },
+                        "reference_number": origin.reference_number,
+                        "notes": origin.notes,
+                    },
+                    "stops": [{
+                        "stop_sequence": stop.stop_sequence,
+                        "stop_type": stop.stop_type,
+                        "facility_name": stop.facility_name,
+                        "complete_address": stop.complete_address,
+                        "scheduling": {
+                            "scheduling_type": stop.scheduling_type,
+                            "operational_availability": {
+                                "open_mondays": stop.open_monday,
+                                "open_tuesdays": stop.open_tuesday,
+                                "open_wednesdays": stop.open_wednesday,
+                                "open_thursdays": stop.open_thursday,
+                                "open_fridays": stop.open_friday,
+                                "open_saturdays": stop.open_saturday,
+                                "open_sunday": stop.open_sunday,
+                                "operating_time": {
+                                    "start_time": stop.operating_start_time,
+                                    "end_time": stop.operating_end_time,
+                                },
+                            },
+                        },
+                        "contact_person": {
+                            "first_name": stop.contact_first_name,
+                            "last_name": stop.contact_last_name,
+                            "phone_number": stop.contact_phone_number,
+                            "email": stop.contact_email if origin.contact_email else None,
+                        },
+                        "reference_number": stop.reference_number,
+                        "notes": stop.notes,
+                    } for stop in stops],
+                    "destination": {
+                        "stop_sequence": destination.stop_sequence,
+                        "stop_type": destination.stop_type,
+                        "facility_name": destination.facility_name,
+                        "complete_address": destination.complete_address,
+                        "scheduling": {
+                            "scheduling_type": destination.scheduling_type,
+                            "operational_availability": {
+                                "open_mondays": destination.open_monday,
+                                "open_tuesdays": destination.open_tuesday,
+                                "open_wednesdays": destination.open_wednesday,
+                                "open_thursdays": destination.open_thursday,
+                                "open_fridays": destination.open_friday,
+                                "open_saturdays": destination.open_saturday,
+                                "open_sunday": destination.open_sunday,
+                                "operating_time": {
+                                    "start_time": destination.operating_start_time,
+                                    "end_time": destination.operating_end_time,
+                                },
+                            },
+                        },
+                        "contact_person": {
+                            "first_name": destination.contact_first_name,
+                            "last_name": destination.contact_last_name,
+                            "phone_number": destination.contact_phone_number,
+                            "email": destination.contact_email if origin.contact_email else None,
+                        },
+                        "reference_number": destination.reference_number,
+                        "notes": destination.notes,
+                    },
+                }
             },
             "assignments": {
                 "assigned_driver": {
