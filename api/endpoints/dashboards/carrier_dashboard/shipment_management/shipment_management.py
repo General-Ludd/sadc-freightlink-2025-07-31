@@ -125,6 +125,8 @@ def get_all_carrier_shipments(
                 },
                 "cycle_and_trip_progress_status": shipment.trip_status
             })
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/carrier-shipment-summary/{id}")
 def get_carrier_shipment_summary(
@@ -154,7 +156,7 @@ def get_carrier_shipment_summary(
                     "city_province": stop.city_province,
                     "notes": stop.notes,
                 } for stop in stops],
-                "trip_status",
+                "trip_status": shipment.trip_status,
             },
             "destination": {
                 "city_province": destination.city_province,
@@ -282,7 +284,7 @@ def carrier_get_carrier_shipment_details(
                         "rate_includes_maintenance": shipment.rate_includes_maintenance,
                         "rate_includes_insurance": shipment.rate_includes_insurance,
                     },
-                }.
+                },
             },
             "assignments": {
                 "assigned_driver": {
@@ -297,7 +299,7 @@ def carrier_get_carrier_shipment_details(
                     },
                     "license": {
                         "license_number": driver.license_number,
-                        "license_expiry_date": driver.license_expiry_date
+                        "license_expiry_date": driver.license_expiry_date,
                         "license_document": driver.license_document,
                     },
                     "prdp": {
