@@ -164,7 +164,7 @@ def get_carrier_shipment_summary(
     return {
         "id":shipment.id,
         "reference": shipment.shipment_reference,
-        "tracking_description": shipment.live_location if live location else None,
+        "tracking_description": shipment.live_location if shipment.live_location else None,
         "corridor_information": {
             "origin": {
                 "city_province": origin.city_province,
