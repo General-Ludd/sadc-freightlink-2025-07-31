@@ -76,50 +76,50 @@ LOG_ROUTES = [
     "/api/driver/upload-pod",  # add any route paths you want to monitor
 ]
 
-@app.middleware("http")
-async def log_selected_requests(request: Request, call_next):
-    # Only log specific routes
-    if any(request.url.path.startswith(route) for route in LOG_ROUTES):
-        try:
-            body_bytes = await request.body()
-            body = body_bytes.decode("utf-8")
-            try:
-                json_body = json.loads(body)
-                body_str = json.dumps(json_body, indent=2)
-            except json.JSONDecodeError:
-                body_str = body
+#@app.middleware("http")
+#async def log_selected_requests(request: Request, call_next):
+#    # Only log specific routes
+#    if any(request.url.path.startswith(route) for route in LOG_ROUTES):
+#        try:
+#            body_bytes = await request.body()
+#            body = body_bytes.decode("utf-8")
+#            try:
+#                json_body = json.loads(body)
+#                body_str = json.dumps(json_body, indent=2)
+#            except json.JSONDecodeError:
+#                body_str = body
 
-            logging.info(f"""
-📦 [REQUEST RECEIVED]
-➡️ Path: {request.url.path}
-➡️ Method: {request.method}
-➡️ Body:
-{body_str}
-            """)
-        except Exception as e:
-            logging.error(f"⚠️ Error logging request body for {request.url.path}: {e}")
+#            logging.info(f"""
+#📦 [REQUEST RECEIVED]
+#➡️ Path: {request.url.path}
+#➡️ Method: {request.method}
+#➡️ Body:
+#{body_str}
+#            """)
+#        except Exception as e:
+#            logging.error(f"⚠️ Error logging request body for {request.url.path}: {e}")
+#
+#    response = await call_next(request)
+#    return response
 
-    response = await call_next(request)
-    return response
+#@app.middleware("http")
+#async def log_requests(request: Request, call_next):
+#
+#    print("\n========== REQUEST ==========")
+#
+#    print("METHOD:", request.method)
+#    print("URL:", request.url)
+#
+#    print("\nHEADERS:")
+#    print(dict(request.headers))
+#
+#    response = await call_next(request)
+#
+#    print("\nSTATUS:", response.status_code)
+#
+#    print("=============================\n")
 
-@app.middleware("http")
-async def log_requests(request: Request, call_next):
-
-    print("\n========== REQUEST ==========")
-
-    print("METHOD:", request.method)
-    print("URL:", request.url)
-
-    print("\nHEADERS:")
-    print(dict(request.headers))
-
-    response = await call_next(request)
-
-    print("\nSTATUS:", response.status_code)
-
-    print("=============================\n")
-
-    return response
+#    return response
 
 #################################################Public################################################
 app.include_router(contact_us.router, prefix="/api", tags=["Contact Us"])
