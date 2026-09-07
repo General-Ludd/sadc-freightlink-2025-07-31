@@ -242,7 +242,6 @@ def carrier_get_carrier_shipment_details(
                 "is_subshipment": shipment.is_subshipment,
                 "lane_id": shipment.lane_id if shipment.carrier_lane_id else None,
                 "customer_reference_number": shipment.customer_reference_number,
-                "type": shipment.type,
                 "trip_type": shipment.trip_type,
                 "load_type": shipment.load_type,
                 "priority_level": shipment.priority_level,
