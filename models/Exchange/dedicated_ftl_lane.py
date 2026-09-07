@@ -293,6 +293,22 @@ class Lane_Tender_RFQ(Base):
     # RELATIONSHIPS
     # ============================================================
 
+    # ============================================================
+    # SELF-REFERENCING TENDER HIERARCHY
+    # ============================================================
+
+    parent_tender = relationship(
+        "Lane_Tender_RFQ",
+        remote_side=[id],
+        back_populates="sub_tenders"
+    )
+
+    sub_tenders = relationship(
+        "Lane_Tender_RFQ",
+        back_populates="parent_tender",
+        cascade="all, delete-orphan"
+    )
+
     stops = relationship(
         "Lane_Tender_RFQ_Stop",
         back_populates="tender",

@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from db.database import SessionLocal
 from utils.auth import get_current_user
-from schemas.exchange_bookings.dedicated_ftl_lane import TenderCreate
+from schemas.exchange_bookings.dedicated_ftl_lane import TenderCreate, TenderBatchCreate
 from schemas.exchange_bookings.ftl_shipment import ClientShipmentAuctionCreate
 from services.exchange.tender import create_tender_and_publish
 from services.exchange.load_auction import create_auction_and_publish
@@ -19,14 +19,14 @@ def get_db():
 
 @router.post("/procurement-tender-create", status_code=status.HTTP_201_CREATED)
 def create_ftl_tender_endpoint(
-    tender_data: TenderCreate,
+    batch_data: TenderBatchCreate,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
     try:
         result = create_tender_and_publish(
             db,
-            tender_data,
+            batch_data,
             current_user=current_user
         )
 

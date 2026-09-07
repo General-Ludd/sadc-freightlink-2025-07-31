@@ -461,6 +461,11 @@ class TenderCreate(BaseModel):
         max_length=20
     )
 
+    trip_type: str = Field(
+        ...,
+        max_length=50
+    )
+
     load_type: str = Field(
         ...,
         max_length=50
@@ -558,6 +563,12 @@ class TenderCreate(BaseModel):
         ...,
         ge=0
     )
+
+    incumbent_contract_rate:  float = Field(
+        ...,
+        ge=0
+    )
+
     procurement_target_rate: float = Field(
         ...,
         ge=0
@@ -714,3 +725,11 @@ class TenderCreate(BaseModel):
     vehicle_configurations: list[TenderVehicleConfigCreate] = []
     volume_profiles: list[TenderVolumeProfileCreate] = []
     accessorials: list[TenderAccessorialCreate] = []
+
+
+class TenderBatchCreate(BaseModel):
+
+    tenders: list[TenderCreate] = Field(
+        ...,
+        min_length=1
+    )
