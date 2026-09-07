@@ -5,6 +5,7 @@ from db.database import SessionLocal
 from models.Exchange.auction import Exchange_FTL_Shipment_Bid, Exchange_POWER_Shipment_Bid, Exchange_FTL_Lane_Bid
 from models.brokerage.assigned_lanes import Carrier_Lane
 from models.brokerage.assigned_shipments import Carrier_Shipment
+from models.vehicle
 from models.brokerage.finance import CarrierFinancialAccounts, Lane_Interim_Invoice, Load_Invoice
 from models.brokerage.loadboards.exchange_loadboards import Exchange_Ftl_Load_Board, Exchange_Ftl_Lane_LoadBoard, Exchange_Power_Load_Board
 from models.carrier import Carrier
