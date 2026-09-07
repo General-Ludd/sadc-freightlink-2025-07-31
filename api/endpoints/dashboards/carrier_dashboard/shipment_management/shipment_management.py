@@ -158,7 +158,7 @@ def get_carrier_shipment_summary(
 ):
     shipment = db.query(Carrier_Shipment).filter(Carrier_Shipment.id == id).first()
     origin = db.query(Client_Shipment_Stop).filter(Client_Shipment_Stop.shipment_id == shipment.client_shipment_id, Client_Shipment_Stop.stop_type == "Origin").first()
-    stops = db.query(Client_Shipment_Stop).filter(Client_Shipment_Stop.shipment_id == shipment.client_shipment_id, Client_Shipment_Stop.stop_type == "Intermediate").first()
+    stops = db.query(Client_Shipment_Stop).filter(Client_Shipment_Stop.shipment_id == shipment.client_shipment_id, Client_Shipment_Stop.stop_type == "Intermediate").all()
     destination = db.query(Client_Shipment_Stop).filter(Client_Shipment_Stop.shipment_id == shipment.client_shipment_id, Client_Shipment_Stop.stop_type == "Destination").first()
 
     return {
