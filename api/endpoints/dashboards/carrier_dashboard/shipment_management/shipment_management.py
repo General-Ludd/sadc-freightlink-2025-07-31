@@ -156,41 +156,61 @@ def get_carrier_shipment_summary(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    shipment = db.query(Carrier_Shipment).filter(Carrier_Shipment.id == id).first()
-    origin = db.query(Client_Shipment_Stop).filter(Client_Shipment_Stop.shipment_id == shipment.client_shipment_id, Client_Shipment_Stop.stop_type == "Origin").first()
-    stops = db.query(Client_Shipment_Stop).filter(Client_Shipment_Stop.shipment_id == shipment.client_shipment_id, Client_Shipment_Stop.stop_type == "Intermediate").all()
-    destination = db.query(Client_Shipment_Stop).filter(Client_Shipment_Stop.shipment_id == shipment.client_shipment_id, Client_Shipment_Stop.stop_type == "Destination").first()
+    shipment = db.query(Carrier_Shipment).filter(
+        Carrier_Shipment.id == id
+    ).first()
+
+    if not shipment:
+        raise HTTPException(status_code=404, detail="Shipment not found")
+
+    origin = db.query(Client_Shipment_Stop).filter(
+        Client_Shipment_Stop.shipment_id == shipment.client_shipment_id,
+        Client_Shipment_Stop.stop_type == "Origin"
+    ).first()
+
+    stops = db.query(Client_Shipment_Stop).filter(
+        Client_Shipment_Stop.shipment_id == shipment.client_shipment_id,
+        Client_Shipment_Stop.stop_type == "Intermediate"
+    ).order_by(Client_Shipment_Stop.stop_sequence.asc()).all()
+
+    destination = db.query(Client_Shipment_Stop).filter(
+        Client_Shipment_Stop.shipment_id == shipment.client_shipment_id,
+        Client_Shipment_Stop.stop_type == "Destination"
+    ).first()
 
     return {
-        "id":shipment.id,
+        "id": shipment.id,
         "reference": shipment.shipment_reference,
-        "tracking_description": shipment.live_location if shipment.live_location else None,
+        "tracking_description": getattr(shipment, "live_location", None),
         "corridor_information": {
             "origin": {
-                "city_province": origin.city_province,
-                "country": origin.country,
+                "city_province": origin.city_province if origin else None,
+                "country": origin.country if origin else None,
                 "pickup_date": shipment.pickup_date,
-                "start_time": origin.operating_start_time,
+                "start_time": origin.operating_start_time if origin else None
             },
             "trip_information": {
-                "no_of_stops": len(stops if stops else None),
+                "no_of_stops": len(stops),
                 "distance": shipment.distance,
-                "stops_information": [{
-                    "city_province": stop.city_province,
-                    "notes": stop.notes,
-                } for stop in stops],
-                "trip_status": shipment.trip_status,
+                "stops_information": [
+                    {
+                        "city_province": stop.city_province,
+                        "notes": stop.notes
+                    }
+                    for stop in stops
+                ],
+                "trip_status": shipment.trip_status
             },
             "destination": {
-                "city_province": destination.city_province,
-                "country": destination.country,
+                "city_province": destination.city_province if destination else None,
+                "country": destination.country if destination else None,
                 "eta_date": shipment.eta_date,
                 "window": {
-                    "start_time": destination.operating_start_time,
-                    "end_time": destination.operating_end_time,
-                },
-            },
-        },
+                    "start_time": destination.operating_start_time if destination else None,
+                    "end_time": destination.operating_end_time if destination else None
+                }
+            }
+        }
     }
 
 @router.get("/carrier-shipment/{id}")
