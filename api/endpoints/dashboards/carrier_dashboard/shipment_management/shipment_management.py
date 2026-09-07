@@ -357,7 +357,7 @@ def carrier_get_carrier_shipment_details(
                                 "open_thursdays": origin.open_thursday,
                                 "open_fridays": origin.open_friday,
                                 "open_saturdays": origin.open_saturday,
-                                "open_sunday": orign.open_sunday,
+                                "open_sunday": origin.open_sunday,
                                 "operating_time": {
                                     "start_time": origin.operating_start_time,
                                     "end_time": origin.operating_end_time,
