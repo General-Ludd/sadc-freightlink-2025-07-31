@@ -238,7 +238,7 @@ def carrier_get_carrier_shipment_details(
 
         return {
             "shipment_details": {
-                "id": shipment.shipment_id,
+                "id": shipment.id,
                 "is_subshipment": shipment.is_subshipment,
                 "lane_id": shipment.lane_id if shipment.carrier_lane_id else None,
                 "customer_reference_number": shipment.customer_reference_number,
