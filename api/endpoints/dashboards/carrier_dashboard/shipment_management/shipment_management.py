@@ -49,85 +49,106 @@ def get_all_carrier_shipments(
 ):
     company_id = current_user.get("company_id")
     if not company_id:
-        raise HTTPException(status_code=400, detail="User does not belong to a company")   
+        raise HTTPException(status_code=400, detail="User does not belong to a company")
 
     try:
-        # =========================
-        # FETCH SPOT SHIPMENTS
-        # =========================
         shipments = db.query(Carrier_Shipment).filter(
             Carrier_Shipment.carrier_id == company_id
         ).all()
 
         shipment_data = []
-        for shipment in shipments:
-            origin = db.query(Client_Shipment_Stop).filter(Client_Shipment_Stop.shipment_id == shipment.client_shipment_id,
-                                                           Client_Shipment_Stop.stop_type == "Origin").first()
-            stops = db.query(Client_Shipment_Stop).filter(Client_Shipment_Stop.shipment_id == shipment.client_shipment_id,
-                                                           Client_Shipment_Stop.stop_type == "Intermediate").all()
-            destination = db.query(Client_Shipment_Stop).filter(Client_Shipment_Stop.shipment_id == shipment.client_shipment_id,
-                                                           Client_Shipment_Stop.stop_type == "Destination").first()
 
-            vehicle = db.query(Vehicle).filter(Vehicle.id == shipment.vehicle_id).first
-            driver = db.query(Driver).filter(Driver.id == Vehicle.primary_driver_id).first()
+        for shipment in shipments:
+            origin = db.query(Client_Shipment_Stop).filter(
+                Client_Shipment_Stop.shipment_id == shipment.client_shipment_id,
+                Client_Shipment_Stop.stop_type == "Origin"
+            ).first()
+
+            stops = db.query(Client_Shipment_Stop).filter(
+                Client_Shipment_Stop.shipment_id == shipment.client_shipment_id,
+                Client_Shipment_Stop.stop_type == "Intermediate"
+            ).order_by(Client_Shipment_Stop.stop_sequence.asc()).all()
+
+            destination = db.query(Client_Shipment_Stop).filter(
+                Client_Shipment_Stop.shipment_id == shipment.client_shipment_id,
+                Client_Shipment_Stop.stop_type == "Destination"
+            ).first()
+
+            vehicle = db.query(Vehicle).filter(
+                Vehicle.id == shipment.vehicle_id
+            ).first() if shipment.vehicle_id else None
+
+            trailer = db.query(Trailer).filter(
+                Trailer.id == vehicle.trailer_id
+            ).first() if vehicle and vehicle.trailer_id else None
+
+            driver = db.query(Driver).filter(
+                Driver.id == vehicle.primary_driver_id
+            ).first() if vehicle and vehicle.primary_driver_id else None
 
             shipment_data.append({
                 "id": shipment.id,
                 "shipment_reference": shipment.shipment_reference,
                 "sub_shipment": {
                     "is_subshipment": shipment.is_subshipment,
-                    "lane_id": shipment.carrier_lane_id,
+                    "lane_id": shipment.carrier_lane_id
                 },
                 "status": shipment.status,
                 "rate_and_basis": {
                     "rate": shipment.rate,
-                    "rate_basis": shipment.pricing_basis,
+                    "rate_basis": shipment.pricing_basis
                 },
                 "origin": {
-                    "city_province": origin.city_province,
-                    "facility_name": origin.facility_name,
+                    "city_province": origin.city_province if origin else None,
+                    "facility_name": origin.facility_name if origin else None,
                     "pickup_date": shipment.pickup_date,
-                    "pickup_start_time": origin.operating_start_time,
+                    "pickup_start_time": origin.operating_start_time if origin else None
                 },
                 "transit": {
                     "distance": shipment.distance,
                     "no_of_stops": len(stops),
-                    "via": [stop.city_province for stop in stops],
+                    "via": [stop.city_province for stop in stops]
                 },
                 "destination": {
-                    "city_province": destination.city_province,
-                    "facility_name": destination.facility_name,
+                    "city_province": destination.city_province if destination else None,
+                    "facility_name": destination.facility_name if destination else None,
                     "eta_date": shipment.eta_date,
                     "eta_window": {
-                        "start_time": destination.operating_start_time,
-                        "end_time": destination.operating_end_time,
-                    },
+                        "start_time": destination.operating_start_time if destination else None,
+                        "end_time": destination.operating_end_time if destination else None
+                    }
                 },
                 "assigned_vehicle": {
                     "make_model": {
-                        "make": vehicle.make,
-                        "model": vehicle.model,
+                        "make": vehicle.make if vehicle else None,
+                        "model": vehicle.model if vehicle else None
                     },
-                    "license_plate": vehicle.license_plate,
-                    "vehicle_type": vehicle.type,
-                    "equipment": vehicle.equipment_type,
+                    "license_plate": vehicle.license_plate if vehicle else None,
+                    "vehicle_type": vehicle.type if vehicle else None,
+                    "equipment": vehicle.equipment_type if vehicle else None,
                     "trailer": {
-                        "type": trailer.trailer_type,
-                        "equipment": trailer.equipment_type,
-                        "length": trailer.trailer_length,
-                    },
+                        "type": trailer.trailer_type if trailer else None,
+                        "equipment": trailer.equipment_type if trailer else None,
+                        "length": trailer.trailer_length if trailer else None
+                    } if trailer else None
                 },
                 "assigned_driver": {
-                    "id": driver.id,
-                    "first_name": driver.first_name,
-                    "last_name": driver.last_name,
-                    "phone_number": driver.phone_number,
-                    "prdp_status": "Valid",
+                    "id": driver.id if driver else None,
+                    "first_name": driver.first_name if driver else None,
+                    "last_name": driver.last_name if driver else None,
+                    "phone_number": driver.phone_number if driver else None,
+                    "prdp_status": "Valid" if driver else None
                 },
                 "cycle_and_trip_progress_status": shipment.trip_status
             })
+
+        return shipment_data
+
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.get("/carrier-shipment-summary/{id}")
 def get_carrier_shipment_summary(
