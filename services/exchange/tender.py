@@ -13,7 +13,7 @@ from models.brokerage.finance import FinancialAccounts
 from models.shipper import Corporation
 from utils.google_maps import AddressInput, RouteETAInput, calculate_distance, get_eta_and_polyline
 
-from schemas.exchange_bookings.dedicated_ftl_lane import TenderCreate
+from schemas.exchange_bookings.dedicated_ftl_lane import TenderCreate, TenderBatchCreate
 
 def calculate_tender_distance(
     origin_address: str,
