@@ -244,32 +244,3 @@ async def validation_exception_handler(
             "detail": errors
         }
     )
-
-router = APIRouter()
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-@router.post(
-    "/procurement-tender-create-debug"
-)
-async def debug_tender_request(request: Request):
-
-    body = await request.body()
-
-    print("\n========== TENDER DEBUG ==========")
-    print("CONTENT-TYPE:", request.headers.get("content-type"))
-    print("BODY TYPE:", type(body))
-    print("BODY BYTES:", body[:500])
-    print("BODY DECODED:", body.decode("utf-8", errors="replace"))
-    print("==================================\n")
-
-    return {
-        "content_type": request.headers.get("content-type"),
-        "body_type": str(type(body)),
-        "body": body.decode("utf-8", errors="replace")
-    }
