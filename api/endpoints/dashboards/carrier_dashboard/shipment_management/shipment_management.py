@@ -152,6 +152,7 @@ def get_all_carrier_shipments(
 
 @router.get("/carrier-shipment-summary/{id}")
 def get_carrier_shipment_summary(
+    id: int,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
