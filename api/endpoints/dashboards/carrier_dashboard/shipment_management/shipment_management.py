@@ -40,8 +40,9 @@ def get_db():
 #############################################################################################################
 ######################################Shipments Management###################################################
 #############################################################################################################
-@router.get("/carrier/shipment-management")
-def get_all_carrier_shipments_summary(
+
+@router.get("/carrier-shipments")
+def get_all_carrier_shipments(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
@@ -53,168 +54,313 @@ def get_all_carrier_shipments_summary(
         # =========================
         # FETCH SPOT SHIPMENTS
         # =========================
-        ftl_shipments = db.query(Assigned_Spot_Ftl_Shipments).filter(
-            Assigned_Spot_Ftl_Shipments.carrier_id == company_id
+        shipments = db.query(Assigned_Spot_Ftl_Shipments).filter(
+            Carrier_Shipment.carrier_id == company_id
         ).all()
 
-        power_shipments = db.query(Assigned_Power_Shipments).filter(
-            Assigned_Power_Shipments.carrier_id == company_id
-        ).all()
+        shipment_data = []
+        for shipment in shipments:
+            origin = db.query(Client_Shipment_Stop).filter(Client_Shipment_Stop.shipment_id == shipment.client_shipment_id,
+                                                           Client_Shipment_Stop.stop_type == "Origin").first()
+            stops = db.query(Client_Shipment_Stop).filter(Client_Shipment_Stop.shipment_id == shipment.client_shipment_id,
+                                                           Client_Shipment_Stop.stop_type == "Intermediate").all()
+            destination = db.query(Client_Shipment_Stop).filter(Client_Shipment_Stop.shipment_id == shipment.client_shipment_id,
+                                                           Client_Shipment_Stop.stop_type == "Destination").first()
 
-        ftl_lanes = db.query(Assigned_Ftl_Lanes).filter(
-            Assigned_Ftl_Lanes.carrier_id == company_id
-        ).all()
+            vehicle = db.query(Vehicle).filter(Vehilce.id == shipment.vehicle_id).first
+            driver = db.query(Driver).filter(Driver.id == vehicle.driver_id).first()
 
-        # =========================
-        # FORMAT SHIPMENTS
-        # =========================
-        shipments_list = []
-        for shipment in ftl_shipments + power_shipments:
-            vehicle = db.query(Vehicle).filter(Vehicle.id == shipment.vehicle_id).first() if shipment.vehicle_id else None
-            driver = db.query(Driver).filter(Driver.id == shipment.driver_id).first() if shipment.driver_id else None
-
-            shipments_list.append({
-                "id": shipment.shipment_id,
-                "is_subshipment": shipment.is_subshipment,
-                "lane_id": shipment.lane_id,
-                "type": shipment.type,
-                "status": shipment.status,
-                "rate": shipment.shipment_rate,
-                "origin": shipment.origin_city_province,
-                "pickup_date": shipment.pickup_date,
-                "pickup_start_time": shipment.pickup_start_time,
-                "destination": shipment.destination_city_province,
-                "eta_date": shipment.eta_date,
-                "eta_window": shipment.eta_window,
-                "distance": shipment.distance,
-                "vehicle": {
-                    "id": vehicle.id if vehicle else None,
-                    "make": vehicle.make if vehicle else None,
-                    "model": vehicle.model if vehicle else None,
+            shipment_data.append({
+                "id": shipment.id,
+                "shipment_reference": shipment.shipment_reference,
+                "sub_shipment": {
+                    "is_subshipment": shipment.is_subshipment,
+                    "lane_id": shipment.carrier_lane_id,
                 },
-                "driver": {
-                    "first_name": driver.first_name if driver else None,
-                    "last_name": driver.last_name if driver else None,
-                    "phone_number": driver.phone_number if driver else None
-                }
+                "status": shipment.status,
+                "rate_and_basis": {
+                    "rate": shipment.rate,
+                    "rate_basis": shipment.pricing_basis,
+                },
+                "origin": {
+                    "city_province": origin.city_province,
+                    "facility_name": origin.facility_name,
+                    "pickup_date": shipment.pickup_date,
+                    "pickup_start_time": origin.operating_start_time,
+                },
+                "transit": {
+                    "distance": shipment.distance,
+                    "no_of_stops": len(stops),
+                    "via": [stop.city_province for stop in stops],
+                },
+                "destination": {
+                    "city_province": destination.city_province,
+                    "facility_name": destination.facility_name,
+                    "eta_date": shipment.eta_date,
+                    "eta_window": {
+                        "start_time": destination.operating_start_time,
+                        "end_time": destination.operating_end_time,
+                    },
+                },
+                "assigned_vehicle": {
+                    "make_model": {
+                        "make": vehicle.make,
+                        "model": vehicle.model,
+                    },
+                    "license_plate": vehicle.license_plate,
+                    "vehicle_type": vehicle.type,
+                    "equipment": vehicle.equipment_type,
+                    "trailer": {
+                        "type": trailer.trailer_type,
+                        "equipment": trailer.equipment_type,
+                        "length": trailer.trailer_length,
+                    },
+                },
+                "assigned_driver": {
+                    "id": driver.id,
+                    "first_name": driver.first_name,
+                    "last_name": driver.last_name,
+                    "phone_number": driver.phone_number,
+                    "prdp_status": "Valid",
+                },
+                "cycle_and_trip_progress_status": shipment.trip_status
             })
 
-        lanes_list = [{
-            "id": lane.lane_id,
-            "type": "FTL Lane",
-            "status": lane.status,
-            "contract_number": lane.lane_id,
-            "rate": lane.contract_rate,
-            "origin": lane.origin_city_province,
-            "destination": lane.destination_city_province,
-            "distance": lane.distance,
-            "recurrence_frequency": lane.recurrence_frequency,
-            "shipments_per_interval": lane.shipments_per_interval,
-            "contract_start": lane.start_date,
-            "contract_end": lane.end_date,
-            "progress": f"{lane.total_shipment_completed} / {lane.total_shipments} completed"
-        } for lane in ftl_lanes]
+@router.get("/carrier-shipment-summary/{id}")
+def get_carrier_shipment_summary(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    shipment = db.query(Carrier_Shipment).filter(Carrier_Shipment.id == id).first()
+    origin = db.query(Client_Shipment_Stop).filter(Client_Shipment_Stop.shipment_id == shipment.client_shipment_id, Client_Shipment_Stop.stop_type == "Origin").first()
+    stops = db.query(Client_Shipment_Stop).filter(Client_Shipment_Stop.shipment_id == shipment.client_shipment_id, Client_Shipment_Stop.stop_type == "Intermediate").first()
+    destination = db.query(Client_Shipment_Stop).filter(Client_Shipment_Stop.shipment_id == shipment.client_shipment_id, Client_Shipment_Stop.stop_type == "Destination").first()
 
-        # =========================
-        # FETCH EXCHANGES (via bids)
-        # =========================
-        ftl_bids = db.query(Exchange_FTL_Shipment_Bid).filter(
-            Exchange_FTL_Shipment_Bid.carrier_id == company_id
-        ).all()
-        power_bids = db.query(Exchange_POWER_Shipment_Bid).filter(
-            Exchange_POWER_Shipment_Bid.carrier_id == company_id
-        ).all()
-        lane_bids = db.query(Exchange_FTL_Lane_Bid).filter(
-            Exchange_FTL_Lane_Bid.carrier_id == company_id
-        ).all()
+    return {
+        "id":shipment.id,
+        "reference": shipment.shipment_reference,
+        "tracking_description": shipment.live_location,
+        "corridor_information": {
+            "origin": {
+                "city_province": origin.city_province,
+                "country": origin.country,
+                "pickup_date": shipment.pickup_date,
+                "start_time": origin.operating_start_time,
+            },
+            "trip_information": {
+                "no_of_stops": len(stops if stops else None),
+                "distance": shipment.distance,
+                "stops_information": [{
+                    "city_province": stop.city_province,
+                    "notes": stop.notes,
+                } for stop in stops],
+                "trip_status",
+            },
+            "destination": {
+                "city_province": destination.city_province,
+                "country": destination.country,
+                "eta_date": shipment.eta_date,
+                "window": {
+                    "start_time": destination.operating_start_time,
+                    "end_time": destination.operating_end_time,
+                },
+            },
+        },
+    }
 
-        exchanges_list = []
-        seen_exchange_ids = set()  # ✅ to avoid duplicates
+@router.get("/carrier-shipment/{id}")
+def carrier_get_carrier_shipment_details(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    try:
+        shipment = db.query(Carrier_Shipment).filter_by(id=id).first()
+        if not shipment:
+            raise HTTPException(status_code=404, detail="Shipment not found")
 
-        # Spot FTL Exchanges
-        for bid in ftl_bids:
-            if bid.exchange_id in seen_exchange_ids:
-                continue
-            exchange = db.query(Exchange_Ftl_Load_Board).filter(
-                Exchange_Ftl_Load_Board.exchange_id == bid.exchange_id
-            ).first()
-            if exchange:
-                exchanges_list.append({
-                    "id": exchange.exchange_id,
-                    "type": "FTL",
-                    "status": exchange.status,
-                    "closing_time": exchange.exchange_end_time,
-                    "origin": exchange.origin_city_province,
-                    "destination": exchange.destination_city_province,
-                    "distance": exchange.distance,
-                    "priority": exchange.priority_level,
-                    "opening_bid": exchange.shipment_rate,
-                    "best_offer": exchange.leading_bid_amount,
-                    "allow_carrier_to_book": exchange.allow_carrier_to_book_at_current_or_lower_offer_rate,
-                })
-                seen_exchange_ids.add(bid.exchange_id)
+        origin = db.query(Client_Shipment_Stop).filter(Client_Shipment_Stop.shipment_id == shipment.client_shipment_id, Client_Shipment_Stop.stop_type == "Origin").first()
+        stops = db.query(Client_Shipment_Stop).filter(Client_Shipment_Stop.shipment_id == shipment.client_shipment_id, Client_Shipment_Stop.stop_type == "Intermediate").first()
+        destination = db.query(Client_Shipment_Stop).filter(Client_Shipment_Stop.shipment_id == shipment.client_shipment_id, Client_Shipment_Stop.stop_type == "Destination").first()
+        equipments = db.query(Client_Shipment_Vehicle_Requirement.shipment_id == shipment.client_shipment_id).all()
 
-        # Spot POWER Exchanges
-        for bid in power_bids:
-            if bid.exchange_id in seen_exchange_ids:
-                continue
-            exchange = db.query(Exchange_Power_Load_Board).filter(
-                Exchange_Power_Load_Board.exchange_id == bid.exchange_id
-            ).first()
-            if exchange:
-                exchanges_list.append({
-                    "id": exchange.exchange_id,
-                    "type": "POWER",
-                    "status": exchange.status,
-                    "closing_time": exchange.exchange_end_time,
-                    "origin": exchange.origin_city_province,
-                    "destination": exchange.destination_city_province,
-                    "distance": exchange.distance,
-                    "priority": exchange.priority_level,
-                    "opening_bid": exchange.offer_rate,
-                    "best_offer": exchange.leading_bid_amount,
-                    "allow_carrier_to_book": exchange.allow_carrier_to_book_at_current_or_lower_offer_rate,
-                })
-                seen_exchange_ids.add(bid.exchange_id)
+        # Vehicle & Driver
+        vehicle = db.query(Vehicle).filter_by(id=shipment.vehicle_id).first() if shipment.vehicle_id else None
+        driver = db.query(Driver).filter_by(id=shipment.driver_id).first() if shipment.driver_id else None
 
-        # FTL Lane Exchanges
-        for bid in lane_bids:
-            if bid.exchange_id in seen_exchange_ids:
-                continue
-            exchange = db.query(Exchange_Ftl_Lane_LoadBoard).filter(
-                Exchange_Ftl_Lane_LoadBoard.exchange_id == bid.exchange_id
-            ).first()
-            if exchange:
-                exchanges_list.append({
-                    "id": exchange.exchange_id,
-                    "type": "FTL Lane",
-                    "status": exchange.status,
-                    "closing_time": exchange.exchange_end_time,
-                    "origin": exchange.origin_city_province,
-                    "destination": exchange.destination_city_province,
-                    "distance": exchange.distance,
-                    "priority": exchange.priority_level,
-                    "num_shipments": exchange.total_shipments,
-                    "best_offer_per_shipment": exchange.leading_per_shipment_offer_bid_amount,
-                    "best_contract_offer": exchange.leading_contract_offer_bid_amount
-                })
-                seen_exchange_ids.add(bid.exchange_id)
-        # =========================
-        # FINAL RESPONSE
-        # =========================
-        shipments_summary = {
-            "all_shipments": shipments_list,
-            "assigned_shipments": [s for s in shipments_list if s["status"] == "Assigned"],
-            "in_progress_shipments": [s for s in shipments_list if s["status"] in ["In-Progress", "In-Transit"]],
-            "completed_shipments": [s for s in shipments_list if s["status"] == "Completed"],
-            "ftl_shipments": [s for s in shipments_list if s["type"] == "FTL"],
-            "power_shipments": [s for s in shipments_list if s["type"] == "POWER"],
-            "ftl_lanes": lanes_list,
-            "exchanges": exchanges_list
+        # Docs & Invoice
+        documents = db.query(FTL_Shipment_Docs).filter_by(shipment_id=shipment.shipment_id).first()
+        invoice = db.query(Load_Invoice).filter_by(id=shipment.invoice_id).first() if shipment.invoice_id else None
+
+        return {
+            "shipment_details": {
+                "id": shipment.shipment_id,
+                "is_subshipment": shipment.is_subshipment,
+                "lane_id": shipment.lane_id if shipment.carrier_lane_id else None,
+                "customer_reference_number": shipment.customer_reference_number,
+                "type": shipment.type,
+                "trip_type": shipment.trip_type,
+                "load_type": shipment.load_type,
+                "priority_level": shipment.priority_level,
+                "pickup_date": shipment.pickup_date,
+                "trip_route_information": {
+                    "origin": origin.complete_address,
+                    "stops": [{
+                        "address": stop.complete_address,
+                    } for stop in stops],
+                    "destination": destination.complete_address,
+                    "distance": shipment.distance,
+                    "estimated_transit_time": shipment.estimated_transit_time,
+                },
+                "cargo_information": {
+                    "commodity": shipment.commodity,
+                    "weight": shipment.shipment_weight,
+                    "packaging": {
+                        "packaging_type": shipment.packaging_type,
+                        "packaging_quanity": shipment.packaging_quanity,
+                    },
+                    "temp": {
+                        "temperature_control": shipment.temperature_control,
+                        "target_temperature_spec": shipment.target_temperature_spec,
+                    },
+                    "hazchem": {
+                        "hazardous_materials": shipment.hazardous_materials,
+                        "hazchem_classification": shipment.hazchem_classification,
+                    },
+                    "transit_compliance": {
+                        "under_bond": shipment.under_bond,
+                        "rib_required": shipment.rib_requirements,
+                    },
+                },
+                "insurance_requirements": {
+                    "git_requirement": shipment.minimum_git_cover_amount,
+                    "third_party_liability_requirement": shipment.minimum_liability_cover_amount,
+                    "encompassed_requirements": {
+                        "all_risk_required": shipment.git_all_risk_required,
+                        "first_loss_required": shipment.git_first_loss_required,
+                        "driver_fidelity": shipment.git_driver_fidelity_required,
+                    },
+                },
+                "truck_equipments": {
+                    "accepted_configurations": [{
+                        "configuration_type": e.configuration_type,
+                        "truck_type": e.truck_type,
+                        "equipment_type": e.equipment_type,
+                        "trailer_type": e.trailer_type if e.trailer_type else None,
+                        "trailer_legnth": e.trailer_legnth if e.trailer_length else None,
+                        "minimum_weight_bracket": shipment.minimum_weight_bracket_kg,
+                    } for e in equipments],
+                    "complaince_requirements": {
+                        "vehicle_tracking_required": shipment.vehicle_tracking_required,
+                        "all_time_hour_control_room": shipment.all_time_hour_control_room,
+                        "driver_mobile_phone": shipment.driver_mobile_phone,
+                        "tarpaulin_compliance_required": shipment.tarpaulin_compliance_required,
+                        "corner_plates_required": shipment.corner_plates_required,
+                        "chock_blocks_required": shipment.chock_blocks_required,
+                        "ratchets_belts_required": shipment.ratchets_belts_required,
+                        "clean_compliant_equipment": shipment.clean_compliant_equipment,
+                        "chep_pallet_management": shipment.pallet_management,
+                        "other_equipment_requirements": shipment.other_equipment_requirements,
+                    }
+                },
+                "financials": {
+                    "rate": shipment.rate,
+                    "vat_inclusive": shipment.vat_included,
+                    "rate_basis": shipment.pricing_basis,
+                    "payment_terms": shipment.payment_terms,
+                    "payment_date": shipment.invoice_due_date if shipment.invoice_due_date else None,
+                    "invoice_status": shipment.invoice_status if shipment.invoice_status else None,
+                    "invoice_id": shipment.invoice_id if shipment.invoice_id else None,
+                    "rate_inclusive": {
+                        "rate_includes_tolls": shipment.rate_includes_tolls,
+                        "rate_includes_border_charges": shipment.rate_includes_border_charges,
+                        "rate_includes_waiting_time": shipment.rate_includes_waiting_time,
+                        "rate_includes_loading_assistance": shipment.rate_includes_loading_assistance,
+                        "rate_includes_offloading_assistance": shipment.rate_includes_offloading_assistance,
+                        "rate_includes_fuel": shipment.rate_includes_fuel,
+                        "rate_includes_driver": shipment.rate_includes_driver,
+                        "rate_includes_maintenance": shipment.rate_includes_maintenance,
+                        "rate_includes_insurance": shipment.rate_includes_insurance,
+                    },
+                }.
+            },
+            "assignments": {
+                "assigned_driver": {
+                    "id": driver.id,
+                    "first_name": driver.first_name,
+                    "last_name": driver.last_name,
+                    "nationality": driver.nationality,
+                    "phone_number": driver.phone_number,
+                    "identification": {
+                        "id_number": driver.id_number,
+                        "id_document": driver.id_document,
+                    },
+                    "license": {
+                        "license_number": driver.license_number,
+                        "license_expiry_date": driver.license_expiry_date
+                        "license_document": driver.license_document,
+                    },
+                    "prdp": {
+                        "prdp_number": driver.prdp_number,
+                        "prdp_expiry_date": driver.prdp_expiry_date,
+                        "prdp_document": driver.prdp_document,
+                    },
+                    "passport": {
+                        "passport_number": driver.passport_number,
+                        "passport_document": driver.passport_document,
+                    },
+                },
+                "assigned_vehicle": {
+                    "id": vehicle.id,
+                    "service_status": vehicle.service_status,
+                    "is_verified": vehicle.is_verified,
+                    "status": vehicle.status,
+                    "make": vehicle.make,
+                    "model": vehicle.model,
+                    "year": vehicle.year,
+                    "color": vehicle.color,
+                    "tare_weight": vehicle.tare_weight,
+                    "gvm_weight": vehicle.gvm_weight,
+                    "payload_capacity": vehicle.payload_capacity,
+                    "axle_config": vehicle.axle_configuration,
+                    "equipment_type": vehicle.equipment_type if vehicle.equipment_type else None,
+                    "compliance_docs": {
+                        "registration_or_leasing_certificate": vehicle.vrc_or_leasing,
+                        "license_disk": vehicle.vehicle_license_disk,
+                        "roadworthy_certificate": vehicle.vehicle_road_worthy_certificate if vehicle.road_worthy_certificate else None,
+                        "tracker_certificate": vehicle.vehicle_tracking_certificate,
+                    },
+                    "images": {
+                        "front": vehicle.front_angle_image if vehicle.front_angle_image else None,
+                        "rear": vehicle.rear_angle_image if vehicle.rear_angle_image else None,
+                        "left_angle_image": vehicle.left_angle_image if vehicle.left_angle_image else None,
+                        "right_angle_image": vehicle.right_angle_image if vehicle.right_angle_image else None,
+                    },
+                },
+                "assigned_trailer": {
+                    "id": trailer.id,
+                    "is_verified": trailer.is_verified,
+                    "status": trailer.status,
+                    "make": trailer.make,
+                    "model": trailer.model,
+                    "year": trailer.year,
+                    "color": trailer.color,
+                    "tare_weight": trailer.tare_weight,
+                    "gvm_weight": trailer.gvm_weight,
+                    "payload_capacity": trailer.payload_capacity,
+                    "equipment_type": trailer.equipment_type,
+                    "trailer_type": trailer.trailer_type,
+                    "trailer_length": trailer.trailer_length,
+                    "license_plate": trailer.license_plate,
+                    "license_expiry_date": trailer.license_expiry_date,
+                    "compliance_docs": {
+                        "registration_or_leasing_certification": trailer.vrc_leasing,
+                        "license_disk": trailer.license_disk,
+                        "road_worthy_certificate": trailer.road_worthy_certificate if trailer.road_worthy_certificate else None,
+                    },
+                },
+            },
         }
-
-        return shipments_summary
-
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

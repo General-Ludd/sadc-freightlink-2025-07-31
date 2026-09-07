@@ -10,6 +10,7 @@ class Carrier_Shipment(Base):
     __tablename__ = "carrier_shipments"
 
     id = Column(Integer, primary_key=True, index=True)
+    client_shipment_id = Column(Integer)
     tracking_status = Column(String, nullable=True)
     is_subshipment = Column(Boolean, default=False, nullable=False)
     auction_id = Column(Integer, nullable=True, index=True)
@@ -50,7 +51,8 @@ class Carrier_Shipment(Base):
     route_preview_embed = Column(String)
     polyline = Column(String)
     status = Column(String(50), nullable=False, default="Booked")
-    trip_status = Column(String(50), nullable=False, default="Schedule")
+    trip_status = Column(String(50), nullable=False, default="Scheduled")
+    location_description = Column(String)
     pod_document = Column(String, nullable=True)
     vehicle_id = Column(Integer)
     driver_id = Column(Integer)

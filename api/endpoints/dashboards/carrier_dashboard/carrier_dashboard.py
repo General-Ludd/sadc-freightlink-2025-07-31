@@ -159,109 +159,138 @@ def carrier_reset_password(email: str, code: str, new_password: str, new_passwor
 
     return {"message": "Password reset successfully"}
 
+
 @router.get("/carrier-dashboard/home")
 def get_carrier_dashboard_home(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    assert "company_id" in current_user, "Missing company_id in current_user"
-    print(f"current_user: {current_user}")
-    
-    # Extract the company_id from the current user
     company_id = current_user.get("company_id")
     if not company_id:
-        raise HTTPException(
-            status_code=400,
-            detail="User does not belong to a company"
-        )
+        raise HTTPException(status_code=400, detail="User does not belong to a company")
+
     try:
         carrier = db.query(Carrier).filter(Carrier.id == company_id).first()
         if not carrier:
-            raise HTTPException(
-                status_code=404,
-                detail="Carrier not found"
-            )
+            raise HTTPException(status_code=404, detail="Carrier not found")
+
         financial_account = db.query(CarrierFinancialAccounts).filter(CarrierFinancialAccounts.id == company_id).first()
         vehicles = db.query(Vehicle).filter(Vehicle.owner_id == company_id).all()
         trailers = db.query(Trailer).filter(Trailer.owner_id == company_id).all()
         drivers = db.query(Driver).filter(Driver.company_id == company_id).all()
-        # Query FTL & POWER shipments for this carrier
-        ftl_shipments = db.query(Assigned_Spot_Ftl_Shipments).filter(Assigned_Spot_Ftl_Shipments.carrier_id == company_id).all()
-        power_shipments = db.query(Assigned_Power_Shipments).filter(Assigned_Power_Shipments.carrier_id == company_id).all()
-        ftl_lane = db.query(Assigned_Ftl_Lanes).filter(Assigned_Ftl_Lanes.carrier_id == company_id).all()
-        # Filter by status
-        in_progress_shipments = [
-            s for s in (ftl_shipments + power_shipments) if getattr(s, "status", None) == "In-Progress"
-        ]
-        assigned_shipments = [
-            s for s in (ftl_shipments + power_shipments) if getattr(s, "status", None) == "Assigned"
-        ]
-        assigned_lanes = [
-            l for l in ftl_lane if getattr(l, "status", None) == "Assigned"
-        ]
-        in_progress_lanes = [
-            l for l in ftl_lane if getattr(l, "status", None) == "In-Progress"
-        ]
-        # Get disputes
-        ftl_disputes = db.query(FTL_Shipment_Dispute).filter(FTL_Shipment_Dispute.carrier_company_id == company_id).all()
-        power_disputes = db.query(POWER_Shipment_Dispute).filter(POWER_Shipment_Dispute.carrier_company_id == company_id).all()
+        shipments = db.query(Carrier_Shipment).filter(Carrier_Shipment.carrier_id == company_id).all()
+        lanes = db.query(Carrier_Lane).filter(Carrier_Lane.carrier_id == company_id).all()
+        disputes = db.query(FTL_Shipment_Dispute).filter(FTL_Shipment_Dispute.carrier_company_id == company_id).all()
         notifications = db.query(Carrier_Notification).filter(Carrier_Notification.company_id == company_id).all()
-        active_disputes = [
-            d for d in (ftl_disputes + power_disputes)
-            if getattr(d, "status", None) == "Open"
-        ]
-        disputes = ftl_disputes + power_disputes
+
+        assigned_shipments = [s for s in shipments if s.status == "Assigned"]
+        in_progress_shipments = [s for s in shipments if s.status == "In-Progress"]
+        completed_shipments = [s for s in shipments if s.status == "Completed"]
+        assigned_lanes = [l for l in lanes if l.status == "Assigned"]
+        in_progress_lanes = [l for l in lanes if l.status == "In-Progress"]
+        completed_lanes = [l for l in lanes if l.status == "Completed"]
+
+        shipment_data = []
+        for s in shipments:
+            origin = db.query(Client_Shipment_Stop).filter(
+                Client_Shipment_Stop.shipment_id == s.id,
+                Client_Shipment_Stop.stop_type == "Origin"
+            ).first()
+
+            destination = db.query(Client_Shipment_Stop).filter(
+                Client_Shipment_Stop.shipment_id == s.id,
+                Client_Shipment_Stop.stop_type == "Destination"
+            ).first()
+
+            client = db.query(Corporation).filter(Corporation.id == s.client_id).first() if s.client_id else None
+            vehicle = db.query(Vehicle).filter(Vehicle.id == s.vehicle_id).first() if s.vehicle_id else None
+            trailer = db.query(Trailer).filter(Trailer.id == vehicle.trailer_id).first() if vehicle and vehicle.trailer_id else None
+            driver = db.query(Driver).filter(Driver.id == vehicle.driver_id).first() if s.driver_id else None
+
+            shipment_data.append({
+                "id": s.id,
+                "corridor": {
+                    "origin": {
+                        "city_province": origin.city_province if origin else None,
+                        "country": origin.country if origin else None
+                    },
+                    "destination": {
+                        "city_province": destination.city_province if destination else None,
+                        "country": destination.country if destination else None
+                    }
+                },
+                "cargo_weight": {
+                    "commodity": s.commodity,
+                    "weight": s.weight,
+                    "client": client.legal_business_name if client else None
+                },
+                "assigned_asset_driver": {
+                    "driver": {
+                        "first_name": driver.first_name if driver else None,
+                        "last_name": driver.last_name if driver else None
+                    },
+                    "asset": {
+                        "horse": vehicle.license_plate if vehicle else None,
+                        "trailer": trailer.license_plate if trailer else None
+                    }
+                },
+                "route_progress": s.trip_status,
+                "status": s.status,
+                "freight_rate": {
+                    "rate": s.rate,
+                    "payment_terms": s.payment_terms
+                }
+            })
+
+        dispute_data = []
+        for d in disputes:
+            shipper_company = db.query(Corporation).filter(
+                Corporation.id == d.shipper_company_id,
+            ).first()
+
+            dispute_data.append({
+                "id": d.id,
+                "status": d.status,
+                "reason": d.dispute_reason,
+                "against": shipper_company.legal_business_name,
+                "details": d.additional_details,
+                "amount": None,
+            })
+
 
         return {
             "navbar_company_name": carrier.legal_business_name,
-            "dashboard": {
-                "fleet_vehicles": len(vehicles),
+            "dashboard_fleet_performance_summary": {
+                "horses": len(vehicles),
                 "trailers": len(trailers),
                 "drivers": len(drivers),
                 "awarded_shipments": len(assigned_shipments),
                 "in_progress_shipments": len(in_progress_shipments),
-                "completed_shipments": carrier.number_of_completed_shipments,
+                "completed_shipments": len(completed_shipments),
                 "awarded_contracts": len(assigned_lanes),
                 "active_contracts": len(in_progress_lanes),
-                "completed_contracts": carrier.number_of_completed_dedicated_lanes,
-                "rating": f"{carrier.rating}/5",
-                "active_disputes": len(active_disputes),
-                "total_earned": financial_account.total_earned,
-
+                "completed_contracts": len(completed_lanes),
+                "rating": f"{carrier.rating}/5.0",
+                "active_disputes": len([d for d in disputes if d.status == "Open"]),
+                "total_earned": financial_account.total_earned if financial_account else 0,
                 "shipment_management_and_disputes": {
-                    "active_shipments": [
-                        {
-                            "id": s.id,
-                            "origin": s.origin_city_province,
-                            "destination": s.destination_city_province,
-                            "cargo_and_weight": {
-                                "commodity": s.commodity,
-                                "weight": s.shipment_weight,
-                            },
-                            "type": "FTL" if isinstance(s, FTL) else "POWER",  # ensure we distinguish
-                            "trip_status": s.trip_status,
-                        }
-                        for s in in_progress_shipments
-                    ],
-
-                    "disputes": [{
-                        "id": dispute.id,
-                        "shipment_id": dispute.shipment_id,
-                        "shipment_type": dispute.shipment_type,
-                        "status": dispute.status,
-                    } for dispute in disputes],
+                    "shipments": shipment_data,
+                    "disputes": dispute_data,
                 },
-
-
                 "notifications_alerts": [{
-                    "id": notification.id,
-                    "type": notification.type,
-                    "message": notification.message
-                } for notification in notifications]
+                    "id": n.id,
+                    "recieved_at": n.created_at,
+                    "type": n.type,
+                    "message": n.message
+                } for n in notifications]
             }
         }
+
+    except HTTPException:
+        raise
     except Exception as e:
         return {"error": str(e)}
+
 
 @router.get("/carrier/notifications")
 def get_carrier_account_notifications(
