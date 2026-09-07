@@ -273,7 +273,7 @@ def carrier_get_carrier_shipment_details(
                     "weight": shipment.shipment_weight,
                     "packaging": {
                         "packaging_type": shipment.packaging_type,
-                        "packaging_quanity": shipment.packaging_quanity,
+                        "packaging_quanity": shipment.packaging_quantity,
                     },
                     "temp": {
                         "temperature_control": shipment.temperature_control,
