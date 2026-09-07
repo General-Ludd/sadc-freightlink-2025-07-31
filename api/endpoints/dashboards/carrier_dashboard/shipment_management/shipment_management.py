@@ -224,16 +224,28 @@ def carrier_get_carrier_shipment_details(
         if not shipment:
             raise HTTPException(status_code=404, detail="Shipment not found")
 
-        origin = db.query(Client_Shipment_Stop).filter(Client_Shipment_Stop.shipment_id == shipment.client_shipment_id, Client_Shipment_Stop.stop_type == "Origin").first()
-        stops = db.query(Client_Shipment_Stop).filter(Client_Shipment_Stop.shipment_id == shipment.client_shipment_id, Client_Shipment_Stop.stop_type == "Intermediate").first()
-        destination = db.query(Client_Shipment_Stop).filter(Client_Shipment_Stop.shipment_id == shipment.client_shipment_id, Client_Shipment_Stop.stop_type == "Destination").first()
-        equipments = db.query(Client_Shipment_Vehicle_Requirement.shipment_id == shipment.client_shipment_id).all()
+        origin = db.query(Client_Shipment_Stop).filter(
+            Client_Shipment_Stop.shipment_id == shipment.client_shipment_id,
+            Client_Shipment_Stop.stop_type == "Origin"
+        ).first()
 
-        # Vehicle & Driver
+        stops = db.query(Client_Shipment_Stop).filter(
+            Client_Shipment_Stop.shipment_id == shipment.client_shipment_id,
+            Client_Shipment_Stop.stop_type == "Intermediate"
+        ).order_by(Client_Shipment_Stop.stop_sequence.asc()).all()
+
+        destination = db.query(Client_Shipment_Stop).filter(
+            Client_Shipment_Stop.shipment_id == shipment.client_shipment_id,
+            Client_Shipment_Stop.stop_type == "Destination"
+        ).first()
+
+        equipments = db.query(Client_Shipment_Vehicle_Requirement).filter(
+            Client_Shipment_Vehicle_Requirement.shipment_id == shipment.client_shipment_id
+        ).all()
+
         vehicle = db.query(Vehicle).filter_by(id=shipment.vehicle_id).first() if shipment.vehicle_id else None
+        trailer = db.query(Trailer).filter_by(id=vehicle.trailer_id).first() if vehicle and vehicle.trailer_id else None
         driver = db.query(Driver).filter_by(id=shipment.driver_id).first() if shipment.driver_id else None
-
-        # Docs & Invoice
         invoice = db.query(Load_Invoice).filter_by(id=shipment.invoice_id).first() if shipment.invoice_id else None
 
         return {
@@ -247,11 +259,12 @@ def carrier_get_carrier_shipment_details(
                 "priority_level": shipment.priority_level,
                 "pickup_date": shipment.pickup_date,
                 "trip_route_information": {
-                    "origin": origin.complete_address,
-                    "stops": [{
-                        "address": stop.complete_address,
-                    } for stop in stops],
-                    "destination": destination.complete_address,
+                    "origin": origin.complete_address if origin else None,
+                    "stops": [
+                        {"address": stop.complete_address}
+                        for stop in stops
+                    ],
+                    "destination": destination.complete_address if destination else None,
                     "distance": shipment.distance,
                     "estimated_transit_time": shipment.estimated_transit_time,
                 },
@@ -285,14 +298,17 @@ def carrier_get_carrier_shipment_details(
                     },
                 },
                 "truck_equipments": {
-                    "accepted_configurations": [{
-                        "configuration_type": e.configuration_type,
-                        "truck_type": e.truck_type,
-                        "equipment_type": e.equipment_type,
-                        "trailer_type": e.trailer_type if e.trailer_type else None,
-                        "trailer_legnth": e.trailer_legnth if e.trailer_length else None,
-                        "minimum_weight_bracket": shipment.minimum_weight_bracket_kg,
-                    } for e in equipments],
+                    "accepted_configurations": [
+                        {
+                            "configuration_type": e.configuration_type,
+                            "truck_type": e.truck_type,
+                            "equipment_type": e.equipment_type,
+                            "trailer_type": e.trailer_type if e.trailer_type else None,
+                            "trailer_legnth": e.trailer_legnth if e.trailer_length else None,
+                            "minimum_weight_bracket": shipment.minimum_weight_bracket_kg,
+                        }
+                        for e in equipments
+                    ],
                     "complaince_requirements": {
                         "vehicle_tracking_required": shipment.vehicle_tracking_required,
                         "all_time_hour_control_room": shipment.all_time_hour_control_room,
@@ -352,7 +368,7 @@ def carrier_get_carrier_shipment_details(
                         "passport_number": driver.passport_number,
                         "passport_document": driver.passport_document,
                     },
-                },
+                } if driver else None,
                 "assigned_vehicle": {
                     "id": vehicle.id,
                     "service_status": vehicle.service_status,
@@ -379,7 +395,7 @@ def carrier_get_carrier_shipment_details(
                         "left_angle_image": vehicle.left_angle_image if vehicle.left_angle_image else None,
                         "right_angle_image": vehicle.right_angle_image if vehicle.right_angle_image else None,
                     },
-                },
+                } if vehicle else None,
                 "assigned_trailer": {
                     "id": trailer.id,
                     "is_verified": trailer.is_verified,
@@ -401,9 +417,11 @@ def carrier_get_carrier_shipment_details(
                         "license_disk": trailer.license_disk,
                         "road_worthy_certificate": trailer.road_worthy_certificate if trailer.road_worthy_certificate else None,
                     },
-                },
+                } if trailer else None,
             },
         }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
