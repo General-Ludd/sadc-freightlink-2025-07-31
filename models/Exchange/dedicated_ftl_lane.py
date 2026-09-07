@@ -136,6 +136,7 @@ class Lane_Tender_RFQ(Base):
     polyline = Column(String(2000), nullable=True)
 
     priority_level = Column(String(20), nullable=False)
+    trip_type = Column(String(50), nullable=False)
     load_type = Column(String(50), nullable=False)
 
     customer_reference = Column(String(100), nullable=True)
