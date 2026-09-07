@@ -245,6 +245,15 @@ async def validation_exception_handler(
         }
     )
 
+router = APIRouter()
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
 @router.post(
     "/procurement-tender-create-debug"
 )
