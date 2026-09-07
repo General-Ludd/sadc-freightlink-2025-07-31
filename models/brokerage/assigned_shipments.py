@@ -52,7 +52,7 @@ class Carrier_Shipment(Base):
     polyline = Column(String)
     status = Column(String(50), nullable=False, default="Booked")
     trip_status = Column(String(50), nullable=False, default="Scheduled")
-    location_description = Column(String)
+    live_location = Column(String)
     pod_document = Column(String, nullable=True)
     vehicle_id = Column(Integer)
     driver_id = Column(Integer)
