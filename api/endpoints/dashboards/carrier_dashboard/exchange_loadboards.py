@@ -850,6 +850,213 @@ def get_tender_loadboard(
 
             return profiles, total_loads
 
+        def get_tender_volume(tender_id):
+            """
+            Returns the total expected loads for one tender.
+            """
+            profiles = (
+                db.query(Lane_Tender_RFQ_Volume_Profile)
+                .filter(
+                    Lane_Tender_RFQ_Volume_Profile.tender_id == tender_id
+                )
+                .all()
+            )
+
+            return sum(
+                (profile.expected_loads or 0)
+                for profile in profiles
+            )
+
+
+        # ------------------------------------------------------------
+        # TOTAL FAMILY VOLUME
+        # ------------------------------------------------------------
+
+        total_estimated_movements = sum(
+            get_tender_volume(t.id)
+            for t in tender_family
+        )
+
+
+        # ------------------------------------------------------------
+        # COLLECT ORIGINS / DESTINATIONS FROM ALL TENDERS
+        # ------------------------------------------------------------
+
+        origin_locations = []
+        destination_regions = []
+
+        for family_tender in tender_family:
+
+            family_stops = (
+                db.query(Lane_Tender_RFQ_Stop)
+                .filter(
+                    Lane_Tender_RFQ_Stop.tender_id == family_tender.id
+                )
+                .order_by(
+                    Lane_Tender_RFQ_Stop.stop_sequence.asc()
+                )
+                .all()
+            )
+
+            if not family_stops:
+                continue
+
+            family_origin = family_stops[0]
+            family_destination = family_stops[-1]
+
+            # --------------------------------------------------------
+            # ORIGIN
+            # --------------------------------------------------------
+
+            origin_value = getattr(
+                family_origin,
+                "city_province",
+                None
+            )
+
+            if origin_value:
+                origin_value = origin_value.strip()
+
+                if origin_value not in origin_locations:
+                    origin_locations.append(origin_value)
+
+            # --------------------------------------------------------
+            # DESTINATION REGION
+            # --------------------------------------------------------
+
+            destination_value = getattr(
+                family_destination,
+                "region",
+                None
+            )
+
+            if destination_value:
+                destination_value = destination_value.strip()
+
+                if destination_value not in destination_regions:
+                    destination_regions.append(destination_value)
+
+
+        # ------------------------------------------------------------
+        # CLIENT NAME
+        # ------------------------------------------------------------
+
+        client_name = (
+            client.legal_business_name
+            if client
+            else "the Client"
+        )
+
+
+        # ------------------------------------------------------------
+        # FORMAT ORIGINS
+        # ------------------------------------------------------------
+
+        if len(origin_locations) == 1:
+
+            origin_text = origin_locations[0]
+
+        elif len(origin_locations) == 2:
+
+            origin_text = (
+                f"{origin_locations[0]} and "
+                f"{origin_locations[1]}"
+            )
+
+        elif len(origin_locations) > 2:
+
+            origin_text = (
+                ", ".join(origin_locations[:-1])
+                + " and "
+                + origin_locations[-1]
+            )
+
+        else:
+
+            origin_text = "the Client's designated facilities"
+
+
+        # ------------------------------------------------------------
+        # FORMAT DESTINATIONS
+        # ------------------------------------------------------------
+
+        if len(destination_regions) == 1:
+
+            destination_text = destination_regions[0]
+
+        elif len(destination_regions) == 2:
+
+            destination_text = (
+                f"{destination_regions[0]} and "
+                f"{destination_regions[1]}"
+            )
+
+        elif len(destination_regions) > 2:
+
+            destination_text = (
+                ", ".join(destination_regions[:-1])
+                + " and "
+                + destination_regions[-1]
+            )
+
+        else:
+
+            destination_text = "approved destinations across the SADC region"
+
+
+        # ------------------------------------------------------------
+        # PAYMENT TERMS
+        #
+        # PRIMARY / ROOT TENDER ONLY
+        # ------------------------------------------------------------
+
+        payment_terms = getattr(
+            root_tender,
+            "payment_terms",
+            None
+        )
+
+        if payment_terms:
+            payment_terms_text = str(payment_terms)
+        else:
+            payment_terms_text = (
+                "the applicable contractual payment terms"
+            )
+
+
+        # ------------------------------------------------------------
+        # MOVEMENT WORDING
+        # ------------------------------------------------------------
+
+        movement_word = (
+            "movement"
+            if total_estimated_movements == 1
+            else "movements"
+        )
+
+
+        # ------------------------------------------------------------
+        # FINAL CORPORATE INVITATION
+        # ------------------------------------------------------------
+
+        tender_invitation = (
+            "SADC FREIGHTLINK, as the appointed freight procurement "
+            "and transportation partner acting on behalf of the Client, "
+            "invites suitably qualified and compliant transport operators "
+            "to participate in this Request for Quotation (RFQ). "
+            
+            f"The RFQ seeks competitive rates for an estimated "
+            f"{total_estimated_movements:,} cross-border transportation "
+            f"{movement_word} over the applicable contract period, "
+            f"servicing freight originating from the Client's "
+            f"{origin_text} facilities and destined for approved "
+            f"locations across the SADC region. "
+            
+            f"The anticipated commercial payment term is "
+            f"{payment_terms_text}, subject to the applicable contractual "
+            "and invoicing requirements."
+        )
+
         # ========================================================
         # 8. BUILD EACH FULL TENDER
         # ========================================================
@@ -1764,12 +1971,19 @@ def get_tender_loadboard(
                 "tender_id":
                     root_tender.id,
 
-                "tender_reference":
-                    getattr(
-                        root_loadboard,
-                        "tender_reference",
-                        None
-                    ),
+                "tender_invitation": {
+                    "client": client_name,
+
+                    "estimated_total_movements": total_estimated_movements,
+
+                    "origin_locations": origin_locations,
+
+                    "destination_regions": destination_regions,
+
+                    "payment_terms": payment_terms,
+
+                    "invitation_text": tender_invitation
+                },
 
                 "tender_title":
                     root_tender.tender_title,
