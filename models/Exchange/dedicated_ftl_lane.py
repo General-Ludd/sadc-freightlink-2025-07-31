@@ -425,3 +425,98 @@ class Lane_Tender_RFQ_Accessorial(Base):
         back_populates="accessorials"
     )
 
+
+class Turnaround_Window_Demurrage_Protocals(Base):
+    __tablename__ = "tender_turn_around_windows_demurrage_protocals"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tender_id = Column(
+        Integer,
+        ForeignKey("ftl_lane_tenders.id"),
+        nullable=False,
+        index=True
+    )
+    stop_id = Column(
+        Integer,
+        ForeignKey("ftl_lane_tender_stops.id"),
+        nullable=False,
+        index=True
+    )
+
+    demurrage_conditions = Column(String(5000), nullable=True)
+    loading_offloading_turnaround_hours = Column(
+        Integer,
+        default=5,
+        nullable=False
+    )
+    free_demurrage_hours = Column(
+        Integer,
+        default=5,
+        nullable=False
+    )
+    demurrage_rate_per_hour = Column(
+        Integer,
+        default=0,
+        nullable=False
+    )
+    maximum_demurrage_incursion_hours = Column(
+        Integer,
+        default=72,
+        nullable=False
+    )
+
+
+class Carrier_Certification_Driver_Standards(Base):
+    __tablename__ = "tender_carrier_certifications_standards"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tender_id = Column(
+        Integer,
+        ForeignKey("ftl_lane_tenders.id"),
+        nullable=False,
+        index=True
+    )
+
+    certification_name = Column(String(100), nullable=False)
+    driver_qualification_security_directives = Column(
+        String(5000),
+        nullable=True
+    )
+    is_required = Column(Boolean, default=True, nullable=False)
+
+
+class Escort_Policy(Base):
+    __tablename__ = "tender_escort_policy"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tender_id = Column(
+        Integer,
+        ForeignKey("ftl_lane_tenders.id"),
+        nullable=False,
+        index=True
+    )
+
+    armed_escort_required = Column(
+        Boolean,
+        default=False,
+        nullable=False
+    )
+    escort_expense_responsible_party = Column(
+        String(50),
+        nullable=True
+    )
+
+
+class Sla_incident_Reporting(Base):
+    __tablename__ = "tender_sla_and_incident_reporting_policy"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tender_id = Column(
+        Integer,
+        ForeignKey("ftl_lane_tenders.id"),
+        nullable=False,
+        index=True
+    )
+
+    incident_reporting_sla = Column(String(5000), nullable=True)
+    service_level_agreement = Column(String(5000), nullable=True)

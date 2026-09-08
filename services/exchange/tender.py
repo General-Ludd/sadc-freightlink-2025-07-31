@@ -7,6 +7,10 @@ from models.Exchange.dedicated_ftl_lane import (
     Lane_Tender_RFQ_Vehicle_Config,
     Lane_Tender_RFQ_Volume_Profile,
     Lane_Tender_RFQ_Accessorial,
+    Turnaround_Window_Demurrage_Protocals,
+    Carrier_Certification_Driver_Standards,
+    Escort_Policy,
+    Sla_incident_Reporting,
 )
 from models.brokerage.loadboard import Lane_Tender_Loadboard
 from models.brokerage.finance import FinancialAccounts
@@ -763,9 +767,7 @@ def create_tender_and_publish(
                 tender_id=tender.id,
                 stop_sequence=0,
                 stop_type="Origin",
-                facility_name=(
-                    tender_data.origin.facility_name
-                ),
+                facility_name=tender_data.origin.facility_name,
                 address=tender_data.origin.address,
                 complete_address=complete_origin_address,
                 city_province=origin_city_province,
@@ -775,9 +777,12 @@ def create_tender_and_publish(
 
             db.add(origin_stop)
 
+
             # ====================================================
             # 18. CREATE INTERMEDIATE STOPS
             # ====================================================
+
+            created_intermediate_stops = []
 
             for stop_data, geo_data in zip(
                 sorted_stops,
@@ -798,6 +803,11 @@ def create_tender_and_publish(
 
                 db.add(intermediate_stop)
 
+                created_intermediate_stops.append(
+                    (stop_data, intermediate_stop)
+                )
+
+
             # ====================================================
             # 19. CREATE DESTINATION STOP
             # ====================================================
@@ -806,9 +816,7 @@ def create_tender_and_publish(
                 tender_id=tender.id,
                 stop_sequence=len(sorted_stops) + 1,
                 stop_type="Destination",
-                facility_name=(
-                    tender_data.destination.facility_name
-                ),
+                facility_name=tender_data.destination.facility_name,
                 address=tender_data.destination.address,
                 complete_address=complete_destination_address,
                 city_province=destination_city_province,
@@ -818,8 +826,200 @@ def create_tender_and_publish(
 
             db.add(destination_stop)
 
+
             # ====================================================
-            # 20. CREATE VEHICLE CONFIGURATIONS
+            # 20. FLUSH STOPS
+            # ====================================================
+
+            db.flush()
+
+            # ====================================================
+            # 21. CREATE TURNAROUND / DEMURRAGE PROTOCOLS
+            # ====================================================
+
+            # ----------------------------------------------------
+            # ORIGIN
+            # ----------------------------------------------------
+
+            if (
+                tender_data.origin.turnaround_window_demurrage_protocol
+                is not None
+            ):
+
+                demurrage_data = (
+                    tender_data
+                    .origin
+                    .turnaround_window_demurrage_protocol
+                )
+
+                turnaround_protocol = Turnaround_Window_Demurrage_Protocals(
+                    tender_id=tender.id,
+                    stop_id=origin_stop.id,
+                    demurrage_conditions=(
+                        demurrage_data.demurrage_conditions
+                    ),
+                    loading_offloading_turnaround_hours=(
+                        demurrage_data.loading_offloading_turnaround_hours
+                    ),
+                    free_demurrage_hours=(
+                        demurrage_data.free_demurrage_hours
+                    ),
+                    demurrage_rate_per_hour=(
+                        demurrage_data.demurrage_rate_per_hour
+                    ),
+                    maximum_demurrage_incursion_hours=(
+                        demurrage_data.maximum_demurrage_incursion_hours
+                    )
+                )
+
+                db.add(turnaround_protocol)
+
+
+            # ----------------------------------------------------
+            # INTERMEDIATE STOPS
+            # ----------------------------------------------------
+
+            for stop_data, created_stop in created_intermediate_stops:
+
+                if (
+                    stop_data.turnaround_window_demurrage_protocol
+                    is None
+                ):
+                    continue
+
+                demurrage_data = (
+                    stop_data
+                    .turnaround_window_demurrage_protocol
+                )
+
+                turnaround_protocol = Turnaround_Window_Demurrage_Protocals(
+                    tender_id=tender.id,
+                    stop_id=created_stop.id,
+                    demurrage_conditions=(
+                        demurrage_data.demurrage_conditions
+                    ),
+                    loading_offloading_turnaround_hours=(
+                        demurrage_data.loading_offloading_turnaround_hours
+                    ),
+                    free_demurrage_hours=(
+                        demurrage_data.free_demurrage_hours
+                    ),
+                    demurrage_rate_per_hour=(
+                        demurrage_data.demurrage_rate_per_hour
+                    ),
+                    maximum_demurrage_incursion_hours=(
+                        demurrage_data.maximum_demurrage_incursion_hours
+                    )
+                )
+
+                db.add(turnaround_protocol)
+
+
+            # ----------------------------------------------------
+            # DESTINATION
+            # ----------------------------------------------------
+
+            if (
+                tender_data.destination.turnaround_window_demurrage_protocol
+                is not None
+            ):
+
+                demurrage_data = (
+                    tender_data
+                    .destination
+                    .turnaround_window_demurrage_protocol
+                )
+
+                turnaround_protocol = Turnaround_Window_Demurrage_Protocals(
+                    tender_id=tender.id,
+                    stop_id=destination_stop.id,
+                    demurrage_conditions=(
+                        demurrage_data.demurrage_conditions
+                    ),
+                    loading_offloading_turnaround_hours=(
+                        demurrage_data.loading_offloading_turnaround_hours
+                    ),
+                    free_demurrage_hours=(
+                        demurrage_data.free_demurrage_hours
+                    ),
+                    demurrage_rate_per_hour=(
+                        demurrage_data.demurrage_rate_per_hour
+                    ),
+                    maximum_demurrage_incursion_hours=(
+                        demurrage_data.maximum_demurrage_incursion_hours
+                    )
+                )
+
+                db.add(turnaround_protocol)
+
+                # ====================================================
+                # 22. CREATE CARRIER CERTIFICATIONS / DRIVER STANDARDS
+                # ====================================================
+
+                for certification_data in (
+                    tender_data.carrier_certification_driver_standards
+                ):
+
+                    certification = Carrier_Certification_Driver_Standards(
+                        tender_id=tender.id,
+                        certification_name=(
+                            certification_data.certification_name
+                        ),
+                        driver_qualification_security_directives=(
+                            certification_data
+                            .driver_qualification_security_directives
+                        ),
+                        is_required=True
+                    )
+
+                    db.add(certification)
+
+                # ====================================================
+                # 23. CREATE ESCORT POLICY
+                # ====================================================
+
+                if tender_data.escort_policy is not None:
+
+                    escort_policy = Escort_Policy(
+                        tender_id=tender.id,
+                        armed_escort_required=(
+                            tender_data
+                            .escort_policy
+                            .armed_escort_required
+                        ),
+                        escort_expense_responsible_party=(
+                            tender_data
+                            .escort_policy
+                            .escort_expense_responsible_party
+                        )
+                    )
+
+                    db.add(escort_policy)
+
+            # ====================================================
+            # 24. CREATE SLA / INCIDENT REPORTING POLICY
+            # ====================================================
+
+            if tender_data.sla_reporting is not None:
+
+                sla_reporting = Sla_incident_Reporting(
+                    tender_id=tender.id,
+                    incident_reporting_sla=(
+                        tender_data
+                        .sla_reporting
+                        .incident_reporting_sla
+                    ),
+                    service_level_agreement=(
+                        tender_data
+                        .sla_reporting
+                        .service_level_agreement
+                    )
+                )
+
+                db.add(sla_reporting)
+
+            # ====================================================
+            # 25. CREATE VEHICLE CONFIGURATIONS
             # ====================================================
 
             for vehicle_data in tender_data.vehicle_configurations:
@@ -839,7 +1039,7 @@ def create_tender_and_publish(
                 db.add(vehicle_config)
 
             # ====================================================
-            # 21. CREATE VOLUME PROFILES
+            # 26. CREATE VOLUME PROFILES
             # ====================================================
 
             for volume_data in tender_data.volume_profiles:
@@ -866,7 +1066,7 @@ def create_tender_and_publish(
                 db.add(volume_profile)
 
             # ====================================================
-            # 22. CREATE ACCESSORIALS
+            # 27. CREATE ACCESSORIALS
             # ====================================================
 
             for accessorial_data in tender_data.accessorials:
@@ -893,7 +1093,7 @@ def create_tender_and_publish(
             db.flush()
 
             # ====================================================
-            # 23. CREATE LOADBOARD
+            # 28. CREATE LOADBOARD
             # ====================================================
 
             loadboard = Lane_Tender_Loadboard(
@@ -1132,7 +1332,7 @@ def create_tender_and_publish(
             db.add(loadboard)
 
             # ====================================================
-            # 24. ACTIVATE TENDER
+            # 29. ACTIVATE TENDER
             # ====================================================
 
             tender.status = "Active"
@@ -1140,7 +1340,7 @@ def create_tender_and_publish(
             db.flush()
 
             # ====================================================
-            # 25. STORE RESULT
+            # 30. STORE RESULT
             # ====================================================
 
             created_tenders.append({
@@ -1149,13 +1349,13 @@ def create_tender_and_publish(
             })
 
         # ========================================================
-        # 26. ONE COMMIT FOR ENTIRE BATCH
+        # 31. ONE COMMIT FOR ENTIRE BATCH
         # ========================================================
 
         db.commit()
 
         # ========================================================
-        # 27. REFRESH RESULTS
+        # 32. REFRESH RESULTS
         # ========================================================
 
         for item in created_tenders:
@@ -1163,7 +1363,7 @@ def create_tender_and_publish(
             db.refresh(item["loadboard"])
 
         # ========================================================
-        # 28. RESPONSE
+        # 33. RESPONSE
         # ========================================================
 
         return {

@@ -164,12 +164,36 @@ class Exchange_Ftl_Lane_Response(BaseModel):
 from pydantic import BaseModel, Field
 from typing import Optional
 
+class TurnaroundWindowDemurrageProtocolCreate(BaseModel):
+
+    demurrage_conditions: str = Field(..., min_length=1, max_length=500)
+    loading_offloading_turnaround_hours: int = Field(..., ge=0)
+    free_demurrage_hours: int = Field(..., ge=0)
+    demurrage_rate_per_hour: int = Field(..., ge=0)
+    maximum_demurrage_incursion_hours: int = Field(..., ge=0)
+
+class CarrierCertificationDriverStandardsCreate(BaseModel):
+
+    certification_name: str = Field(..., min_length=1, max_length=500)
+    driver_qualification_security_directives: str = Field(..., min_length=1, max_length=500)
+
+class EscortPolicyCreate(BaseModel):
+
+    armed_escort_required: bool = False
+    escort_expense_responsible_party: Optional[str] = None
+
+class SlaReportingCreate(BaseModel):
+
+    incident_reporting_sla: str = Field(..., min_length=1, max_length=5000)
+    service_level_agreement: str = Field(..., min_length=1, max_length=5000) 
 
 class TenderStopCreate(BaseModel):
-
     stop_sequence: int = Field(..., ge=1, le=5)
     address: str = Field(..., min_length=1, max_length=500)
     facility_name: Optional[str] = None
+    turnaround_window_demurrage_protocol: Optional[
+        TurnaroundWindowDemurrageProtocolCreate
+    ] = None
 
 
 class TenderStopUpdate(BaseModel):
@@ -407,47 +431,31 @@ class TenderAccessorialResponse(BaseModel):
 
 class TenderCreate(BaseModel):
 
-    # ============================================================
-    # SECTION 1 — TENDER SCOPE & ROUTING
-    # ============================================================
+    # =========================================================
+    # 1. TENDER INFORMATION
+    # =========================================================
 
-    tender_title: str = Field(
-        ...,
-        min_length=1,
-        max_length=255
-    )
-
-    scope_description: str = Field(
-        ...,
-        min_length=1
-    )
-
-    business_unit: str = Field(
-        ...,
-        max_length=100
-    )
-
-    cost_centre_project_code: str = Field(
-        ...,
-        max_length=100
-    )
-
-    tender_length_category: str = Field(
-        ...,
-        max_length=50
-    )
-
-    tender_category: str = Field(
-        ...,
-        max_length=100
-    )
+    tender_title: str = Field(..., min_length=1, max_length=255)
+    scope_description: str = Field(..., min_length=1)
+    business_unit: str = Field(..., max_length=100)
+    cost_centre_project_code: str = Field(..., max_length=100)
+    tender_length_category: str = Field(..., max_length=50)
+    tender_category: str = Field(..., max_length=100)
 
     contract_start_date: date
     contract_end_date: date
 
-    origin: TenderStopUpdate
+    priority_level: str = Field(..., max_length=20)
+    customer_reference: Optional[str] = Field(None, max_length=100)
 
-    destination: TenderStopUpdate
+
+    # =========================================================
+    # 2. ROUTE
+    # =========================================================
+
+    origin: TenderStopCreate
+    destination: TenderStopCreate
+    stops: list[TenderStopCreate] = Field(default_factory=list)
 
     border_customs_responsibility: Optional[str] = Field(
         None,
@@ -456,132 +464,80 @@ class TenderCreate(BaseModel):
 
     estimated_distance_km: Optional[int] = None
 
-    priority_level: str = Field(
-        ...,
-        max_length=20
-    )
+    trip_type: str = Field(..., max_length=50)
+    load_type: str = Field(..., max_length=50)
 
-    trip_type: str = Field(
-        ...,
-        max_length=50
-    )
 
-    load_type: str = Field(
-        ...,
-        max_length=50
-    )
+    # =========================================================
+    # 3. CARGO & FREIGHT REQUIREMENTS
+    # =========================================================
 
-    customer_reference: Optional[str] = Field(
-        None,
-        max_length=100
-    )
+    commodity: str = Field(..., min_length=1)
+    average_shipment_weight_kg: int = Field(..., gt=0)
+    minimum_weight_bracket_kg: int = Field(..., gt=0)
 
-    # ============================================================
-    # SECTION 2 — CARGO
-    # ============================================================
+    packaging_type: Optional[str] = Field(None, max_length=100)
+    packaging_quantity: Optional[str] = Field(None, max_length=100)
 
-    commodity: str = Field(
-        ...,
-        min_length=1
-    )
-
-    average_shipment_weight_kg: int = Field(
-        ...,
-        gt=0
-    )
-
-    minimum_weight_bracket_kg: int = Field(
-        ...,
-        gt=0
-    )
-
-    packaging_type: Optional[str] = Field(
-        None,
-        max_length=100
-    )
-
-    packaging_quantity: Optional[str] = Field(
-        None,
-        max_length=100
-    )
-
-    temperature_control: Optional[str] = Field(
-        None,
-        max_length=100
-    )
-
-    target_temperature_spec: Optional[str] = Field(
-        None,
-        max_length=100
-    )
+    temperature_control: Optional[str] = Field(None, max_length=100)
+    target_temperature_spec: Optional[str] = Field(None, max_length=100)
 
     hazardous_materials: bool = False
-
-    hazchem_classification: Optional[HazchemClass] = Field(
-        None,
-        max_length=100
-    )
+    hazchem_classification: Optional[HazchemClass] = None
 
     under_bond: bool = False
-
     rib_requirements: bool = False
 
-    minimum_git_cover_amount: float = Field(
-        ...,
-        ge=0
+
+    # =========================================================
+    # 4. INSURANCE & RISK
+    # =========================================================
+
+    minimum_git_cover_amount: float = Field(..., ge=0)
+    minimum_liability_cover_amount: float = Field(..., ge=0)
+
+    git_all_risk_required: bool = False
+    git_first_loss_required: bool = False
+    git_driver_fidelity_required: bool = False
+
+
+    # =========================================================
+    # 5. VOLUME
+    # =========================================================
+
+    volume_entry_method: str = Field(..., max_length=30)
+    volume_commitment: str = Field(..., max_length=50)
+
+    volume_profiles: list[TenderVolumeProfileCreate] = Field(
+        default_factory=list
     )
 
-    minimum_liability_cover_amount: float = Field(
-        ...,
-        ge=0
+
+    # =========================================================
+    # 6. VEHICLE REQUIREMENTS
+    # =========================================================
+
+    vehicle_configurations: list[TenderVehicleConfigCreate] = Field(
+        default_factory=list
     )
 
-    # ============================================================
-    # SECTION 3 — VOLUME
-    # ============================================================
 
-    volume_entry_method: str = Field(
-        ...,
-        max_length=30
-    )
+    # =========================================================
+    # 7. PRICING & COMMERCIAL
+    # =========================================================
 
-    volume_commitment: str = Field(
-        ...,
-        max_length=50
-    )
-
-    # ============================================================
-    # SECTION 4 — PRICING
-    # ============================================================
-
-    pricing_basis: str = Field(
-        ...,
-        max_length=50
-    )
+    pricing_basis: str = Field(..., max_length=50)
 
     incumbent_transport_rate_per_shipment: float = Field(
         ...,
         ge=0
     )
 
-    incumbent_contract_rate:  float = Field(
-        ...,
-        ge=0
-    )
+    incumbent_contract_rate: float = Field(..., ge=0)
 
-    procurement_target_rate: float = Field(
-        ...,
-        ge=0
-    )
+    procurement_target_rate: float = Field(..., ge=0)
 
-    rate_direction: str = Field(
-        ...,
-        max_length=50
-    )
-
-    # ============================================================
-    # RATE INCLUDES
-    # ============================================================
+    rate_direction: str = Field(..., max_length=50)
 
     rate_includes_fuel: bool = False
     rate_includes_driver: bool = False
@@ -594,19 +550,14 @@ class TenderCreate(BaseModel):
     rate_includes_loading_assistance: bool = False
     rate_includes_offloading_assistance: bool = False
 
-    # ============================================================
-    # FUEL
-    # ============================================================
 
-    fuel_treatment_type: str = Field(
-        ...,
-        max_length=100
-    )
+    # =========================================================
+    # 8. FUEL & RATE ADJUSTMENT
+    # =========================================================
 
-    base_diesel_price: Optional[float] = Field(
-        None,
-        ge=0
-    )
+    fuel_treatment_type: str = Field(..., max_length=100)
+
+    base_diesel_price: Optional[float] = Field(None, ge=0)
 
     fuel_review_period: Optional[str] = Field(
         None,
@@ -619,38 +570,47 @@ class TenderCreate(BaseModel):
         le=100
     )
 
-    # ============================================================
-    # VAT / RATE VALIDITY
-    # ============================================================
-
     vat_included: bool = True
 
-    rate_validity: str = Field(
-        ...,
+    rate_validity: str = Field(..., max_length=50)
+
+
+    # =========================================================
+    # 9. TENDER TIMING
+    # =========================================================
+
+    tender_closing_date: datetime
+    questions_deadline: Optional[datetime] = None
+
+
+    # =========================================================
+    # 10. OPERATIONS & CARRIER REQUIREMENTS
+    # =========================================================
+
+    vehicle_tracking_required: bool = False
+    all_time_hour_control_room: bool = False
+    driver_mobile_phone: bool = False
+    clean_compliant_equipment: bool = False
+    pallet_management: bool = False
+
+    subcontracting_policy: Optional[str] = Field(
+        None,
         max_length=50
     )
 
-    # ============================================================
-    # TENDER PROCESS
-    # ============================================================
+    carrier_certification_driver_standards: list[CarrierCertificationDriverStandardsCreate] = Field(default_factory=list)
 
-    tender_closing_date: datetime
 
-    questions_deadline: Optional[datetime] = None
+    # =========================================================
+    # 11. SECURITY & ESCORT
+    # =========================================================
 
-    # ============================================================
-    # OPERATIONAL REQUIREMENTS
-    # ============================================================
+    escort_policy: Optional[EscortPolicyCreate] = None
 
-    vehicle_tracking_required: bool = False
 
-    all_time_hour_control_room: bool = False
-
-    driver_mobile_phone: bool = False
-
-    clean_compliant_equipment: bool = False
-
-    pallet_management: bool = False
+    # =========================================================
+    # 12. POD & DOCUMENTATION
+    # =========================================================
 
     pod_submission_local: Optional[str] = Field(
         None,
@@ -667,38 +627,22 @@ class TenderCreate(BaseModel):
         max_length=100
     )
 
-    subcontracting_policy: Optional[str] = Field(
-        None,
-        max_length=50
-    )
-
-    # ============================================================
-    # DOCUMENTATION
-    # ============================================================
-
     delivery_documentation_sla: Optional[str] = Field(
         None,
         max_length=100
     )
 
-    claims_risk_policy: Optional[str] = Field(
-        None,
-        max_length=100
-    )
 
-    claims_risk_requirements: Optional[str] = None
+    # =========================================================
+    # 13. SLA & REPORTING
+    # =========================================================
 
-    # ============================================================
-    # INSURANCE
-    # ============================================================
+    sla_reporting: Optional[SlaReportingCreate] = None
 
-    git_all_risk_required: bool = False
-    git_first_loss_required: bool = False
-    git_driver_fidelity_required: bool = False
 
-    # ============================================================
-    # EQUIPMENT COMPLIANCE
-    # ============================================================
+    # =========================================================
+    # 14. EQUIPMENT COMPLIANCE
+    # =========================================================
 
     tarpaulin_compliance_required: bool = False
     corner_plates_required: bool = False
@@ -707,9 +651,22 @@ class TenderCreate(BaseModel):
 
     other_equipment_requirements: Optional[str] = None
 
-    # ============================================================
-    # BID EVALUATION
-    # ============================================================
+
+    # =========================================================
+    # 15. CLAIMS & RISK MANAGEMENT
+    # =========================================================
+
+    claims_risk_policy: Optional[str] = Field(
+        None,
+        max_length=100
+    )
+
+    claims_risk_requirements: Optional[str] = None
+
+
+    # =========================================================
+    # 16. EVALUATION
+    # =========================================================
 
     evaluation_price_enabled: bool = True
     evaluation_capacity_enabled: bool = True
@@ -717,14 +674,14 @@ class TenderCreate(BaseModel):
     evaluation_compliance_enabled: bool = True
     evaluation_flexibility_enabled: bool = True
 
-    # ============================================================
-    # CHILD RECORDS
-    # ============================================================
 
-    stops: list[TenderStopCreate] = []
-    vehicle_configurations: list[TenderVehicleConfigCreate] = []
-    volume_profiles: list[TenderVolumeProfileCreate] = []
-    accessorials: list[TenderAccessorialCreate] = []
+    # =========================================================
+    # 17. ACCESSORIALS
+    # =========================================================
+
+    accessorials: list[TenderAccessorialCreate] = Field(
+        default_factory=list
+    )
 
 
 class TenderBatchCreate(BaseModel):
