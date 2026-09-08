@@ -5,7 +5,8 @@ from typing import Any, Dict, List, Optional
 from io import BytesIO
 from datetime import date, datetime
 
-from database import get_db
+from sqlalchemy.orm import Session
+from db.database import SessionLocal
 from auth import get_current_user
 
 # ============================================================
@@ -16,7 +17,12 @@ from models.shipper import Corporation
 
 router = APIRouter()
 
-
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 # ============================================================
 # SAFE SERIALIZATION HELPERS
 # ============================================================
