@@ -61,6 +61,37 @@ class Vehicle(Base):
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
+class VehicleDocs(Base):
+    __tablename__ = "vehicle_docs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    vehicle_id = Column(Integer)
+    document_type = Column(String, nullable=False)
+    document_url = Column(String, nullable=False)
+    expiry_date = Column(Date, nullable=True)
+    is_verified = Column(Boolean, default=False)
+    status = Column(Enum("Un-verified", "Verified", "Suspended"), default="Un-verified") #Update in Database
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+class VehicleTracker(Base): 
+    __tablename__ = "vehicle_trackers"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    vehicle_id = Column(Integer)
+    tracker_providers_name = Column(String, nullable=False)
+    tracker_providers_country = Column(String, nullable=False)
+    tracker_id = Column(String, nullable=False)
+    tracker_login_username = Column(String, nullable=False)
+    tracker_login_password = Column(String, nullable=False)
+    tracker_api_username = Column(String, nullable=False)
+    tracker_api_token = Column(String, nullable=False)
+    is_verified = Column(Boolean, default=False)
+    service_status = Column(Enum("Available", "In Use", "Maintenance"), default="Available") #################Update in database
+    status = Column(Enum("Un-verified", "Verified", "Suspended"), default="Un-verified") #Update in Database
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
 class Vehicle_Schedule(Base):
     __tablename__ = "vehicle_schedules"
 
@@ -112,6 +143,37 @@ class Trailer(Base):
     is_verified = Column(Boolean, default=False)
     is_vehicle = Column(Boolean, default=True)
     status = Column(Enum("Un-verified", "Active", "Under Investigation", "Suspended"), default="Un-verified") #Update in Database
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+class Trailer_Docs(Base):
+    __tablename__ = "trailer_docs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    trailer_id = Column(Integer)
+    document_type = Column(String, nullable=False)
+    document_url = Column(String, nullable=False)
+    expiry_date = Column(Date, nullable=True)
+    is_verified = Column(Boolean, default=False)
+    status = Column(Enum("Un-verified", "Verified", "Suspended"), default="Un-verified") #Update in Database
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+class TrailerTracker(Base): 
+    __tablename__ = "trailer_trackers"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    trailer_id = Column(Integer)
+    tracker_providers_name = Column(String, nullable=False)
+    tracker_providers_country = Column(String, nullable=False)
+    tracker_id = Column(String, nullable=False)
+    tracker_login_username = Column(String, nullable=False)
+    tracker_login_password = Column(String, nullable=False)
+    tracker_api_username = Column(String, nullable=False)
+    tracker_api_token = Column(String, nullable=False)
+    is_verified = Column(Boolean, default=False)
+    service_status = Column(Enum("Available", "In Use", "Maintenance"), default="Available") #################Update in database
+    status = Column(Enum("Un-verified", "Verified", "Suspended"), default="Un-verified") #Update in Database
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 

@@ -45,13 +45,18 @@ class Client_Financial_Account_Update(BaseModel):
     business_credit_score_report: Optional[str] = None
     account_confirmation_letter: Optional[str] = None
 
+class CarrierFinancialDocsCreate(BaseModel):
+    document_type: str
+    document_url: str
+    expiry_date: Optional [date] = None
+
 class Carrier_FinancialAccount_Create(BaseModel):
     bank_name: str
     bank_country: str
     branch_code: str
     account_type: str
     account_number: int
-    account_confirmation_letter: str
+    account_confirmation_letter: CarrierFinancialDocsCreate
 
 class CarrierFinancialAccountResponse(BaseModel):
     id: int

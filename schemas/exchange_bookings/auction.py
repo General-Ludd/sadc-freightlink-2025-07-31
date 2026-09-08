@@ -96,7 +96,8 @@ class Exchange_FTL_Lane_ShipperSide_BidResponse(BaseModel):
 class Create_Tender_Bid(BaseModel):
     tender_id: int
     bid_per_shipment: int
-    slors_per_interval: int
+    rate_basis: str
+    slots_per_interval: int
     bid_notes: Optional [str] = None
 
 class Create_Shipment_Bid(BaseModel):

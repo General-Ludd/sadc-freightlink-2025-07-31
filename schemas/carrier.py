@@ -1,4 +1,5 @@
 from typing import Optional
+from datetime import date, datetime
 from pydantic import BaseModel, EmailStr
 from enum import Enum as PyEnum
 from enums import CarrierType
@@ -17,6 +18,10 @@ class CreateFleetCarrier(BaseModel):
     branch_code: str
     account_number: int
 
+class CarrierDocsCreate(BaseModel):
+    document_type: str
+    document_url: str
+    expiry_date: Optional [date] = None
 
 class CarrierCreate(BaseModel):
     legal_business_name: str
@@ -31,11 +36,12 @@ class CarrierCreate(BaseModel):
     business_address: str
     business_email: str
     business_phone_number: str
-    business_registration_certificate: str
-    proof_of_address: str
-    brnc_certificate: Optional[str] = None
-    git_insurance_certificate: str
-    liability_insurance_certificate: str
+    business_registration_certificate: CarrierDocsCreate
+    proof_of_address: CarrierDocsCreate
+    brnc_certificate: Optional[CarrierDocsCreate] = None
+    git_insurance_certificate: CarrierDocsCreate
+    liability_insurance_certificate: CarrierDocsCreate
+
 
 class CarrierProfile(BaseModel):
     primary_routes: Optional [str] = None

@@ -207,6 +207,16 @@ class Account_Status(str, Enum):
     UNDER_INVESTIGATION = "Under-Investigation"
     DELETED = "Deleted"
 
+class VehicleDocsClass(str, Enum):
+    VEHICLE_REGISTRATION_CERTIFICATE = "Vehicle Registration Certificate"
+    LEASING_CERTIFICATE = "Vehicle Leasing Certificate"
+    LICENSE_DISK = "License Disk"
+    ROADWORTHINESS = "Road Worthiness Certificate"
+    TRACKING_CERTIFICATE = "Tracking Certificate"
+    FRONT_ANGLE_IMAGE = "Front Angle Image"
+    REAR_ANGLE_IMAGE = "Rear Angle Image"
+    LEFT_ANGLE_IMAGE = "Left Angle Image"
+    RIGHT_ANGLE_IMAGE = "Right Angle Image"
 
 class HazchemClass(Enum):
     """Represents the 9 standard classes of Dangerous Goods / Hazchem."""

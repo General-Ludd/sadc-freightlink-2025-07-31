@@ -66,6 +66,7 @@ class Lane_Tender_RFQ_Bids(Base):
     fleet_size = Column(Integer, nullable=True)
     primary_lanes = Column(String)
     bid_per_shipment = Column(Numeric(12, 2), nullable=True)
+    contract_bid = Column(Numeric(12, 2), nullable=True)
     slots_per_interval = Column(Integer, nullable=True)
     per_slot_size = Column(Integer, nullable=True)
     bid_notes = Column(String, nullable=True)

@@ -150,6 +150,19 @@ class Driver(Base):
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
+class DriverDocs(Base):
+    __tablename__ = "driver_docs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    driver_id = Column(Integer)
+    document_type = Column(String, nullable=False)
+    document_url = Column(String, nullable=False)
+    expiry_date = Column(Date, nullable=True)
+    is_verified = Column(Boolean, default=False)
+    status = Column(Enum("Un-verified", "Verified", "Suspended"), default="Un-verified") #Update in Database
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
 class DriverAssignmentHistory(Base):
     __tablename__ = "driver_assignment_history"
 

@@ -1121,6 +1121,7 @@ def accept_auction_bid(
         )
 
 
+
 def place_tender_bid(
     db: Session,
     bid_data: Create_Tender_Bid,
@@ -1257,7 +1258,10 @@ def place_tender_bid(
     if not carrier_profile:
         raise HTTPException(
             status_code=400,
-            detail="Carrier profile not found. Please complete your fleet profile before bidding."
+            detail=(
+                "Carrier profile not found. "
+                "Please complete your fleet profile before bidding."
+            )
         )
 
     # ============================================================
@@ -1306,17 +1310,113 @@ def place_tender_bid(
     if bid_data.bid_per_shipment is None:
         raise HTTPException(
             status_code=400,
-            detail="Bid per shipment is required"
+            detail="Bid rate is required"
         )
 
     if bid_data.bid_per_shipment <= 0:
         raise HTTPException(
             status_code=400,
-            detail="Bid per shipment must be greater than zero"
+            detail="Bid rate must be greater than zero"
         )
 
     # ============================================================
-    # 9. VALIDATE SLOTS PER INTERVAL
+    # 9. VALIDATE RATE BASIS
+    # ============================================================
+
+    if not bid_data.rate_basis:
+        raise HTTPException(
+            status_code=400,
+            detail="Rate basis is required"
+        )
+
+    # Normalize the value coming from the frontend
+    rate_basis = bid_data.rate_basis.strip().lower()
+
+    allowed_rate_bases = {
+        "rate per trip/load",
+        "rate per load",
+        "rate per ton"
+    }
+
+    if rate_basis not in allowed_rate_bases:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Invalid rate basis. "
+                "Expected 'Rate per Trip/Load' or 'Rate per Ton'"
+            )
+        )
+
+    # ============================================================
+    # 10. CALCULATE RATE PER SHIPMENT
+    #
+    # If Rate Per Load:
+    #
+    #     Carrier submits R20,000/load
+    #     Estimated shipment rate = R20,000
+    #
+    # If Rate Per Ton:
+    #
+    #     Tender average shipment weight = 30,000 kg
+    #     Convert to tons:
+    #
+    #         30,000 / 1,000 = 30 tons
+    #
+    #     Carrier submits R850/ton
+    #
+    #         R850 × 30 = R25,500/shipment
+    # ============================================================
+
+    submitted_bid_rate = bid_data.bid_per_shipment
+
+    if rate_basis == "rate per ton":
+
+        if tender.average_shipment_weight is None:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Tender does not contain an average shipment weight. "
+                    "A shipment weight is required when bidding on a "
+                    "Rate per Ton basis."
+                )
+            )
+
+        if tender.average_shipment_weight <= 0:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Tender average shipment weight must be greater "
+                    "than zero."
+                )
+            )
+
+        # Tender weight is stored in kilograms
+        average_shipment_weight_kg = float(
+            tender.average_shipment_weight
+        )
+
+        # Convert kilograms to metric tons
+        average_shipment_weight_tons = (
+            average_shipment_weight_kg / 1000
+        )
+
+        # Carrier bid is R/ton
+        estimated_rate_per_shipment = (
+            float(submitted_bid_rate)
+            * average_shipment_weight_tons
+        )
+
+    else:
+        # Rate per Trip/Load
+        # The submitted bid is already the shipment rate.
+        average_shipment_weight_tons = None
+
+        estimated_rate_per_shipment = float(
+            submitted_bid_rate
+        )
+
+    # ============================================================
+    # 11. VALIDATE SLOTS PER INTERVAL
     # ============================================================
 
     if bid_data.slots_per_interval is None:
@@ -1332,7 +1432,7 @@ def place_tender_bid(
         )
 
     # ============================================================
-    # 10. GET VOLUME PROFILES
+    # 12. GET VOLUME PROFILES
     # ============================================================
 
     volume_profiles = db.query(
@@ -1350,22 +1450,20 @@ def place_tender_bid(
         )
 
     # ============================================================
-    # 11. DETERMINE NUMBER OF CONTRACT INTERVALS
+    # 13. DETERMINE NUMBER OF CONTRACT INTERVALS
     # ============================================================
 
     number_of_intervals = len(volume_profiles)
 
     # ============================================================
-    # 12. CALCULATE PER-SLOT SIZE
+    # 14. CALCULATE PER-SLOT SIZE
     #
     # Example:
     #
     # 4 weekly volume profiles
     # 2 slots per interval
     #
-    # 2 × 4 = 8
-    #
-    # Therefore this bid represents 8 total contract slots.
+    # 2 × 4 = 8 total contract slots
     # ============================================================
 
     per_slot_size = (
@@ -1380,22 +1478,30 @@ def place_tender_bid(
         )
 
     # ============================================================
-    # 13. CALCULATE TOTAL CONTRACT BID
+    # 15. CALCULATE TOTAL CONTRACT BID
     #
-    # Example:
+    # Rate Per Load:
     #
-    # R10,000 per shipment
-    # × 8 contract slots
-    # = R80,000
+    #     R20,000/load × 8 slots
+    #     = R160,000
+    #
+    # Rate Per Ton:
+    #
+    #     R850/ton
+    #     × 30 tons
+    #     = R25,500/shipment
+    #
+    #     R25,500 × 8 slots
+    #     = R204,000
     # ============================================================
 
     total_contract_bid = (
-        bid_data.bid_per_shipment
+        estimated_rate_per_shipment
         * per_slot_size
     )
 
     # ============================================================
-    # 14. CREATE BID
+    # 16. CREATE BID
     # ============================================================
 
     bid = Lane_Tender_RFQ_Bids(
@@ -1405,7 +1511,10 @@ def place_tender_bid(
         carrier_name=carrier.legal_business_name,
         fleet_size=fleet_size,
         primary_lanes=carrier_profile.primary_routes,
-        bid_per_shipment=bid_data.bid_per_shipment,
+
+        # Store the calculated shipment rate
+        bid_per_shipment=estimated_rate_per_shipment,
+
         slots_per_interval=bid_data.slots_per_interval,
         per_slot_size=per_slot_size,
         bid_notes=bid_data.bid_notes,
@@ -1413,7 +1522,7 @@ def place_tender_bid(
     )
 
     # ============================================================
-    # 15. SAVE
+    # 17. SAVE
     # ============================================================
 
     db.add(bid)
@@ -1421,19 +1530,50 @@ def place_tender_bid(
     db.refresh(bid)
 
     # ============================================================
-    # 16. RESPONSE
+    # 18. RESPONSE
     # ============================================================
 
-    return {
+    response = {
         "message": "Tender bid submitted successfully",
         "bid_id": bid.id,
         "tender_id": tender.id,
         "carrier_id": carrier.id,
-        "bid_per_shipment": float(bid.bid_per_shipment),
+
+        # What the carrier entered
+        "submitted_bid_rate": float(submitted_bid_rate),
+
+        # Rate basis selected by carrier
+        "rate_basis": bid_data.rate_basis,
+
+        # Final calculated shipment rate
+        "bid_per_shipment": round(
+            float(estimated_rate_per_shipment),
+            2
+        ),
+
         "slots_per_interval": bid.slots_per_interval,
         "number_of_intervals": number_of_intervals,
         "per_slot_size": bid.per_slot_size,
-        "total_contract_bid": float(total_contract_bid),
+
+        # Total contract value
+        "total_contract_bid": round(
+            float(total_contract_bid),
+            2
+        ),
+
         "fleet_size": fleet_size,
         "status": bid.status
     }
+
+    # Add tonnage information only for Rate Per Ton bids
+    if rate_basis == "rate per ton":
+        response["average_shipment_weight_kg"] = (
+            average_shipment_weight_kg
+        )
+
+        response["average_shipment_weight_tons"] = round(
+            average_shipment_weight_tons,
+            3
+        )
+
+    return response

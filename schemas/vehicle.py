@@ -6,6 +6,19 @@ from enums import EquipmentType, TrailerLength, TrailerType, TruckType, Axle_Con
 class Vehicle_Info(BaseModel):
     id: int
 
+class VehicleDocsCreate(BaseModel):
+    document_type: str
+    document_url: str
+    expiry_date: Optional [date] = None
+
+class VehicleTrackerCreate(BaseModel):
+    tracker_providers_name: str
+    tracker_providers_country: str
+    tracker_id: str
+    tracker_login_username: str
+    tracker_login_password: str
+
+
 class VehicleCreate(BaseModel):
     type: TruckType
     make: str
@@ -18,20 +31,16 @@ class VehicleCreate(BaseModel):
     license_expiry_date: date
     tare_weight: int
     gvm_weight: int
-    tracker_providers_name: str
-    tracker_providers_country: str
-    tracker_id: str
-    tracker_login_username: str
-    tracker_login_password: str
     equipment_type: Optional[str] = None
-    vrc_or_leasing: str
-    vehicle_license_disk: str
-    vehicle_road_worthy_certificate: Optional[str] = None
-    vehicle_tracking_certificate: str
-    front_angle_image: str
-    rear_angle_image: str
-    left_angle_image: str
-    right_angle_image: str
+    reg_or_leasing_certificate: VehicleDocsCreate
+    license_disk: VehicleDocsCreate
+    road_worthy_certificate: Optional[VehicleDocsCreate] = None
+    tracker: VehicleTrackerCreate
+    front_angle_image: Optional [VehicleDocsCreate] = None
+    rear_angle_image: Optional [VehicleDocsCreate] = None
+    left_angle_image: Optional [VehicleDocsCreate] = None
+    right_angle_image: Optional [VehicleDocsCreate] = None
+
 
 class Vehicles_Summary_Response(BaseModel):
     id: int
@@ -46,7 +55,7 @@ class Vehicles_Summary_Response(BaseModel):
     axle_configuration: str
     license_expiry_date: date
     type: str
-    equipment_type: Optional [str] = None
+    equipment_type: Optional [str] = None 
     trailer_type: Optional [str] = None
     trailer_length: Optional [str] = None
     driver_first_name: Optional [str] = None

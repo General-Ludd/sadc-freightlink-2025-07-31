@@ -1,5 +1,5 @@
 from sqlalchemy.sql import func
-from sqlalchemy import DateTime, Float
+from sqlalchemy import DateTime, Float, Date
 from sqlalchemy import Column, String, Integer, ForeignKey, Boolean, Enum
 from sqlalchemy.orm import relationship
 from models.base import Base
@@ -37,6 +37,19 @@ class Carrier(Base):
     rating = Column(Float, default=0.0, nullable=True)
     is_verified = Column(Boolean, default=False)
     status = Column(Enum("Un-verified", "Active", "Under Investigation", "Suspended"), default="Un-verified") #Update in Database
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+class CarrierDocs(Base):
+    __tablename__ = 'carrier_docs'
+
+    id = Column(Integer, autoincrement=True, primary_key=True, index=True)
+    carrier_id = Column(Integer, ForeignKey('carriers.id'), nullable=False)
+    document_type = Column(String, nullable=False)
+    document_url = Column(String, nullable=False)
+    expiry_date = Column(Date, nullable=True)
+    is_verified = Column(Boolean, default=False)
+    status = Column(Enum("Un-verified", "Verified", "Suspended"), default="Un-verified") #Update in Database
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 

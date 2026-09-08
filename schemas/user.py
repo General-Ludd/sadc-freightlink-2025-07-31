@@ -33,6 +33,11 @@ class CarrierDirectorCreate(BaseModel):
     phone_number: str
     password: str
 
+class CarrierUsersDocsCreate(BaseModel):
+    document_type: str
+    document_url: str
+    expiry_date: Optional [date] = None
+
 class CarrierUsers(BaseModel):
     role: str
     first_name: str
@@ -42,9 +47,10 @@ class CarrierUsers(BaseModel):
     home_address: str
     email: EmailStr
     phone_number: str
-    id_document: str
-    proof_of_address: Optional[str] = None
+    id_document: CarrierUsersDocsCreate
+    proof_of_address: Optional[CarrierUsersDocsCreate] = None
     password_hash: str
+
 
 class CarrierUserResponse(BaseModel):
     id: int
