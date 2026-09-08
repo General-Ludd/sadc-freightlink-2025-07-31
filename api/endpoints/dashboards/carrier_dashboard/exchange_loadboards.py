@@ -15,6 +15,9 @@ from schemas.brokerage.exchange_loadboards import Exchange_Ftl_Load_Board_Respon
 from schemas.exchange_bookings.auction import Exchange_FTL_Lane_Bid_Create, Exchange_FTL_Shipment_Bid_Create, Exchange_FTL_Exchange_Loadboard_BidResponse, Exchange_POWER_Shipment_Bid_Create, Exchange_Power_Exchange_Loadboard_BidResponse, Create_Shipment_Bid
 from schemas.exchange_bookings.ftl_shipment import Exchange_Ftl_Shipments_Summary_Response
 from services.exchange.auction import place_auction_bid
+from services.docs_constructor.tender_document_builder import (
+    build_tender_rfq_document,
+)
 from utils.auth import get_current_user
 
 router = APIRouter()
@@ -2102,6 +2105,95 @@ def get_tender_loadboard(
             status_code=500,
             detail=f"Failed to fetch tender: {str(e)}"
         )
+
+
+@router.get(
+    "/tender-loadboard/{tender_id}/document"
+)
+def download_tender_document(
+    tender_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+
+    # ========================================================
+    # 1. FETCH EXACT SAME DATA AS FULL TENDER INFORMATION
+    # ========================================================
+
+    related_tenders = get_related_tenders(
+        db,
+        tender_id
+    )
+
+    serialized_tenders = [
+        serialize_full_tender(
+            db,
+            tender
+        )
+        for tender in related_tenders
+    ]
+
+    summary = build_unified_tender_summary(
+        serialized_tenders
+    )
+
+    tender_data = {
+        "success": True,
+        "requested_tender_id": tender_id,
+        "tender_summary": summary,
+        "tenders": serialized_tenders
+    }
+
+    # ========================================================
+    # 2. BUILD PDF
+    # ========================================================
+
+    pdf_buffer = build_tender_rfq_document(
+        tender_data
+    )
+
+    # ========================================================
+    # 3. BUILD CORPORATE FILE NAME
+    # ========================================================
+
+    client_name = (
+        summary
+        .get("client", {})
+        .get("legal_business_name")
+        or "Client"
+    )
+
+    safe_client_name = (
+        client_name
+        .replace("/", "-")
+        .replace("\\", "-")
+        .replace(" ", "_")
+    )
+
+    filename = (
+        f"{safe_client_name}"
+        f"_Transportation_RFQ_"
+        f"Tender_{tender_id}.pdf"
+    )
+
+    # ========================================================
+    # 4. RETURN AS DOWNLOAD
+    # ========================================================
+
+    return StreamingResponse(
+        pdf_buffer,
+
+        media_type="application/pdf",
+
+        headers={
+            "Content-Disposition":
+                f'attachment; filename="{filename}"',
+
+            "Cache-Control":
+                "no-store"
+        }
+    )
+
 
 #####################################Exchange Load Boards#############################################
 @router.get("/carrier/ftl/exchange")

@@ -25,6 +25,8 @@ class Corporation(Base):
     tax_clearance_certificate = Column(String, nullable=True)
     is_verified = Column(Boolean, default=False)
     status = Column(Enum("Un-verified", "Active", "Under Investigation", "Suspended"), default="Un-verified") #Update in Database
+    company_profile = Column(String, nullable=True)
+    company_logo = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), default=get_sast_time)
     updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)
 
