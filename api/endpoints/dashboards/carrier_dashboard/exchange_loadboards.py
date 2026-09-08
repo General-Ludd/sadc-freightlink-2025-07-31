@@ -722,7 +722,7 @@ def get_tender_loadboard(
         loadboard_tender = (
             db.query(Lane_Tender_Loadboard)
             .filter(
-                Lane_Tender_Loadboard.id == id
+                Lane_Tender_Loadboard.tender_id == id
             )
             .first()
         )
