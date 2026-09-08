@@ -1408,16 +1408,15 @@ def get_tender_loadboard(
 
             bid_response = [
                 {
-                    "bid_id": bid.id,
-
+                    "bid_id": bid.id if bid.id else None,
+                    "status": bid.status if bid.status else None,
+                    "rate_per_shipment": bid.bid_per_shipment if bid.bid_per_shipment else None,
+                    "shipment_per_interval": bid.slots_per_interval if bid.slots_per_interval else None,
+                    "individual_slot_size": bid.per_slot_size if bid.per_slot_size else None,
+                    "commited_slots": bid.slots_per_interval if bid.slots_per_interval else None,
+                    "total_shipments_commitment": (bid.per_slot_size if bid.per_slot_size else None * bid.slots_per_interval if bid.slots_per_interval else None),
                     # Include whatever public/carrier-owned
                     # bid fields you have here.
-                    "status": getattr(
-                        bid,
-                        "status",
-                        None
-                    ),
-
                     "submitted_at": getattr(
                         bid,
                         "created_at",
