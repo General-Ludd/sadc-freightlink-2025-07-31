@@ -1261,8 +1261,8 @@ def get_tender_loadboard(
                     "rate_direction":
                         tender.rate_direction,
 
-                    "vat_treatment":
-                        tender.vat_treatment,
+                    "vat_included":
+                        tender.vat_included,
 
                     "rate_validity":
                         tender.rate_validity,
