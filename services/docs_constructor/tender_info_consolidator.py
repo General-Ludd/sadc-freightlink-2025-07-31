@@ -12,8 +12,9 @@ from utils.auth import get_current_user
 # ============================================================
 # YOUR EXISTING MODELS
 # ============================================================
-from models.Exchange.dedicated_ftl_lane import Lane_Tender_RFQ_Stop, Lane_Tender_RFQ_Vehicle_Config, Lane_Tender_RFQ_Volume_Profile, Lane_Tender_RFQ_Accessorial, Turnaround_Window_Demurrage_Protocals, Carrier_Certification_Driver_Standards, Escort_Policy, Sla_incident_Reporting
+from models.Exchange.dedicated_ftl_lane import Lane_Tender_RFQ, Lane_Tender_RFQ_Stop, Lane_Tender_RFQ_Vehicle_Config, Lane_Tender_RFQ_Volume_Profile, Lane_Tender_RFQ_Accessorial, Turnaround_Window_Demurrage_Protocals, Carrier_Certification_Driver_Standards, Escort_Policy, Sla_incident_Reporting
 from models.shipper import Corporation
+
 
 router = APIRouter()
 
