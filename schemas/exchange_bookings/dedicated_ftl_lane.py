@@ -187,6 +187,19 @@ class SlaReportingCreate(BaseModel):
     incident_reporting_sla: str = Field(..., min_length=1, max_length=5000)
     service_level_agreement: str = Field(..., min_length=1, max_length=5000) 
 
+class TenderLocationCreate(BaseModel):
+    address: str = Field(
+        ...,
+        min_length=1,
+        max_length=500
+    )
+
+    facility_name: Optional[str] = None
+
+    turnaround_window_demurrage_protocol: Optional[
+        TurnaroundWindowDemurrageProtocolsCreate
+    ] = None
+
 class TenderStopCreate(BaseModel):
     stop_sequence: int = Field(..., ge=1, le=5)
     address: str = Field(..., min_length=1, max_length=500)
@@ -453,8 +466,8 @@ class TenderCreate(BaseModel):
     # 2. ROUTE
     # =========================================================
 
-    origin: TenderStopCreate
-    destination: TenderStopCreate
+    origin: TenderLocationCreate
+    destination: TenderLocationCreate
     stops: list[TenderStopCreate] = Field(default_factory=list)
 
     border_customs_responsibility: Optional[str] = Field(
