@@ -1041,15 +1041,15 @@ def get_tender_loadboard(
 
         tender_invitation = (
             "SADC FREIGHTLINK, as the appointed freight procurement "
-            "and transportation partner acting on behalf of the Client, "
+            f"and transportation partner acting on behalf of the {client_name}, "
             "invites suitably qualified and compliant transport operators "
             "to participate in this Request for Quotation (RFQ). "
             
             f"The RFQ seeks competitive rates for an estimated "
-            f"{total_estimated_movements:,} cross-border transportation "
+            f"{total_estimated_movements:,} {root_tender.tender_category} transportation "
             f"{movement_word} over the applicable contract period, "
             f"servicing freight originating from the Client's "
-            f"{origin_text} facilities and destined for approved "
+            f"{origin_text} facilities and destined for specified "
             f"locations across the SADC region. "
             
             f"The anticipated commercial payment term is "
