@@ -26,7 +26,9 @@ from PIL import Image as PILImage
 # BRANDING
 # ============================================================
 
-SADC_FREIGHTLINK_LOGO = None
+SADC_FREIGHTLINK_LOGO = (
+    "https://ik.imagekit.io/0bf9ktdig/ChatGPT%20Image%20Sep%202,%202025,%2009_25_07%20PM.png?updatedAt=1762145054656"
+)
 
 # Example:
 #
