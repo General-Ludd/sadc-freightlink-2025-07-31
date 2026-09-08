@@ -111,7 +111,7 @@ def get_related_tenders(
         parent = (
             db.query(Lane_Tender_RFQ)
             .filter(
-                Lane_Tender_RFQ.id == root_tender.parent_id
+                Lane_Tender_RFQ.id == tender_id
             )
             .first()
         )
