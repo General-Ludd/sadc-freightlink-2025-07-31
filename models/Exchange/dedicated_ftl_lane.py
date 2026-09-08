@@ -287,8 +287,8 @@ class Lane_Tender_RFQ(Base):
 
     status = Column(String, nullable=False)
     proposed_rounds = Column(Integer, default=2, nullable=False)
-    current_tender_round = Column(Integer, default=1, nullable=False),
-    is_active = Column(Boolean, default=True),
+    current_tender_round = Column(Integer, default=1, nullable=False)
+    is_active = Column(Boolean, default=True)
 
     # ============================================================
     # RELATIONSHIPS

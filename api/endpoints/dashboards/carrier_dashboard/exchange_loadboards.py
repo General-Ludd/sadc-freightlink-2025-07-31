@@ -6,7 +6,7 @@ from models.Exchange.ftl_shipment import Client_Shipment_Auction, Client_Shipmen
 from models.Exchange.dedicated_ftl_lane import Lane_Tender_RFQ, Lane_Tender_RFQ_Stop, Lane_Tender_RFQ_Vehicle_Config, Lane_Tender_RFQ_Volume_Profile, Lane_Tender_RFQ_Accessorial
 from models.brokerage.loadboard import Shipment_Auction_Loadboard, Lane_Tender_Loadboard
 from models.shipper import Corporation
-from models.Exchange.dedicated_ftl_lane import Lane_Tender_RFQ_Stop, Lane_Tender_RFQ_Vehicle_Config, Lane_Tender_RFQ_Volume_Profile, Lane_Tender_RFQ_Accessorial
+from models.Exchange.dedicated_ftl_lane import Lane_Tender_RFQ_Stop, Lane_Tender_RFQ_Vehicle_Config, Lane_Tender_RFQ_Volume_Profile, Lane_Tender_RFQ_Accessorial, Turnaround_Window_Demurrage_Protocals, Carrier_Certification_Driver_Standards, Escort_Policy, Sla_incident_Reporting
 from models.Exchange.auction import Exchange_FTL_Shipment_Bid, Exchange_FTL_Lane_Bid, Exchange_POWER_Shipment_Bid, Shipment_Auction_Bid
 from models.brokerage.loadboards.exchange_loadboards import Exchange_Ftl_Load_Board, Exchange_Ftl_Lane_LoadBoard
 from models.carrier import Carrier
@@ -681,158 +681,1006 @@ def get_tender_loadboard(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    assert "company_id" in current_user, "Missing company_id in current_user"
-    print(f"current_user: {current_user}")
-    
-    # Extract the company_id from the current user
+    """
+    Carrier-facing tender loadboard.
+
+    Returns:
+    - Unified tender-family summary
+    - Parent tender information
+    - All child/sub-tender information
+    - Carrier-visible operational requirements
+    - Vehicle configurations
+    - Volumes
+    - Stops
+    - Turnaround/demurrage rules
+    - Certifications
+    - Escort policy
+    - SLA / incident reporting
+    - Current carrier's bids
+
+    NEVER returns:
+    - incumbent transport rates
+    - incumbent contract rates
+    - procurement target rates
+    """
+
+    # ============================================================
+    # 1. AUTHENTICATION / COMPANY
+    # ============================================================
+
     company_id = current_user.get("company_id")
+
     if not company_id:
         raise HTTPException(
             status_code=400,
             detail="User does not belong to a company"
         )
-    carrier = db.query(Carrier).filter(Carrier.id == company_id).first()
+
+    carrier = (
+        db.query(Carrier)
+        .filter(Carrier.id == company_id)
+        .first()
+    )
+
     if not carrier:
-        raise HTTPException(status_code=400, detail="Carrier not found, not verified, or not active")
+        raise HTTPException(
+            status_code=400,
+            detail="Carrier not found, not verified, or not active"
+        )
 
     try:
-        tender = db.query(Lane_Tender_Loadboard).filter(Lane_Tender_Loadboard.id == id).first()
-        tender_stops = db.query(Lane_Tender_RFQ_Stop).filter(Lane_Tender_RFQ_Stop.tender_id == tender.tender_id).all()
-        tender_volumes_profiles = db.query(Lane_Tender_RFQ_Volume_Profile).filter(Lane_Tender_RFQ_Volume_Profile.tender_id == id).all()
-        configs = db.query(Lane_Tender_RFQ_Vehicle_Config).filter(Lane_Tender_RFQ_Vehicle_Config.tender_id == tender.tender_id).all()
-        bids = db.query(Lane_Tender_RFQ_Bids).filter(Lane_Tender_RFQ_Bids.tender_id == tender.tender_id,
-                                                        Lane_Tender_RFQ_Bids.carrier_id == company_id).all()
 
-        return {
-            "tender_information": {
-                "id": tender.tender_id,
-                "status": tender.status,
-                "published_at": tender.published_at,
-                "tender_closing_date": tender.bid_closing_date,
-                "questions_deadline": tender.questions_deadline,
-                "tender_title": tender.tender_title,
-                "tender_category": tender.tender_category,
-                "tender_length_category": tender.tender_length_category,
-                "scope_description": tender.scope_description,
-                "contract_start_date": tender.contract_start_date,
-                "contract_end_date": tender.contract_end_date,
+        # ========================================================
+        # 2. FIND THE LOADBOARD RECORD
+        # ========================================================
+
+        loadboard = (
+            db.query(Lane_Tender_Loadboard)
+            .filter(Lane_Tender_Loadboard.id == id)
+            .first()
+        )
+
+        if not loadboard:
+            raise HTTPException(
+                status_code=404,
+                detail="Tender loadboard record not found"
+            )
+
+        requested_tender_id = loadboard.tender_id
+
+        # ========================================================
+        # 3. GET THE TENDER
+        # ========================================================
+
+        tender = (
+            db.query(Lane_Tender_RFQ)
+            .filter(Lane_Tender_RFQ.id == requested_tender_id)
+            .first()
+        )
+
+        if not tender:
+            raise HTTPException(
+                status_code=404,
+                detail="Tender not found"
+            )
+
+        # ========================================================
+        # 4. DETERMINE THE TENDER FAMILY
+        #
+        # If the requested tender is a parent:
+        #     parent -> child 1
+        #             -> child 2
+        #             -> child 3
+        #
+        # If the requested tender is a child:
+        #     child -> find parent -> return entire family
+        # ========================================================
+
+        parent_id = getattr(tender, "parent_id", None)
+
+        if parent_id:
+            family_parent_id = parent_id
+        else:
+            family_parent_id = tender.id
+
+        # ========================================================
+        # 5. FETCH PARENT + ALL CHILD TENDERS
+        # ========================================================
+
+        tender_family = (
+            db.query(Lane_Tender_RFQ)
+            .filter(
+                (Lane_Tender_RFQ.id == family_parent_id)
+                |
+                (Lane_Tender_RFQ.parent_id == family_parent_id)
+            )
+            .order_by(
+                Lane_Tender_RFQ.parent_id.asc(),
+                Lane_Tender_RFQ.id.asc()
+            )
+            .all()
+        )
+
+        if not tender_family:
+            tender_family = [tender]
+
+        # ========================================================
+        # 6. HELPER: BUILD STOP
+        # ========================================================
+
+        def build_stop(stop):
+
+            demurrage = (
+                db.query(Turnaround_Window_Demurrage_Protocals)
+                .filter(
+                    Turnaround_Window_Demurrage_Protocals.tender_id == stop.tender_id,
+                    Turnaround_Window_Demurrage_Protocals.stop_id == stop.id
+                )
+                .first()
+            )
+
+            demurrage_data = None
+
+            if demurrage:
+                demurrage_data = {
+                    "demurrage_conditions": demurrage.demurrage_conditions,
+                    "loading_offloading_turnaround_hours":
+                        demurrage.loading_offloading_turnaround_hours,
+                    "free_demurrage_hours":
+                        demurrage.free_demurrage_hours,
+                    "demurrage_rate_per_hour":
+                        demurrage.demurrage_rate_per_hour,
+                    "maximum_demurrage_incursion_hours":
+                        demurrage.maximum_demurrage_incursion_hours,
+                }
+
+            return {
+                "id": stop.id,
+                "stop_sequence": stop.stop_sequence,
+                "facility_name": stop.facility_name,
+                "address": stop.address,
+                "country": getattr(stop, "country", None),
+
+                "turnaround_window_demurrage_protocol":
+                    demurrage_data
+            }
+
+        # ========================================================
+        # 7. HELPER: BUILD INDIVIDUAL TENDER
+        # ========================================================
+
+        def build_tender(tender):
+
+            # ----------------------------------------------------
+            # STOPS
+            # ----------------------------------------------------
+
+            tender_stops = (
+                db.query(Lane_Tender_RFQ_Stop)
+                .filter(
+                    Lane_Tender_RFQ_Stop.tender_id == tender.id
+                )
+                .order_by(
+                    Lane_Tender_RFQ_Stop.stop_sequence.asc()
+                )
+                .all()
+            )
+
+            # ----------------------------------------------------
+            # VOLUME PROFILES
+            # ----------------------------------------------------
+
+            volume_profiles = (
+                db.query(Lane_Tender_RFQ_Volume_Profile)
+                .filter(
+                    Lane_Tender_RFQ_Volume_Profile.tender_id == tender.id
+                )
+                .order_by(
+                    Lane_Tender_RFQ_Volume_Profile.period_sequence.asc()
+                )
+                .all()
+            )
+
+            # ----------------------------------------------------
+            # VEHICLE CONFIGURATIONS
+            # ----------------------------------------------------
+
+            configs = (
+                db.query(Lane_Tender_RFQ_Vehicle_Config)
+                .filter(
+                    Lane_Tender_RFQ_Vehicle_Config.tender_id == tender.id
+                )
+                .all()
+            )
+
+            # ----------------------------------------------------
+            # CERTIFICATIONS
+            # ----------------------------------------------------
+
+            certifications = (
+                db.query(Carrier_Certification_Driver_Standards)
+                .filter(
+                    Carrier_Certification_Driver_Standards.tender_id
+                    == tender.id
+                )
+                .all()
+            )
+
+            # ----------------------------------------------------
+            # ESCORT POLICY
+            # ----------------------------------------------------
+
+            escort_policy = (
+                db.query(Escort_Policy)
+                .filter(
+                    Escort_Policy.tender_id == tender.id
+                )
+                .first()
+            )
+
+            escort_data = None
+
+            if escort_policy:
+                escort_data = {
+                    "armed_escort_required":
+                        escort_policy.armed_escort_required,
+
+                    "escort_expense_responsible_party":
+                        escort_policy.escort_expense_responsible_party
+                }
+
+            # ----------------------------------------------------
+            # SLA / INCIDENT REPORTING
+            # ----------------------------------------------------
+
+            sla_reporting = (
+                db.query(Sla_incident_Reporting)
+                .filter(
+                    Sla_incident_Reporting.tender_id == tender.id
+                )
+                .first()
+            )
+
+            sla_data = None
+
+            if sla_reporting:
+                sla_data = {
+                    "incident_reporting_sla":
+                        sla_reporting.incident_reporting_sla,
+
+                    "service_level_agreement":
+                        sla_reporting.service_level_agreement
+                }
+
+            # ----------------------------------------------------
+            # ACCESSORIALS
+            # ----------------------------------------------------
+
+            accessorials = []
+
+            # If you have an accessorial model:
+            #
+            # tender_accessorials = (
+            #     db.query(Lane_Tender_RFQ_Accessorial)
+            #     .filter(
+            #         Lane_Tender_RFQ_Accessorial.tender_id
+            #         == tender.id
+            #     )
+            #     .all()
+            # )
+            #
+            # accessorials = [
+            #     {
+            #         "charge_type": a.charge_type,
+            #         "treatment": a.treatment,
+            #         "threshold_value": a.threshold_value,
+            #         "threshold_unit": a.threshold_unit,
+            #         "notes": a.notes,
+            #     }
+            #     for a in tender_accessorials
+            # ]
+
+            # ----------------------------------------------------
+            # CURRENT CARRIER BIDS
+            # ----------------------------------------------------
+
+            bids = (
+                db.query(Lane_Tender_RFQ_Bids)
+                .filter(
+                    Lane_Tender_RFQ_Bids.tender_id == tender.id,
+                    Lane_Tender_RFQ_Bids.carrier_id == company_id
+                )
+                .all()
+            )
+
+            # ----------------------------------------------------
+            # BUILD ORIGIN / DESTINATION
+            #
+            # We identify these from stop_sequence.
+            # ----------------------------------------------------
+
+            origin_stop = None
+            destination_stop = None
+            intermediate_stops = []
+
+            if tender_stops:
+
+                sorted_stops = sorted(
+                    tender_stops,
+                    key=lambda x: x.stop_sequence
+                )
+
+                origin_stop = sorted_stops[0]
+
+                if len(sorted_stops) > 1:
+                    destination_stop = sorted_stops[-1]
+
+                if len(sorted_stops) > 2:
+                    intermediate_stops = sorted_stops[1:-1]
+
+            # ----------------------------------------------------
+            # RETURN CARRIER-VISIBLE TENDER
+            #
+            # IMPORTANT:
+            # NO INCUMBENT RATES
+            # NO PROCUREMENT TARGET RATE
+            # ----------------------------------------------------
+
+            return {
+
+                "tender_id": tender.id,
+
+                "parent_tender_id":
+                    getattr(tender, "parent_id", None),
+
+                "is_parent_tender":
+                    getattr(tender, "parent_id", None) is None,
+
+                "tender_information": {
+
+                    "status": getattr(tender, "status", None),
+
+                    "published_at":
+                        getattr(tender, "published_at", None),
+
+                    "tender_closing_date":
+                        getattr(tender, "bid_closing_date", None),
+
+                    "questions_deadline":
+                        getattr(tender, "questions_deadline", None),
+
+                    "tender_title":
+                        tender.tender_title,
+
+                    "tender_category":
+                        tender.tender_category,
+
+                    "tender_length_category":
+                        tender.tender_length_category,
+
+                    "scope_description":
+                        tender.scope_description,
+
+                    "contract_start_date":
+                        tender.contract_start_date,
+
+                    "contract_end_date":
+                        tender.contract_end_date,
+
+                    "business_unit":
+                        getattr(tender, "business_unit", None),
+
+                    "load_type":
+                        tender.load_type,
+
+                    "trip_type":
+                        tender.trip_type,
+
+                    "priority_level":
+                        tender.priority_level,
+
+                    "customer_reference":
+                        tender.customer_reference,
+                },
+
+                # =================================================
+                # ROUTING
+                # =================================================
 
                 "routing": {
-                    "origin_address": tender.origin_city_province,
-                    "origin_country": tender.origin_country,
-                    "stops": {
-                        [{
-                            "address": stop.address,
-                            "stop_country": stop.country,
-                        } for stop in tender_stops]
-                    },
-                    "destination_city_province": tender.destination_city_province,
-                    "destination_country": tender.destination_country,
-                    "distance": tender.actual_distance_km,
-                    "polyline": tender.polyline,
+
+                    "origin": (
+                        build_stop(origin_stop)
+                        if origin_stop else None
+                    ),
+
+                    "intermediate_stops": [
+                        build_stop(stop)
+                        for stop in intermediate_stops
+                    ],
+
+                    "destination": (
+                        build_stop(destination_stop)
+                        if destination_stop else None
+                    ),
+
+                    "distance_km":
+                        tender.actual_distance_km,
+
+                    "polyline":
+                        tender.polyline,
                 },
-                "equipment_requirements": {
-                    "allowed_vehicle_configurations": [{
-                        "configuration_type": config.configuration_type,
-                        "truck_type": config.truck_type,
-                        "equipment_type": config.equipment_type,
-                        "trailer_type": config.trailer_type or "--------",
-                        "trailer_length": config.trailer_length or "--------",
-                    } for config in configs],
-                    "equipment_compliance": {
-                        "tarpaulin_compliance_required": tender.tarpaulin_compliance_required,
-                        "corner_plates_required": tender.corner_plates_required,
-                        "chock_blocks_required": tender.chock_blocks_required,
-                        "ratchets_belts_required": tender.ratchets_belts_required,
-                        "other_equipment_requirements": tender.other_equipment_requirements,
-                    },
+
+                # =================================================
+                # CUSTOMS
+                # =================================================
+
+                "border_and_customs": {
+
+                    "border_customs_responsibility":
+                        tender.border_customs_responsibility,
+
+                    "under_bond":
+                        tender.under_bond,
+
+                    "rib_requirements":
+                        tender.rib_requirements,
                 },
-                "seasonality_and_volume_profile":{
-                    "volume_pattern_behavior": tender.volume_entry_method,
-                    "volume_commitment": tender.volume_commitment,
-                    "volumes": [{
-                        "period_sequence": profile.period_sequence,
-                        "period_label": profile.period_label,
-                        "period_date_start": profile.period_start_date,
-                        "period_date_end": profile.period_end_date,
-                        "day_of_week": profile.day_of_week or "",
-                        "expected_loads": profile.expected_loads,
-                    } for profile in tender_volumes_profiles]
-                },
+
+                # =================================================
+                # CARGO
+                # =================================================
+
                 "cargo_information": {
-                    "commodity": tender.commodity,
-                    "load_type": tender.load_type,
-                    "average_shipment_weight_kg": tender.average_shipment_weight_kg,
-                    "minimum_weight_bracket_kg": tender.minimum_weight_bracket_kg,
-                    "packaging_type": tender.packaging_type,
-                    "packaging_quantity": tender.packaging_quantity,
-                    "temperature_control": tender.temperature_control,
-                    "target_temperature_spec": tender.target_temperature_spec,
-                    "hazardous_materials": tender.hazardous_materials,
-                    "hazchem_classification": tender.hazchem_classification,
-                    "under_bond": tender.under_bond,
-                    "border_customs_responsibility": tender.border_customs_responsibility,
+
+                    "commodity":
+                        tender.commodity,
+
+                    "average_shipment_weight_kg":
+                        tender.average_shipment_weight_kg,
+
+                    "minimum_weight_bracket_kg":
+                        tender.minimum_weight_bracket_kg,
+
+                    "packaging_type":
+                        tender.packaging_type,
+
+                    "packaging_quantity":
+                        tender.packaging_quantity,
+
+                    "temperature_control":
+                        tender.temperature_control,
+
+                    "target_temperature_spec":
+                        tender.target_temperature_spec,
+
+                    "hazardous_materials":
+                        tender.hazardous_materials,
+
+                    "hazchem_classification":
+                        tender.hazchem_classification,
                 },
+
+                # =================================================
+                # VOLUME
+                # =================================================
+
+                "seasonality_and_volume_profile": {
+
+                    "volume_pattern_behavior":
+                        tender.volume_entry_method,
+
+                    "volume_commitment":
+                        tender.volume_commitment,
+
+                    "volumes": [
+
+                        {
+                            "period_sequence":
+                                profile.period_sequence,
+
+                            "period_label":
+                                profile.period_label,
+
+                            "period_date_start":
+                                profile.period_start_date,
+
+                            "period_date_end":
+                                profile.period_end_date,
+
+                            "day_of_week":
+                                profile.day_of_week,
+
+                            "expected_loads":
+                                profile.expected_loads,
+
+                        }
+
+                        for profile in volume_profiles
+                    ]
+                },
+
+                # =================================================
+                # EQUIPMENT
+                # =================================================
+
+                "equipment_requirements": {
+
+                    "allowed_vehicle_configurations": [
+
+                        {
+                            "configuration_type":
+                                config.configuration_type,
+
+                            "truck_type":
+                                config.truck_type,
+
+                            "equipment_type":
+                                config.equipment_type,
+
+                            "trailer_type":
+                                config.trailer_type,
+
+                            "trailer_length":
+                                config.trailer_length,
+                        }
+
+                        for config in configs
+                    ],
+
+                    "equipment_compliance": {
+
+                        "tarpaulin_compliance_required":
+                            tender.tarpaulin_compliance_required,
+
+                        "corner_plates_required":
+                            tender.corner_plates_required,
+
+                        "chock_blocks_required":
+                            tender.chock_blocks_required,
+
+                        "ratchets_belts_required":
+                            tender.ratchets_belts_required,
+
+                        "other_equipment_requirements":
+                            tender.other_equipment_requirements,
+                    }
+                },
+
+                # =================================================
+                # PRICING CONDITIONS
+                #
+                # NEVER expose confidential procurement rates.
+                # =================================================
+
                 "bidding_rate_conditions": {
-                    "pricing_basis": tender.pricing_basis,
-                    "rate_direction": tender.rate_direction,
-                    "vat_treatment": tender.vat_treatment,
-                    "rate_validity": tender.rate_validity,
-                    "rate_includes_fuel": tender.rate_includes_fuel,
-                    "rate_includes_driver": tender.rate_includes_driver,
-                    "rate_includes_maintenance": tender.rate_includes_maintenance,
-                    "rate_includes_insurance": tender.rate_includes_insurance,
-                    "rate_includes_tolls": tender.rate_includes_tolls,
-                    "rate_includes_empty_return": tender.rate_includes_empty_return,
-                    "rate_includes_waiting_time": tender.rate_includes_waiting_time,
-                    "rate_includes_loading_assistance": tender.rate_includes_loading_assistance,
-                    "rate_includes_offloading_assistance": tender.rate_includes_offloading_assistance,
-                    "evalution_criteria": {
-                        "evaluation_price_enabled": tender.evaluation_price_enabled,
-                        "evaluation_capacity_enabled": tender.evaluation_capacity_enabled,
-                        "evaluation_service_enabled": tender.evaluation_service_enabled,
-                        "evaluation_compliance_enabled": tender.evaluation_compliance_enabled,
-                        "evaluation_flexibility_enabled": tender.evaluation_flexibility_enabled
+
+                    "pricing_basis":
+                        tender.pricing_basis,
+
+                    "rate_direction":
+                        tender.rate_direction,
+
+                    "vat_treatment":
+                        tender.vat_treatment,
+
+                    "rate_validity":
+                        tender.rate_validity,
+
+                    "rate_inclusions": {
+
+                        "fuel":
+                            tender.rate_includes_fuel,
+
+                        "driver":
+                            tender.rate_includes_driver,
+
+                        "maintenance":
+                            tender.rate_includes_maintenance,
+
+                        "insurance":
+                            tender.rate_includes_insurance,
+
+                        "tolls":
+                            tender.rate_includes_tolls,
+
+                        "border_charges":
+                            tender.rate_includes_border_charges,
+
+                        "empty_return":
+                            tender.rate_includes_empty_return,
+
+                        "waiting_time":
+                            tender.rate_includes_waiting_time,
+
+                        "loading_assistance":
+                            tender.rate_includes_loading_assistance,
+
+                        "offloading_assistance":
+                            tender.rate_includes_offloading_assistance,
                     },
+
+                    "evaluation_criteria": {
+
+                        "price":
+                            tender.evaluation_price_enabled,
+
+                        "capacity":
+                            tender.evaluation_capacity_enabled,
+
+                        "service":
+                            tender.evaluation_service_enabled,
+
+                        "compliance":
+                            tender.evaluation_compliance_enabled,
+
+                        "flexibility":
+                            tender.evaluation_flexibility_enabled,
+                    }
                 },
-                "commercial_and_fuel_terms": {
-                    "fuel_treatment_type": tender.fuel_treatment_type,
-                    "base_diesel_price": tender.base_diesel_price,
-                    "fuel_review_period": tender.fuel_review_period,
-                    "fuel_component_percentage": tender.fuel_component_percentage,
-                    "payment_terms": tender.payment_terms,
-                    "invoice_submission_frequency": tender.invoice_submission_frequency,
-                    "invoice_submission_deadline": tender.invoice_submission_deadline,
+
+                # =================================================
+                # FUEL
+                # =================================================
+
+                "fuel_terms": {
+
+                    "fuel_treatment_type":
+                        tender.fuel_treatment_type,
+
+                    "base_diesel_price":
+                        tender.base_diesel_price,
+
+                    "fuel_review_period":
+                        tender.fuel_review_period,
+
+                    "fuel_component_percentage":
+                        tender.fuel_component_percentage,
                 },
-                "operational_requirements_compliance": {
-                    "subcontracting_policy": tender.subcontracting_policy,
-                    "vehicle_tracking_required": tender.vehicle_tracking_required,
-                    "all_time_hour_control_room": tender.all_time_hour_control_room,
-                    "driver_mobile_phone": tender.driver_mobile_phone,
-                    "clean_compliant_equipment": tender.clean_compliant_equipment,
-                    "pallet_management": tender.pallet_management,
-                    "pod_submission_local": tender.pod_submission_local,
-                    "pod_submission_long_haul": tender.pod_submission_long_haul,
-                    "pod_submission_cross_border": tender.pod_submission_cross_border,
+
+                # =================================================
+                # PAYMENT
+                # =================================================
+
+                "payment_terms": {
+
+                    "payment_terms":
+                        tender.payment_terms,
+
+                    "invoice_submission_frequency":
+                        tender.invoice_submission_frequency,
+
+                    "invoice_submission_deadline":
+                        tender.invoice_submission_deadline,
                 },
+
+                # =================================================
+                # OPERATIONAL REQUIREMENTS
+                # =================================================
+
+                "operational_requirements": {
+
+                    "subcontracting_policy":
+                        tender.subcontracting_policy,
+
+                    "vehicle_tracking_required":
+                        tender.vehicle_tracking_required,
+
+                    "all_time_hour_control_room":
+                        tender.all_time_hour_control_room,
+
+                    "driver_mobile_phone":
+                        tender.driver_mobile_phone,
+
+                    "clean_compliant_equipment":
+                        tender.clean_compliant_equipment,
+
+                    "pallet_management":
+                        tender.pallet_management,
+
+                    "pod_submission_local":
+                        tender.pod_submission_local,
+
+                    "pod_submission_long_haul":
+                        tender.pod_submission_long_haul,
+
+                    "pod_submission_cross_border":
+                        tender.pod_submission_cross_border,
+                },
+
+                # =================================================
+                # CERTIFICATION REQUIREMENTS
+                # =================================================
+
+                "carrier_certification_driver_standards": [
+
+                    {
+                        "id":
+                            certification.id,
+
+                        "certification_name":
+                            certification.certification_name,
+
+                        "driver_qualification_security_directives":
+                            certification.driver_qualification_security_directives,
+
+                        "is_required":
+                            certification.is_required,
+                    }
+
+                    for certification in certifications
+                ],
+
+                # =================================================
+                # ESCORT POLICY
+                # =================================================
+
+                "escort_policy":
+                    escort_data,
+
+                # =================================================
+                # SLA / INCIDENT REPORTING
+                # =================================================
+
+                "sla_reporting":
+                    sla_data,
+
+                # =================================================
+                # DOCUMENTATION / CLAIMS
+                # =================================================
+
                 "risk_documentation_insurance": {
-                    "documentation_risk": {
-                        "delivery_documentation_sla": tender.delivery_documentation_sla,
-                        "claims_risk_policy": tender.claims_risk_policy,
-                        "claims_risk_requirements": tender.claims_risk_requirements
-                    },
+
+                    "delivery_documentation_sla":
+                        tender.delivery_documentation_sla,
+
+                    "claims_risk_policy":
+                        tender.claims_risk_policy,
+
+                    "claims_risk_requirements":
+                        tender.claims_risk_requirements,
+
                     "insurance_requirements": {
-                        "minimum_git_cover_amount": tender.minimum_git_cover_amount,
-                        "minimum_liability_cover_amount": tender.minimum_liability_cover_amount,
-                        "git_all_risk_required": tender.git_all_risk_required,
-                        "git_first_loss_required": tender.git_first_loss_required,
-                        "git_driver_fidelity_required": tender.git_driver_fidelity_required,
-                    },
+
+                        "minimum_git_cover_amount":
+                            tender.minimum_git_cover_amount,
+
+                        "minimum_liability_cover_amount":
+                            tender.minimum_liability_cover_amount,
+
+                        "git_all_risk_required":
+                            tender.git_all_risk_required,
+
+                        "git_first_loss_required":
+                            tender.git_first_loss_required,
+
+                        "git_driver_fidelity_required":
+                            tender.git_driver_fidelity_required,
+                    }
                 },
-            },
+
+                # =================================================
+                # ACCESSORIALS
+                # =================================================
+
+                "accessorials":
+                    accessorials,
+
+                # =================================================
+                # CURRENT CARRIER'S BIDS
+                # =================================================
+
+                "my_bids": [
+
+                    {
+                        "id": bid.id,
+
+                        "status":
+                            getattr(bid, "status", None),
+
+                        "submitted_at":
+                            getattr(bid, "created_at", None),
+
+                        "bid_rate":
+                            getattr(bid, "bid_rate", None),
+
+                    }
+
+                    for bid in bids
+                ],
+            }
+
+        # ========================================================
+        # 8. BUILD ALL TENDERS
+        # ========================================================
+
+        tender_details = [
+            build_tender(t)
+            for t in tender_family
+        ]
+
+        # ========================================================
+        # 9. BUILD UNIFIED CORPORATE SUMMARY
+        # ========================================================
+
+        all_categories = []
+        all_cargo = []
+        all_equipment = []
+        all_trailers = []
+
+        total_combined_volume = 0
+
+        for tender_data in tender_details:
+
+            info = tender_data["tender_information"]
+            cargo = tender_data["cargo_information"]
+            equipment = tender_data["equipment_requirements"]
+
+            if info["tender_category"]:
+                all_categories.append(
+                    info["tender_category"]
+                )
+
+            if cargo["commodity"]:
+                all_cargo.append(
+                    cargo["commodity"]
+                )
+
+            for config in equipment[
+                "allowed_vehicle_configurations"
+            ]:
+
+                equipment_name = (
+                    config.get("equipment_type")
+                )
+
+                if equipment_name:
+                    all_equipment.append(
+                        equipment_name
+                    )
+
+                trailer_name = config.get("trailer_type")
+
+                if trailer_name:
+                    all_trailers.append(
+                        trailer_name
+                    )
+
+            for volume in tender_data[
+                "seasonality_and_volume_profile"
+            ]["volumes"]:
+
+                expected_loads = volume.get(
+                    "expected_loads"
+                )
+
+                if expected_loads:
+                    total_combined_volume += expected_loads
+
+        # ========================================================
+        # 10. REMOVE DUPLICATES WHILE PRESERVING ORDER
+        # ========================================================
+
+        def unique_list(values):
+            return list(dict.fromkeys(
+                value
+                for value in values
+                if value
+            ))
+
+        # ========================================================
+        # 11. UNIFIED SUMMARY
+        # ========================================================
+
+        unified_summary = {
+
+            "tender_family_id":
+                family_parent_id,
+
+            "total_tenders":
+                len(tender_details),
+
+            "tender_structure": (
+                "Parent + Sub-Tenders"
+                if len(tender_details) > 1
+                else "Single Tender"
+            ),
+
+            "tender_lengths":
+                unique_list([
+                    t["tender_information"][
+                        "tender_length_category"
+                    ]
+                    for t in tender_details
+                ]),
+
+            "tender_categories":
+                unique_list(all_categories),
+
+            "cargo_types":
+                unique_list(all_cargo),
+
+            "load_types":
+                unique_list([
+                    t["tender_information"]["load_type"]
+                    for t in tender_details
+                ]),
+
+            "total_combined_volumes":
+                total_combined_volume,
+
+            "equipment_wanted":
+                unique_list(all_equipment),
+
+            "trailer_types":
+                unique_list(all_trailers),
+
+            "tender_period": {
+
+                "earliest_start_date":
+                    min(
+                        t["tender_information"][
+                            "contract_start_date"
+                        ]
+                        for t in tender_details
+                        if t["tender_information"][
+                            "contract_start_date"
+                        ]
+                    ) if tender_details else None,
+
+                "latest_end_date":
+                    max(
+                        t["tender_information"][
+                            "contract_end_date"
+                        ]
+                        for t in tender_details
+                        if t["tender_information"][
+                            "contract_end_date"
+                        ]
+                    ) if tender_details else None,
+            }
         }
+
+        # ========================================================
+        # 12. FINAL RESPONSE
+        # ========================================================
+
+        return {
+
+            "success": True,
+
+            "tender_family": {
+
+                "requested_tender_id":
+                    requested_tender_id,
+
+                "parent_tender_id":
+                    family_parent_id,
+
+                "tender_count":
+                    len(tender_details),
+
+                "corporate_summary":
+                    unified_summary,
+
+                "tenders":
+                    tender_details,
+            }
+        }
+
+    except HTTPException:
+        raise
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+
+        print(
+            f"ERROR loading tender {id}: {str(e)}"
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to load tender: {str(e)}"
+        )
 
 
 #####################################Exchange Load Boards#############################################
