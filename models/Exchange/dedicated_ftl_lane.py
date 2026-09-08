@@ -129,7 +129,7 @@ class Lane_Tender_RFQ(Base):
     destination_country = Column(String)
     destination_region = Column(String)
 
-    border_customs_responsibility = Column(String(50), nullable=True)
+    border_customs_responsibility = Column(String(5000), nullable=True)
 
     estimated_distance_km = Column(Integer, nullable=False)
     actual_distance_km = Column(Integer, nullable=True)
@@ -241,7 +241,7 @@ class Lane_Tender_RFQ(Base):
     pod_submission_long_haul = Column(String, nullable=False)
     pod_submission_cross_border = Column(String, nullable=False)
 
-    subcontracting_policy = Column(String(50), nullable=True)
+    subcontracting_policy = Column(String(5000), nullable=True)
 
     # ============================================================
     # DOCUMENTATION & RISK

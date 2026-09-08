@@ -166,7 +166,7 @@ from typing import Optional
 
 class TurnaroundWindowDemurrageProtocolCreate(BaseModel):
 
-    demurrage_conditions: str = Field(..., min_length=1, max_length=500)
+    demurrage_conditions: str = Field(..., min_length=1, max_length=5000)
     loading_offloading_turnaround_hours: int = Field(..., ge=0)
     free_demurrage_hours: int = Field(..., ge=0)
     demurrage_rate_per_hour: int = Field(..., ge=0)
@@ -175,7 +175,7 @@ class TurnaroundWindowDemurrageProtocolCreate(BaseModel):
 class CarrierCertificationDriverStandardsCreate(BaseModel):
 
     certification_name: str = Field(..., min_length=1, max_length=500)
-    driver_qualification_security_directives: str = Field(..., min_length=1, max_length=500)
+    driver_qualification_security_directives: str = Field(..., min_length=1, max_length=5000)
 
 class EscortPolicyCreate(BaseModel):
 
@@ -472,7 +472,7 @@ class TenderCreate(BaseModel):
 
     border_customs_responsibility: Optional[str] = Field(
         None,
-        max_length=50
+        max_length=5000
     )
 
     estimated_distance_km: Optional[int] = None
@@ -608,7 +608,7 @@ class TenderCreate(BaseModel):
 
     subcontracting_policy: Optional[str] = Field(
         None,
-        max_length=50
+        max_length=5000
     )
 
     carrier_certification_driver_standards: list[CarrierCertificationDriverStandardsCreate] = Field(default_factory=list)
