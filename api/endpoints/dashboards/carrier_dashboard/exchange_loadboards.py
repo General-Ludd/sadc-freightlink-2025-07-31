@@ -2107,7 +2107,7 @@ def get_tender_loadboard(
             detail=f"Failed to fetch tender: {str(e)}"
         )
 
-@router.post("/place-tender/{id}-bid")
+@router.post("/place-tender-bid")
 def place_tender_bid(
     id: int,
     bid_data: Create_Tender_Bid,
