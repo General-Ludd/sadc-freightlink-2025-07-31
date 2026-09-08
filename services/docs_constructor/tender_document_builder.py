@@ -990,23 +990,23 @@ def build_roles_and_responsibilities(
         ["Responsibility", "Client Role"],
         [
             "Freight Requirement",
-            "Define the transportation requirements, lanes, cargo,
-             expected volumes and operational requirements."
+            "Define the transportation requirements, lanes, cargo", 
+            "expected volumes and operational requirements."
         ],
         [
             "Operational Information",
-            "Provide accurate facility, loading, delivery and
-             cargo information required for execution."
+            "Provide accurate facility, loading, delivery and"
+            "cargo information required for execution."
         ],
         [
             "Commercial Requirements",
-            "Approve the applicable commercial framework,
-             payment terms and procurement objectives."
+            "Approve the applicable commercial framework,"
+            "payment terms and procurement objectives."
         ],
         [
             "Operational Decisions",
-            "Provide required approvals and instructions relating
-             to the Client's freight operations."
+            "Provide required approvals and instructions relating"
+            "to the Client's freight operations."
         ],
     ]
 
@@ -1047,58 +1047,58 @@ def build_roles_and_responsibilities(
         ],
         [
             "Carrier Communication",
-            "Manage carrier communication and procurement
-             correspondence through the platform."
+            "Manage carrier communication and procurement"
+            "correspondence through the platform."
         ],
         [
             "Carrier Qualification",
-            "Facilitate carrier participation and qualification
-             against the requirements of the RFQ."
+            "Facilitate carrier participation and qualification"
+            "against the requirements of the RFQ."
         ],
         [
             "Quotation Management",
-            "Receive, administer and manage carrier quotations
-             and bid submissions."
+            "Receive, administer and manage carrier quotations"
+            "and bid submissions."
         ],
         [
             "Evaluation Support",
-            "Provide procurement administration and evaluation
-             support to the Client."
+            "Provide procurement administration and evaluation"
+            "support to the Client."
         ],
         [
             "Award Administration",
-            "Administer carrier appointment, award and
-             onboarding processes."
+            "Administer carrier appointment, award and"
+            "onboarding processes."
         ],
         [
             "Transportation Booking",
-            "Manage transportation bookings and execution
-             administration through the platform."
+            "Manage transportation bookings and execution"
+            "administration through the platform."
         ],
         [
             "Payment Administration",
-            "Administer the agreed payment workflow and
-             supporting documentation."
+            "Administer the agreed payment workflow and"
+            "supporting documentation."
         ],
         [
             "POD Administration",
-            "Manage submission and administration of delivery
-             documentation and proof of delivery."
+            "Manage submission and administration of delivery"
+            "documentation and proof of delivery."
         ],
         [
             "SLA Review",
-            "Monitor and review carrier service-level
-             performance."
+            "Monitor and review carrier service-level"
+            "performance."
         ],
         [
             "Fuel Review",
-            "Administer agreed fuel adjustment and review
-             mechanisms where applicable."
+            "Administer agreed fuel adjustment and review"
+            "mechanisms where applicable."
         ],
         [
             "Disputes and Claims",
-            "Coordinate the administration and communication
-             of transportation disputes and claims."
+            "Coordinate the administration and communication"
+            "of transportation disputes and claims."
         ],
     ]
 
@@ -1132,53 +1132,53 @@ def build_roles_and_responsibilities(
         ["Responsibility", "Carrier Role"],
         [
             "Quotation",
-            "Submit accurate, complete and commercially binding
-             quotations through SADC FREIGHTLINK."
+            "Submit accurate, complete and commercially binding"
+            "quotations through SADC FREIGHTLINK."
         ],
         [
             "Capacity",
-            "Maintain the vehicle and capacity commitments
-             represented during the tender process."
+            "Maintain the vehicle and capacity commitments"
+            "represented during the tender process."
         ],
         [
             "Compliance",
-            "Maintain all licences, permits, insurance,
-             certifications and regulatory compliance."
+            "Maintain all licences, permits, insurance,"
+            "certifications and regulatory compliance."
         ],
         [
             "Execution",
-            "Execute awarded transportation services in accordance
-             with the RFQ and agreed service levels."
+            "Execute awarded transportation services in accordance"
+            "with the RFQ and agreed service levels."
         ],
         [
             "Drivers",
-            "Ensure drivers meet all qualification, documentation,
-             security and operational requirements."
+            "Ensure drivers meet all qualification, documentation,"
+            "security and operational requirements."
         ],
         [
             "Tracking",
-            "Provide required vehicle tracking and operational
-             visibility."
+            "Provide required vehicle tracking and operational"
+            "visibility."
         ],
         [
             "Documentation",
-            "Submit PODs, delivery documentation and incident
-             documentation within the required SLA."
+            "Submit PODs, delivery documentation and incident"
+            "documentation within the required SLA."
         ],
         [
             "Incidents",
-            "Immediately report accidents, theft, delays,
-             damages and other material incidents."
+            "Immediately report accidents, theft, delays,"
+            "damages and other material incidents."
         ],
         [
             "Claims",
-            "Cooperate fully with claims investigation and
-             settlement processes."
+            "Cooperate fully with claims investigation and"
+            "settlement processes."
         ],
         [
             "Platform Usage",
-            "Use the SADC FREIGHTLINK platform for applicable
-             tender, booking and execution processes."
+            "Use the SADC FREIGHTLINK platform for applicable"
+            "tender, booking and execution processes."
         ],
     ]
 
@@ -2462,80 +2462,79 @@ def build_sadc_administration(
 
         [
             "Procurement",
-            "RFQ preparation, publication, carrier participation,
-             quotation administration and procurement coordination."
+            "RFQ preparation, publication, carrier participation,"
+            "quotation administration and procurement coordination."
         ],
 
         [
             "Carrier Communication",
-            "Centralised communication with participating and
-             appointed carriers."
+            "Centralised communication with participating and appointed carriers."
         ],
 
         [
             "Qualification",
-            "Administration of carrier qualification and compliance
-             requirements."
+            "Administration of carrier qualification and compliance"
+            "requirements."
         ],
 
         [
             "Bidding",
-            "Management of quotation submission, bid administration
-             and procurement event controls."
+            "Management of quotation submission, bid administration"
+            "and procurement event controls."
         ],
 
         [
             "Award Administration",
-            "Administration of carrier appointment, award and
-             onboarding."
+            "Administration of carrier appointment, award and"
+            "onboarding."
         ],
 
         [
             "Booking",
-            "Transportation booking and allocation administration
-             through the platform."
+            "Transportation booking and allocation administration"
+            "through the platform."
         ],
 
         [
             "Execution Management",
-            "Coordination and visibility of transportation execution,
-             operational exceptions and service events."
+            "Coordination and visibility of transportation execution,"
+            "operational exceptions and service events."
         ],
 
         [
             "Payment Administration",
-            "Administration of the agreed payment workflow,
-             supporting documents and payment records."
+            "Administration of the agreed payment workflow,"
+            "supporting documents and payment records."
         ],
 
         [
             "POD Administration",
-            "Collection, review and administration of proof of
-             delivery and supporting documentation."
+            "Collection, review and administration of proof of"
+            "delivery and supporting documentation."
         ],
 
         [
             "Carrier SLA Review",
-            "Review of carrier performance against agreed service
-             levels and operational requirements."
+            "Review of carrier performance against agreed service"
+            "levels and operational requirements."
         ],
 
         [
             "Fuel Adjustment Review",
-            "Administration and review of applicable fuel adjustment
-             mechanisms."
+            "Administration and review of applicable fuel adjustment"
+            "mechanisms."
         ],
 
         [
             "Disputes",
-            "Central coordination and administration of disputes,
-             exceptions and commercial queries."
+            "Central coordination and administration of disputes,"
+            "exceptions and commercial queries."
         ],
 
         [
             "Claims",
-            "Coordination of claims communication, documentation
-             and resolution processes."
+            "Coordination of claims communication, documentation"
+            "and resolution processes."
         ],
     ]
 
