@@ -7,7 +7,7 @@ from datetime import date, datetime
 
 from sqlalchemy.orm import Session
 from db.database import SessionLocal
-from auth import get_current_user
+from utils.auth import get_current_user
 
 # ============================================================
 # YOUR EXISTING MODELS
