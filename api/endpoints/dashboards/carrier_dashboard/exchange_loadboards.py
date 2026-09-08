@@ -776,7 +776,7 @@ def get_tender_loadboard(
         #     child -> find parent -> return entire family
         # ========================================================
 
-        parent_id = getattr(tender, "parent_id", None)
+        parent_id = getattr(tender, "parent_tender_id", None)
 
         if parent_id:
             family_parent_id = parent_id
@@ -792,10 +792,10 @@ def get_tender_loadboard(
             .filter(
                 (Lane_Tender_RFQ.id == family_parent_id)
                 |
-                (Lane_Tender_RFQ.parent_id == family_parent_id)
+                (Lane_Tender_RFQ.parent_tender_id == family_parent_id)
             )
             .order_by(
-                Lane_Tender_RFQ.parent_id.asc(),
+                Lane_Tender_RFQ.parent_tender_id.asc(),
                 Lane_Tender_RFQ.id.asc()
             )
             .all()
@@ -1031,10 +1031,10 @@ def get_tender_loadboard(
                 "tender_id": tender.id,
 
                 "parent_tender_id":
-                    getattr(tender, "parent_id", None),
+                    getattr(tender, "parent_tender_id", None),
 
                 "is_parent_tender":
-                    getattr(tender, "parent_id", None) is None,
+                    getattr(tender, "parent_tender_id", None) is None,
 
                 "tender_information": {
 
