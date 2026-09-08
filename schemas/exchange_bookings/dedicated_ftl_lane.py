@@ -197,7 +197,7 @@ class TenderLocationCreate(BaseModel):
     facility_name: Optional[str] = None
 
     turnaround_window_demurrage_protocol: Optional[
-        TurnaroundWindowDemurrageProtocolsCreate
+        TurnaroundWindowDemurrageProtocolCreate
     ] = None
 
 class TenderStopCreate(BaseModel):
