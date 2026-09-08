@@ -18,6 +18,7 @@ from services.exchange.auction import place_auction_bid
 from services.docs_constructor.tender_document_builder import (
     build_tender_rfq_document,
 )
+from services.docs_constructor.tender_info_consolidator import get_related_tenders, serialize_full_tender, build_unified_tender_summary
 from utils.auth import get_current_user
 
 router = APIRouter()
