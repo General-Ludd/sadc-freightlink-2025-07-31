@@ -2109,7 +2109,6 @@ def get_tender_loadboard(
 
 @router.post("/place-tender-bid")
 def place_tender_bid(
-    id: int,
     bid_data: Create_Tender_Bid,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
@@ -2119,7 +2118,6 @@ def place_tender_bid(
         raise HTTPException(status_code=400, detail="User does not belong to a company")
     try:
         result = place_tender_bid(
-            id,
             bid_data,
             db,
             current_user
