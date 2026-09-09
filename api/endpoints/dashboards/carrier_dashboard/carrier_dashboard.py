@@ -7,7 +7,7 @@ from models.brokerage.assigned_lanes import Assigned_Ftl_Lanes, Carrier_Lane
 from models.brokerage.assigned_shipments import Assigned_Spot_Ftl_Shipments, Assigned_Power_Shipments, Carrier_Shipment
 from models.spot_bookings.ftl_shipment import Client_Shipment_Stop
 from models.brokerage.finance import CarrierFinancialAccounts
-from models.carrier import Carrier, Carrier_Profile, Notification, Carrier_Notification
+from models.carrier import Carrier, Carrier_Profile, Notification, Carrier_Notification, CarrierDocs
 from models.shipper import Corporation
 from schemas.brokerage.finance import CarrierFinancialAccountResponse, Carrier_FinancialAccount_Create, CarrierFinancialAccountUpdate
 from schemas.carrier import CarrierCompanyResponse, CarrierCreate, CarrierProfile
@@ -22,7 +22,7 @@ from utils.mailgun_handler import send_email
 from utils.sast_datetime import get_sast_time
 from pytz import timezone, UTC
 from models.user import PasswordResetCode
-from models.user import CarrierUser, Driver
+from models.user import CarrierUser, CarrierUserDocs
 from models.vehicle import Trailer, Vehicle
 from models.spot_bookings.ftl_shipment import FTL_Shipment_Dispute, FTL_SHIPMENT
 from models.spot_bookings.power_shipment import POWER_Shipment_Dispute, POWER_SHIPMENT
@@ -343,8 +343,10 @@ def carrier_get_account_information(
         )
     try:
         company = db.query(Carrier).filter(Carrier.id == company_id).first()
+        carrier_docs = db.query(CarrierDocs).filter(CarrierDocs.carrier == company_id).first()
         director = db.query(CarrierUser).filter(CarrierUser.company_id == company.id,
                                                 CarrierUser.is_director == True).first()
+        carrier_user_docs = db.query(CarrierUserDocs).filter(CarrierUserDocs.user_id == director.id).first()
         financial_account = db.query(CarrierFinancialAccounts).filter(CarrierFinancialAccounts.id == company.id).first()
 
         return {
@@ -359,7 +361,7 @@ def carrier_get_account_information(
                 "is_verified": company.is_verified,
                 "status": company.status,
                 "type": company.type,
-                "comapny_name": company.legal_business_name,
+                "company_name": company.legal_business_name,
                 "country_of_incorporation": company.country_of_incorporation,
                 "business_registration_number": company.business_registration_number,
                 "business_address": company.business_address,
@@ -378,12 +380,16 @@ def carrier_get_account_information(
                 "name_of_liability_cover_insurance_company": company.name_of_liability_cover_insurance_company,
                 "liability_insurance_policy_number": company.liability_insurance_policy_number,
                 "liability_insurance_cover_amount": company.liability_insurance_cover_amount,
-                "company_documents": {
-                    "business_registration_certificate": company.business_registration_certificate,
-                    "proof_of_address": company.proof_of_address,
-                    "git_insurance_certificate": company.git_insurance_certificate,
-                    "liability_insurance_certificate": company.liability_insurance_certificate,
-                }
+                "company_docs": [{
+                    "id": d.id,
+                    "document_type": d.document_type,
+                    "document_url": d.document_url,
+                    "expiry_date": d.expiry_date if d.expiry_date else "Not Applicable",
+                    "is_verified": d.is_verified,
+                    "status": d.status,
+                    "created_at": d.created_at,
+                    "updated_at": d.updated_at if d.updated_at else None,
+                } for d in carrier_docs],
             },
 
             "director_information": {
@@ -398,10 +404,16 @@ def carrier_get_account_information(
                 "is_director": director.is_director,
                 "is_verified": director.is_verified,
                 "status": director.status,
-                "director_documents": {
-                    "id_document": director.id_document,
-                    "proof_of_address": director.proof_of_address,
-                }
+                "director_documents": [{
+                    "id": d.id,
+                    "document_type": d.document_type,
+                    "document_url": d.document_url,
+                    "expiry_date": d.expiry_date if d.expiry_date else "Not Applicable",
+                    "is_verified": d.is_verified,
+                    "status": d.status,
+                    "created_at": d.created_at,
+                    "updated_at": d.updated_at if d.updated_at else None,
+                } for d in carrier_user_docs]
             },
 
             "financial_information": {
@@ -411,11 +423,7 @@ def carrier_get_account_information(
                     "branch_code": financial_account.branch_code,
                     "account_number": financial_account.account_number,
                     "account_type": financial_account.account_type,
-                    "banking_documents": {
-                        "account_confirmation_letter": financial_account.account_confirmation_letter,
-                    }
                 },
-
                 "financial_metrics": {
                     "total_contracts": company.number_of_completed_dedicated_lanes,
                     "total_shipments_completed": company.number_of_completed_shipments,
@@ -423,8 +431,8 @@ def carrier_get_account_information(
                     "current_balance": financial_account.current_balance,
                     "total_earned": financial_account.total_earned,
                     "total_withdrawn": financial_account.total_withdrawn
-                }
-            }
+                },
+            },
         }
     except Exception as e:
         return {"error": str(e)}
