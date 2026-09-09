@@ -14,6 +14,7 @@ class Carrier_Shipment(Base):
     tracking_status = Column(String, nullable=True)
     is_subshipment = Column(Boolean, default=False, nullable=False)
     auction_id = Column(Integer, nullable=True, index=True)
+    client_id = Column(Integer, nullable=True)
     carrier_lane_id = Column(Integer, nullable=True, index=True)
     client_lane_id = Column(Integer, nullable=True, index=True)
     booking_source = Column(String(50), nullable=False, default="One-Off")
