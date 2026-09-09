@@ -477,6 +477,7 @@ def get_tender_information(
     current_user: dict = Depends(get_current_user)
 ):
     assert "company_id" in current_user, "Missing company_id in current_user"
+
     company_id = current_user.get("company_id")
 
     if not company_id:
@@ -484,194 +485,568 @@ def get_tender_information(
             status_code=400,
             detail="User does not belong to a company"
         )
+
     try:
-        print("STEP 1 - querying tender")
+        # =========================================================
+        # STEP 1 - GET REQUESTED TENDER
+        # =========================================================
 
-        tender = db.query(Lane_Tender_RFQ).filter(
-            Lane_Tender_RFQ.id == id
-        ).first()
+        print("STEP 1 - querying requested tender")
 
-        print("STEP 1 SUCCESS")
+        tender = (
+            db.query(Lane_Tender_RFQ)
+            .filter(Lane_Tender_RFQ.id == id)
+            .first()
+        )
 
+        if not tender:
+            raise HTTPException(
+                status_code=404,
+                detail="Tender not found"
+            )
 
-        print("STEP 2 - querying stops")
+        print(f"STEP 1 SUCCESS - Tender ID: {tender.id}")
 
-        tender_stops = db.query(
-            Lane_Tender_RFQ_Stop
-        ).filter(
-            Lane_Tender_RFQ_Stop.tender_id == id
-        ).all()
+        # =========================================================
+        # STEP 2 - RESOLVE ROOT / PARENT TENDER
+        # =========================================================
 
-        print("STEP 2 SUCCESS")
+        print("STEP 2 - resolving tender family root")
 
+        root_tender = tender
 
-        print("STEP 3 - querying vehicle configs")
+        # Walk upwards through parent_tender_id until the
+        # top-level/root tender is reached.
+        visited_tender_ids = set()
 
-        tender_vehicle_configs = db.query(
-            Lane_Tender_RFQ_Vehicle_Config
-        ).filter(
-            Lane_Tender_RFQ_Vehicle_Config.tender_id == id
-        ).all()
+        while getattr(root_tender, "parent_tender_id", None):
 
-        print("STEP 3 SUCCESS")
+            # Prevent an accidental circular parent relationship
+            if root_tender.id in visited_tender_ids:
+                raise HTTPException(
+                    status_code=500,
+                    detail="Circular tender parent relationship detected"
+                )
 
+            visited_tender_ids.add(root_tender.id)
 
-        print("STEP 4 - querying volume profiles")
+            parent_tender = (
+                db.query(Lane_Tender_RFQ)
+                .filter(
+                    Lane_Tender_RFQ.id == root_tender.parent_tender_id
+                )
+                .first()
+            )
 
-        tender_volumes_profiles = db.query(
-            Lane_Tender_RFQ_Volume_Profile
-        ).filter(
-            Lane_Tender_RFQ_Volume_Profile.tender_id == id
-        ).all()
+            if not parent_tender:
+                break
+
+            root_tender = parent_tender
+
+        print(
+            f"STEP 2 SUCCESS - Root Tender ID: {root_tender.id}"
+        )
+
+        # =========================================================
+        # STEP 3 - GET COMPLETE TENDER FAMILY
+        # =========================================================
+
+        print("STEP 3 - querying tender family")
+
+        child_tenders = (
+            db.query(Lane_Tender_RFQ)
+            .filter(
+                Lane_Tender_RFQ.parent_tender_id == root_tender.id
+            )
+            .order_by(Lane_Tender_RFQ.id.asc())
+            .all()
+        )
+
+        # Root + all child/sub-tenders
+        tender_family = [root_tender] + child_tenders
+
+        # Remove duplicates just in case the requested tender
+        # happens to already be represented in the family.
+        unique_tenders = []
+        seen_tender_ids = set()
+
+        for family_tender in tender_family:
+            if family_tender.id not in seen_tender_ids:
+                unique_tenders.append(family_tender)
+                seen_tender_ids.add(family_tender.id)
+
+        tender_family = unique_tenders
+
+        print(
+            f"STEP 3 SUCCESS - "
+            f"{len(tender_family)} tender(s) in family"
+        )
+
+        # =========================================================
+        # HELPER FUNCTION
+        # =========================================================
+
+        def build_tender_information(tender):
+
+            print(
+                f"Building information for tender {tender.id}"
+            )
+
+            # -----------------------------------------------------
+            # STOPS
+            # -----------------------------------------------------
+
+            tender_stops = (
+                db.query(Lane_Tender_RFQ_Stop)
+                .filter(
+                    Lane_Tender_RFQ_Stop.tender_id == tender.id
+                )
+                .order_by(Lane_Tender_RFQ_Stop.id.asc())
+                .all()
+            )
+
+            # -----------------------------------------------------
+            # VEHICLE CONFIGURATIONS
+            # -----------------------------------------------------
+
+            tender_vehicle_configs = (
+                db.query(Lane_Tender_RFQ_Vehicle_Config)
+                .filter(
+                    Lane_Tender_RFQ_Vehicle_Config.tender_id == tender.id
+                )
+                .all()
+            )
+
+            # -----------------------------------------------------
+            # VOLUME PROFILES
+            # -----------------------------------------------------
+
+            tender_volumes_profiles = (
+                db.query(Lane_Tender_RFQ_Volume_Profile)
+                .filter(
+                    Lane_Tender_RFQ_Volume_Profile.tender_id == tender.id
+                )
+                .order_by(
+                    Lane_Tender_RFQ_Volume_Profile.period_sequence.asc()
+                )
+                .all()
+            )
+
+            # -----------------------------------------------------
+            # ACCESSORIALS
+            # -----------------------------------------------------
+
+            tender_accessorials = (
+                db.query(Lane_Tender_RFQ_Accessorial)
+                .filter(
+                    Lane_Tender_RFQ_Accessorial.tender_id == tender.id
+                )
+                .all()
+            )
+
+            # -----------------------------------------------------
+            # BIDS
+            # -----------------------------------------------------
+
+            bids = (
+                db.query(Lane_Tender_RFQ_Bids)
+                .filter(
+                    Lane_Tender_RFQ_Bids.tender_id == tender.id
+                )
+                .all()
+            )
+
+            # =====================================================
+            # RETURN TENDER
+            # =====================================================
+
+            return {
+
+                # -------------------------------------------------
+                # HIERARCHY INFORMATION
+                # -------------------------------------------------
+
+                "tender_hierarchy": {
+                    "tender_id": tender.id,
+                    "parent_tender_id": getattr(
+                        tender,
+                        "parent_tender_id",
+                        None
+                    ),
+                    "is_parent_tender": (
+                        tender.id == root_tender.id
+                    ),
+                    "is_child_tender": (
+                        tender.id != root_tender.id
+                    ),
+                    "family_root_tender_id": root_tender.id,
+                },
+
+                # -------------------------------------------------
+                # ROUTING / SCOPE
+                # -------------------------------------------------
+
+                "tender_scope_routing_information": {
+                    "id": tender.id,
+                    "publisher_user_id": tender.publisher_user_id,
+                    "proposed_rounds": tender.proposed_rounds,
+                    "title": tender.tender_title,
+                    "scope_description": tender.scope_description,
+                    "business_unit": tender.business_unit,
+                    "cost_centre": tender.cost_centre_project_code,
+                    "tender_length": tender.tender_length_category,
+                    "tender_category": tender.tender_category,
+
+                    "origin_address": tender.origin_address,
+
+                    "stop_addresses": [
+                        stop.address
+                        for stop in tender_stops
+                    ],
+
+                    "destination_address": tender.destination_address,
+
+                    "route_polyline": tender.polyline,
+
+                    "border_customs_responsibility":
+                        tender.border_customs_responsibility,
+
+                    "distance": tender.actual_distance_km,
+                    "priority_level": tender.priority_level,
+                    "contract_start_date": tender.contract_start_date,
+                    "contract_end_date": tender.contract_end_date,
+                    "customer_reference": tender.customer_reference,
+                },
+
+                # -------------------------------------------------
+                # LOAD REQUIREMENTS
+                # -------------------------------------------------
+
+                "load_requirements_and_vehicle_configurations": {
+
+                    "allowed_vehicle_configurations": [
+                        {
+                            "configuration_type":
+                                config.configuration_type,
+
+                            "truck_type":
+                                config.truck_type,
+
+                            "equipment_type":
+                                config.equipment_type,
+
+                            "trailer_type":
+                                config.trailer_type or "--------",
+
+                            "trailer_length":
+                                config.trailer_length or "--------",
+                        }
+                        for config in tender_vehicle_configs
+                    ],
+
+                    "commodity": tender.commodity,
+                    "avg_shipment_weight":
+                        tender.average_shipment_weight_kg,
+
+                    "minimum_weight_bracket":
+                        tender.minimum_weight_bracket_kg,
+
+                    "packaging_type":
+                        tender.packaging_type,
+
+                    "packaging_quantity":
+                        tender.packaging_quantity,
+
+                    "temperature_control":
+                        tender.temperature_control,
+
+                    "hazardous_materials":
+                        tender.hazardous_materials,
+
+                    "under_bond":
+                        tender.under_bond,
+
+                    "rib_requirements":
+                        tender.rib_requirements,
+
+                    "minimum_git_cover":
+                        tender.minimum_git_cover_amount,
+
+                    "minimum_liability_cover_amount":
+                        tender.minimum_liability_cover_amount,
+
+                    "insurance_requirements": {
+                        "minimum_git_cover":
+                            tender.minimum_git_cover_amount,
+
+                        "minimum_liability_cover_amount":
+                            tender.minimum_liability_cover_amount,
+
+                        "git_all_risk_required":
+                            tender.git_all_risk_required,
+
+                        "git_first_loss_required":
+                            tender.git_first_loss_required,
+
+                        "driver_fidelity_required":
+                            tender.git_driver_fidelity_required,
+                    },
+
+                    "equipment_load_securing": {
+                        "tarpaulin_required":
+                            tender.tarpaulin_compliance_required,
+
+                        "corner_plates_required":
+                            tender.corner_plates_required,
+
+                        "chock_blocks_required":
+                            tender.chock_blocks_required,
+
+                        "ratchets_belts_required":
+                            tender.ratchets_belts_required,
+                    },
+                },
+
+                # -------------------------------------------------
+                # SEASONALITY / VOLUME
+                # -------------------------------------------------
+
+                "seasonality_and_volume_profile": {
+
+                    "volume_pattern_behavior":
+                        tender.volume_entry_method,
+
+                    "volume_commitment":
+                        tender.volume_commitment,
+
+                    "volumes": [
+                        {
+                            "period_sequence":
+                                profile.period_sequence,
+
+                            "period_label":
+                                profile.period_label,
+
+                            "period_date_start":
+                                profile.period_start_date,
+
+                            "period_date_end":
+                                profile.period_end_date,
+
+                            "day_of_week":
+                                profile.day_of_week or "",
+
+                            "expected_loads":
+                                profile.expected_loads,
+                        }
+                        for profile in tender_volumes_profiles
+                    ],
+                },
+
+                # -------------------------------------------------
+                # COMMERCIAL CONDITIONS
+                # -------------------------------------------------
+
+                "rates_commercial_conditions": {
+
+                    "rate_basis":
+                        tender.pricing_basis,
+
+                    "current_incumbent_rate":
+                        tender.incumbent_transport_rate_per_shipment,
+
+                    "procurement_target_rate":
+                        tender.procurement_target_rate,
+
+                    "desired_rate_direction":
+                        tender.rate_direction,
+
+                    "rate_inclusive_of": {
+                        "fuel":
+                            tender.rate_includes_fuel,
+
+                        "driver":
+                            tender.rate_includes_driver,
+
+                        "maintenance":
+                            tender.rate_includes_maintenance,
+
+                        "insurance":
+                            tender.rate_includes_insurance,
+
+                        "tolls":
+                            tender.rate_includes_tolls,
+
+                        "border_charges":
+                            tender.rate_includes_border_charges,
+
+                        "empty_return":
+                            tender.rate_includes_empty_return,
+
+                        "waiting_time":
+                            tender.rate_includes_waiting_time,
+
+                        "loading_assistance":
+                            tender.rate_includes_loading_assistance,
+
+                        "offloading_assistance":
+                            tender.rate_includes_offloading_assistance,
+                    },
+
+                    "fuel_treatment":
+                        tender.fuel_treatment_type,
+
+                    "vat_included":
+                        tender.vat_included,
+
+                    "base_diesel_price":
+                        tender.base_diesel_price,
+
+                    "review_period":
+                        tender.fuel_review_period,
+
+                    "fuel_component":
+                        tender.fuel_component_percentage,
+
+                    "rate_validity":
+                        tender.rate_validity,
+
+                    "questions_deadline":
+                        tender.questions_deadline,
+
+                    "tender_closing_date":
+                        tender.tender_closing_date,
+
+                    "supplier_bid_evaluation": {
+                        "evaluation_price_enabled":
+                            tender.evaluation_price_enabled,
+
+                        "evaluation_capacity_enabled":
+                            tender.evaluation_capacity_enabled,
+
+                        "evaluation_service_enabled":
+                            tender.evaluation_service_enabled,
+
+                        "evaluation_compliance_enabled":
+                            tender.evaluation_compliance_enabled,
+
+                        "evaluation_flexibility_enabled":
+                            tender.evaluation_flexibility_enabled,
+                    },
+                },
+
+                # -------------------------------------------------
+                # OPERATIONAL / COMPLIANCE / RISK
+                # -------------------------------------------------
+
+                "operational_compliance_risk_requirements": {
+
+                    "proof_of_delivery_submissions": {
+                        "local_hauls":
+                            tender.pod_submission_local,
+
+                        "long_hauls":
+                            tender.pod_submission_long_haul,
+
+                        "cross_border":
+                            tender.pod_submission_cross_border,
+
+                        "delivery_docs_sla":
+                            tender.delivery_documentation_sla,
+                    },
+
+                    "claims_risk_management_governance": {
+                        "claims_policy_framework":
+                            tender.claims_risk_policy,
+
+                        "special_risk_claims_protocol_":
+                            tender.claims_risk_requirements,
+                    },
+
+                    "required_operational_conditions": {
+                        "vehicle_tracking_required":
+                            tender.vehicle_tracking_required,
+
+                        "24_hour_control_room":
+                            tender.all_time_hour_control_room,
+
+                        "driver_mobile_phone":
+                            tender.driver_mobile_phone,
+
+                        "clean_compliant_equipment":
+                            tender.clean_compliant_equipment,
+
+                        "pallet_management":
+                            tender.pallet_management,
+                    },
+
+                    "subcontracting_policy":
+                        tender.subcontracting_policy,
+                },
+
+                # -------------------------------------------------
+                # ACCESSORIALS
+                # -------------------------------------------------
+
+                "accessorials": [
+                    {
+                        column.name: getattr(accessorial, column.name)
+                        for column in accessorial.__table__.columns
+                    }
+                    for accessorial in tender_accessorials
+                ],
+
+                # -------------------------------------------------
+                # BIDS
+                # -------------------------------------------------
+
+                "bids": [
+                    {
+                        column.name: getattr(bid, column.name)
+                        for column in bid.__table__.columns
+                    }
+                    for bid in bids
+                ],
+            }
+
+        # =========================================================
+        # STEP 4 - BUILD EVERY FAMILY MEMBER
+        # =========================================================
+
+        print("STEP 4 - building tender family information")
+
+        family_data = []
+
+        for family_tender in tender_family:
+            family_data.append(
+                build_tender_information(family_tender)
+            )
 
         print("STEP 4 SUCCESS")
 
+        # =========================================================
+        # STEP 5 - RETURN FAMILY
+        # =========================================================
 
-        print("STEP 5 - querying accessorials")
-
-        tender_accessorials = db.query(
-            Lane_Tender_RFQ_Accessorial
-        ).filter(
-            Lane_Tender_RFQ_Accessorial.tender_id == id
-        ).all()
-
-        print("STEP 5 SUCCESS")
-
-
-        print("STEP 6 - querying bids")
-
-        bids = db.query(
-            Lane_Tender_RFQ_Bids
-        ).filter(
-            Lane_Tender_RFQ_Bids.tender_id == id
-        ).all()
-
-        print("STEP 6 SUCCESS")
         return {
-            "tender_scope_routing_information": {
-                "id": tender.id,
-                "publisher_user_id": tender.publisher_user_id,
-                "proposed_rounds": tender.proposed_rounds,
-                "title": tender.tender_title,
-                "scope_description": tender.scope_description,
-                "business_unit": tender.business_unit,
-                "cost_centre": tender.cost_centre_project_code,
-                "tender_length": tender.tender_length_category,
-                "tender_category": tender.tender_category,
-                "origin_address": tender.origin_address,
-                "stop_addresses": [stop.address for stop in tender_stops],
-                "destination_address": tender.destination_address,
-                "route_polyline": tender.polyline,
-                "border_customs_responsibility": tender.border_customs_responsibility,
-                "distance": tender.actual_distance_km,
-                "priority_level": tender.priority_level,
-                "contract_start_date": tender.contract_start_date,
-                "contract_end_date": tender.contract_end_date,
-                "customer_reference": tender.customer_reference,
-            },
-            "load_requirements_and_vehicle_configurations": {
-                "allowed_vehicle_configurations": [{
-                    "configuration_type": config.configuration_type,
-                    "truck_type": config.truck_type,
-                    "equipment_type": config.equipment_type,
-                    "trailer_type": config.trailer_type or "--------",
-                    "trailer_length": config.trailer_length or "--------",
-                } for config in tender_vehicle_configs],
-
-                "commodity": tender.commodity,
-                "avg_shipment_weight": tender.average_shipment_weight_kg,
-                "minimum_weight_bracket": tender.minimum_weight_bracket_kg,
-                "packaging_type": tender.packaging_type,
-                "packaging_quantity": tender.packaging_quantity,
-                "temperature_control": tender.temperature_control,
-                "hazardous_materials": tender.hazardous_materials,
-                "under_bond": tender.under_bond,
-                "rib_requirements": tender.rib_requirements,
-                "minimum_git_cover": tender.minimum_git_cover_amount,
-                "minimum_liability_cover_amount": tender.minimum_liability_cover_amount,
-                "insurance_requirements": {
-                    "minimum_git_cover": tender.minimum_git_cover_amount,
-                    "minimum_liability_cover_amount": tender.minimum_liability_cover_amount,
-                    "git_all_risk_required": tender.git_all_risk_required,
-                    "git_first_loss_required": tender.git_first_loss_required,
-                    "driver_fidelity_required": tender.git_driver_fidelity_required,
-                },
-                "equipment_load_securing": {
-                    "tarpaulin_required": tender.tarpaulin_compliance_required,
-                    "corner_plates_required": tender.corner_plates_required,
-                    "chock_blocks_required": tender.chock_blocks_required,
-                    "ratchets_belts_required": tender.ratchets_belts_required,
-                },
-            },
-            "seasonality_and_volume_profile":{
-                "volume_pattern_behavior": tender.volume_entry_method,
-                "volume_commitment": tender.volume_commitment,
-                "volumes": [{
-                    "period_sequence": profile.period_sequence,
-                    "period_label": profile.period_label,
-                    "period_date_start": profile.period_start_date,
-                    "period_date_end": profile.period_end_date,
-                    "day_of_week": profile.day_of_week or "",
-                    "expected_loads": profile.expected_loads,
-                } for profile in tender_volumes_profiles]
-            },
-            "rates_commercial_conditions": {
-                "rate_basis": tender.pricing_basis,
-                "current_incumbent_rate": tender.incumbent_transport_rate_per_shipment,
-                "procurement_target_rate": tender.procurement_target_rate,
-                "desired_rate_direction": tender.rate_direction,
-                "rate_inclusive_of": {
-                    "fuel": tender.rate_includes_fuel,
-                    "driver": tender.rate_includes_driver,
-                    "maintenance": tender.rate_includes_maintenance,
-                    "insurance": tender.rate_includes_insurance,
-                    "tolls": tender.rate_includes_tolls,
-                    "border_charges": tender.rate_includes_border_charges,
-                    "empty_return": tender.rate_includes_empty_return,
-                    "waiting_time": tender.rate_includes_waiting_time,
-                    "loading_assistance": tender.rate_includes_loading_assistance,
-                    "offloading_assistance": tender.rate_includes_offloading_assistance,
-                },
-                "fuel_treatment": tender.fuel_treatment_type,
-                "vat_included": tender.vat_included,
-                "base_diesel_price": tender.base_diesel_price,
-                "review_period": tender.fuel_review_period,
-                "fuel_component": tender.fuel_component_percentage,
-                "rate_validity": tender.rate_validity,
-                "questions_deadline": tender.questions_deadline,
-                "tender_closing_date": tender.tender_closing_date,
-                "supplier_bid_evaluation": {
-                    "evaluation_price_enabled": tender.evaluation_price_enabled,
-                    "evaluation_capacity_enabled": tender.evaluation_capacity_enabled,
-                    "evaluation_service_enabled": tender.evaluation_service_enabled,
-                    "evaluation_compliance_enabled": tender.evaluation_compliance_enabled,
-                    "evaluation_flexibility_enabled": tender.evaluation_flexibility_enabled,
-                },
-            },
-            "operational_compliance_risk_requirements": {
-                "proof_of_delivery_submissions": {
-                    "local_hauls": tender.pod_submission_local,
-                    "long_hauls": tender.pod_submission_long_haul,
-                    "cross_border": tender.pod_submission_cross_border,
-                    "delivery_docs_sla": tender.delivery_documentation_sla,
-                },
-                "claims_risk_management_governance": {
-                    "claims_policy_framework": tender.claims_risk_policy,
-                    "special_risk_claims_protocol_": tender.claims_risk_requirements,
-                },
-                "required_operational_conditions": {
-                    "vehicle_tracking_required": tender.vehicle_tracking_required,
-                    "24_hour_control_room": tender.all_time_hour_control_room,
-                    "driver_mobile_phone": tender.driver_mobile_phone,
-                    "clean_compliant_equipment": tender.clean_compliant_equipment,
-                    "pallet_management": tender.pallet_management,
-                },
-                "subcontracting_policy": tender.subcontracting_policy,
-            },
+            "tender_family_information": {
+                "family_root_tender_id": root_tender.id,
+                "requested_tender_id": id,
+                "family_size": len(family_data),
+                "has_family": len(family_data) > 1,
+                "tenders": family_data,
+            }
         }
 
+    except HTTPException:
+        raise
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"ERROR retrieving tender family: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
 
 @router.get("/tender/{id}/bids")
 def get_tender_rfq_bids(
