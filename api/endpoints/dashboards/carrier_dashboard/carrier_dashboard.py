@@ -343,7 +343,7 @@ def carrier_get_account_information(
         )
     try:
         company = db.query(Carrier).filter(Carrier.id == company_id).first()
-        carrier_docs = db.query(CarrierDocs).filter(CarrierDocs.carrier == company_id).first()
+        carrier_docs = db.query(CarrierDocs).filter(CarrierDocs.carrier_id == company_id).first()
         director = db.query(CarrierUser).filter(CarrierUser.company_id == company.id,
                                                 CarrierUser.is_director == True).first()
         carrier_user_docs = db.query(CarrierUserDocs).filter(CarrierUserDocs.user_id == director.id).first()
