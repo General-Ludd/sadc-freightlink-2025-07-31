@@ -22,7 +22,8 @@ from services.carrier_dashboards import assign_driver_to_vehicle, assign_trailer
 from services.vehicle_service import create_trailer, create_vehicle
 from utils.auth import get_current_user, verify_password
 from utils.jwt_handler import create_access_token
-from models.user import CarrierUser, Driver
+from models.user import CarrierUser
+from models.user import Driver
 from models.vehicle import ShipperTrailer, Trailer, Vehicle, Vehicle_Schedule
 from schemas.auth import LoginRequest, LoginResponse
 

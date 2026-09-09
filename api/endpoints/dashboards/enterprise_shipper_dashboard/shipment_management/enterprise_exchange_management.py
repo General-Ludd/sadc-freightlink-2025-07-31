@@ -633,7 +633,7 @@ def get_tender_information(
                     "offloading_assistance": tender.rate_includes_offloading_assistance,
                 },
                 "fuel_treatment": tender.fuel_treatment_type,
-                "vat_treatment": tender.vat_treatment,
+                "vat_included": tender.vat_included,
                 "base_diesel_price": tender.base_diesel_price,
                 "review_period": tender.fuel_review_period,
                 "fuel_component": tender.fuel_component_percentage,
