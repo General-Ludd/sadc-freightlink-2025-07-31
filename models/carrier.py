@@ -107,6 +107,7 @@ class Carrier_Notification(Base):
     id = Column(Integer, autoincrement=True, primary_key=True, index=True)
     company_id = Column(Integer, nullable=False)   # The user ID in their respective table
     type = Column(String, nullable=False)  # e.g. "shipment_update", "payment", "dispute"
+    subject = Column(String, nullable=False)
     message = Column(String, nullable=False)
     is_read = Column(Boolean, default=False)
     created_at = Column(DateTime, server_default=func.now())
