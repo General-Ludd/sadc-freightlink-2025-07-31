@@ -8,6 +8,7 @@ from models.brokerage.assigned_shipments import Assigned_Spot_Ftl_Shipments, Ass
 from models.spot_bookings.ftl_shipment import Client_Shipment_Stop
 from models.brokerage.finance import CarrierFinancialAccounts
 from models.carrier import Carrier, Carrier_Profile, Notification, Carrier_Notification
+from models.shipper import Corporation
 from schemas.brokerage.finance import CarrierFinancialAccountResponse, Carrier_FinancialAccount_Create, CarrierFinancialAccountUpdate
 from schemas.carrier import CarrierCompanyResponse, CarrierCreate, CarrierProfile
 from schemas.user import CarrierUserResponse, DriverCreate, DriverResponse, CarrierUsers, PasswordResetCodeResponse
