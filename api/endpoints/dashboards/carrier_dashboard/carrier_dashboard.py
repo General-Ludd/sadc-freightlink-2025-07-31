@@ -333,65 +333,181 @@ def carrier_get_account_information(
 ):
     assert "company_id" in current_user, "Missing company_id in current_user"
     print(f"current_user: {current_user}")
-    
+
     # Extract the company_id from the current user
     company_id = current_user.get("company_id")
+
     if not company_id:
         raise HTTPException(
             status_code=400,
             detail="User does not belong to a company"
         )
-    try:
-        company = db.query(Carrier).filter(Carrier.id == company_id).first()
-        carrier_docs = db.query(CarrierDocs).filter(CarrierDocs.carrier_id == company_id).all()
-        director = db.query(CarrierUser).filter(CarrierUser.company_id == company.id,
-                                                CarrierUser.is_director == True).first()
-        carrier_user_docs = db.query(CarrierUserDocs).filter(CarrierUserDocs.user_id == director.id).all()
-        financial_account = db.query(CarrierFinancialAccounts).filter(CarrierFinancialAccounts.id == company.id).first()
 
+    try:
+        # ---------------------------------------------------------
+        # GET CARRIER
+        # ---------------------------------------------------------
+        company = (
+            db.query(Carrier)
+            .filter(Carrier.id == company_id)
+            .first()
+        )
+
+        if not company:
+            raise HTTPException(
+                status_code=404,
+                detail="Carrier company not found"
+            )
+
+        # ---------------------------------------------------------
+        # GET ALL CARRIER DOCUMENTS
+        # ---------------------------------------------------------
+        carrier_docs = (
+            db.query(CarrierDocs)
+            .filter(CarrierDocs.carrier_id == company_id)
+            .all()
+        )
+
+        # ---------------------------------------------------------
+        # DOCUMENT CATEGORIZATION
+        # ---------------------------------------------------------
+        # These document types belong under "Carrier Documents".
+        carrier_document_types = {
+            "Business Registration Certificate",
+            "Proof of address",
+            "Good In Transit Insurance Certificate (GIT)",
+            "Third Party Liability Insurance Certificate",
+            "Bank Account Confirmation Letter",
+            "Tax Clearance Certificate",
+            "Letter of Good Standing",
+        }
+
+        # Carrier Documents
+        carrier_document_list = []
+
+        # Everything else goes under Regulatory Compliance
+        regulatory_compliance_documents = []
+
+        for d in carrier_docs:
+
+            document = {
+                "id": d.id,
+                "document_type": d.document_type,
+                "document_url": d.document_url,
+                "expiry_date": d.expiry_date if d.expiry_date else "Not Applicable",
+                "is_verified": d.is_verified,
+                "status": d.status,
+                "created_at": d.created_at,
+                "updated_at": d.updated_at if d.updated_at else None,
+            }
+
+            if d.document_type in carrier_document_types:
+                carrier_document_list.append(document)
+            else:
+                regulatory_compliance_documents.append(document)
+
+        # ---------------------------------------------------------
+        # GET DIRECTOR
+        # ---------------------------------------------------------
+        director = (
+            db.query(CarrierUser)
+            .filter(
+                CarrierUser.company_id == company.id,
+                CarrierUser.is_director == True
+            )
+            .first()
+        )
+
+        if not director:
+            raise HTTPException(
+                status_code=404,
+                detail="Carrier director not found"
+            )
+
+        # ---------------------------------------------------------
+        # GET DIRECTOR DOCUMENTS
+        # ---------------------------------------------------------
+        carrier_user_docs = (
+            db.query(CarrierUserDocs)
+            .filter(CarrierUserDocs.user_id == director.id)
+            .all()
+        )
+
+        # ---------------------------------------------------------
+        # GET FINANCIAL ACCOUNT
+        # ---------------------------------------------------------
+        financial_account = (
+            db.query(CarrierFinancialAccounts)
+            .filter(CarrierFinancialAccounts.id == company.id)
+            .first()
+        )
+
+        if not financial_account:
+            raise HTTPException(
+                status_code=404,
+                detail="Carrier financial account not found"
+            )
+
+        # ---------------------------------------------------------
+        # RETURN ACCOUNT INFORMATION
+        # ---------------------------------------------------------
         return {
+
             "account_verification_status": {
                 "company_information": company.is_verified,
                 "director_information": director.is_verified,
                 "financial_information": financial_account.is_verified,
             },
 
+            # =====================================================
+            # COMPANY INFORMATION
+            # =====================================================
             "company_information": {
                 "id": company.id,
                 "is_verified": company.is_verified,
                 "status": company.status,
                 "type": company.type,
+
                 "company_name": company.legal_business_name,
                 "country_of_incorporation": company.country_of_incorporation,
                 "business_registration_number": company.business_registration_number,
+
                 "business_address": company.business_address,
                 "business_email": company.business_email,
                 "business_phone_number": company.business_phone_number,
+
                 "number_of_vehicles": company.number_of_vehicles,
                 "number_of_trailers": company.number_of_trailers,
                 "number_of_drivers": company.number_of_drivers,
+
                 "number_of_shipents_completed": company.number_of_completed_shipments,
                 "number_of_completed_contracts": company.number_of_completed_dedicated_lanes,
                 "number_of_in_progress_contracts": company.number_of_ongoing_dedicated_lanes,
+
                 "rating": company.rating,
+
                 "name_of_git_insurance_company": company.name_of_git_cover_insurance_company,
                 "git_insurance_policy_number": company.git_insurance_policy_number,
                 "git_cover_amount": company.git_cover_amount,
+
                 "name_of_liability_cover_insurance_company": company.name_of_liability_cover_insurance_company,
                 "liability_insurance_policy_number": company.liability_insurance_policy_number,
                 "liability_insurance_cover_amount": company.liability_insurance_cover_amount,
-                "company_docs": [{
-                    "id": d.id,
-                    "document_type": d.document_type,
-                    "document_url": d.document_url,
-                    "expiry_date": d.expiry_date if d.expiry_date else "Not Applicable",
-                    "is_verified": d.is_verified,
-                    "status": d.status,
-                    "created_at": d.created_at,
-                    "updated_at": d.updated_at if d.updated_at else None,
-                } for d in carrier_docs],
+
+                # -------------------------------------------------
+                # ONLY THE 7 APPROVED DOCUMENT TYPES
+                # -------------------------------------------------
+                "carrier_docs": carrier_document_list,
+
+                # -------------------------------------------------
+                # EVERYTHING ELSE
+                # -------------------------------------------------
+                "regulatory_compliance_permits_certifications": regulatory_compliance_documents,
             },
 
+            # =====================================================
+            # DIRECTOR INFORMATION
+            # =====================================================
             "director_information": {
                 "id": director.id,
                 "first_name": director.first_name,
@@ -404,19 +520,27 @@ def carrier_get_account_information(
                 "is_director": director.is_director,
                 "is_verified": director.is_verified,
                 "status": director.status,
-                "director_documents": [{
-                    "id": d.id,
-                    "document_type": d.document_type,
-                    "document_url": d.document_url,
-                    "expiry_date": d.expiry_date if d.expiry_date else "Not Applicable",
-                    "is_verified": d.is_verified,
-                    "status": d.status,
-                    "created_at": d.created_at,
-                    "updated_at": d.updated_at if d.updated_at else None,
-                } for d in carrier_user_docs]
+
+                "director_documents": [
+                    {
+                        "id": d.id,
+                        "document_type": d.document_type,
+                        "document_url": d.document_url,
+                        "expiry_date": d.expiry_date if d.expiry_date else "Not Applicable",
+                        "is_verified": d.is_verified,
+                        "status": d.status,
+                        "created_at": d.created_at,
+                        "updated_at": d.updated_at if d.updated_at else None,
+                    }
+                    for d in carrier_user_docs
+                ]
             },
 
+            # =====================================================
+            # FINANCIAL INFORMATION
+            # =====================================================
             "financial_information": {
+
                 "banking_information": {
                     "bank_name": financial_account.bank_name,
                     "country": financial_account.bank_country,
@@ -424,9 +548,11 @@ def carrier_get_account_information(
                     "account_number": financial_account.account_number,
                     "account_type": financial_account.account_type,
                 },
+
                 "financial_metrics": {
                     "total_contracts": company.number_of_completed_dedicated_lanes,
                     "total_shipments_completed": company.number_of_completed_shipments,
+
                     "holding_balance": financial_account.holding_balance,
                     "current_balance": financial_account.current_balance,
                     "total_earned": financial_account.total_earned,
@@ -434,7 +560,12 @@ def carrier_get_account_information(
                 },
             },
         }
+
+    except HTTPException:
+        raise
+
     except Exception as e:
+        print(f"Error retrieving carrier account information: {str(e)}")
         return {"error": str(e)}
 
 @router.patch("/carrier/update-banking-details", status_code=status.HTTP_201_CREATED) #UnTested
