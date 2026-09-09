@@ -93,6 +93,7 @@ class Notification(Base):
     recipient_type = Column(String, nullable=False)  # "shipper", "carrier", "agent", "admin"
     recipient_id = Column(Integer, nullable=False)   # The user ID in their respective table
     type = Column(String, nullable=False)  # e.g. "shipment_update", "payment", "dispute"
+    subject = Column(String, nullable=False)
     message = Column(String, nullable=False)
     related_id = Column(Integer, nullable=True)      # e.g. shipment_id or dispute_id
     related_type = Column(String, nullable=True)     # "shipment", "dispute", "payment"

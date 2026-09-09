@@ -317,6 +317,7 @@ def get_carrier_account_notifications(
             "notifications": [{
                 "id": notification.id,
                 "type": notification.type,
+                "subject": notification.subject,
                 "message": notification.message,
                 "is_read": notification.is_read,
                 "recieved_at": notification.created_at
