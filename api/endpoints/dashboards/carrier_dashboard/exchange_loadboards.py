@@ -3099,11 +3099,7 @@ def get_public_tender_loadboard(
         # PRIMARY / ROOT TENDER ONLY
         # ------------------------------------------------------------
 
-        payment_terms = getattr(
-            root_tender,
-            "payment_terms",
-            None
-        )
+        payment_terms = root_tender.payment_terms
 
         if payment_terms:
             payment_terms_text = str(payment_terms)
