@@ -22,7 +22,7 @@ from utils.mailgun_handler import send_email
 from utils.sast_datetime import get_sast_time
 from pytz import timezone, UTC
 from models.user import PasswordResetCode
-from models.user import CarrierUser, CarrierUserDocs
+from models.user import CarrierUser, CarrierUserDocs, Driver
 from models.vehicle import Trailer, Vehicle
 from models.spot_bookings.ftl_shipment import FTL_Shipment_Dispute, FTL_SHIPMENT
 from models.spot_bookings.power_shipment import POWER_Shipment_Dispute, POWER_SHIPMENT
