@@ -223,7 +223,7 @@ def get_carrier_dashboard_home(
                 },
                 "cargo_weight": {
                     "commodity": s.commodity,
-                    "weight": s.weight,
+                    "weight": s.shipment_weight,
                     "client": client.legal_business_name if client else None
                 },
                 "assigned_asset_driver": {
