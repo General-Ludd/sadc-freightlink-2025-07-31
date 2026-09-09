@@ -195,12 +195,12 @@ def get_carrier_dashboard_home(
         shipment_data = []
         for s in shipments:
             origin = db.query(Client_Shipment_Stop).filter(
-                Client_Shipment_Stop.shipment_id == s.id,
+                Client_Shipment_Stop.shipment_id == s.client_shipment_id,
                 Client_Shipment_Stop.stop_type == "Origin"
             ).first()
 
             destination = db.query(Client_Shipment_Stop).filter(
-                Client_Shipment_Stop.shipment_id == s.id,
+                Client_Shipment_Stop.shipment_id == s.client_shipment_id,
                 Client_Shipment_Stop.stop_type == "Destination"
             ).first()
 
