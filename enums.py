@@ -29,7 +29,7 @@ class UserStatus(str, Enum):
 
 class PaymentTerms(str, Enum):
     PAB = "PAB"
-    70_30 = "70%/30%"
+    SEVENTY_THIRTY = "70%/30%"
     NET_7 = "NET-7"
     NET_10 = "NET-10"
     NET_15 = "NET-15"
