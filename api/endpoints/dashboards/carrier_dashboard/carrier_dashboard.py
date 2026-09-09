@@ -256,7 +256,7 @@ def get_carrier_dashboard_home(
                 "reason": d.dispute_reason,
                 "against": shipper_company.legal_business_name,
                 "details": d.additional_details,
-                "amount": None,
+                "amount": None or "Not Applicable",
             })
 
 
@@ -283,6 +283,7 @@ def get_carrier_dashboard_home(
                     "id": n.id,
                     "recieved_at": n.created_at,
                     "type": n.type,
+                    "subject": n.subject,
                     "message": n.message
                 } for n in notifications]
             }
