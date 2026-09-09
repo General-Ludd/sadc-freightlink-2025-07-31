@@ -3,8 +3,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from datetime import datetime
 from db.database import SessionLocal
-from models.brokerage.assigned_lanes import Assigned_Ftl_Lanes
-from models.brokerage.assigned_shipments import Assigned_Spot_Ftl_Shipments, Assigned_Power_Shipments
+from models.brokerage.assigned_lanes import Assigned_Ftl_Lanes, Carrier_Lane
+from models.brokerage.assigned_shipments import Assigned_Spot_Ftl_Shipments, Assigned_Power_Shipments, Carrier_Shipment
 from models.brokerage.finance import CarrierFinancialAccounts
 from models.carrier import Carrier, Carrier_Profile, Notification, Carrier_Notification
 from schemas.brokerage.finance import CarrierFinancialAccountResponse, Carrier_FinancialAccount_Create, CarrierFinancialAccountUpdate
