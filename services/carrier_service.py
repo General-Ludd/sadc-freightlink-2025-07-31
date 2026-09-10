@@ -9,6 +9,8 @@ from schemas.user import DriverCreate
 from schemas.user import CarrierDirectorCreate, CarrierUsers
 from schemas.carrier import CarrierCreate, CreateFleetCarrier, CarrierProfile
 from utils.auth import hash_password
+import json
+
 
 def create_fleet_carrier(
     db: Session,
@@ -18,8 +20,9 @@ def create_fleet_carrier(
     carrier_profile_data: CarrierProfile
 ):
     try:
+
         # ============================================================
-        # 1. CREATE CARRIER COMPANY
+        # 1. CREATE FLEET CARRIER
         # ============================================================
 
         company = Carrier(
@@ -41,16 +44,30 @@ def create_fleet_carrier(
             business_email=carrier_data.business_email,
             business_phone_number=carrier_data.business_phone_number,
 
-            # Store document objects as dictionaries
-            business_registration_certificate=carrier_data.business_registration_certificate.model_dump(),
-            proof_of_address=carrier_data.proof_of_address.model_dump(),
+            # Convert nested Pydantic documents to JSON strings
+            business_registration_certificate=json.dumps(
+                carrier_data.business_registration_certificate.model_dump(mode="json")
+            ),
+
+            proof_of_address=json.dumps(
+                carrier_data.proof_of_address.model_dump(mode="json")
+            ),
+
             brnc_certificate=(
-                carrier_data.brnc_certificate.model_dump()
+                json.dumps(
+                    carrier_data.brnc_certificate.model_dump(mode="json")
+                )
                 if carrier_data.brnc_certificate
                 else None
             ),
-            git_insurance_certificate=carrier_data.git_insurance_certificate.model_dump(),
-            liability_insurance_certificate=carrier_data.liability_insurance_certificate.model_dump(),
+
+            git_insurance_certificate=json.dumps(
+                carrier_data.git_insurance_certificate.model_dump(mode="json")
+            ),
+
+            liability_insurance_certificate=json.dumps(
+                carrier_data.liability_insurance_certificate.model_dump(mode="json")
+            ),
         )
 
         db.add(company)
@@ -59,7 +76,7 @@ def create_fleet_carrier(
 
 
         # ============================================================
-        # 2. CREATE DIRECTOR / PRIMARY CARRIER USER
+        # 2. CREATE DIRECTOR
         # ============================================================
 
         director = CarrierUser(
@@ -72,11 +89,15 @@ def create_fleet_carrier(
             email=director_data.email,
             phone_number=director_data.phone_number,
 
-            # Nested documents
-            id_document=director_data.id_document.model_dump(),
+            # Convert nested documents to JSON strings
+            id_document=json.dumps(
+                director_data.id_document.model_dump(mode="json")
+            ),
 
             proof_of_address=(
-                director_data.proof_of_address.model_dump()
+                json.dumps(
+                    director_data.proof_of_address.model_dump(mode="json")
+                )
                 if director_data.proof_of_address
                 else None
             ),
@@ -117,9 +138,8 @@ def create_fleet_carrier(
             account_type=financial_data.account_type,
             account_number=financial_data.account_number,
 
-            # Nested financial document
-            account_confirmation_letter=(
-                financial_data.account_confirmation_letter.model_dump()
+            account_confirmation_letter=json.dumps(
+                financial_data.account_confirmation_letter.model_dump(mode="json")
             ),
         )
 
@@ -181,7 +201,7 @@ def create_fleet_carrier(
         return {
             "message": "Fleet carrier account successfully registered",
             "company_id": company.id,
-            "director_id": director.id,
+            "director_id": director.id
         }
 
     except Exception as e:
