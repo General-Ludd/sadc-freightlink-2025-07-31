@@ -10,105 +10,187 @@ from schemas.user import CarrierDirectorCreate, CarrierUsers
 from schemas.carrier import CarrierCreate, CreateFleetCarrier, CarrierProfile
 from utils.auth import hash_password
 
-def create_fleet_carrier(db: Session, carrier_data: CarrierCreate, director_data: CarrierUsers, financial_data: Carrier_FinancialAccount_Create, carrier_profile_data: CarrierProfile):
-    # Create Fleet Carrier
-    company = Carrier(
-        type="Fleet",
-        legal_business_name=carrier_data.legal_business_name,
-        country_of_incorporation=carrier_data.country_of_incorporation,
-        business_registration_number=carrier_data.business_registration_number,
-        git_insurance_policy_number=carrier_data.git_insurance_policy_number,
-        git_cover_amount=carrier_data.git_cover_amount,
-        name_of_git_cover_insurance_company=carrier_data.name_of_git_cover_insurance_company,
-        liability_insurance_policy_number=carrier_data.liability_insurance_policy_number,
-        liability_insurance_cover_amount=carrier_data.liability_insurance_cover_amount,
-        name_of_liability_cover_insurance_company=carrier_data.name_of_liability_cover_insurance_company,
-        business_address=carrier_data.business_address,
-        business_email=carrier_data.business_email,
-        business_phone_number=carrier_data.business_phone_number,
-        business_registration_certificate=carrier_data.business_registration_certificate,
-        proof_of_address=carrier_data.proof_of_address,
-        brnc_certificate=carrier_data.brnc_certificate,
-        git_insurance_certificate=carrier_data.git_insurance_certificate,
-        liability_insurance_certificate=carrier_data.liability_insurance_certificate,
-    )
-    db.add(company)
-    db.commit()
-    db.refresh(company)
+def create_fleet_carrier(
+    db: Session,
+    carrier_data: CarrierCreate,
+    director_data: CarrierUsers,
+    financial_data: Carrier_FinancialAccount_Create,
+    carrier_profile_data: CarrierProfile
+):
+    try:
+        # ============================================================
+        # 1. CREATE CARRIER COMPANY
+        # ============================================================
 
-    director = CarrierUser(
-        role=director_data.role,
-        first_name=director_data.first_name,
-        last_name=director_data.last_name,
-        nationality=director_data.nationality,
-        id_number=director_data.id_number,
-        home_address=director_data.home_address,
-        email=director_data.email,
-        phone_number=director_data.phone_number,
-        id_document=director_data.id_document,
-        proof_of_address=director_data.proof_of_address,
-        password_hash=hash_password(director_data.password_hash),
-        is_director=True,
-        is_verified=False,
-        company_id=company.id,
-        company_name=company.legal_business_name,
-        company_type=company.type,
-    )
-    db.add(director)
-    db.commit()
-    db.refresh(director)
+        company = Carrier(
+            type="Fleet",
 
-    financial_account = CarrierFinancialAccounts(
-        id=company.id,
-        legal_business_name=carrier_data.legal_business_name,
-        business_country_of_incorporation=carrier_data.country_of_incorporation,
-        business_registration_number=carrier_data.business_registration_number,
-        business_address=carrier_data.business_address,
-        business_email=carrier_data.business_email,
-        business_phone_number=carrier_data.business_phone_number,
-        bank_name=financial_data.bank_name,
-        bank_country=financial_data.bank_country,
-        branch_code=financial_data.branch_code,
-        account_type=financial_data.account_type,
-        account_number=financial_data.account_number,
-        account_confirmation_letter=financial_data.account_confirmation_letter,
-    )
-    db.add(financial_account)
-    db.commit()
-    db.refresh(financial_account)
+            legal_business_name=carrier_data.legal_business_name,
+            country_of_incorporation=carrier_data.country_of_incorporation,
+            business_registration_number=carrier_data.business_registration_number,
 
-    carrier_profile = Carrier_Profile(
-        carrier_id=company.id,
-        primary_routes=carrier_profile_data.primary_routes,
-        hazchem_certified=carrier_profile_data.hazchem_certified,
-        rib_certification=carrier_profile_data.rib_certification,
-        rigid_tautliners=carrier_profile_data.rigid_tautliners,
-        triaxle_tautliners=carrier_profile_data.triaxle_tautliners,
-        superlink_tautliners=carrier_profile_data.superlink_tautliners,
-        rigid_flatbeds=carrier_profile_data.rigid_flatbeds,
-        triaxle_flatbeds=carrier_profile_data.triaxle_flatbeds,
-        superlink_flatbeds=carrier_profile_data.superlink_flatbeds,
-        rigid_flatbeds_with_twistlocks=carrier_profile_data.rigid_flatbeds_with_twistlocks,
-        triaxle_flatbeds_with_twistlocks=carrier_profile_data.triaxle_flatbeds_with_twistlocks,
-        superlink_flatbeds_with_twistlocks=carrier_profile_data.superlink_flatbeds_with_twistlocks,
-        rigid_dropsides=carrier_profile_data.rigid_dropsides,
-        triaxle_dropside=carrier_profile_data.triaxle_dropside,
-        superlink_dropside=carrier_profile_data.superlink_dropside,
-        triaxle_skeletals=carrier_profile_data.triaxle_skeletals,
-        superlink_skeletals=carrier_profile_data.superlink_skeletals,
-        triaxle_pantechs=carrier_profile_data.triaxle_pantechs,
-        triaxle_side_tippers=carrier_profile_data.triaxle_side_tippers,
-        superlink_side_tippers=carrier_profile_data.superlink_side_tippers,
-        rigid_end_tipper=carrier_profile_data.rigid_end_tipper,
-        triaxle_end_tipper=carrier_profile_data.triaxle_end_tipper,
-        low_beds=carrier_profile_data.low_beds,
-    )
-    db.add(carrier_profile)
-    db.commit()
-    db.refresh(carrier_profile)
+            git_insurance_policy_number=carrier_data.git_insurance_policy_number,
+            git_cover_amount=carrier_data.git_cover_amount,
+            name_of_git_cover_insurance_company=carrier_data.name_of_git_cover_insurance_company,
+
+            liability_insurance_policy_number=carrier_data.liability_insurance_policy_number,
+            liability_insurance_cover_amount=carrier_data.liability_insurance_cover_amount,
+            name_of_liability_cover_insurance_company=carrier_data.name_of_liability_cover_insurance_company,
+
+            business_address=carrier_data.business_address,
+            business_email=carrier_data.business_email,
+            business_phone_number=carrier_data.business_phone_number,
+
+            # Store document objects as dictionaries
+            business_registration_certificate=carrier_data.business_registration_certificate.model_dump(),
+            proof_of_address=carrier_data.proof_of_address.model_dump(),
+            brnc_certificate=(
+                carrier_data.brnc_certificate.model_dump()
+                if carrier_data.brnc_certificate
+                else None
+            ),
+            git_insurance_certificate=carrier_data.git_insurance_certificate.model_dump(),
+            liability_insurance_certificate=carrier_data.liability_insurance_certificate.model_dump(),
+        )
+
+        db.add(company)
+        db.commit()
+        db.refresh(company)
 
 
-    return {"Fleet carrier account successfully registered"}
+        # ============================================================
+        # 2. CREATE DIRECTOR / PRIMARY CARRIER USER
+        # ============================================================
+
+        director = CarrierUser(
+            role=director_data.role,
+            first_name=director_data.first_name,
+            last_name=director_data.last_name,
+            nationality=director_data.nationality,
+            id_number=director_data.id_number,
+            home_address=director_data.home_address,
+            email=director_data.email,
+            phone_number=director_data.phone_number,
+
+            # Nested documents
+            id_document=director_data.id_document.model_dump(),
+
+            proof_of_address=(
+                director_data.proof_of_address.model_dump()
+                if director_data.proof_of_address
+                else None
+            ),
+
+            password_hash=hash_password(director_data.password_hash),
+
+            is_director=True,
+            is_verified=False,
+
+            company_id=company.id,
+            company_name=company.legal_business_name,
+            company_type=company.type,
+        )
+
+        db.add(director)
+        db.commit()
+        db.refresh(director)
+
+
+        # ============================================================
+        # 3. CREATE FINANCIAL ACCOUNT
+        # ============================================================
+
+        financial_account = CarrierFinancialAccounts(
+            id=company.id,
+
+            legal_business_name=carrier_data.legal_business_name,
+            business_country_of_incorporation=carrier_data.country_of_incorporation,
+            business_registration_number=carrier_data.business_registration_number,
+
+            business_address=carrier_data.business_address,
+            business_email=carrier_data.business_email,
+            business_phone_number=carrier_data.business_phone_number,
+
+            bank_name=financial_data.bank_name,
+            bank_country=financial_data.bank_country,
+            branch_code=financial_data.branch_code,
+            account_type=financial_data.account_type,
+            account_number=financial_data.account_number,
+
+            # Nested financial document
+            account_confirmation_letter=(
+                financial_data.account_confirmation_letter.model_dump()
+            ),
+        )
+
+        db.add(financial_account)
+        db.commit()
+        db.refresh(financial_account)
+
+
+        # ============================================================
+        # 4. CREATE CARRIER PROFILE
+        # ============================================================
+
+        carrier_profile = Carrier_Profile(
+            carrier_id=company.id,
+
+            primary_routes=carrier_profile_data.primary_routes,
+            hazchem_certified=carrier_profile_data.hazchem_certified,
+            rib_certification=carrier_profile_data.rib_certification,
+
+            rigid_tautliners=carrier_profile_data.rigid_tautliners,
+            triaxle_tautliners=carrier_profile_data.triaxle_tautliners,
+            superlink_tautliners=carrier_profile_data.superlink_tautliners,
+
+            rigid_flatbeds=carrier_profile_data.rigid_flatbeds,
+            triaxle_flatbeds=carrier_profile_data.triaxle_flatbeds,
+            superlink_flatbeds=carrier_profile_data.superlink_flatbeds,
+
+            rigid_flatbeds_with_twistlocks=carrier_profile_data.rigid_flatbeds_with_twistlocks,
+            triaxle_flatbeds_with_twistlocks=carrier_profile_data.triaxle_flatbeds_with_twistlocks,
+            superlink_flatbeds_with_twistlocks=carrier_profile_data.superlink_flatbeds_with_twistlocks,
+
+            rigid_dropsides=carrier_profile_data.rigid_dropsides,
+            triaxle_dropside=carrier_profile_data.triaxle_dropside,
+            superlink_dropside=carrier_profile_data.superlink_dropside,
+
+            triaxle_skeletals=carrier_profile_data.triaxle_skeletals,
+            superlink_skeletals=carrier_profile_data.superlink_skeletals,
+
+            triaxle_pantechs=carrier_profile_data.triaxle_pantechs,
+
+            triaxle_side_tippers=carrier_profile_data.triaxle_side_tippers,
+            superlink_side_tippers=carrier_profile_data.superlink_side_tippers,
+
+            rigid_end_tipper=carrier_profile_data.rigid_end_tipper,
+            triaxle_end_tipper=carrier_profile_data.triaxle_end_tipper,
+
+            low_beds=carrier_profile_data.low_beds,
+        )
+
+        db.add(carrier_profile)
+        db.commit()
+        db.refresh(carrier_profile)
+
+
+        # ============================================================
+        # 5. SUCCESS
+        # ============================================================
+
+        return {
+            "message": "Fleet carrier account successfully registered",
+            "company_id": company.id,
+            "director_id": director.id,
+        }
+
+    except Exception as e:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to register fleet carrier: {str(e)}"
+        )
 
 def create_owner_operator(db: Session, carrier_data: CreateFleetCarrier, director_data: CarrierDirectorCreate, driver_data: DriverCreate):
     # Create Carrier Company
