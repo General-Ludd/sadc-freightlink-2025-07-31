@@ -306,5 +306,6 @@ class FTL_Shipment_Dispute(Base):
     additional_details = Column(String, nullable=True)
     shipment_status = Column(String, nullable=False)#####Update in database
     status = Column(Enum("Open", "Closed"), default="Open")
+    conclusion = Column(String, nullable=False)#####Update in database
     created_at = Column(DateTime(timezone=True), default=get_sast_time)
     updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)

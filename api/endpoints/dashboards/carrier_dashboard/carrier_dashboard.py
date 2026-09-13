@@ -621,8 +621,11 @@ def get_carrier_disputes(
                 "status": d.status,
                 "reason": d.dispute_reason,
                 "against": shipper_company.legal_business_name,
+                "ref_shipment": d.shipment_id,
+                "filed": d.created_at,
+                "claim_amount": None or "Not Applicable",
                 "details": d.additional_details,
-                "amount": None or "Not Applicable",
+
             })
 
         return {
@@ -630,4 +633,4 @@ def get_carrier_disputes(
         }
     except Exception as e:
         print(f"Error retrieving carrier account information: {str(e)}")
-        return {"error": str(e)}
+        return {""error": str(e)}
