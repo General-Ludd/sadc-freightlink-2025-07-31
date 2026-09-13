@@ -594,6 +594,18 @@ def get_carrier_disputes(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
+    assert "company_id" in current_user, "Missing company_id in current_user"
+    print(f"current_user: {current_user}")
+
+    # Extract the company_id from the current user
+    company_id = current_user.get("company_id")
+
+    if not company_id:
+        raise HTTPException(
+            status_code=400,
+            detail="User does not belong to a company"
+        )
+
     try:
         disputes = db.query(FTL_Shipment_Dispute).filter(FTL_Shipment_Dispute.carrier_company_id == company_id).all()
 
