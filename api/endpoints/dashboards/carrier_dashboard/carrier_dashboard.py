@@ -617,7 +617,7 @@ def get_carrier_disputes(
                 "against": shipper_company.legal_business_name,
                 "details": d.additional_details,
                 "amount": None or "Not Applicable",
-            } for d in dispute]
+            } for d in disputes]
         }
     except Exception as e:
         print(f"Error retrieving carrier account information: {str(e)}")
