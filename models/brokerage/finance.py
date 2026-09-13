@@ -745,6 +745,7 @@ class CarrierFinancialAccounts(Base):
     account_number = Column(Integer, nullable=True)
     account_type = Column(String)
     account_confirmation_letter = Column(String, nullable=True)
+    
     paid_invoices_amount = Column(Integer, default=0)
     outstanding_invoices_amount = Column(Integer, default=0)
     earned_from_contracts = Column(Integer, default=0)
