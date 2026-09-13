@@ -130,7 +130,7 @@ class Driver(Base):
     nationality = Column(String, nullable=False)
     id_number = Column(String, unique=True, nullable=False)
     license_number = Column(String, unique=True, nullable=False)
-    license_expiry_date = Column(Date, nullable=False)
+    license_expiry_date = Column(Date, nullable=True)
     prdp_number = Column(String, unique=True, nullable=True)
     prdp_expiry_date = Column(Date, nullable=True)
     passport_number = Column(String, nullable=True)
@@ -147,14 +147,14 @@ class Driver(Base):
     heading = Column(Integer)
     location_description = Column(String, nullable=True)
     time_stamp = Column(DateTime(timezone=True), server_default=func.now())  # When this data was fetched
-    password_hash = Column(String, nullable=False)
-    id_document = Column(String, nullable=False)
-    license_document = Column(String, nullable=False)
+    password_hash = Column(String, nullable=True)
+    id_document = Column(String, nullable=True)
+    license_document = Column(String, nullable=True)
     prdp_document = Column(String, nullable=True)
     passport_document = Column(String, nullable=True)
     proof_of_address = Column(String, nullable=False)
     is_user = Column(Boolean, default=True)
-    is_verified = Column(Boolean, default=False)
+    is_verified = Column(Boolean, default=True)
     status = Column(Enum("Un-verified", "Active", "Under Investigation", "Suspended", "Deleted"), default="Un-verified") #Update in Database
     service_status = Column(String, default="Available") #################Update in database
     total_shipments_completed = Column(Integer, default=0) #################Update in database

@@ -35,6 +35,7 @@ class VehicleCreate(BaseModel):
     reg_or_leasing_certificate: VehicleDocsCreate
     license_disk: VehicleDocsCreate
     road_worthy_certificate: Optional[VehicleDocsCreate] = None
+    vehicle_permits: Optional[list[VehicleDocsCreate]] = None
     tracker: VehicleTrackerCreate
     front_angle_image: Optional [VehicleDocsCreate] = None
     rear_angle_image: Optional [VehicleDocsCreate] = None
@@ -177,6 +178,11 @@ class DriverVehicleSummaryResponse(BaseModel):
     trailer_length: str
     trailer_id: Optional[str] = None
 
+class TrailerDocsCreate(BaseModel):
+    document_type: str
+    document_url: str
+    expiry_date: Optional [date] = None
+
 class TrailerCreate(BaseModel):
     make: str
     model: str
@@ -190,13 +196,13 @@ class TrailerCreate(BaseModel):
     equipment_type: EquipmentType
     trailer_type: TrailerType
     trailer_length: TrailerLength
-    vrc_leasing: str
-    license_disk: str
-    road_worthy_certificate: Optional[str] = None
-    front_angle_image: str
-    rear_angle_image: str
-    left_angle_image: str
-    right_angle_image: str
+    vrc_leasing: TrailerDocsCreate
+    license_disk: TrailerDocsCreate
+    road_worthy_certificate: Optional[TrailerDocsCreate] = None
+    front_angle_image: Optional[TrailerDocsCreate] = None
+    rear_angle_image: Optional[TrailerDocsCreate] = None
+    left_angle_image: Optional[TrailerDocsCreate] = None
+    right_angle_image: Optional[TrailerDocsCreate] = None
 
 class Trailers_Summary_Response(BaseModel):
     id: int

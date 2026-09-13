@@ -3,6 +3,8 @@ from fastapi import APIRouter, Depends, HTTPException, Response
 from requests import Session
 from db.database import SessionLocal
 from models.brokerage.finance import CarrierFinancialAccounts, Load_Invoice, Lane_Interim_Invoice, Lane_Invoice
+from models.spot_bookings.ftl_shipment import Client_Shipment, Client_Shipment_Stop
+from models.brokerage.assigned_shipments import Carrier_Shipment
 from schemas.brokerage.finance import CarrierFinancialAccountResponse
 from schemas.brokerage.finance import Withdrawal_Request
 from utils.auth import get_current_user
@@ -17,6 +19,56 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+@router.get("/carrier-financial")
+def get_current_carrier_financial_account(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    try:
+        financial_account = db.query(CarrierFinancialAccounts).filter(
+            CarrierFinancialAccounts.id == current_user.get("company_id")
+        ).first()
+
+        invoices = db.query(Load_Invoice).filter(
+            Load_Invoice.carrier_id == current_user.get("company_id")
+        ).all()
+
+        invoice_data = []
+
+        for invoice in invoices:
+
+            shipment = db.query(Carrier_Shipment).filter(Carrier_Shipment.id == invoice.shipment_id).first
+            client = db.query(Corporation).filter(Corporation.id == shipment.client_id).first
+            origin = db.query(Client_Shipment_Stop).filter(Client_Shipment_Stop.shipment_id == shipment.client_shipment_id,
+                                                            Client_Shipment_Stop.stop_type == "Origin").first
+            destination = db.query(Client_Shipment_Stop).filter(Client_Shipment_Stop.shipment_id == shipment.client_shipment_id,
+                                                            Client_Shipment_Stop.stop_type == "Destination").first
+
+            invoice_data.append({
+                "id": invoice.id,
+                "client": client.legal_business_name,
+                "corridor": {
+                    "origin": origin.city_province,
+                    "destination": destination.city_province,
+                },
+                "issue_date": invoice.billing_date,
+                "status": invoice.status,
+                "amount": invoice.due_amount,
+            })
+
+        return {
+            "financial_account": {
+                "gross_revenue": financial_account.total_earned,
+                "unsettled_invoices": financial_account.holding_balance,
+                "settled_invoices": financial_account.settled_invoices,
+            },
+            "invoices": [invoice_data]
+        },
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.get("/carrier/shipment-invoice/{shipment_id}-{shipment_type}")
 def carrier_get_carrier_shipment_invoice(

@@ -71,25 +71,28 @@ class CarrierUserResponse(BaseModel):
     is_verified: bool
     status: str
 
+class DriverDocsCreate(BaseModel):
+    document_type: str
+    document_url: str
+    expiry_date: Optional [date] = None
+
+
 class DriverCreate(BaseModel):
     first_name: str
     last_name: str
     nationality: str
     id_number: str
+    id_document: DriverDocsCreate
     license_number: str
-    license_expiry_date: date
+    license: DriverDocsCreate
     prdp_number: Optional[str] = None
-    prdp_expiry_date: Optional[date] = None
+    prdp_document: Optional[DriverDocsCreate] = None
     passport_number: Optional[str] = None
-    address: str
-    email: EmailStr
+    passport_document: Optional[DriverDocsCreate] = None
+    certifications_permits: Optional[list[DriverDocsCreate]] = None
+    email: Optional[EmailStr] =  None
     phone_number: str
     password_hash: str
-    id_document: str
-    license_document: str
-    prdp_document: str
-    passport_document: Optional[str] = None
-    proof_of_address: str
 
 class Driver_Info(BaseModel):
     id: int

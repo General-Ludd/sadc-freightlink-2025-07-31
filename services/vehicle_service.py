@@ -7,155 +7,513 @@ from schemas.vehicle import VehicleCreate, TrailerCreate, ShipperTrailerCreate, 
 from utils.auth import get_current_user
 from fastapi import Depends, HTTPException
 from utils.payload_capacity import calculate_payload_capacity  # Import the payload calculation function
+import json
+
 
 def get_vehicle_by_id(vehicle_id: int, db: Session) -> Vehicle:
     return db.query(Vehicle).filter(Vehicle.id == vehicle_id).first()
 
-def create_vehicle(db: Session, vehicle_data: VehicleCreate, current_user: dict):
-    assert "company_id" in current_user, "Missing company_id in current_user"
-    print(f"current_user: {current_user}")
-    
-    # Extract the company_id from the current user
-    company_id = current_user.get("company_id")
-    if not company_id:
-        raise HTTPException(
-            status_code=400,
-            detail="User does not belong to a company"
+def create_vehicle(
+    db: Session,
+    vehicle_data: VehicleCreate,
+    current_user: dict
+):
+    try:
+        # ============================================================
+        # 1. VALIDATE COMPANY
+        # ============================================================
+
+        assert "company_id" in current_user, "Missing company_id in current_user"
+
+        print(f"current_user: {current_user}")
+
+        company_id = current_user.get("company_id")
+
+        if not company_id:
+            raise HTTPException(
+                status_code=400,
+                detail="User does not belong to a company"
+            )
+
+        carrier = db.query(Carrier).filter(
+            Carrier.id == company_id
+        ).first()
+
+        if not carrier:
+            raise HTTPException(
+                status_code=400,
+                detail="Carrier not found."
+            )
+
+
+        # ============================================================
+        # 2. CALCULATE PAYLOAD CAPACITY
+        # ============================================================
+
+        temp_truck = Vehicle(
+            type=vehicle_data.type,
+            tare_weight=vehicle_data.tare_weight,
+            gvm_weight=vehicle_data.gvm_weight
         )
 
-    carrier = db.query(Carrier).filter(Carrier.id == company_id).first()
-    if not carrier:
-        raise HTTPException(status_code=400, detail="Carrier not found.")
+        payload_capacity = calculate_payload_capacity(temp_truck)
 
-    # Create a temporary Vehicle object for payload calculation
-    temp_truck = Vehicle(
-        type=vehicle_data.type,
-        tare_weight=vehicle_data.tare_weight,
-        gvm_weight=vehicle_data.gvm_weight
-    )
 
-    # Calculate the payload capacity for the truck
-    payload_capacity = calculate_payload_capacity(temp_truck)
+        # ============================================================
+        # 3. CREATE VEHICLE
+        # ============================================================
 
-    # Create the vehicle in the database
-    truck = Vehicle(
-        type=vehicle_data.type,
-        make=vehicle_data.make,
-        model=vehicle_data.model,
-        year=vehicle_data.year,
-        color=vehicle_data.color,
-        axle_configuration=vehicle_data.axle_configuration,
-        vin=vehicle_data.vin,
-        license_plate=vehicle_data.license_plate,
-        license_expiry_date=vehicle_data.license_expiry_date,
-        tare_weight=vehicle_data.tare_weight,
-        gvm_weight=vehicle_data.gvm_weight,
-        tracker_providers_name=vehicle_data.tracker_providers_name,
-        tracker_providers_country=vehicle_data.tracker_providers_country,
-        tracker_id=vehicle_data.tracker_id,
-        tracker_login_username=vehicle_data.tracker_login_username,
-        tracker_login_password=vehicle_data.tracker_login_password,
-        equipment_type=vehicle_data.equipment_type,
-        owner_id=company_id,  # Use the company_id as the owner_id
-        vrc_or_leasing=vehicle_data.vrc_or_leasing,
-        vehicle_license_disk=vehicle_data.vehicle_license_disk,
-        vehicle_road_worthy_certificate=vehicle_data.vehicle_road_worthy_certificate,
-        vehicle_tracking_certificate=vehicle_data.vehicle_tracking_certificate,
-        front_angle_image=vehicle_data.front_angle_image,
-        rear_angle_image=vehicle_data.rear_angle_image,
-        left_angle_image=vehicle_data.left_angle_image,
-        right_angle_image=vehicle_data.right_angle_image,
-        payload_capacity=payload_capacity,  # Assign calculated payload capacity
-    )
-    
-    db.add(truck)
-    db.commit()
-    db.refresh(truck)
+        truck = Vehicle(
+            type=vehicle_data.type,
+            make=vehicle_data.make,
+            model=vehicle_data.model,
+            year=vehicle_data.year,
+            color=vehicle_data.color,
+            axle_configuration=vehicle_data.axle_configuration,
+            vin=vehicle_data.vin,
+            license_plate=vehicle_data.license_plate,
+            license_expiry_date=vehicle_data.license_expiry_date,
 
-    # ✅ Create a notification for the vehicle creation
-    notification = Carrier_Notification(
-        company_id=company_id,
-        type="vehicle registration successful",
-        message=f"New vehicle {truck.make} {truck.model} ({truck.license_plate}) has been added to your fleet and undergoing verification.",
-        is_read=False
-    )
-    carrier.number_of_vehicles += 1
-    db.add(carrier)  # ensure change is persisted
-    db.add(notification)
-    db.commit()
-    db.refresh(notification)
+            tare_weight=vehicle_data.tare_weight,
+            gvm_weight=vehicle_data.gvm_weight,
 
-    return truck
+            # Tracker information
+            tracker_providers_name=vehicle_data.tracker.tracker_providers_name,
+            tracker_providers_country=vehicle_data.tracker.tracker_providers_country,
+            tracker_id=vehicle_data.tracker.tracker_id,
+            tracker_login_username=vehicle_data.tracker.tracker_login_username,
+            tracker_login_password=vehicle_data.tracker.tracker_login_password,
 
-def create_trailer(db: Session, trailer_data: TrailerCreate, current_user: dict):
-    assert "company_id" in current_user, "Missing company_id in current_user"
-    print(f"current_user: {current_user}")
-    # Extract the company_id from the current user
-    company_id = current_user.get("company_id")
-    if not company_id:
-        raise HTTPException(
-            status_code=400,
-            detail="User does not belong to a company"
+            equipment_type=vehicle_data.equipment_type,
+
+            owner_id=company_id,
+            company_name=carrier.legal_business_name,
+            company_type=carrier.type,
+
+            # Vehicle documents are stored as JSON strings
+            vrc_or_leasing=json.dumps(
+                vehicle_data.reg_or_leasing_certificate.model_dump(mode="json")
+            ),
+
+            vehicle_license_disk=json.dumps(
+                vehicle_data.license_disk.model_dump(mode="json")
+            ),
+
+            vehicle_road_worthy_certificate=(
+                json.dumps(
+                    vehicle_data.road_worthy_certificate.model_dump(mode="json")
+                )
+                if vehicle_data.road_worthy_certificate
+                else None
+            ),
+
+            # Existing database column expects a String
+            # We use the tracker information here.
+            vehicle_tracking_certificate=json.dumps(
+                vehicle_data.tracker.model_dump(mode="json")
+            ),
+
+            # Vehicle images are also VehicleDocsCreate objects
+            front_angle_image=(
+                json.dumps(
+                    vehicle_data.front_angle_image.model_dump(mode="json")
+                )
+                if vehicle_data.front_angle_image
+                else None
+            ),
+
+            rear_angle_image=(
+                json.dumps(
+                    vehicle_data.rear_angle_image.model_dump(mode="json")
+                )
+                if vehicle_data.rear_angle_image
+                else None
+            ),
+
+            left_angle_image=(
+                json.dumps(
+                    vehicle_data.left_angle_image.model_dump(mode="json")
+                )
+                if vehicle_data.left_angle_image
+                else None
+            ),
+
+            right_angle_image=(
+                json.dumps(
+                    vehicle_data.right_angle_image.model_dump(mode="json")
+                )
+                if vehicle_data.right_angle_image
+                else None
+            ),
+
+            payload_capacity=payload_capacity,
         )
 
-    carrier = db.query(Carrier).filter(Carrier.id == company_id).first()
-    if not carrier:
-        raise HTTPException(status_code=400, detail="Carrier not found.")
+        db.add(truck)
+        db.commit()
+        db.refresh(truck)
 
-    # Create a temporary Vehicle object for payload calculation
-    temp_truck = Trailer(
-        trailer_type=trailer_data.trailer_type,
-        tare_weight=trailer_data.tare_weight,
-        gvm_weight=trailer_data.gvm_weight
-    )
 
-    # Calculate the payload capacity for the truck
-    payload_capacity = calculate_payload_capacity(temp_truck)
+        # ============================================================
+        # 4. CREATE VEHICLE DOCUMENT RECORDS
+        # ============================================================
 
-    # Create the Trailer
-    trailer = Trailer(
-        make=trailer_data.make,
-        model=trailer_data.model,
-        year=trailer_data.year,
-        color=trailer_data.color,
-        equipment_type=trailer_data.equipment_type,
-        trailer_type=trailer_data.trailer_type,
-        trailer_length=trailer_data.trailer_length,
-        vin=trailer_data.vin,
-        license_plate=trailer_data.license_plate,
-        license_expiry_date=trailer_data.license_expiry_date,
-        tare_weight=trailer_data.tare_weight,
-        gvm_weight=trailer_data.gvm_weight,
-        owner_id=company_id,
-        company_name=carrier.legal_business_name,
-        company_type=carrier.type,
-        vrc_leasing=trailer_data.vrc_leasing,
-        license_disk=trailer_data.license_disk,
-        road_worthy_certificate=trailer_data.road_worthy_certificate,
-        front_angle_image=trailer_data.front_angle_image,
-        rear_angle_image=trailer_data.rear_angle_image,
-        left_angle_image=trailer_data.left_angle_image,
-        right_angle_image=trailer_data.right_angle_image,
-        payload_capacity=payload_capacity,  # Assign calculated payload capacity
-    )
-    db.add(trailer)
-    db.commit()
-    db.refresh(trailer)
+        vehicle_documents = [
+            VehicleDocs(
+                vehicle_id=truck.id,
+                document_type=vehicle_data.reg_or_leasing_certificate.document_type,
+                document_url=vehicle_data.reg_or_leasing_certificate.document_url,
+                expiry_date=vehicle_data.reg_or_leasing_certificate.expiry_date,
+                is_verified=False,
+                status="Un-verified"
+            ),
 
-    # ✅ Create a notification for the Trailer creation
-    notification = Carrier_Notification(
-        company_id=company_id,
-        type="Trailer registration successful",
-        message=f"New trailer {trailer.make} {trailer.model} ({trailer.license_plate}) has been added to your fleet and undergoing verification.",
-        is_read=False
-    )
-    carrier.number_of_trailers += 1
-    db.add(carrier)  # ensure change is persisted
-    db.add(notification)
-    db.commit()
-    db.refresh(notification)
+            VehicleDocs(
+                vehicle_id=truck.id,
+                document_type=vehicle_data.license_disk.document_type,
+                document_url=vehicle_data.license_disk.document_url,
+                expiry_date=vehicle_data.license_disk.expiry_date,
+                is_verified=False,
+                status="Un-verified"
+            )
+        ]
 
-    return trailer
+        if vehicle_data.road_worthy_certificate:
+            vehicle_documents.append(
+                VehicleDocs(
+                    vehicle_id=truck.id,
+                    document_type=vehicle_data.road_worthy_certificate.document_type,
+                    document_url=vehicle_data.road_worthy_certificate.document_url,
+                    expiry_date=vehicle_data.road_worthy_certificate.expiry_date,
+                    is_verified=False,
+                    status="Un-verified"
+                )
+            )
+
+        if vehicle_data.vehicle_permits:
+            for vehicle in vehicle_data:
+                vehicle_documents.append(
+                    VehicleDocs(
+                        vehicle_id=truck.id,
+                        document_type=vehicle.vehicle_permits.document_type,
+                        document_url=vehicle.vehicle_permits.document_url,
+                        expiry_date=vehicle.vehicle_permits.expiry_date,
+                        is_verified=False,
+                        status="Un-verified"
+                    )
+                )
+
+        db.add_all(vehicle_documents)
+
+
+        # ============================================================
+        # 5. CREATE VEHICLE TRACKER RECORD
+        # ============================================================
+
+        tracker = VehicleTracker(
+            vehicle_id=truck.id,
+
+            tracker_providers_name=vehicle_data.tracker.tracker_providers_name,
+            tracker_providers_country=vehicle_data.tracker.tracker_providers_country,
+            tracker_id=vehicle_data.tracker.tracker_id,
+            tracker_login_username=vehicle_data.tracker.tracker_login_username,
+            tracker_login_password=vehicle_data.tracker.tracker_login_password,
+
+            # These are not supplied by the current schema.
+            # They can be populated later when the tracker integration
+            # is configured.
+            tracker_api_username="",
+            tracker_api_token="",
+
+            is_verified=False,
+            service_status="Available",
+            status="Un-verified"
+        )
+
+        db.add(tracker)
+
+
+        # ============================================================
+        # 6. UPDATE CARRIER VEHICLE COUNT
+        # ============================================================
+
+        carrier.number_of_vehicles += 1
+
+        db.add(carrier)
+
+
+        # ============================================================
+        # 7. CREATE NOTIFICATION
+        # ============================================================
+
+        notification = Carrier_Notification(
+            company_id=company_id,
+            type="vehicle registration successful",
+            message=(
+                f"New vehicle {truck.make} {truck.model} "
+                f"({truck.license_plate}) has been added to your fleet "
+                f"and is undergoing verification."
+            ),
+            is_read=False
+        )
+
+        db.add(notification)
+
+        db.commit()
+
+        db.refresh(truck)
+        db.refresh(notification)
+
+
+        # ============================================================
+        # 8. RETURN VEHICLE
+        # ============================================================
+
+        return truck
+
+    except HTTPException:
+        db.rollback()
+        raise
+
+    except Exception as e:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to create vehicle: {str(e)}"
+        )
+
+def create_trailer(
+    db: Session,
+    trailer_data: TrailerCreate,
+    current_user: dict
+):
+    try:
+        # ============================================================
+        # 1. VALIDATE COMPANY
+        # ============================================================
+
+        assert "company_id" in current_user, "Missing company_id in current_user"
+
+        print(f"current_user: {current_user}")
+
+        company_id = current_user.get("company_id")
+
+        if not company_id:
+            raise HTTPException(
+                status_code=400,
+                detail="User does not belong to a company"
+            )
+
+        carrier = db.query(Carrier).filter(
+            Carrier.id == company_id
+        ).first()
+
+        if not carrier:
+            raise HTTPException(
+                status_code=400,
+                detail="Carrier not found."
+            )
+
+
+        # ============================================================
+        # 2. CALCULATE PAYLOAD CAPACITY
+        # ============================================================
+
+        temp_truck = Trailer(
+            trailer_type=trailer_data.trailer_type,
+            tare_weight=trailer_data.tare_weight,
+            gvm_weight=trailer_data.gvm_weight
+        )
+
+        payload_capacity = calculate_payload_capacity(temp_truck)
+
+
+        # ============================================================
+        # 3. CREATE TRAILER
+        # ============================================================
+
+        trailer = Trailer(
+            make=trailer_data.make,
+            model=trailer_data.model,
+            year=trailer_data.year,
+            color=trailer_data.color,
+
+            equipment_type=trailer_data.equipment_type,
+            trailer_type=trailer_data.trailer_type,
+            trailer_length=trailer_data.trailer_length,
+
+            vin=trailer_data.vin,
+            license_plate=trailer_data.license_plate,
+            license_expiry_date=trailer_data.license_expiry_date,
+
+            tare_weight=trailer_data.tare_weight,
+            gvm_weight=trailer_data.gvm_weight,
+            payload_capacity=payload_capacity,
+
+            owner_id=company_id,
+            company_name=carrier.legal_business_name,
+            company_type=carrier.type,
+
+            # ========================================================
+            # Documents stored as JSON strings
+            # ========================================================
+
+            vrc_leasing=json.dumps(
+                trailer_data.vrc_leasing.model_dump(mode="json")
+            ),
+
+            license_disk=json.dumps(
+                trailer_data.license_disk.model_dump(mode="json")
+            ),
+
+            road_worthy_certificate=(
+                json.dumps(
+                    trailer_data.road_worthy_certificate.model_dump(mode="json")
+                )
+                if trailer_data.road_worthy_certificate
+                else None
+            ),
+
+            # ========================================================
+            # Images stored as JSON strings
+            # ========================================================
+
+            front_angle_image=(
+                json.dumps(
+                    trailer_data.front_angle_image.model_dump(mode="json")
+                )
+                if trailer_data.front_angle_image
+                else None
+            ),
+
+            rear_angle_image=(
+                json.dumps(
+                    trailer_data.rear_angle_image.model_dump(mode="json")
+                )
+                if trailer_data.rear_angle_image
+                else None
+            ),
+
+            left_angle_image=(
+                json.dumps(
+                    trailer_data.left_angle_image.model_dump(mode="json")
+                )
+                if trailer_data.left_angle_image
+                else None
+            ),
+
+            right_angle_image=(
+                json.dumps(
+                    trailer_data.right_angle_image.model_dump(mode="json")
+                )
+                if trailer_data.right_angle_image
+                else None
+            ),
+        )
+
+        db.add(trailer)
+        db.commit()
+        db.refresh(trailer)
+
+
+        # ============================================================
+        # 4. CREATE TRAILER DOCUMENT RECORDS
+        # ============================================================
+
+        trailer_documents = [
+            Trailer_Docs(
+                trailer_id=trailer.id,
+                document_type=trailer_data.vrc_leasing.document_type,
+                document_url=trailer_data.vrc_leasing.document_url,
+                expiry_date=trailer_data.vrc_leasing.expiry_date,
+                is_verified=False,
+                status="Un-verified"
+            ),
+
+            Trailer_Docs(
+                trailer_id=trailer.id,
+                document_type=trailer_data.license_disk.document_type,
+                document_url=trailer_data.license_disk.document_url,
+                expiry_date=trailer_data.license_disk.expiry_date,
+                is_verified=False,
+                status="Un-verified"
+            )
+        ]
+
+
+        if trailer_data.road_worthy_certificate:
+            trailer_documents.append(
+                Trailer_Docs(
+                    trailer_id=trailer.id,
+                    document_type=trailer_data.road_worthy_certificate.document_type,
+                    document_url=trailer_data.road_worthy_certificate.document_url,
+                    expiry_date=trailer_data.road_worthy_certificate.expiry_date,
+                    is_verified=False,
+                    status="Un-verified"
+                )
+            )
+
+
+        db.add_all(trailer_documents)
+
+
+        # ============================================================
+        # 5. UPDATE CARRIER TRAILER COUNT
+        # ============================================================
+
+        carrier.number_of_trailers += 1
+
+        db.add(carrier)
+
+
+        # ============================================================
+        # 6. CREATE NOTIFICATION
+        # ============================================================
+
+        notification = Carrier_Notification(
+            company_id=company_id,
+            type="Trailer registration successful",
+            message=(
+                f"New trailer {trailer.make} {trailer.model} "
+                f"({trailer.license_plate}) has been added to your fleet "
+                f"and is undergoing verification."
+            ),
+            is_read=False
+        )
+
+        db.add(notification)
+
+
+        # ============================================================
+        # 7. FINAL COMMIT
+        # ============================================================
+
+        db.commit()
+
+        db.refresh(trailer)
+        db.refresh(notification)
+
+
+        # ============================================================
+        # 8. RETURN
+        # ============================================================
+
+        return trailer
+
+
+    except HTTPException:
+        db.rollback()
+        raise
+
+
+    except Exception as e:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to create trailer: {str(e)}"
+        )
 
 def create_shipper_trailer(db: Session, trailer_data: ShipperTrailerCreate, current_user: dict):
     assert "company_id" in current_user, "Missing company_id in current_user"

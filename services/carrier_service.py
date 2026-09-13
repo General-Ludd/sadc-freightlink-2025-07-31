@@ -285,63 +285,225 @@ def create_driver(db: Session, driver_data: DriverCreate):
 
     return {"driver": driver}
 
-def fleet_create_driver(db: Session, driver_data: DriverCreate, current_user: dict):
-    assert "company_id" in current_user, "Missing company_id in current_user"
-    print(f"current_user: {current_user}")
-    
-    # Extract the company_id from the current user
-    company_id = current_user.get("company_id")
-    if not company_id:
-        raise HTTPException(
-            status_code=400,
-            detail="User does not belong to a company"
+def fleet_create_driver(
+    db: Session,
+    driver_data: DriverCreate,
+    current_user: dict
+):
+    try:
+        # 1. Validate current user's company
+        assert "company_id" in current_user, "Missing company_id in current_user"
+
+        print(f"current_user: {current_user}")
+
+        company_id = current_user.get("company_id")
+
+        if not company_id:
+            raise HTTPException(
+                status_code=400,
+                detail="User does not belong to a company"
+            )
+
+        # 2. Validate carrier
+        carrier = db.query(Carrier).filter(
+            Carrier.id == company_id
+        ).first()
+
+        if not carrier:
+            raise HTTPException(
+                status_code=404,
+                detail="Carrier not found"
+            )
+
+        if not carrier.is_verified or carrier.status != "Active":
+            raise HTTPException(
+                status_code=400,
+                detail="Carrier Account not verified, or not active"
+            )
+
+        # 3. Create Driver
+        driver = Driver(
+            first_name=driver_data.first_name,
+            last_name=driver_data.last_name,
+            nationality=driver_data.nationality,
+            id_number=driver_data.id_number,
+
+            license_number=driver_data.license_number,
+            license_expiry_date=driver_data.license.expiry_date,
+
+            prdp_number=driver_data.prdp_number,
+            prdp_expiry_date=(
+                driver_data.prdp_document.expiry_date
+                if driver_data.prdp_document
+                else None
+            ),
+
+            passport_number=driver_data.passport_number,
+
+            company_id=carrier.id,
+            company_name=carrier.legal_business_name,
+            company_type=carrier.type,
+
+            id_document=json.dumps(
+                driver_data.id_document.model_dump(mode="json")
+            ),
+
+            license_document=json.dumps(
+                driver_data.license.model_dump(mode="json")
+            ),
+
+            prdp_document=(
+                json.dumps(
+                    driver_data.prdp_document.model_dump(mode="json")
+                )
+                if driver_data.prdp_document
+                else None
+            ),
+
+            passport_document=(
+                json.dumps(
+                    driver_data.passport_document.model_dump(mode="json")
+                )
+                if driver_data.passport_document
+                else None
+            ),
+
+            proof_of_address=(
+                json.dumps(
+                    driver_data.proof_of_address.model_dump(mode="json")
+                )
+                if driver_data.proof_of_address
+                else None
+            ),
+
+            address=driver_data.address,
+            email=driver_data.email,
+            phone_number=driver_data.phone_number,
+
+            password_hash=hash_password(
+                driver_data.password_hash
+            )
         )
-    
-    carrier = db.query(Carrier).filter(Carrier.id == company_id).first()
-    if not carrier or not carrier.is_verified or carrier.status != "Active":
-        raise HTTPException(status_code=400, detail="Carrier Account not verified, or not active")
 
-    # Create Driver
-    driver = Driver(
-        first_name=driver_data.first_name,
-        last_name=driver_data.last_name,
-        nationality=driver_data.nationality,
-        id_number=driver_data.id_number,
-        license_number=driver_data.license_number,
-        license_expiry_date=driver_data.license_expiry_date,
-        prdp_number=driver_data.prdp_number,
-        prdp_expiry_date=driver_data.prdp_expiry_date,
-        passport_number=driver_data.passport_number,
-        company_id=carrier.id,
-        company_name=carrier.legal_business_name,
-        company_type=carrier.type,
-        id_document=driver_data.id_document,
-        license_document=driver_data.license_document,
-        prdp_document=driver_data.prdp_document,
-        passport_document=driver_data.passport_document,
-        proof_of_address=driver_data.proof_of_address,
-        address=driver_data.address,
-        email=driver_data.email,
-        phone_number=driver_data.phone_number,
-        password_hash=hash_password(driver_data.password_hash),
-    )
+        db.add(driver)
+        db.flush()
 
-    carrier.number_of_drivers + 1
-    db.add(driver)
-    db.commit()
-    db.refresh(driver)
+        # 4. Create Driver document records
+        driver_documents = [
+            DriverDocs(
+                driver_id=driver.id,
+                document_type=driver_data.id_document.document_type,
+                document_url=driver_data.id_document.document_url,
+                expiry_date=driver_data.id_document.expiry_date,
+                is_verified=False,
+                status="Un-verified"
+            ),
 
-    # ✅ Create a notification for the Driver creation
-    notification = Carrier_Notification(
-        company_id=company_id,
-        type="Driver registration successful",
-        message=f"New driver {driver.first_name}-{driver.last_name}) has been added to your fleet and undergoing verification.",
-        is_read=False
-    )
-    carrier.number_of_drivers += 1
-    db.add(carrier)  # ensure change is persisted
-    db.add(notification)
-    db.commit()
-    db.refresh(notification)
+            DriverDocs(
+                driver_id=driver.id,
+                document_type=driver_data.license.document_type,
+                document_url=driver_data.license.document_url,
+                expiry_date=driver_data.license.expiry_date,
+                is_verified=False,
+                status="Un-verified"
+            )
+        ]
 
-    return {"driver": driver}
+        # PRDP
+        if driver_data.prdp_document:
+            driver_documents.append(
+                DriverDocs(
+                    driver_id=driver.id,
+                    document_type=driver_data.prdp_document.document_type,
+                    document_url=driver_data.prdp_document.document_url,
+                    expiry_date=driver_data.prdp_document.expiry_date,
+                    is_verified=False,
+                    status="Un-verified"
+                )
+            )
+
+        # Passport
+        if driver_data.passport_document:
+            driver_documents.append(
+                DriverDocs(
+                    driver_id=driver.id,
+                    document_type=driver_data.passport_document.document_type,
+                    document_url=driver_data.passport_document.document_url,
+                    expiry_date=driver_data.passport_document.expiry_date,
+                    is_verified=False,
+                    status="Un-verified"
+                )
+            )
+
+        # Proof of address
+        if driver_data.proof_of_address:
+            driver_documents.append(
+                DriverDocs(
+                    driver_id=driver.id,
+                    document_type=driver_data.proof_of_address.document_type,
+                    document_url=driver_data.proof_of_address.document_url,
+                    expiry_date=driver_data.proof_of_address.expiry_date,
+                    is_verified=False,
+                    status="Un-verified"
+                )
+            )
+
+        # Certifications & permits
+        if driver_data.certifications_permits:
+            for document in driver_data.certifications_permits:
+                driver_documents.append(
+                    DriverDocs(
+                        driver_id=driver.id,
+                        document_type=document.document_type,
+                        document_url=document.document_url,
+                        expiry_date=document.expiry_date,
+                        is_verified=False,
+                        status="Un-verified"
+                    )
+                )
+
+        db.add_all(driver_documents)
+
+        # 5. Update carrier driver count
+        carrier.number_of_drivers = (
+            (carrier.number_of_drivers or 0) + 1
+        )
+
+        db.add(carrier)
+
+        # 6. Create carrier notification
+        notification = Carrier_Notification(
+            company_id=company_id,
+            type="Driver registration successful",
+            message=(
+                f"New driver {driver.first_name} "
+                f"{driver.last_name} has been added to your fleet "
+                f"and is undergoing verification."
+            ),
+            is_read=False
+        )
+
+        db.add(notification)
+
+        # 7. Final commit
+        db.commit()
+
+        db.refresh(driver)
+        db.refresh(notification)
+
+        return {
+            "message": "Driver successfully registered and is undergoing verification.",
+            "driver": driver
+        }
+
+    except HTTPException:
+        db.rollback()
+        raise
+
+    except Exception as e:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to create driver: {str(e)}"
+        )
