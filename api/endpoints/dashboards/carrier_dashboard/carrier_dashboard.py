@@ -609,15 +609,24 @@ def get_carrier_disputes(
     try:
         disputes = db.query(FTL_Shipment_Dispute).filter(FTL_Shipment_Dispute.carrier_company_id == company_id).all()
 
-        return {
-            "disputes": [{
+        dispute_data = []
+
+        for d in disputes:
+            shipper_company = db.query(Corporation).filter(
+                Corporation.id == d.shipper_company_id,
+            ).first()
+
+            dispute_data.append({
                 "id": d.id,
                 "status": d.status,
                 "reason": d.dispute_reason,
                 "against": shipper_company.legal_business_name,
                 "details": d.additional_details,
                 "amount": None or "Not Applicable",
-            } for d in disputes]
+            })
+
+        return {
+            "disputes": dispute_data
         }
     except Exception as e:
         print(f"Error retrieving carrier account information: {str(e)}")
