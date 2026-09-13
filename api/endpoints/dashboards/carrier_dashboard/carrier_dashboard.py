@@ -631,27 +631,6 @@ def get_carrier_disputes(
         return {
             "disputes": dispute_data
         }
-        return {
-            "disputes": dispute_data
-        }
-
-@router.patch("/carrier/update-banking-details", status_code=status.HTTP_201_CREATED) #UnTested
-def partial_update_carrier_financial_account(
-    financial_data: CarrierFinancialAccountUpdate,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    company_id = current_user.get("company_id")
-    financial_account = db.query(CarrierFinancialAccounts).filter(
-        CarrierFinancialAccounts.id == company_id
-    ).first()
-
-    if not financial_account:
-        raise HTTPException(status_code=404, detail="Financial Account not found or not authorized")
-
-    for key, value in financial_data.dict(exclude_unset=True).items():
-        setattr(financial_account, key, value)
-
-    db.commit()
-    db.refresh(financial_account)
-    return financial_account
+    except Exception as e:
+        print(f"Error retrieving carrier account information: {str(e)}")
+        return {"error": str(e)}
