@@ -588,3 +588,25 @@ def partial_update_carrier_financial_account(
     db.commit()
     db.refresh(financial_account)
     return financial_account
+
+@router.get("/carrier-disputes")
+def get_carrier_disputes(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    try:
+        disputes = db.query(FTL_Shipment_Dispute).filter(FTL_Shipment_Dispute.carrier_company_id == company_id).all()
+
+        return {
+            "disputes": [{
+                "id": d.id,
+                "status": d.status,
+                "reason": d.dispute_reason,
+                "against": shipper_company.legal_business_name,
+                "details": d.additional_details,
+                "amount": None or "Not Applicable",
+            } for d in dispute]
+        }
+    except Exception as e:
+        print(f"Error retrieving carrier account information: {str(e)}")
+        return {"error": str(e)}
