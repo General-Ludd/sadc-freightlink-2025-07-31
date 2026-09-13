@@ -5,6 +5,7 @@ from db.database import SessionLocal
 from models.brokerage.finance import CarrierFinancialAccounts, Load_Invoice, Lane_Interim_Invoice, Lane_Invoice
 from models.spot_bookings.ftl_shipment import Client_Shipment, Client_Shipment_Stop
 from models.brokerage.assigned_shipments import Carrier_Shipment
+from models.shipper import Corporation
 from schemas.brokerage.finance import CarrierFinancialAccountResponse
 from schemas.brokerage.finance import Withdrawal_Request
 from utils.auth import get_current_user
