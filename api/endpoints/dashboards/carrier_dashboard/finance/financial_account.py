@@ -32,7 +32,7 @@ def get_current_carrier_financial_account(
         ).first()
 
         invoices = db.query(Load_Invoice).filter(
-            Load_Invoice.carrier_id == current_user.get("company_id")
+            Load_Invoice.carrier_company_id == current_user.get("company_id")
         ).all()
 
         invoice_data = []
