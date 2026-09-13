@@ -63,9 +63,9 @@ def get_current_carrier_financial_account(
             "financial_account": {
                 "gross_revenue": financial_account.total_earned,
                 "unsettled_invoices": financial_account.holding_balance,
-                "settled_invoices": financial_account.settled_invoices,
+                "settled_invoices": financial_account.paid_invoices_amount,
             },
-            "invoices": [invoice_data]
+            "invoices": [invoice_data],
         },
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
