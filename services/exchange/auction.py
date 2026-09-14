@@ -1726,7 +1726,7 @@ def update_tender_bid(
                     detail="Tender average shipment weight must be greater than zero"
                 )
 
-            average_shipment_weight_kg = float(
+            average_shipment_weight_kg = int(
                 tender.average_shipment_weight_kg
             )
 
@@ -1815,6 +1815,8 @@ def update_tender_bid(
             bid_notes=bid_data.bid_notes,
             is_active=True
         )
+
+
 
         db.add(new_bid)
 
