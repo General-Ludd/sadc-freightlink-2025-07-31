@@ -1805,7 +1805,6 @@ def update_tender_bid(
             tender_id=bid_data.tender_id,
             carrier_id=carrier.id,
             bid_per_shipment=estimated_rate_per_shipment,
-            rate_basis=normalized_rate_basis,
             slots_per_interval=bid_data.slots_per_interval,
             bid_notes=bid_data.bid_notes,
             is_active=True
