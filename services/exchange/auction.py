@@ -1372,7 +1372,7 @@ def process_tender_bid(
 
     if rate_basis == "rate per ton":
 
-        if tender.average_shipment_weight is None:
+        if tender.average_shipment_weight_kg is None:
             raise HTTPException(
                 status_code=400,
                 detail=(
@@ -1382,7 +1382,7 @@ def process_tender_bid(
                 )
             )
 
-        if tender.average_shipment_weight <= 0:
+        if tender.average_shipment_weight_kg <= 0:
             raise HTTPException(
                 status_code=400,
                 detail=(
