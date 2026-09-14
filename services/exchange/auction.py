@@ -1753,9 +1753,9 @@ def update_tender_bid(
         # 9. Get Volume Profiles
         # ---------------------------------------------------------
         volume_profiles = (
-            db.query(Lane_Tender_Volume_Profile)
+            db.query(Lane_Tender_RFQ_Volume_Profile)
             .filter(
-                Lane_Tender_Volume_Profile.tender_id ==
+                Lane_Tender_RFQ_Volume_Profile.tender_id ==
                 bid_data.tender_id
             )
             .all()
