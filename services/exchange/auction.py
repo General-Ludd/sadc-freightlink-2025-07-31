@@ -1709,7 +1709,7 @@ def update_tender_bid(
 
         if normalized_rate_basis == "Rate per Ton":
 
-            if tender.average_shipment_weight is None:
+            if tender.average_shipment_weight_kg is None:
                 raise HTTPException(
                     status_code=400,
                     detail=(
@@ -1718,14 +1718,14 @@ def update_tender_bid(
                     )
                 )
 
-            if tender.average_shipment_weight <= 0:
+            if tender.average_shipment_weight_kg <= 0:
                 raise HTTPException(
                     status_code=400,
                     detail="Tender average shipment weight must be greater than zero"
                 )
 
             average_shipment_weight_kg = float(
-                tender.average_shipment_weight
+                tender.average_shipment_weight_kg
             )
 
             average_shipment_weight_tons = (
