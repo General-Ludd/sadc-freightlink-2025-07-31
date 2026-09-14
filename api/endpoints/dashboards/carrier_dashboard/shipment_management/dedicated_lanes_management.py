@@ -8,6 +8,7 @@ from models.brokerage.assigned_shipments import Assigned_Power_Shipments, Assign
 from models.brokerage.finance import CarrierFinancialAccounts, Lane_Interim_Invoice, Load_Invoice
 from models.carrier import Carrier
 from models.spot_bookings.ftl_shipment import FTL_SHIPMENT, FTL_Shipment_Docs
+from models.spot_bookings.dedicated_lane_ftl_shipment import Lane_Stop, Lane_Vehicle_Config, Lane_Volume_Profile
 from models.spot_bookings.power_shipment import POWER_SHIPMENT
 from models.spot_bookings.shipment_facility import ContactPerson, ShipmentFacility
 from schemas.brokerage.assigned_lanes import Dedicated_Ftl_Lane_Summary_Response
