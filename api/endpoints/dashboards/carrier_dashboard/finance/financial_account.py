@@ -40,12 +40,12 @@ def get_current_carrier_financial_account(
 
         for invoice in invoices:
 
-            shipment = db.query(Carrier_Shipment).filter(Carrier_Shipment.id == invoice.shipment_id).first
-            client = db.query(Corporation).filter(Corporation.id == shipment.client_id).first
+            shipment = db.query(Carrier_Shipment).filter(Carrier_Shipment.id == invoice.shipment_id).first()
+            client = db.query(Corporation).filter(Corporation.id == shipment.client_id).first()
             origin = db.query(Client_Shipment_Stop).filter(Client_Shipment_Stop.shipment_id == shipment.client_shipment_id,
-                                                            Client_Shipment_Stop.stop_type == "Origin").first
+                                                            Client_Shipment_Stop.stop_type == "Origin").first()
             destination = db.query(Client_Shipment_Stop).filter(Client_Shipment_Stop.shipment_id == shipment.client_shipment_id,
-                                                            Client_Shipment_Stop.stop_type == "Destination").first
+                                                            Client_Shipment_Stop.stop_type == "Destination").first()
 
             invoice_data.append({
                 "id": invoice.id,
