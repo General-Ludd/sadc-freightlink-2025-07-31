@@ -26,7 +26,7 @@ def create_fleet_carrier(
         # ============================================================
 
         company = Carrier(
-            type="fleet",
+            type="Fleet",
 
             legal_business_name=carrier_data.legal_business_name,
             country_of_incorporation=carrier_data.country_of_incorporation,
@@ -68,7 +68,6 @@ def create_fleet_carrier(
             liability_insurance_certificate=json.dumps(
                 carrier_data.liability_insurance_certificate.model_dump(mode="json")
             ),
-            status="Un-verified",
         )
 
         db.add(company)
@@ -90,7 +89,6 @@ def create_fleet_carrier(
                 document_url=carrier_data.business_registration_certificate.document_url,
                 expiry_date=carrier_data.business_registration_certificate.expiry_date,
                 is_verified=False,
-                status="Un-verified"
             ),
 
             # Proof of Address
@@ -100,7 +98,6 @@ def create_fleet_carrier(
                 document_url=carrier_data.proof_of_address.document_url,
                 expiry_date=carrier_data.proof_of_address.expiry_date,
                 is_verified=False,
-                status="Un-verified"
             ),
 
             # GIT Insurance Certificate
@@ -110,7 +107,6 @@ def create_fleet_carrier(
                 document_url=carrier_data.git_insurance_certificate.document_url,
                 expiry_date=carrier_data.git_insurance_certificate.expiry_date,
                 is_verified=False,
-                status="Un-verified"
             ),
 
             # Liability Insurance Certificate
@@ -120,7 +116,6 @@ def create_fleet_carrier(
                 document_url=carrier_data.liability_insurance_certificate.document_url,
                 expiry_date=carrier_data.liability_insurance_certificate.expiry_date,
                 is_verified=False,
-                status="Un-verified"
             )
         ]
 
@@ -135,7 +130,6 @@ def create_fleet_carrier(
                     document_url=carrier_data.brnc_certificate.document_url,
                     expiry_date=carrier_data.brnc_certificate.expiry_date,
                     is_verified=False,
-                    status="Un-verified"
                 )
             )
 
@@ -176,7 +170,6 @@ def create_fleet_carrier(
 
             is_director=True,
             is_verified=False,
-            status="Un-verified",
 
             company_id=company.id,
             company_name=company.legal_business_name,
