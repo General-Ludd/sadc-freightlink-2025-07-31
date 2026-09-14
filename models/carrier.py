@@ -36,7 +36,7 @@ class Carrier(Base):
     number_of_ongoing_dedicated_lanes = Column(Integer, default=0, nullable=False)
     rating = Column(Float, default=0.0, nullable=True)
     is_verified = Column(Boolean, default=False)
-    status = Column(Enum("Un-verified", "Active", "Under Investigation", "Suspended"), default="Un-verified") #Update in Database
+    status = Column(String, default="Un-verified") #Update in Database
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
@@ -49,7 +49,7 @@ class CarrierDocs(Base):
     document_url = Column(String, nullable=False)
     expiry_date = Column(Date, nullable=True)
     is_verified = Column(Boolean, default=False)
-    status = Column(Enum("Un-verified", "Verified", "Suspended"), default="Un-verified") #Update in Database
+    status = Column(String, default="Un-verified") #Update in Database
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
