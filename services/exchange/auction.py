@@ -1174,7 +1174,7 @@ def process_tender_bid(
 
     tender_loadboard = db.query(Lane_Tender_Loadboard).filter(
         Lane_Tender_Loadboard.tender_id == tender.id,
-        Lane_Tender_Loadboard.is_visible_to_carrier == True
+        Lane_Tender_Loadboard.is_visible_to_carriers == True
     ).first()
 
     if not tender_loadboard:
