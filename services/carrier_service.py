@@ -1,8 +1,8 @@
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from models.brokerage.finance import CarrierFinancialAccounts
-from models.carrier import Carrier, Carrier_Profile, Carrier_Notification
-from models.user import CarrierDirector, CarrierUser
+from models.carrier import Carrier, CarrierDocs, Carrier_Profile, Carrier_Notification
+from models.user import CarrierDirector, CarrierUserDocs, CarrierUser
 from models.user import Driver
 from schemas.brokerage.finance import Carrier_FinancialAccount_Create
 from schemas.user import DriverCreate
@@ -300,7 +300,7 @@ def create_fleet_carrier(
             status_code=500,
             detail=f"Failed to register fleet carrier: {str(e)}"
         )
-        
+
 def create_owner_operator(db: Session, carrier_data: CreateFleetCarrier, director_data: CarrierDirectorCreate, driver_data: DriverCreate):
     # Create Carrier Company
     company = Fleet(
