@@ -1723,24 +1723,33 @@ def update_tender_bid(
             if tender.average_shipment_weight_kg <= 0:
                 raise HTTPException(
                     status_code=400,
-                    detail="Tender average shipment weight must be greater than zero"
+                    detail=(
+                        "Tender average shipment weight must be "
+                        "greater than zero"
+                    )
                 )
 
-            average_shipment_weight_kg = int(
+            # Tender weight is stored in KG
+            average_shipment_weight_kg = float(
                 tender.average_shipment_weight_kg
             )
 
+            # Convert KG → Tons
             average_shipment_weight_tons = (
                 average_shipment_weight_kg / 1000
             )
 
+            # Rate per Ton × Tons = Rate per Shipment
             estimated_rate_per_shipment = (
                 submitted_bid_rate *
                 average_shipment_weight_tons
             )
 
         else:
+
+            # Rate per Trip/Load is already a shipment rate
             estimated_rate_per_shipment = submitted_bid_rate
+
 
         # ---------------------------------------------------------
         # 8. Validate Slots
@@ -1750,6 +1759,7 @@ def update_tender_bid(
                 status_code=400,
                 detail="Slots per interval must be greater than zero"
             )
+
 
         # ---------------------------------------------------------
         # 9. Get Volume Profiles
@@ -1769,8 +1779,9 @@ def update_tender_bid(
                 detail="No volume profiles found for this tender"
             )
 
+
         # ---------------------------------------------------------
-        # 10. Calculate Number Of Intervals
+        # 10. Calculate Contract Shipment Quantity
         # ---------------------------------------------------------
         number_of_intervals = len(volume_profiles)
 
@@ -1785,6 +1796,7 @@ def update_tender_bid(
             number_of_intervals
         )
 
+
         # ---------------------------------------------------------
         # 11. Calculate Total Contract Bid
         # ---------------------------------------------------------
@@ -1792,6 +1804,7 @@ def update_tender_bid(
             estimated_rate_per_shipment *
             per_slot_size
         )
+
 
         # ---------------------------------------------------------
         # 12. Deactivate Existing Bid
