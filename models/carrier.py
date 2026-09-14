@@ -10,7 +10,7 @@ class Carrier(Base):
     __tablename__ = 'carriers'
 
     id = Column(Integer, autoincrement=True, primary_key=True, index=True)
-    type = Column(Enum(CarrierType, default='fleet'), nullable=False)
+    type = Column(String, nullable=False)
     legal_business_name = Column(String, unique=True, nullable=False)
     country_of_incorporation = Column(String, nullable=False)
     business_registration_number = Column(Integer, unique=True, nullable=False)
