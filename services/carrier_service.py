@@ -68,6 +68,7 @@ def create_fleet_carrier(
             liability_insurance_certificate=json.dumps(
                 carrier_data.liability_insurance_certificate.model_dump(mode="json")
             ),
+            status="Un-verified",
         )
 
         db.add(company)
@@ -175,6 +176,7 @@ def create_fleet_carrier(
 
             is_director=True,
             is_verified=False,
+            status="Un-verified",
 
             company_id=company.id,
             company_name=company.legal_business_name,
