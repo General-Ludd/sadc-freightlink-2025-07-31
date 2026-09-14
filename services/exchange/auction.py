@@ -1122,7 +1122,7 @@ def accept_auction_bid(
 
 
 
-def place_tender_bid(
+def process_tender_bid(
     db: Session,
     bid_data: Create_Tender_Bid,
     current_user: dict

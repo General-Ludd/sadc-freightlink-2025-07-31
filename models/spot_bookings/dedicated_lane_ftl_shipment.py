@@ -44,6 +44,13 @@ class Client_Lane(Base):
     hazchem_classification = Column(String(100), nullable=True)
     under_bond = Column(Boolean, default=False, nullable=False)
     rib_requirements = Column(Boolean, default=False, nullable=False)
+
+    # ============================================================
+    # SEASONALITY & VOLUME PROFILE
+    # ============================================================
+
+    volume_entry_method = Column(String(30), nullable=False)
+    volume_commitment = Column(String(50), nullable=False)
     # ============================================================
     # PROCUREMENT / COMMERCIAL BASELINE
     # ============================================================

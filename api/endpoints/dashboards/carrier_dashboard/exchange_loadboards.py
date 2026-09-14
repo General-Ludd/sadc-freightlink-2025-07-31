@@ -15,7 +15,7 @@ from schemas.brokerage.loadboard import IndividualLoadboardShipmentRequest
 from schemas.brokerage.exchange_loadboards import Exchange_Ftl_Load_Board_Response, Exchange_Ftl_Loadboard_Summary_Response
 from schemas.exchange_bookings.auction import Exchange_FTL_Lane_Bid_Create, Exchange_FTL_Shipment_Bid_Create, Exchange_FTL_Exchange_Loadboard_BidResponse, Exchange_POWER_Shipment_Bid_Create, Exchange_Power_Exchange_Loadboard_BidResponse, Create_Shipment_Bid, Create_Tender_Bid
 from schemas.exchange_bookings.ftl_shipment import Exchange_Ftl_Shipments_Summary_Response
-from services.exchange.auction import place_auction_bid, place_tender_bid
+from services.exchange.auction import place_auction_bid, process_tender_bid
 from services.docs_constructor.tender_document_builder import (
     build_tender_rfq_document,
 )
@@ -2114,19 +2114,31 @@ def place_tender_bid(
     current_user: dict = Depends(get_current_user)
 ):
     company_id = current_user.get("company_id")
+
     if not company_id:
-        raise HTTPException(status_code=400, detail="User does not belong to a company")
+        raise HTTPException(
+            status_code=400,
+            detail="User does not belong to a company"
+        )
+
     try:
-        result = place_tender_bid(
-            bid_data,
+        result = process_tender_bid(
             db,
+            bid_data,
             current_user
         )
+
         return result
+
     except HTTPException:
         raise
+
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(
+            status_code=400,
+            detail=str(e)
+        )
+
 
 @router.get(
     "/tender-loadboard/{tender_id}/document"
