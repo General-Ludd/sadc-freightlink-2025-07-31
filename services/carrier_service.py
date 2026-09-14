@@ -44,7 +44,7 @@ def create_fleet_carrier(
             business_email=carrier_data.business_email,
             business_phone_number=carrier_data.business_phone_number,
 
-            # Convert nested Pydantic documents to JSON strings
+            # Existing Carrier VARCHAR JSON fields
             business_registration_certificate=json.dumps(
                 carrier_data.business_registration_certificate.model_dump(mode="json")
             ),
@@ -71,12 +71,79 @@ def create_fleet_carrier(
         )
 
         db.add(company)
-        db.commit()
-        db.refresh(company)
+
+        # Get company.id without committing yet
+        db.flush()
 
 
         # ============================================================
-        # 2. CREATE DIRECTOR
+        # 2. CREATE CARRIER DOCUMENT RECORDS
+        # ============================================================
+
+        carrier_documents = [
+
+            # Business Registration Certificate
+            CarrierDocs(
+                carrier_id=company.id,
+                document_type=carrier_data.business_registration_certificate.document_type,
+                document_url=carrier_data.business_registration_certificate.document_url,
+                expiry_date=carrier_data.business_registration_certificate.expiry_date,
+                is_verified=False,
+                status="Un-verified"
+            ),
+
+            # Proof of Address
+            CarrierDocs(
+                carrier_id=company.id,
+                document_type=carrier_data.proof_of_address.document_type,
+                document_url=carrier_data.proof_of_address.document_url,
+                expiry_date=carrier_data.proof_of_address.expiry_date,
+                is_verified=False,
+                status="Un-verified"
+            ),
+
+            # GIT Insurance Certificate
+            CarrierDocs(
+                carrier_id=company.id,
+                document_type=carrier_data.git_insurance_certificate.document_type,
+                document_url=carrier_data.git_insurance_certificate.document_url,
+                expiry_date=carrier_data.git_insurance_certificate.expiry_date,
+                is_verified=False,
+                status="Un-verified"
+            ),
+
+            # Liability Insurance Certificate
+            CarrierDocs(
+                carrier_id=company.id,
+                document_type=carrier_data.liability_insurance_certificate.document_type,
+                document_url=carrier_data.liability_insurance_certificate.document_url,
+                expiry_date=carrier_data.liability_insurance_certificate.expiry_date,
+                is_verified=False,
+                status="Un-verified"
+            )
+        ]
+
+
+        # Optional BRNC Certificate
+        if carrier_data.brnc_certificate:
+
+            carrier_documents.append(
+                CarrierDocs(
+                    carrier_id=company.id,
+                    document_type=carrier_data.brnc_certificate.document_type,
+                    document_url=carrier_data.brnc_certificate.document_url,
+                    expiry_date=carrier_data.brnc_certificate.expiry_date,
+                    is_verified=False,
+                    status="Un-verified"
+                )
+            )
+
+
+        db.add_all(carrier_documents)
+
+
+        # ============================================================
+        # 3. CREATE DIRECTOR
         # ============================================================
 
         director = CarrierUser(
@@ -89,7 +156,7 @@ def create_fleet_carrier(
             email=director_data.email,
             phone_number=director_data.phone_number,
 
-            # Convert nested documents to JSON strings
+            # Existing CarrierUser VARCHAR JSON fields
             id_document=json.dumps(
                 director_data.id_document.model_dump(mode="json")
             ),
@@ -102,7 +169,9 @@ def create_fleet_carrier(
                 else None
             ),
 
-            password_hash=hash_password(director_data.password_hash),
+            password_hash=hash_password(
+                director_data.password_hash
+            ),
 
             is_director=True,
             is_verified=False,
@@ -113,12 +182,11 @@ def create_fleet_carrier(
         )
 
         db.add(director)
-        db.commit()
-        db.refresh(director)
+        db.flush()
 
 
         # ============================================================
-        # 3. CREATE FINANCIAL ACCOUNT
+        # 4. CREATE FINANCIAL ACCOUNT
         # ============================================================
 
         financial_account = CarrierFinancialAccounts(
@@ -138,18 +206,18 @@ def create_fleet_carrier(
             account_type=financial_data.account_type,
             account_number=financial_data.account_number,
 
+            # Existing VARCHAR JSON field
             account_confirmation_letter=json.dumps(
                 financial_data.account_confirmation_letter.model_dump(mode="json")
             ),
         )
 
         db.add(financial_account)
-        db.commit()
-        db.refresh(financial_account)
+        db.flush()
 
 
         # ============================================================
-        # 4. CREATE CARRIER PROFILE
+        # 5. CREATE CARRIER PROFILE
         # ============================================================
 
         carrier_profile = Carrier_Profile(
@@ -190,19 +258,40 @@ def create_fleet_carrier(
         )
 
         db.add(carrier_profile)
-        db.commit()
-        db.refresh(carrier_profile)
 
 
         # ============================================================
-        # 5. SUCCESS
+        # 6. FINAL COMMIT
+        # ============================================================
+
+        db.commit()
+
+        db.refresh(company)
+        db.refresh(director)
+        db.refresh(financial_account)
+        db.refresh(carrier_profile)
+
+        for document in carrier_documents:
+            db.refresh(document)
+
+
+        # ============================================================
+        # 7. SUCCESS
         # ============================================================
 
         return {
             "message": "Fleet carrier account successfully registered",
             "company_id": company.id,
-            "director_id": director.id
+            "director_id": director.id,
+            "carrier_document_ids": [
+                document.id for document in carrier_documents
+            ]
         }
+
+
+    except HTTPException:
+        db.rollback()
+        raise
 
     except Exception as e:
         db.rollback()
@@ -211,7 +300,7 @@ def create_fleet_carrier(
             status_code=500,
             detail=f"Failed to register fleet carrier: {str(e)}"
         )
-
+        
 def create_owner_operator(db: Session, carrier_data: CreateFleetCarrier, director_data: CarrierDirectorCreate, driver_data: DriverCreate):
     # Create Carrier Company
     company = Fleet(

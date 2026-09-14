@@ -71,6 +71,7 @@ class Lane_Tender_RFQ_Bids(Base):
     per_slot_size = Column(Integer, nullable=True)
     bid_notes = Column(String, nullable=True)
     status = Column(Enum("Submitted", "Leading", "Outbidded", "Under-Review","Accepted", "Rejected", default="Submitted"))
+    is_active = Column(Boolean, default=False, nullable=True)
     submitted_at = Column(DateTime, server_default=func.now())
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
