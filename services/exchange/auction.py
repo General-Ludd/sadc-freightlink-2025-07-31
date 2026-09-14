@@ -22,7 +22,7 @@ from models.spot_bookings.dedicated_lane_ftl_shipment import Client_Lane
 from models.spot_bookings.ftl_shipment import FTL_SHIPMENT, Client_Shipment, Client_Shipment_Stop, Client_Shipment_Vehicle_Requirement
 from models.spot_bookings.power_shipment import POWER_SHIPMENT
 from models.vehicle import Vehicle
-from schemas.exchange_bookings.auction import Accept_Bid, Exchange_FTL_Lane_Bid_Create, Exchange_FTL_Shipment_Bid_Create, Exchange_POWER_Shipment_Bid_Create, Create_Tender_Bid, Create_Shipment_Bid
+from schemas.exchange_bookings.auction import Accept_Bid, Exchange_FTL_Lane_Bid_Create, Exchange_FTL_Shipment_Bid_Create, Exchange_POWER_Shipment_Bid_Create, Create_Tender_Bid, Update_Tender_Bid, Create_Shipment_Bid
 from services.brokerage.carrier_loadboard_service import calculate_rates
 from services.brokerage.commission import calculate_commission
 from utils.billing import BillingEngine
