@@ -1586,6 +1586,8 @@ def update_tender_bid(
     current_user: dict
 ):
     company_id = current_user.get("company_id")
+    user_id = current_user.get("id")
+
 
     if not company_id:
         raise HTTPException(
@@ -1804,9 +1806,12 @@ def update_tender_bid(
         new_bid = Lane_Tender_RFQ_Bids(
             tender_id=bid_data.tender_id,
             carrier_id=carrier.id,
+            bidder_user_id=user_id,
             carrier_name=carrier.legal_business_name,
             bid_per_shipment=estimated_rate_per_shipment,
             slots_per_interval=bid_data.slots_per_interval,
+            per_slot_size=per_slot_size,
+            contract_bid=total_contract_bid,
             bid_notes=bid_data.bid_notes,
             is_active=True
         )
