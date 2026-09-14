@@ -26,7 +26,7 @@ def create_fleet_carrier(
         # ============================================================
 
         company = Carrier(
-            type="Fleet",
+            type="fleet",
 
             legal_business_name=carrier_data.legal_business_name,
             country_of_incorporation=carrier_data.country_of_incorporation,
