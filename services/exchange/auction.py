@@ -1578,5 +1578,3 @@ def process_tender_bid(
         )
 
     return response
-
-def process_update_tender_bid()
