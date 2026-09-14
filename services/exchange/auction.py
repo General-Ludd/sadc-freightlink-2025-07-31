@@ -1770,10 +1770,7 @@ def update_tender_bid(
         # ---------------------------------------------------------
         # 10. Calculate Number Of Intervals
         # ---------------------------------------------------------
-        number_of_intervals = sum(
-            profile.number_of_intervals
-            for profile in volume_profiles
-        )
+        number_of_intervals = len(volume_profiles)
 
         if number_of_intervals <= 0:
             raise HTTPException(
