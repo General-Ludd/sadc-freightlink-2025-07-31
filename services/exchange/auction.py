@@ -1578,3 +1578,297 @@ def process_tender_bid(
         )
 
     return response
+
+
+def update_tender_bid(
+    db: Session,
+    bid_data: Update_Tender_Bid,
+    current_user: dict
+):
+    company_id = current_user.get("company_id")
+
+    if not company_id:
+        raise HTTPException(
+            status_code=400,
+            detail="User does not belong to a company"
+        )
+
+    try:
+        # ---------------------------------------------------------
+        # 1. Get Tender
+        # ---------------------------------------------------------
+        tender = (
+            db.query(Lane_Tender_RFQ)
+            .filter(
+                Lane_Tender_RFQ.id == bid_data.tender_id
+            )
+            .first()
+        )
+
+        if not tender:
+            raise HTTPException(
+                status_code=404,
+                detail="Tender not found"
+            )
+
+        if tender.status != "Active":
+            raise HTTPException(
+                status_code=400,
+                detail="Tender is not active"
+            )
+
+        # ---------------------------------------------------------
+        # 2. Get Existing Bid
+        # ---------------------------------------------------------
+        existing_bid = (
+            db.query(Lane_Tender_RFQ_Bids)
+            .filter(
+                Lane_Tender_RFQ_Bids.id == bid_data.bid_id,
+                Lane_Tender_RFQ_Bids.tender_id == bid_data.tender_id
+            )
+            .first()
+        )
+
+        if not existing_bid:
+            raise HTTPException(
+                status_code=404,
+                detail="Bid not found for this tender"
+            )
+
+        # ---------------------------------------------------------
+        # 3. Verify Existing Bid Belongs To Current Carrier
+        # ---------------------------------------------------------
+        carrier = (
+            db.query(Carrier)
+            .filter(
+                Carrier.company_id == company_id
+            )
+            .first()
+        )
+
+        if not carrier:
+            raise HTTPException(
+                status_code=404,
+                detail="Carrier account not found"
+            )
+
+        if existing_bid.carrier_id != carrier.id:
+            raise HTTPException(
+                status_code=403,
+                detail="You can only update your own bid"
+            )
+
+        # ---------------------------------------------------------
+        # 4. Make Sure Existing Bid Is Active
+        # ---------------------------------------------------------
+        if not existing_bid.is_active:
+            raise HTTPException(
+                status_code=400,
+                detail="This bid is already inactive"
+            )
+
+        # ---------------------------------------------------------
+        # 5. Validate New Bid Rate
+        # ---------------------------------------------------------
+        if bid_data.bid_per_shipment <= 0:
+            raise HTTPException(
+                status_code=400,
+                detail="Bid rate must be greater than zero"
+            )
+
+        # ---------------------------------------------------------
+        # 6. Validate Rate Basis
+        # ---------------------------------------------------------
+        rate_basis = bid_data.rate_basis.strip().lower()
+
+        if rate_basis == "rate per trip/load":
+            normalized_rate_basis = "Rate per Trip/Load"
+
+        elif rate_basis == "rate per load":
+            normalized_rate_basis = "Rate per Trip/Load"
+
+        elif rate_basis == "rate per ton":
+            normalized_rate_basis = "Rate per Ton"
+
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Invalid rate basis. Allowed values are "
+                    "'Rate per Trip/Load' or 'Rate per Ton'"
+                )
+            )
+
+        # ---------------------------------------------------------
+        # 7. Calculate Rate Per Shipment
+        # ---------------------------------------------------------
+        submitted_bid_rate = float(bid_data.bid_per_shipment)
+
+        average_shipment_weight_kg = None
+        average_shipment_weight_tons = None
+
+        if normalized_rate_basis == "Rate per Ton":
+
+            if tender.average_shipment_weight is None:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "Average shipment weight is required "
+                        "for Rate per Ton bids"
+                    )
+                )
+
+            if tender.average_shipment_weight <= 0:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Tender average shipment weight must be greater than zero"
+                )
+
+            average_shipment_weight_kg = float(
+                tender.average_shipment_weight
+            )
+
+            average_shipment_weight_tons = (
+                average_shipment_weight_kg / 1000
+            )
+
+            estimated_rate_per_shipment = (
+                submitted_bid_rate *
+                average_shipment_weight_tons
+            )
+
+        else:
+            estimated_rate_per_shipment = submitted_bid_rate
+
+        # ---------------------------------------------------------
+        # 8. Validate Slots
+        # ---------------------------------------------------------
+        if bid_data.slots_per_interval <= 0:
+            raise HTTPException(
+                status_code=400,
+                detail="Slots per interval must be greater than zero"
+            )
+
+        # ---------------------------------------------------------
+        # 9. Get Volume Profiles
+        # ---------------------------------------------------------
+        volume_profiles = (
+            db.query(Lane_Tender_Volume_Profile)
+            .filter(
+                Lane_Tender_Volume_Profile.tender_id ==
+                bid_data.tender_id
+            )
+            .all()
+        )
+
+        if not volume_profiles:
+            raise HTTPException(
+                status_code=400,
+                detail="No volume profiles found for this tender"
+            )
+
+        # ---------------------------------------------------------
+        # 10. Calculate Number Of Intervals
+        # ---------------------------------------------------------
+        number_of_intervals = sum(
+            profile.number_of_intervals
+            for profile in volume_profiles
+        )
+
+        if number_of_intervals <= 0:
+            raise HTTPException(
+                status_code=400,
+                detail="Tender has no valid volume intervals"
+            )
+
+        per_slot_size = (
+            bid_data.slots_per_interval *
+            number_of_intervals
+        )
+
+        # ---------------------------------------------------------
+        # 11. Calculate Total Contract Bid
+        # ---------------------------------------------------------
+        total_contract_bid = (
+            estimated_rate_per_shipment *
+            per_slot_size
+        )
+
+        # ---------------------------------------------------------
+        # 12. Deactivate Existing Bid
+        # ---------------------------------------------------------
+        existing_bid.is_active = False
+
+        db.flush()
+
+        # ---------------------------------------------------------
+        # 13. Create New Bid
+        # ---------------------------------------------------------
+        new_bid = Lane_Tender_RFQ_Bids(
+            tender_id=bid_data.tender_id,
+            carrier_id=carrier.id,
+            bid_per_shipment=estimated_rate_per_shipment,
+            rate_basis=normalized_rate_basis,
+            slots_per_interval=bid_data.slots_per_interval,
+            bid_notes=bid_data.bid_notes,
+            is_active=True
+        )
+
+        db.add(new_bid)
+
+        # ---------------------------------------------------------
+        # 14. Save Everything
+        # ---------------------------------------------------------
+        db.commit()
+        db.refresh(new_bid)
+
+        # ---------------------------------------------------------
+        # 15. Response
+        # ---------------------------------------------------------
+        return {
+            "message": "Tender bid updated successfully",
+            "old_bid_id": existing_bid.id,
+            "new_bid_id": new_bid.id,
+
+            "tender_id": bid_data.tender_id,
+
+            "submitted_bid_rate": submitted_bid_rate,
+
+            "rate_basis": normalized_rate_basis,
+
+            "calculated_rate_per_shipment": round(
+                estimated_rate_per_shipment,
+                2
+            ),
+
+            "slots_per_interval": bid_data.slots_per_interval,
+
+            "number_of_intervals": number_of_intervals,
+
+            "per_slot_size": per_slot_size,
+
+            "total_contract_bid": round(
+                total_contract_bid,
+                2
+            ),
+
+            "average_shipment_weight_kg":
+                average_shipment_weight_kg,
+
+            "average_shipment_weight_tons":
+                average_shipment_weight_tons,
+
+            "old_bid_status": "Inactive",
+            "new_bid_status": "Active"
+        }
+
+    except HTTPException:
+        db.rollback()
+        raise
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=400,
+            detail=f"Failed to update tender bid: {str(e)}"
+        )

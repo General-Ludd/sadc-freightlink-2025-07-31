@@ -15,7 +15,7 @@ from schemas.brokerage.loadboard import IndividualLoadboardShipmentRequest
 from schemas.brokerage.exchange_loadboards import Exchange_Ftl_Load_Board_Response, Exchange_Ftl_Loadboard_Summary_Response
 from schemas.exchange_bookings.auction import Exchange_FTL_Lane_Bid_Create, Exchange_FTL_Shipment_Bid_Create, Exchange_FTL_Exchange_Loadboard_BidResponse, Exchange_POWER_Shipment_Bid_Create, Exchange_Power_Exchange_Loadboard_BidResponse, Create_Shipment_Bid, Create_Tender_Bid
 from schemas.exchange_bookings.ftl_shipment import Exchange_Ftl_Shipments_Summary_Response
-from services.exchange.auction import place_auction_bid, process_tender_bid
+from services.exchange.auction import place_auction_bid, process_tender_bid, update_tender_bid
 from services.docs_constructor.tender_document_builder import (
     build_tender_rfq_document,
 )
@@ -1401,7 +1401,9 @@ def get_tender_loadboard(
                     Lane_Tender_RFQ_Bids.tender_id ==
                     tender.id,
                     Lane_Tender_RFQ_Bids.carrier_id ==
-                    company_id
+                    company_id,
+                    Lane_Tender_RFQ_Bids.is_active ==
+                    True
                 )
                 .all()
             )
@@ -2123,6 +2125,30 @@ def place_tender_bid(
 
     try:
         result = process_tender_bid(
+            db,
+            bid_data,
+            current_user
+        )
+
+        return result
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=str(e)
+        )
+
+@router.put("/update-tender-bid")
+def update_tender_bid_route(
+    bid_data: Update_Tender_Bid,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    try:
+        result = update_tender_bid(
             db,
             bid_data,
             current_user
