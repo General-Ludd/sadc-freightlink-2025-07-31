@@ -1393,7 +1393,7 @@ def process_tender_bid(
 
         # Tender weight is stored in kilograms
         average_shipment_weight_kg = float(
-            tender.average_shipment_weight
+            tender.average_shipment_weight_kg
         )
 
         # Convert kilograms to metric tons
