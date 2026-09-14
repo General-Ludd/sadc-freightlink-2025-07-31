@@ -1804,6 +1804,7 @@ def update_tender_bid(
         new_bid = Lane_Tender_RFQ_Bids(
             tender_id=bid_data.tender_id,
             carrier_id=carrier.id,
+            carrier_name=carrier.legal_business_name,
             bid_per_shipment=estimated_rate_per_shipment,
             slots_per_interval=bid_data.slots_per_interval,
             bid_notes=bid_data.bid_notes,
