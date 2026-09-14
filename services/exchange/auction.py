@@ -1641,7 +1641,7 @@ def update_tender_bid(
         carrier = (
             db.query(Carrier)
             .filter(
-                Carrier.company_id == company_id
+                Carrier.id == company_id
             )
             .first()
         )
