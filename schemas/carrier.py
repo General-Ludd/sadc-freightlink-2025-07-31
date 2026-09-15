@@ -23,6 +23,16 @@ class CarrierDocsCreate(BaseModel):
     document_url: str
     expiry_date: Optional [date] = None
 
+class CarrierDocumentCreate(BaseModel):
+    document_type: str
+    document_url: str
+    expiry_date: Optional[date] = None
+
+class CarrierDocumentUpdate(BaseModel):
+    document_type: Optional[str] = None
+    document_url: Optional[str] = None
+    expiry_date: Optional[date] = None
+
 class CarrierCreate(BaseModel):
     legal_business_name: str
     country_of_incorporation: str

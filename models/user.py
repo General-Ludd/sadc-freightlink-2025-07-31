@@ -104,6 +104,7 @@ class CarrierUserDocs(Base):
     expiry_date = Column(Date, nullable=True)
     is_verified = Column(Boolean, default=False)
     status = Column(String, default="Un-verified") #Update in Database
+    is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 

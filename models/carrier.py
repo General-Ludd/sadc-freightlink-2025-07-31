@@ -40,6 +40,29 @@ class Carrier(Base):
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
+class CarrierUserAccountLog(Base):
+    __tablename__ = "carrier_user_account_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    carrier_user_id = Column(Integer, nullable=False)
+    company_id = Column(Integer, nullable=False)
+
+    changed_by_user_id = Column(Integer, nullable=True)
+
+    change_type = Column(String, nullable=False)
+
+    field_name = Column(String, nullable=False)
+
+    old_value = Column(String, nullable=True)
+    new_value = Column(String, nullable=True)
+
+    created_at = Column(
+        DateTime,
+        server_default=func.now()
+    )
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
 class CarrierDocs(Base):
     __tablename__ = 'carrier_docs'
 
@@ -50,6 +73,7 @@ class CarrierDocs(Base):
     expiry_date = Column(Date, nullable=True)
     is_verified = Column(Boolean, default=False)
     status = Column(String, default="Un-verified") #Update in Database
+    is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 

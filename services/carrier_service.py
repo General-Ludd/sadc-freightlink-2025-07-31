@@ -7,7 +7,7 @@ from models.user import Driver
 from schemas.brokerage.finance import Carrier_FinancialAccount_Create
 from schemas.user import DriverCreate
 from schemas.user import CarrierDirectorCreate, CarrierUsers
-from schemas.carrier import CarrierCreate, CreateFleetCarrier, CarrierProfile
+from schemas.carrier import CarrierCreate, CreateFleetCarrier, CarrierProfile, CarrierDocumentCreate, CarrierDocumentUpdate
 from utils.auth import hash_password
 import json
 
@@ -590,4 +590,132 @@ def fleet_create_driver(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to create driver: {str(e)}"
+        )
+
+def create_carrier_document(
+    db: Session,
+    document_data: CarrierDocumentCreate,
+    current_user: dict
+):
+    try:
+        company_id = current_user.get("company_id")
+
+        if not company_id:
+            raise HTTPException(
+                status_code=400,
+                detail="User does not belong to a company"
+            )
+
+        carrier = db.query(Carrier).filter(
+            Carrier.id == company_id
+        ).first()
+
+        if not carrier:
+            raise HTTPException(
+                status_code=404,
+                detail="Carrier not found"
+            )
+
+        document = CarrierDocs(
+            carrier_id=company_id,
+            document_type=document_data.document_type,
+            document_url=document_data.document_url,
+            expiry_date=document_data.expiry_date,
+            is_verified=False,
+            status="Un-verified"
+        )
+
+        db.add(document)
+        db.commit()
+        db.refresh(document)
+
+        return {
+            "message": f"{document.document_type} successfully added and is undergoing verification.",
+            "document": {
+                "id": document.id,
+                "carrier_id": document.carrier_id,
+                "document_type": document.document_type,
+                "document_url": document.document_url,
+                "expiry_date": document.expiry_date,
+                "is_verified": document.is_verified,
+                "status": document.status
+            }
+        }
+
+    except HTTPException:
+        db.rollback()
+        raise
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to create carrier document: {str(e)}"
+        )
+
+def update_carrier_document(
+    db: Session,
+    document_id: int,
+    document_data: CarrierDocumentUpdate,
+    current_user: dict
+):
+    try:
+        company_id = current_user.get("company_id")
+
+        if not company_id:
+            raise HTTPException(
+                status_code=400,
+                detail="User does not belong to a company"
+            )
+
+        document = db.query(CarrierDocs).filter(
+            CarrierDocs.id == document_id,
+            CarrierDocs.carrier_id == company_id
+        ).first()
+
+        if not document:
+            raise HTTPException(
+                status_code=404,
+                detail="Carrier document not found"
+            )
+
+        if document_data.document_type is not None:
+            document.document_type = document_data.document_type
+
+        if document_data.document_url is not None:
+            document.document_url = document_data.document_url
+
+        if document_data.expiry_date is not None:
+            document.expiry_date = document_data.expiry_date
+
+        # Any document modification requires re-verification
+        document.is_verified = False
+        document.status = "Un-verified"
+
+        db.add(document)
+        db.commit()
+        db.refresh(document)
+
+        return {
+            "message": "Carrier document successfully updated and is undergoing verification.",
+            "document": {
+                "id": document.id,
+                "carrier_id": document.carrier_id,
+                "document_type": document.document_type,
+                "document_url": document.document_url,
+                "expiry_date": document.expiry_date,
+                "is_verified": document.is_verified,
+                "status": document.status
+            }
+        }
+
+    except HTTPException:
+        db.rollback()
+        raise
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to update carrier document: {str(e)}"
         )

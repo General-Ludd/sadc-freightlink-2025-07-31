@@ -24,19 +24,46 @@ class PasswordResetCodeResponse(BaseModel):
 
     model_config = {"from_attributes": True}  # replaces orm_mode in V2
 
-class CarrierDirectorCreate(BaseModel):
-    first_name: str
-    last_name: str
-    id_number: str
-    address: str
-    email: EmailStr
-    phone_number: str
-    password: str
+class CarrierUserDocumentUpdate(BaseModel):
+    document_type: Optional[str] = None
+    document_url: Optional[str] = None
+    expiry_date: Optional[date] = None
+
+
+class CarrierUserDocumentUpdate(BaseModel):
+    document_type: Optional[str] = None
+    document_url: Optional[str] = None
+    expiry_date: Optional[date] = None
+
+
+class CarrierUserUpdate(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    nationality: Optional[str] = None
+    id_number: Optional[str] = None
+    home_address: Optional[str] = None
+    email: Optional[EmailStr] = None
+    phone_number: Optional[str] = None
+
+    id_document: Optional[CarrierUserDocumentUpdate] = None
+    proof_of_address: Optional[CarrierUserDocumentUpdate] = None
 
 class CarrierUsersDocsCreate(BaseModel):
     document_type: str
     document_url: str
     expiry_date: Optional [date] = None
+
+class CarrierDirectorCreate(BaseModel):
+    first_name: str
+    last_name: str
+    nationality: str
+    id_number: str
+    home_address: Optional[str] = None
+    email: EmailStr
+    phone_number: str
+    id_document: CarrierUsersDocsCreate
+    proof_of_address: Optional[CarrierUsersDocsCreate] = None
+    password_hash: str
 
 class CarrierUsers(BaseModel):
     role: str

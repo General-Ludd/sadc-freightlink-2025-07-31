@@ -10,10 +10,10 @@ from models.brokerage.finance import CarrierFinancialAccounts
 from models.carrier import Carrier, Carrier_Profile, Notification, Carrier_Notification, CarrierDocs
 from models.shipper import Corporation
 from schemas.brokerage.finance import CarrierFinancialAccountResponse, Carrier_FinancialAccount_Create, CarrierFinancialAccountUpdate
-from schemas.carrier import CarrierCompanyResponse, CarrierCreate, CarrierProfile
+from schemas.carrier import CarrierCompanyResponse, CarrierCreate, CarrierProfile, CarrierDocumentCreate, CarrierDocumentUpdate
 from schemas.user import CarrierUserResponse, DriverCreate, DriverResponse, CarrierUsers, PasswordResetCodeResponse
 from schemas.vehicle import TrailerCreate, TrailerResponse, VehicleCreate, VehicleResponse, VehicleUpdate
-from services.carrier_service import fleet_create_driver, create_fleet_carrier
+from services.carrier_service import fleet_create_driver, create_fleet_carrier, create_carrier_document, update_carrier_document
 from services.carrier_dashboards import assign_trailer_to_vehicle
 from services.vehicle_service import create_trailer, create_vehicle
 from utils.auth import get_current_user, verify_password, hash_password
@@ -567,6 +567,33 @@ def carrier_get_account_information(
     except Exception as e:
         print(f"Error retrieving carrier account information: {str(e)}")
         return {"error": str(e)}
+
+@router.post("/carrier/documents")
+def create_carrier_document_endpoint(
+    document_data: CarrierDocumentCreate,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    return create_carrier_document(
+        db=db,
+        document_data=document_data,
+        current_user=current_user
+    )
+
+@router.put("/carrier/documents/{document_id}")
+def update_carrier_document_endpoint(
+    document_id: int,
+    document_data: CarrierDocumentUpdate,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    return update_carrier_document(
+        db=db,
+        document_id=document_id,
+        document_data=document_data,
+        current_user=current_user
+    )
+
 
 @router.patch("/carrier/update-banking-details", status_code=status.HTTP_201_CREATED) #UnTested
 def partial_update_carrier_financial_account(
