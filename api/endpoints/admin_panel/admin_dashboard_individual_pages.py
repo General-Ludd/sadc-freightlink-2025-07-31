@@ -1159,24 +1159,16 @@ def admin_get_shipper_company_id(
             "company_information": {
 
                 "id": shipper_company.id,
-
-                "company_name": getattr(
-                    shipper_company,
-                    "company_name",
-                    None
-                ),
+                "logo_link": shipper_company.company_logo if company_logo else None,
+                "is-verified": shipper_company.is_verified,
+                "status": shipper_company.status,
+                "company_name": shipper_company.legal_business_name,
                 "country_of_incorporation": shipper_company.country_of_incorporation,
-                "registration_number": getattr(
-                    shipper_company,
-                    "registration_number",
-                    None
-                ),
-
-                "status": getattr(
-                    shipper_company,
-                    "status",
-                    None
-                ),
+                "business_registration_number": shipper_company.business_registration_number,
+                "business_address": shipper_company.business_registration_number,
+                "business_email": shipper_company.business_email,
+                "business_phone_number": shipper_company.business_phone_number,
+                "company_profile_summary": shipper_company.company_profile,
             },
 
             "financial_account": (
