@@ -67,7 +67,7 @@ def admin_get_shipper_company_id(
 
         financial_account = (
             db.query(FinancialAccounts)
-            .filter(FinancialAccounts.company_id == company_id)
+            .filter(FinancialAccounts.id == company_id)
             .first()
         )
 
