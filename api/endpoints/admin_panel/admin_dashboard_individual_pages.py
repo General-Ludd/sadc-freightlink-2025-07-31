@@ -40,400 +40,921 @@ def admin_get_shipper_company_id(
     current_user: dict = Depends(get_current_admin),
 ):
     try:
-        shipper_company = db.query(Corporation).filter(Corporation.id == id).first()
-        if not shipper_company:
-            raise HTTPException(status_code=404, detail="Shipper company not found")
+        # ============================================================
+        # 1. SHIPPER COMPANY
+        # ============================================================
 
-        financial_account = (
-            db.query(FinancialAccounts)
-            .filter(FinancialAccounts.id == shipper_company.id)
+        shipper_company = (
+            db.query(Corporation)
+            .filter(Corporation.id == id)
             .first()
         )
 
-        shipper_users = (
+        if not shipper_company:
+            raise HTTPException(
+                status_code=404,
+                detail="Shipper company not found"
+            )
+
+        company_id = shipper_company.id
+
+        # ============================================================
+        # 2. FINANCIAL ACCOUNT
+        # ============================================================
+        # IMPORTANT:
+        # Adjust FinancialAccounts.company_id if your actual FK
+        # uses a different field.
+
+        financial_account = (
+            db.query(FinancialAccounts)
+            .filter(FinancialAccounts.company_id == company_id)
+            .first()
+        )
+
+        financial_account_data = None
+
+        if financial_account:
+            financial_account_data = {
+                "id": financial_account.id,
+                "status": getattr(financial_account, "status", None),
+                "account_type": getattr(
+                    financial_account,
+                    "account_type",
+                    None
+                ),
+                "payment_terms": getattr(
+                    financial_account,
+                    "payment_terms",
+                    None
+                ),
+                "credit_limit": getattr(
+                    financial_account,
+                    "credit_limit",
+                    None
+                ),
+            }
+
+        # ============================================================
+        # 3. COMPANY USERS
+        # ============================================================
+
+        users = (
             db.query(Director)
-            .filter(Director.company_id == shipper_company.id)
+            .filter(Director.company_id == company_id)
             .all()
         )
 
-        ftl_shipments = (
-            db.query(Client_Shipment)
-            .filter(Client_Shipment.client_id == shipper_company.id)
-            .all()
-        )
+        users_data = []
 
-        shipment_exchanges = (
+        for user in users:
+            users_data.append({
+                "id": user.id,
+                "first_name": getattr(user, "first_name", None),
+                "last_name": getattr(user, "last_name", None),
+                "email": getattr(user, "email", None),
+                "phone": getattr(user, "phone", None),
+                "role": getattr(user, "role", None),
+                "status": getattr(user, "status", None),
+            })
+
+        # ============================================================
+        # HELPER: FORMAT TIME
+        # ============================================================
+
+        def format_time(value):
+            if value is None:
+                return None
+
+            return value.strftime("%H:%M")
+
+        # ============================================================
+        # HELPER: COMPACT STOP
+        # ============================================================
+
+        def get_stop_window(stop):
+            if not stop:
+                return {
+                    "start": None,
+                    "end": None
+                }
+
+            return {
+                "start": format_time(
+                    getattr(stop, "operating_start_time", None)
+                ),
+                "end": format_time(
+                    getattr(stop, "operating_end_time", None)
+                ),
+            }
+
+        # ============================================================
+        # HELPER: GET ORIGIN / DESTINATION / INTERMEDIATE STOPS
+        # ============================================================
+
+        def get_route_stops(stop_model, foreign_key_column, parent_id):
+
+            stops = (
+                db.query(stop_model)
+                .filter(foreign_key_column == parent_id)
+                .order_by(stop_model.stop_sequence.asc())
+                .all()
+            )
+
+            origin = None
+            destination = None
+            intermediate_stops = []
+
+            for stop in stops:
+
+                if stop.stop_type == "Origin":
+                    origin = stop
+
+                elif stop.stop_type == "Destination":
+                    destination = stop
+
+                elif stop.stop_type == "Intermediate":
+                    intermediate_stops.append(stop)
+
+            return origin, destination, intermediate_stops
+
+        # ============================================================
+        # 4. SHIPMENT AUCTIONS
+        # ============================================================
+
+        auctions = (
             db.query(Client_Shipment_Auction)
-            .filter(Client_Shipment_Auction.client_id == shipper_company.id)
+            .filter(
+                Client_Shipment_Auction.client_id == company_id
+            )
+            .order_by(
+                Client_Shipment_Auction.created_at.desc()
+            )
             .all()
         )
+
+        shipment_auctions = []
+
+        for auction in auctions:
+
+            origin, destination, intermediate_stops = get_route_stops(
+                Client_Shipment_Auction_Stop,
+                Client_Shipment_Auction_Stop.auction_id,
+                auction.id
+            )
+
+            # --------------------------------------------------------
+            # Vehicle configuration
+            # --------------------------------------------------------
+
+            vehicle_configs = (
+                db.query(Client_Shipment_Auction_Vehicle_Requirement)
+                .filter(
+                    Client_Shipment_Auction_Vehicle_Requirement.auction_id
+                    == auction.id
+                )
+                .all()
+            )
+
+            equipment = []
+
+            for vehicle in vehicle_configs:
+
+                equipment_parts = []
+
+                if vehicle.truck_type:
+                    equipment_parts.append(vehicle.truck_type)
+
+                if vehicle.equipment_type:
+                    equipment_parts.append(vehicle.equipment_type)
+
+                if vehicle.trailer_type:
+                    equipment_parts.append(vehicle.trailer_type)
+
+                if vehicle.trailer_length:
+                    equipment_parts.append(vehicle.trailer_length)
+
+                equipment.append(
+                    " - ".join(equipment_parts)
+                )
+
+            equipment_string = ", ".join(
+                [item for item in equipment if item]
+            )
+
+            # --------------------------------------------------------
+            # Bid quote count
+            # --------------------------------------------------------
+            # Replace Auction_Bid and auction_id below with the
+            # actual bid model/foreign key once supplied.
+
+            bid_quotes = 0
+
+            try:
+                bid_quotes = (
+                    db.query(Auction_Bid)
+                    .filter(
+                        Auction_Bid.auction_id == auction.id
+                    )
+                    .count()
+                )
+            except Exception:
+                bid_quotes = 0
+
+            shipment_auctions.append({
+                "id": auction.id,
+                "status": auction.status,
+
+                "hazchem": bool(
+                    auction.hazardous_materials
+                ),
+
+                "origin": {
+                    "city_province": (
+                        origin.city_province
+                        if origin else None
+                    ),
+                    "facility_name": (
+                        origin.facility_name
+                        if origin else None
+                    ),
+                    "pickup_date": (
+                        auction.pickup_date.isoformat()
+                        if auction.pickup_date
+                        else None
+                    ),
+                    "window": get_stop_window(origin),
+                },
+
+                "trip": {
+                    "distance_km": (
+                        float(auction.distance)
+                        if auction.distance is not None
+                        else None
+                    ),
+                    "stops": len(intermediate_stops),
+                    "equipment": equipment_string,
+                },
+
+                "trucks_required": (
+                    auction.number_of_trucks_required
+                ),
+
+                "destination": {
+                    "city_province": (
+                        destination.city_province
+                        if destination else None
+                    ),
+                    "facility_name": (
+                        destination.facility_name
+                        if destination else None
+                    ),
+                    "eta_date": (
+                        auction.eta_date.isoformat()
+                        if auction.eta_date
+                        else None
+                    ),
+                    "window": get_stop_window(destination),
+                },
+
+                "bid_quotes": bid_quotes,
+
+                "budget": (
+                    float(auction.book_now_rate)
+                    if auction.book_now_rate is not None
+                    else None
+                ),
+            })
+
+        # ============================================================
+        # 5. CONTRACT TENDERS
+        # ============================================================
 
         tenders = (
             db.query(Lane_Tender_RFQ)
-            .filter(Lane_Tender_RFQ.client_id == shipper_company.id)
+            .filter(
+                Lane_Tender_RFQ.client_id == company_id
+            )
+            .order_by(
+                Lane_Tender_RFQ.id.desc()
+            )
             .all()
         )
 
-        ftl_lanes = (
-            db.query(Client_Lane)
-            .filter(Client_Lane.client_id == shipper_company.id)
+        contract_tenders = []
+
+        for tender in tenders:
+
+            origin, destination, intermediate_stops = get_route_stops(
+                Lane_Tender_RFQ_Stop,
+                Lane_Tender_RFQ_Stop.tender_id,
+                tender.id
+            )
+
+            # --------------------------------------------------------
+            # Frequency
+            # --------------------------------------------------------
+
+            volume_profiles = (
+                db.query(Lane_Tender_RFQ_Volume_Profile)
+                .filter(
+                    Lane_Tender_RFQ_Volume_Profile.tender_id
+                    == tender.id
+                )
+                .order_by(
+                    Lane_Tender_RFQ_Volume_Profile.period_sequence.asc()
+                )
+                .all()
+            )
+
+            volume_frequency = None
+
+            if volume_profiles:
+
+                labels = [
+                    profile.period_label
+                    for profile in volume_profiles
+                    if profile.period_label
+                ]
+
+                if labels:
+                    volume_frequency = labels[0]
+
+                elif tender.volume_entry_method:
+                    volume_frequency = tender.volume_entry_method
+
+            elif tender.volume_entry_method:
+                volume_frequency = tender.volume_entry_method
+
+            # --------------------------------------------------------
+            # Tender description
+            # --------------------------------------------------------
+
+            description = tender.scope_description
+
+            if not description:
+                if origin and destination:
+                    description = (
+                        f"{origin.city_province} to "
+                        f"{destination.city_province}"
+                    )
+
+            contract_tenders.append({
+
+                "id": tender.id,
+
+                "status": tender.status,
+
+                "title": tender.tender_title,
+
+                "description": description,
+
+                "scope_description": tender.scope_description,
+
+                # User specified that procurement target contract
+                # rate is the dashboard's estimated spend.
+                "estimated_spend": (
+                    float(tender.procurement_target_contract_rate)
+                    if tender.procurement_target_contract_rate
+                    is not None
+                    else None
+                ),
+
+                "volume_frequency": volume_frequency,
+            })
+
+        # ============================================================
+        # 6. ACTIVE / HISTORICAL SHIPMENTS
+        # ============================================================
+
+        shipments = (
+            db.query(Client_Shipment)
+            .filter(
+                Client_Shipment.client_id == company_id
+            )
+            .order_by(
+                Client_Shipment.created_at.desc()
+            )
             .all()
         )
 
         shipment_data = []
 
-        for shipment in ftl_shipments:
-            origin = (
-                db.query(Client_Shipment_Stop)
-                .filter(Client_Shipment_Stop.shipment_id == shipment.id, Client_Shipment_Stop.stop_type == "Origin")
-                .first()
+        for shipment in shipments:
+
+            origin, destination, intermediate_stops = get_route_stops(
+                Client_Shipment_Stop,
+                Client_Shipment_Stop.shipment_id,
+                shipment.id
             )
 
-            # 2. Query Destination directly
-            destination = (
-                db.query(Client_Shipment_Stop)
-                .filter(Client_Shipment_Stop.shipment_id == shipment.id, Client_Shipment_Stop.stop_type == "Destination")
-                .first()
-            )
+            # --------------------------------------------------------
+            # Vehicle requirement
+            # --------------------------------------------------------
 
-            # 3. Query Intermediate stops
-            intermediate_stops = (
-                db.query(Client_Shipment_Stop)
-                .filter(Client_Shipment_Stop.shipment_id == shipment.id, Client_Shipment_Stop.stop_type == "Intermediate")
-                .all()
-            )
-
-            configs = (
+            vehicle_requirement = (
                 db.query(Client_Shipment_Vehicle_Requirement)
                 .filter(
-                    Client_Shipment_Vehicle_Requirement.shipment_id == shipment.id
+                    Client_Shipment_Vehicle_Requirement.shipment_id
+                    == shipment.id
                 )
-                .all()
+                .first()
             )
+
+            equipment = None
+
+            if vehicle_requirement:
+
+                equipment_parts = []
+
+                if vehicle_requirement.truck_type:
+                    equipment_parts.append(
+                        vehicle_requirement.truck_type
+                    )
+
+                if vehicle_requirement.equipment_type:
+                    equipment_parts.append(
+                        vehicle_requirement.equipment_type
+                    )
+
+                if vehicle_requirement.trailer_type:
+                    equipment_parts.append(
+                        vehicle_requirement.trailer_type
+                    )
+
+                if vehicle_requirement.trailer_length:
+                    equipment_parts.append(
+                        vehicle_requirement.trailer_length
+                    )
+
+                equipment = " - ".join(
+                    equipment_parts
+                )
+
+            # --------------------------------------------------------
+            # Carrier
+            # --------------------------------------------------------
+            # This assumes Client_Shipment.carrier_id references
+            # your carrier/company table.
+            #
+            # Replace Carrier below with the actual carrier model
+            # if it has a different name.
+
+            carrier_data = None
+
+            if shipment.carrier_id:
+
+                try:
+                    carrier = (
+                        db.query(Carrier)
+                        .filter(
+                            Carrier.id == shipment.carrier_id
+                        )
+                        .first()
+                    )
+
+                    if carrier:
+                        carrier_data = {
+                            "name": getattr(
+                                carrier,
+                                "company_name",
+                                None
+                            ),
+                            "registration": getattr(
+                                carrier,
+                                "registration_number",
+                                None
+                            ),
+                        }
+
+                except Exception:
+                    carrier_data = None
+
+            # --------------------------------------------------------
+            # Rate
+            # --------------------------------------------------------
+
+            rate_data = {
+                "basis": shipment.pricing_basis,
+                "amount": (
+                    float(shipment.rate)
+                    if shipment.rate is not None
+                    else None
+                ),
+                "vat_included": shipment.vat_included,
+            }
+
+            # --------------------------------------------------------
+            # Rate inclusions
+            # --------------------------------------------------------
+
+            rate_includes = {
+                "fuel": shipment.rate_includes_fuel,
+                "driver": shipment.rate_includes_driver,
+                "maintenance": shipment.rate_includes_maintenance,
+                "insurance": shipment.rate_includes_insurance,
+                "tolls": shipment.rate_includes_tolls,
+                "border_charges": shipment.rate_includes_border_charges,
+                "empty_return": shipment.rate_includes_empty_return,
+                "waiting_time": shipment.rate_includes_waiting_time,
+                "loading_assistance": (
+                    shipment.rate_includes_loading_assistance
+                ),
+                "offloading_assistance": (
+                    shipment.rate_includes_offloading_assistance
+                ),
+            }
+
+            # --------------------------------------------------------
+            # Shipment
+            # --------------------------------------------------------
 
             shipment_data.append({
+
                 "id": shipment.id,
-                "shipment_reference": shipment.shipment_reference,
-                "booking_reference": shipment.booking_reference,
+
+                "shipment_reference": (
+                    shipment.shipment_reference
+                ),
+
+                "status": shipment.status,
+
+                "hazchem": bool(
+                    shipment.hazardous_materials
+                ),
+
+                "hazchem_classification": (
+                    shipment.hazchem_classification
+                ),
+
+                "tracking": {
+                    "status": shipment.tracking_status,
+                    "comment": None,
+                },
+
                 "origin": {
-                    "city_province": origin.city_province,
-                    "facility_name": origin.facility_name,
-                    "pickup_date": shipment.pickup_date,
-                    "operating_window": {
-                        "start_time": origin.operating_start_time,
-                        "end_time": origin.operating_end_time,
-                    },
+                    "city_province": (
+                        origin.city_province
+                        if origin else None
+                    ),
+                    "facility_name": (
+                        origin.facility_name
+                        if origin else None
+                    ),
+                    "pickup_date": (
+                        shipment.pickup_date.isoformat()
+                        if shipment.pickup_date
+                        else None
+                    ),
+                    "window": get_stop_window(origin),
                 },
-                "trip_data": {
-                    "no_of_stops": len(intermediate_stops),
-                    "distance": shipment.distance,
-                    "transit_time": shipment.estimated_transit_time,
+
+                "trip": {
+                    "distance_km": (
+                        float(shipment.distance)
+                        if shipment.distance is not None
+                        else None
+                    ),
+                    "trip_type": shipment.trip_type,
+                    "stops": len(intermediate_stops),
                 },
+
+                "equipment": equipment,
+
+                "commodity": shipment.commodity,
+
+                "shipment_weight": shipment.shipment_weight,
+
+                "carrier": carrier_data,
+
                 "destination": {
-                    "city_province": destination.city_province,
-                    "facility_name": destination.facility_name,
-                    "eta_date": shipment.eta_date,
-                    "operating_window": {
-                        "start_time": destination.operating_start_time,
-                        "end_time": destination.operating_end_time,
-                    },
+                    "city_province": (
+                        destination.city_province
+                        if destination else None
+                    ),
+                    "facility_name": (
+                        destination.facility_name
+                        if destination else None
+                    ),
+                    "eta_date": (
+                        shipment.eta_date.isoformat()
+                        if shipment.eta_date
+                        else None
+                    ),
+                    "window": (
+                        shipment.eta_window
+                        if shipment.eta_window
+                        else get_stop_window(destination)
+                    ),
                 },
-                "required_equipment": [
-                    {
-                        "configuration_type": config.configuration_type,
-                        "truck_type": config.truck_type,
-                        "equipment_type": config.equipment_type,
-                        "trailer_type": config.trailer_type,
-                        "trailer_length": config.trailer_length,
-                        "weight_bracket": shipment.minimum_weight_bracket_kg,
-                    }
-                    for config in configs
-                ],
-                "cargo_information": {
-                    "shipment_weight": shipment.shipment_weight,
-                    "commodity": shipment.commodity,
-                    "hazchem": {
-                        "hazardous_materials": shipment.hazardous_materials,
-                        "hazchem_classification": shipment.hazchem_classification,
-                    },
-                },
-                "rate_structure": {
-                    "rate": shipment.rate,
-                    "rate_bsis": shipment.pricing_basis,
-                    "vat_inclusive": shipment.vat_included,
-                },
+
+                "rate": rate_data,
+
+                "rate_includes": rate_includes,
+
+                "git_cover": (
+                    shipment.minimum_git_cover_amount
+                ),
+
+                "booking_source": shipment.booking_source,
             })
 
-        auction_data = []
+        # ============================================================
+        # 7. CONTRACT LANES
+        # ============================================================
 
-        for auction in shipment_exchanges:
-            origin = (
-                db.query(Client_Shipment_Auction_Stop)
-                .filter(Client_Shipment_Auction_Stop.auction_id == auction.id, Client_Shipment_Auction_Stop.stop_type == "Origin")
-                .first()
+        lanes = (
+            db.query(Client_Lane)
+            .filter(
+                Client_Lane.client_id == company_id
             )
-            destination = (
-                db.query(Client_Shipment_Auction_Stop)
-                .filter(Client_Shipment_Auction_Stop.auction_id == auction.id, Client_Shipment_Auction_Stop.stop_type == "Destination")
-                .first()
+            .order_by(
+                Client_Lane.id.desc()
             )
-            intermediate_stops = (
-                db.query(Client_Shipment_Auction_Stop)
-                .filter(Client_Shipment_Auction_Stop.auction_id == auction.id, Client_Shipment_Auction_Stop.stop_type == "Intermediate")
-                .all()
+            .all()
+        )
+
+        contract_lanes = []
+
+        for lane in lanes:
+
+            origin, destination, intermediate_stops = get_route_stops(
+                Lane_Stop,
+                Lane_Stop.lane_id,
+                lane.id
             )
 
-            configs = (
-                db.query(Client_Shipment_Auction_Vehicle_Requirement)
+            # --------------------------------------------------------
+            # Lane equipment
+            # --------------------------------------------------------
+
+            lane_vehicle_configs = (
+                db.query(Lane_Vehicle_Config)
                 .filter(
-                    Client_Shipment_Auction_Vehicle_Requirement.auction_id == auction.id
+                    Lane_Vehicle_Config.lane_id == lane.id,
+                    Lane_Vehicle_Config.is_active == True
                 )
                 .all()
             )
 
-            auction_data.append({
-                "id": auction.id,
-                "status": auction.status,
-                "closing_time": auction.auction_closing_date,
-                "trip_type": auction.trip_type,
-                "load_type": auction.load_type,
-                "origin": {
-                    "city_province": origin.city_province,
-                    "facility_name": origin.facility_name,
-                    "pickup_date": auction.pickup_date,
-                    "operation_window": {
-                        "start_time": origin.operating_start_time,
-                        "end_time": origin.operating_end_time,
-                    },
-                },
-                "trip_details": {
-                    "no_stops": len(intermediate_stops),
-                    "distance": auction.distance,
-                    "minimum_transit_time": auction.estimated_transit_time,
-                },
-                "destination": {
-                    "city_province": destination.city_province,
-                    "facility_name": destination.facility_name,
-                    "eta_date": auction.eta_date,
-                    "operating_window": {
-                        "start_time": destination.operating_start_time,
-                        "end_time": destination.operating_end_time,
-                    },
-                },
-                "rates": {
-                    "book_now_rate": auction.book_now_rate,
-                    "target_rate": auction.procurement_target_rate,
-                },
-            })
+            lane_equipment = []
 
-        tender_data = []
+            for vehicle in lane_vehicle_configs:
 
-        for tender in tenders:
-            origin = (
-                db.query(Lane_Tender_RFQ_Stop)
-                .filter(Lane_Tender_RFQ_Stop.tender_id == tender.id, Lane_Tender_RFQ_Stop.stop_type == "Origin")
-                .first()
+                equipment_parts = []
+
+                if vehicle.truck_type:
+                    equipment_parts.append(
+                        vehicle.truck_type
+                    )
+
+                if vehicle.equipment_type:
+                    equipment_parts.append(
+                        vehicle.equipment_type
+                    )
+
+                if vehicle.trailer_type:
+                    equipment_parts.append(
+                        vehicle.trailer_type
+                    )
+
+                if vehicle.trailer_length:
+                    equipment_parts.append(
+                        vehicle.trailer_length
+                    )
+
+                if equipment_parts:
+                    lane_equipment.append(
+                        " - ".join(equipment_parts)
+                    )
+
+            equipment_string = ", ".join(
+                lane_equipment
             )
-            destination = (
-                db.query(Lane_Tender_RFQ_Stop)
-                .filter(Lane_Tender_RFQ_Stop.tender_id == tender.id, Lane_Tender_RFQ_Stop.stop_type == "Destination")
-                .first()
-            )
-            intermediate_stops = (
-                db.query(Lane_Tender_RFQ_Stop)
-                .filter(Lane_Tender_RFQ_Stop.tender_id == tender.id, Lane_Tender_RFQ_Stop.stop_type == "Intermediate")
+
+            # --------------------------------------------------------
+            # Lane volume
+            # --------------------------------------------------------
+
+            volume_profiles = (
+                db.query(Lane_Volume_Profile)
+                .filter(
+                    Lane_Volume_Profile.lane_id == lane.id
+                )
+                .order_by(
+                    Lane_Volume_Profile.period_sequence.asc()
+                )
                 .all()
             )
-            equipment = (
-                db.query(Lane_Tender_RFQ_Vehicle_Config).filter(Lane_Tender_RFQ_Vehicle_Config.tender_id == tender.id).all()
-            )
-            volumes = (
-                db.query(Lane_Tender_RFQ_Volume_Profile).filter(Lane_Tender_RFQ_Volume_Profile.tender_id == tender.id).all()
+
+            total_loads = 0
+
+            for volume in volume_profiles:
+                if volume.expected_loads:
+                    total_loads += volume.expected_loads
+
+            # Convert loads to approximate tonnes
+            # using the lane's average shipment weight.
+
+            total_tonnes = None
+
+            if lane.average_shipment_weight_kg:
+                total_tonnes = (
+                    total_loads
+                    * float(lane.average_shipment_weight_kg)
+                    / 1000
+                )
+
+            monthly_volume = None
+
+            if total_loads:
+                if total_tonnes is not None:
+                    monthly_volume = (
+                        f"{total_loads} loads "
+                        f"({total_tonnes:g} T)"
+                    )
+                else:
+                    monthly_volume = (
+                        f"{total_loads} loads"
+                    )
+
+            # --------------------------------------------------------
+            # Primary / awarded carrier
+            # --------------------------------------------------------
+
+            primary_carrier = None
+
+            if lane.awarded_carrier_id:
+
+                try:
+                    carrier = (
+                        db.query(Carrier)
+                        .filter(
+                            Carrier.id == lane.awarded_carrier_id
+                        )
+                        .first()
+                    )
+
+                    if carrier:
+                        primary_carrier = {
+                            "name": getattr(
+                                carrier,
+                                "company_name",
+                                None
+                            ),
+                            "registration": getattr(
+                                carrier,
+                                "registration_number",
+                                None
+                            ),
+                        }
+
+                except Exception:
+                    primary_carrier = None
+
+            # --------------------------------------------------------
+            # Contract rate
+            # --------------------------------------------------------
+
+            contracted_rate = (
+                lane.awarded_rate_per_shipment
             )
 
-            tender_data.append({
-                "id": tender.id,
-                "closing_date": tender.tender_closing_date,
-                "lenght_category": tender.tender_length_category,
-                "category": tender.tender_category,
-                "title": tender.tender_title,
-                "start_date": tender.contract_start_date,
-                "end_date": tender.contract_end_date,
-                "origin": {
-                    "city_province": origin.city_province,
-                    "facility_name": origin.facility_name,
-                },
-                "trip_information": {
-                    "distance": tender.estimated_distance_km,
-                    "no_of_stops": len(intermediate_stops),
-                },
-                "destination": {
-                    "city_province": destination.city_province,
-                    "facility_name": destination.facility_name,
-                },
-                "cargo": {
-                    "commodity": tender.commodity,
-                    "avg_shipment": tender.average_shipment_weight_kg,
-                    "hazchem": {
-                        "hazardous_materials": tender.hazardous_materials,
-                        "hazchem_classification": tender.hazchem_classification,
-                    },
-                },
-                "volumes": {
-                    "total_loads": len(volumes.expected_loads),
-                    "frequency": volumes.period_label,
-                },
-                "rates": {
-                    "incumbent": {
-                        "per_shipment_rate": tender.incumbent_transport_rate_per_shipment,
-                        "contract_rate": tender.incumbent_contract_rate,
-                    },
-                    "target_rates": {
-                        "per_shipment_rate": tender.procurement_target_rate,
-                        "contract_rate": tender.procurement_target_contract_rate
-                    },
-                },
+            # --------------------------------------------------------
+            # Spot benchmark
+            # --------------------------------------------------------
+
+            spot_benchmark_rate = (
+                lane.incumbent_transport_rate_per_shipment
+            )
+
+            # --------------------------------------------------------
+            # Rate per KM
+            # --------------------------------------------------------
+
+            rate_per_km = None
+
+            if (
+                contracted_rate is not None
+                and lane.actual_distance_km
+                and float(lane.actual_distance_km) > 0
+            ):
+                rate_per_km = (
+                    float(contracted_rate)
+                    / float(lane.actual_distance_km)
+                )
+
+            contract_lanes.append({
+
+                "lane_reference": lane.lane_reference,
+
+                "origin": (
+                    origin.city_province
+                    if origin
+                    else None
+                ),
+
+                "destination": (
+                    destination.city_province
+                    if destination
+                    else None
+                ),
+
+                "distance_km": (
+                    float(lane.actual_distance_km)
+                    if lane.actual_distance_km is not None
+                    else None
+                ),
+
+                "equipment": equipment_string,
+
+                "monthly_volume": monthly_volume,
+
+                "contracted_rate": (
+                    float(contracted_rate)
+                    if contracted_rate is not None
+                    else None
+                ),
+
+                "spot_benchmark_rate": (
+                    float(spot_benchmark_rate)
+                    if spot_benchmark_rate is not None
+                    else None
+                ),
+
+                "rate_per_km": rate_per_km,
+
+                "primary_carrier": primary_carrier,
+
+                "status": (
+                    lane.contract_status.value
+                    if hasattr(
+                        lane.contract_status,
+                        "value"
+                    )
+                    else lane.contract_status
+                ),
             })
 
-        lane_data = []
+        # ============================================================
+        # 8. SUMMARY
+        # ============================================================
 
-        for lane in ftl_lanes:
-            origin = (
-                db.query(Lane_Stop)
-                .filter(Client_Lane_Stop.lane_id == lane.id, Client_Lane_Stop.stop_type == "Origin")
-                .first()
-            )
-            destination = (
-                db.query(Lane_Stop)
-                .filter(Client_Lane_Stop.lane_id == lane.id, Client_Lane_Stop.stop_type == "Destination")
-                .first()
-            )
-            intermediate_stops = (
-                db.query(_Lane_Stop)
-                .filter(Client_Lane_Stop.lane_id == lane.id, Client_Lane_Stop.stop_type == "Intermediate")
-                .all()
-            )
-            equipment = (
-                db.query(Lane_Vehicle_Config).filter(Lane_Vehicle_Config.lane_id == lane.id).all()
-            )
-            volumes = (
-                db.query(Lane_Volume_Profile).filter(Lane_Volume_Profile.lane_id == lane.id).all()
-            )
-            
-            lane_data.append({
-                "id": lane.id,
-                "status": lane.status,
-                "lenght_category": lane.lane_length_category,
-                "category": lane.lane_category,
-                "title": lane.lane_title,
-                "start_date": lane.contract_start_date,
-                "end_date": lane.contract_end_date,
-                "origin": {
-                    "city_province": origin.city_province,
-                    "facility_name": origin.facility_name,
-                },
-                "trip_information": {
-                    "distance": lane.distance,
-                    "no_of_stops": len(intermediate_stops),
-                },
-                "destination": {
-                    "city_province": destination.city_province,
-                    "facility_name": destination.facility_name,
-                },
-                "volume": {
-                    "total_loads": len(volumes.expected_loads),
-                    "frequency": volumes.period_label,
-                },
-                "rate": {
-                    "rate_per_shipment": lane.awarded_rate_per_shipment,
-                    "contract_rate": lane.awarded_contract_rate,
-                    "rate_basis": lane.pricing_basis,
-                    "vat_inclusive": lane.vat_included,
-                },
-            })
+        summary = {
+            "total_shipments": len(shipment_data),
+            "total_auctions": len(shipment_auctions),
+            "total_tenders": len(contract_tenders),
+            "total_contract_lanes": len(contract_lanes),
+            "total_users": len(users_data),
+        }
+
+        # ============================================================
+        # 9. FINAL RESPONSE
+        # ============================================================
 
         return {
             "company_information": {
-                "company_id": shipper_company.id,
-                "type": shipper_company.type,
-                "legal_business_name": shipper_company.legal_business_name,
-                "country_of_incorporation": shipper_company.country_of_incorporation,
-                "business_registration_number": shipper_company.business_registration_number,
-                "business_address": shipper_company.business_address,
-                "business_email": shipper_company.business_email,
-                "business_phone_number": shipper_company.business_phone_number,
-                "is_verified": shipper_company.is_verified,
-                "status": shipper_company.status,
-                "created_at": shipper_company.created_at,
-                "updated_at": shipper_company.updated_at,
-                "company_documents": {
-                    "business_registration_certificate": shipper_company.business_registration_certificate,
-                    "business_proof_of_address": shipper_company.business_proof_of_address,
-                    "tax_clearance_certificate": shipper_company.tax_clearance_certificate
-                }
+                "id": shipper_company.id,
+                "company_name": getattr(
+                    shipper_company,
+                    "company_name",
+                    None
+                ),
+                "registration_number": getattr(
+                    shipper_company,
+                    "registration_number",
+                    None
+                ),
+                "status": getattr(
+                    shipper_company,
+                    "status",
+                    None
+                ),
             },
 
-            "financial_account": {
-                "account_id": financial_account.id if financial_account else None,
-                "company_name": financial_account.company_name if financial_account else None,
-                "payment_terms": financial_account.payment_terms if financial_account else None,
-                "years_in_business": financial_account.years_in_business if financial_account else None,
-                "nature_of_business": financial_account.nature_of_business if financial_account else None,
-                "annual_turnover": financial_account.annual_turnover if financial_account else None,
-                "annual_cashflow": financial_account.annual_cash_flow if financial_account else None,
-                "credit_score": financial_account.credit_score if financial_account else None,
-                "projected_monthly_bookings": financial_account.projected_monthly_bookings if financial_account else None,
-                "spending_limit": financial_account.spending_limit if financial_account else None,
-                "bank_name": financial_account.bank_name if financial_account else None,
-                "branch_code": financial_account.branch_code if financial_account else None,
-                "account_number": financial_account.account_number if financial_account else None,
-                "account_type": financial_account.account_type if financial_account else None,
-                "total_spent": financial_account.total_spent if financial_account else None,
-                "average_spend": financial_account.average_spend if financial_account else None,
-                "total_outstanding": financial_account.total_outstanding if financial_account else None,
-                "credit_balance": financial_account.credit_balance if financial_account else None,
-                "total_paid": financial_account.total_paid if financial_account else None,
-                "paid_invoices": financial_account.num_paid_invoices if financial_account else None,
-                "outstanding_invoices": financial_account.num_outstanding_invoices if financial_account else None,
-                "over_due_invoices": financial_account.num_overdue_invoices if financial_account else None,
-                "ongoing_interim_invoices": financial_account.ongoing_interim_invoices if financial_account else None,
-                "verification_status": financial_account.is_verified if financial_account else None,
-                "status": financial_account.status if financial_account else None,
-                "created_at": financial_account.created_at if financial_account else None,
-                "financial_account_documents": {
-                    "account_confirmation_letter": financial_account.account_confirmation_letter if financial_account else None,
-                    "bank_statement": financial_account.bank_statement if financial_account else None,
-                    "tax_clearance_certificate": financial_account.tax_clearance_certificate if financial_account else None,
-                    "business_credit_score_report": financial_account.business_credit_score_report if financial_account else None,
-                    "surityship": financial_account.suretyship if financial_account else None
-                }
-            },
+            "financial_account": financial_account_data,
 
-            "users": [
-                {
-                    "name": f"{user.first_name} - {user.last_name}",
-                    "id": user.id,
-                    "id_number": user.id_number,
-                    "is_director": user.is_director,
-                    "verification_status": user.is_verified,
-                    "status": user.status
-                }
-                for user in shipper_users
-            ],
+            "users": users_data,
 
             "activity": {
-                "shipments": {
-                    "ftl_shipments": shipment_data
-                },
-                "lanes": {
-                    "ftl_lanes": lane_data
-                }
-            }
+                "shipment_auctions": shipment_auctions,
+                "contract_tenders": contract_tenders,
+                "shipments": shipment_data,
+                "contract_lanes": contract_lanes,
+            },
+
+            "summary": summary,
         }
+
     except HTTPException:
         raise
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        db.rollback()
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch shipper company: {str(e)}"
+        )
 
 @router.get("/admin/brokerage-firm/{id}")
 def admin_get_brokergae_firm_id(

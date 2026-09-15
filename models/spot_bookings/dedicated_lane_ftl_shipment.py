@@ -10,6 +10,7 @@ class Client_Lane(Base):
     tender_id = Column(Integer, nullable=True)
     client_id = Column(Integer, nullable=False)
     publisher_user_id = Column(Integer, nullable=False)
+    awarded_carrier_id = Column(Integer, nullable=False)
     lane_title = Column(String(255), nullable=False)
     lane_length_category = Column(String(50), nullable=False)
     lane_category = Column(String(100), nullable=False)
