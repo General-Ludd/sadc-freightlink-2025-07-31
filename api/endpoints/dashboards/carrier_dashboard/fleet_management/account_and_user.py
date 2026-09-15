@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from db.database import SessionLocal
 from models.brokerage.finance import CarrierFinancialAccounts
-from models.carrier import Carrier
+from models.carrier import Carrier, CarrierUserAccountLog
 from schemas.brokerage.finance import CarrierFinancialAccountResponse
 from schemas.carrier import CarrierCompanyResponse
 from schemas.user import CarrierUserResponse, DriverCreate, DriverResponse, CarrierUserUpdate
@@ -13,7 +13,7 @@ from services.carrier_dashboards import assign_trailer_to_vehicle
 from services.vehicle_service import create_trailer, create_vehicle
 from utils.auth import get_current_user, verify_password
 from utils.jwt_handler import create_access_token
-from models.user import CarrierUser, Driver
+from models.user import CarrierUser, Driver, CarrierUserDocs
 from models.vehicle import Trailer, Vehicle
 from schemas.auth import LoginRequest, LoginResponse
 import json
