@@ -40,8 +40,9 @@ def admin_get_shipper_company_id(
     current_user: dict = Depends(get_current_admin),
 ):
     try:
+
         # ============================================================
-        # 1. SHIPPER COMPANY
+        # COMPANY
         # ============================================================
 
         shipper_company = (
@@ -59,15 +60,14 @@ def admin_get_shipper_company_id(
         company_id = shipper_company.id
 
         # ============================================================
-        # 2. FINANCIAL ACCOUNT
+        # FINANCIAL ACCOUNT
         # ============================================================
-        # IMPORTANT:
-        # Adjust FinancialAccounts.company_id if your actual FK
-        # uses a different field.
 
         financial_account = (
             db.query(FinancialAccounts)
-            .filter(FinancialAccounts.id == company_id)
+            .filter(
+                FinancialAccounts.id == company_id
+            )
             .first()
         )
 
@@ -76,7 +76,11 @@ def admin_get_shipper_company_id(
         if financial_account:
             financial_account_data = {
                 "id": financial_account.id,
-                "status": getattr(financial_account, "status", None),
+                "status": getattr(
+                    financial_account,
+                    "status",
+                    None
+                ),
                 "account_type": getattr(
                     financial_account,
                     "account_type",
@@ -95,12 +99,14 @@ def admin_get_shipper_company_id(
             }
 
         # ============================================================
-        # 3. COMPANY USERS
+        # USERS
         # ============================================================
 
         users = (
             db.query(Director)
-            .filter(Director.company_id == company_id)
+            .filter(
+                Director.company_id == company_id
+            )
             .all()
         )
 
@@ -109,29 +115,55 @@ def admin_get_shipper_company_id(
         for user in users:
             users_data.append({
                 "id": user.id,
-                "first_name": getattr(user, "first_name", None),
-                "last_name": getattr(user, "last_name", None),
-                "email": getattr(user, "email", None),
-                "phone": getattr(user, "phone", None),
-                "role": getattr(user, "role", None),
-                "status": getattr(user, "status", None),
+                "first_name": getattr(
+                    user,
+                    "first_name",
+                    None
+                ),
+                "last_name": getattr(
+                    user,
+                    "last_name",
+                    None
+                ),
+                "email": getattr(
+                    user,
+                    "email",
+                    None
+                ),
+                "phone": getattr(
+                    user,
+                    "phone",
+                    None
+                ),
+                "role": getattr(
+                    user,
+                    "role",
+                    None
+                ),
+                "status": getattr(
+                    user,
+                    "status",
+                    None
+                ),
             })
 
         # ============================================================
-        # HELPER: FORMAT TIME
+        # TIME FORMATTER
         # ============================================================
 
         def format_time(value):
+
             if value is None:
                 return None
 
             return value.strftime("%H:%M")
 
         # ============================================================
-        # HELPER: COMPACT STOP
+        # STOP WINDOW
         # ============================================================
 
-        def get_stop_window(stop):
+        def stop_window(stop):
+
             if not stop:
                 return {
                     "start": None,
@@ -140,51 +172,32 @@ def admin_get_shipper_company_id(
 
             return {
                 "start": format_time(
-                    getattr(stop, "operating_start_time", None)
+                    getattr(
+                        stop,
+                        "operating_start_time",
+                        None
+                    )
                 ),
                 "end": format_time(
-                    getattr(stop, "operating_end_time", None)
+                    getattr(
+                        stop,
+                        "operating_end_time",
+                        None
+                    )
                 ),
             }
 
         # ============================================================
-        # HELPER: GET ORIGIN / DESTINATION / INTERMEDIATE STOPS
         # ============================================================
-
-        def get_route_stops(stop_model, foreign_key_column, parent_id):
-
-            stops = (
-                db.query(stop_model)
-                .filter(foreign_key_column == parent_id)
-                .order_by(stop_model.stop_sequence.asc())
-                .all()
-            )
-
-            origin = None
-            destination = None
-            intermediate_stops = []
-
-            for stop in stops:
-
-                if stop.stop_type == "Origin":
-                    origin = stop
-
-                elif stop.stop_type == "Destination":
-                    destination = stop
-
-                elif stop.stop_type == "Intermediate":
-                    intermediate_stops.append(stop)
-
-            return origin, destination, intermediate_stops
-
+        # SHIPMENT AUCTIONS
         # ============================================================
-        # 4. SHIPMENT AUCTIONS
         # ============================================================
 
         auctions = (
             db.query(Client_Shipment_Auction)
             .filter(
-                Client_Shipment_Auction.client_id == company_id
+                Client_Shipment_Auction.client_id
+                == company_id
             )
             .order_by(
                 Client_Shipment_Auction.created_at.desc()
@@ -196,66 +209,114 @@ def admin_get_shipper_company_id(
 
         for auction in auctions:
 
-            origin, destination, intermediate_stops = get_route_stops(
-                Client_Shipment_Auction_Stop,
-                Client_Shipment_Auction_Stop.auction_id,
-                auction.id
+            auction_id = auction.id
+
+            # --------------------------------------------------------
+            # STOPS
+            # --------------------------------------------------------
+
+            auction_stops = (
+                db.query(
+                    Client_Shipment_Auction_Stop
+                )
+                .filter(
+                    Client_Shipment_Auction_Stop.auction_id
+                    == auction_id
+                )
+                .order_by(
+                    Client_Shipment_Auction_Stop.stop_sequence.asc()
+                )
+                .all()
             )
 
+            origin = None
+            destination = None
+            intermediate_count = 0
+
+            for stop in auction_stops:
+
+                if stop.stop_type == "Origin":
+                    origin = stop
+
+                elif stop.stop_type == "Destination":
+                    destination = stop
+
+                elif stop.stop_type == "Intermediate":
+                    intermediate_count += 1
+
             # --------------------------------------------------------
-            # Vehicle configuration
+            # VEHICLE REQUIREMENT
             # --------------------------------------------------------
 
-            vehicle_configs = (db.query(Client_Shipment_Auction_Vehicle_Requirement).filter(Client_Shipment_Auction_Vehicle_Requirement.auction_id == auction,
-                                                                             Client_Shipment_Auction_Vehicle_Requirement.stop_type == "Primary").first())
+            auction_vehicles = (
+                db.query(
+                    Client_Shipment_Auction_Vehicle_Requirement
+                )
+                .filter(
+                    Client_Shipment_Auction_Vehicle_Requirement.auction_id
+                    == auction_id
+                )
+                .all()
+            )
 
-            equipment = []
+            equipment_list = []
 
-            for vehicle in vehicle_configs:
+            for vehicle in auction_vehicles:
 
-                equipment_parts = []
+                parts = []
 
                 if vehicle.truck_type:
-                    equipment_parts.append(vehicle.truck_type)
+                    parts.append(
+                        vehicle.truck_type
+                    )
 
                 if vehicle.equipment_type:
-                    equipment_parts.append(vehicle.equipment_type)
+                    parts.append(
+                        vehicle.equipment_type
+                    )
 
                 if vehicle.trailer_type:
-                    equipment_parts.append(vehicle.trailer_type)
+                    parts.append(
+                        vehicle.trailer_type
+                    )
 
                 if vehicle.trailer_length:
-                    equipment_parts.append(vehicle.trailer_length)
+                    parts.append(
+                        vehicle.trailer_length
+                    )
 
-                equipment.append(
-                    " - ".join(equipment_parts)
-                )
+                if parts:
+                    equipment_list.append(
+                        " - ".join(parts)
+                    )
 
-            equipment_string = ", ".join(
-                [item for item in equipment if item]
+            equipment = ", ".join(
+                equipment_list
             )
 
             # --------------------------------------------------------
-            # Bid quote count
+            # BID COUNT
             # --------------------------------------------------------
-            # Replace Auction_Bid and auction_id below with the
-            # actual bid model/foreign key once supplied.
+            #
+            # Keep this at 0 until we have the exact bid model.
+            #
+            # Once you provide the bid model, this becomes:
+            #
+            # bid_quotes = db.query(...).filter(
+            #     ...auction_id == auction_id
+            # ).count()
+            #
 
             bid_quotes = 0
 
-            try:
-                bid_quotes = (
-                    db.query(Auction_Bid)
-                    .filter(
-                        Auction_Bid.auction_id == auction.id
-                    )
-                    .count()
-                )
-            except Exception:
-                bid_quotes = 0
+            # --------------------------------------------------------
+            # AUCTION RESPONSE
+            # --------------------------------------------------------
 
             shipment_auctions.append({
-                "id": auction.id,
+
+                "id": auction_id,
+
                 "status": auction.status,
 
                 "hazchem": bool(
@@ -263,30 +324,41 @@ def admin_get_shipper_company_id(
                 ),
 
                 "origin": {
+
                     "city_province": (
                         origin.city_province
-                        if origin else None
+                        if origin
+                        else None
                     ),
+
                     "facility_name": (
                         origin.facility_name
-                        if origin else None
+                        if origin
+                        else None
                     ),
+
                     "pickup_date": (
                         auction.pickup_date.isoformat()
                         if auction.pickup_date
                         else None
                     ),
-                    "window": get_stop_window(origin),
+
+                    "window": stop_window(
+                        origin
+                    ),
                 },
 
                 "trip": {
+
                     "distance_km": (
                         float(auction.distance)
                         if auction.distance is not None
                         else None
                     ),
-                    "stops": len(intermediate_stops),
-                    "equipment": equipment_string,
+
+                    "stops": intermediate_count,
+
+                    "equipment": equipment,
                 },
 
                 "trucks_required": (
@@ -294,20 +366,28 @@ def admin_get_shipper_company_id(
                 ),
 
                 "destination": {
+
                     "city_province": (
                         destination.city_province
-                        if destination else None
+                        if destination
+                        else None
                     ),
+
                     "facility_name": (
                         destination.facility_name
-                        if destination else None
+                        if destination
+                        else None
                     ),
+
                     "eta_date": (
                         auction.eta_date.isoformat()
                         if auction.eta_date
                         else None
                     ),
-                    "window": get_stop_window(destination),
+
+                    "window": stop_window(
+                        destination
+                    ),
                 },
 
                 "bid_quotes": bid_quotes,
@@ -320,13 +400,16 @@ def admin_get_shipper_company_id(
             })
 
         # ============================================================
-        # 5. CONTRACT TENDERS
+        # ============================================================
+        # CONTRACT TENDERS
+        # ============================================================
         # ============================================================
 
         tenders = (
             db.query(Lane_Tender_RFQ)
             .filter(
-                Lane_Tender_RFQ.client_id == company_id
+                Lane_Tender_RFQ.client_id
+                == company_id
             )
             .order_by(
                 Lane_Tender_RFQ.id.desc()
@@ -338,21 +421,48 @@ def admin_get_shipper_company_id(
 
         for tender in tenders:
 
-            origin, destination, intermediate_stops = get_route_stops(
-                Lane_Tender_RFQ_Stop,
-                Lane_Tender_RFQ_Stop.tender_id,
-                tender.id
-            )
+            tender_id = tender.id
 
             # --------------------------------------------------------
-            # Frequency
+            # TENDER STOPS
+            # --------------------------------------------------------
+
+            tender_stops = (
+                db.query(
+                    Lane_Tender_RFQ_Stop
+                )
+                .filter(
+                    Lane_Tender_RFQ_Stop.tender_id
+                    == tender_id
+                )
+                .order_by(
+                    Lane_Tender_RFQ_Stop.stop_sequence.asc()
+                )
+                .all()
+            )
+
+            origin = None
+            destination = None
+
+            for stop in tender_stops:
+
+                if stop.stop_type == "Origin":
+                    origin = stop
+
+                elif stop.stop_type == "Destination":
+                    destination = stop
+
+            # --------------------------------------------------------
+            # VOLUME PROFILE
             # --------------------------------------------------------
 
             volume_profiles = (
-                db.query(Lane_Tender_RFQ_Volume_Profile)
+                db.query(
+                    Lane_Tender_RFQ_Volume_Profile
+                )
                 .filter(
                     Lane_Tender_RFQ_Volume_Profile.tender_id
-                    == tender.id
+                    == tender_id
                 )
                 .order_by(
                     Lane_Tender_RFQ_Volume_Profile.period_sequence.asc()
@@ -364,37 +474,41 @@ def admin_get_shipper_company_id(
 
             if volume_profiles:
 
-                labels = [
-                    profile.period_label
-                    for profile in volume_profiles
-                    if profile.period_label
-                ]
+                first_profile = volume_profiles[0]
 
-                if labels:
-                    volume_frequency = labels[0]
+                volume_frequency = (
+                    first_profile.period_label
+                    or first_profile.volume_entry_method
+                )
 
-                elif tender.volume_entry_method:
-                    volume_frequency = tender.volume_entry_method
-
-            elif tender.volume_entry_method:
-                volume_frequency = tender.volume_entry_method
+            if not volume_frequency:
+                volume_frequency = (
+                    tender.volume_entry_method
+                )
 
             # --------------------------------------------------------
-            # Tender description
+            # DESCRIPTION
             # --------------------------------------------------------
 
             description = tender.scope_description
 
             if not description:
+
                 if origin and destination:
+
                     description = (
-                        f"{origin.city_province} to "
+                        f"{origin.city_province} "
+                        f"to "
                         f"{destination.city_province}"
                     )
 
+            # --------------------------------------------------------
+            # TENDER RESPONSE
+            # --------------------------------------------------------
+
             contract_tenders.append({
 
-                "id": tender.id,
+                "id": tender_id,
 
                 "status": tender.status,
 
@@ -402,12 +516,14 @@ def admin_get_shipper_company_id(
 
                 "description": description,
 
-                "scope_description": tender.scope_description,
+                "scope_description": (
+                    tender.scope_description
+                ),
 
-                # User specified that procurement target contract
-                # rate is the dashboard's estimated spend.
                 "estimated_spend": (
-                    float(tender.procurement_target_contract_rate)
+                    float(
+                        tender.procurement_target_contract_rate
+                    )
                     if tender.procurement_target_contract_rate
                     is not None
                     else None
@@ -417,13 +533,16 @@ def admin_get_shipper_company_id(
             })
 
         # ============================================================
-        # 6. ACTIVE / HISTORICAL SHIPMENTS
+        # ============================================================
+        # SHIPMENTS
+        # ============================================================
         # ============================================================
 
         shipments = (
             db.query(Client_Shipment)
             .filter(
-                Client_Shipment.client_id == company_id
+                Client_Shipment.client_id
+                == company_id
             )
             .order_by(
                 Client_Shipment.created_at.desc()
@@ -435,21 +554,52 @@ def admin_get_shipper_company_id(
 
         for shipment in shipments:
 
-            origin, destination, intermediate_stops = get_route_stops(
-                Client_Shipment_Stop,
-                Client_Shipment_Stop.shipment_id,
-                shipment.id
-            )
+            shipment_id = shipment.id
 
             # --------------------------------------------------------
-            # Vehicle requirement
+            # STOPS
+            # --------------------------------------------------------
+
+            shipment_stops = (
+                db.query(
+                    Client_Shipment_Stop
+                )
+                .filter(
+                    Client_Shipment_Stop.shipment_id
+                    == shipment_id
+                )
+                .order_by(
+                    Client_Shipment_Stop.stop_sequence.asc()
+                )
+                .all()
+            )
+
+            origin = None
+            destination = None
+            intermediate_count = 0
+
+            for stop in shipment_stops:
+
+                if stop.stop_type == "Origin":
+                    origin = stop
+
+                elif stop.stop_type == "Destination":
+                    destination = stop
+
+                elif stop.stop_type == "Intermediate":
+                    intermediate_count += 1
+
+            # --------------------------------------------------------
+            # VEHICLE
             # --------------------------------------------------------
 
             vehicle_requirement = (
-                db.query(Client_Shipment_Vehicle_Requirement)
+                db.query(
+                    Client_Shipment_Vehicle_Requirement
+                )
                 .filter(
                     Client_Shipment_Vehicle_Requirement.shipment_id
-                    == shipment.id
+                    == shipment_id
                 )
                 .first()
             )
@@ -458,113 +608,47 @@ def admin_get_shipper_company_id(
 
             if vehicle_requirement:
 
-                equipment_parts = []
+                parts = []
 
                 if vehicle_requirement.truck_type:
-                    equipment_parts.append(
+                    parts.append(
                         vehicle_requirement.truck_type
                     )
 
                 if vehicle_requirement.equipment_type:
-                    equipment_parts.append(
+                    parts.append(
                         vehicle_requirement.equipment_type
                     )
 
                 if vehicle_requirement.trailer_type:
-                    equipment_parts.append(
+                    parts.append(
                         vehicle_requirement.trailer_type
                     )
 
                 if vehicle_requirement.trailer_length:
-                    equipment_parts.append(
+                    parts.append(
                         vehicle_requirement.trailer_length
                     )
 
-                equipment = " - ".join(
-                    equipment_parts
-                )
+                equipment = " - ".join(parts)
 
             # --------------------------------------------------------
-            # Carrier
+            # CARRIER
             # --------------------------------------------------------
-            # This assumes Client_Shipment.carrier_id references
-            # your carrier/company table.
             #
-            # Replace Carrier below with the actual carrier model
-            # if it has a different name.
+            # We leave this empty until you provide the actual
+            # carrier model.
+            #
 
             carrier_data = None
 
-            if shipment.carrier_id:
-
-                try:
-                    carrier = (
-                        db.query(Carrier)
-                        .filter(
-                            Carrier.id == shipment.carrier_id
-                        )
-                        .first()
-                    )
-
-                    if carrier:
-                        carrier_data = {
-                            "name": getattr(
-                                carrier,
-                                "company_name",
-                                None
-                            ),
-                            "registration": getattr(
-                                carrier,
-                                "registration_number",
-                                None
-                            ),
-                        }
-
-                except Exception:
-                    carrier_data = None
-
             # --------------------------------------------------------
-            # Rate
-            # --------------------------------------------------------
-
-            rate_data = {
-                "basis": shipment.pricing_basis,
-                "amount": (
-                    float(shipment.rate)
-                    if shipment.rate is not None
-                    else None
-                ),
-                "vat_included": shipment.vat_included,
-            }
-
-            # --------------------------------------------------------
-            # Rate inclusions
-            # --------------------------------------------------------
-
-            rate_includes = {
-                "fuel": shipment.rate_includes_fuel,
-                "driver": shipment.rate_includes_driver,
-                "maintenance": shipment.rate_includes_maintenance,
-                "insurance": shipment.rate_includes_insurance,
-                "tolls": shipment.rate_includes_tolls,
-                "border_charges": shipment.rate_includes_border_charges,
-                "empty_return": shipment.rate_includes_empty_return,
-                "waiting_time": shipment.rate_includes_waiting_time,
-                "loading_assistance": (
-                    shipment.rate_includes_loading_assistance
-                ),
-                "offloading_assistance": (
-                    shipment.rate_includes_offloading_assistance
-                ),
-            }
-
-            # --------------------------------------------------------
-            # Shipment
+            # SHIPMENT
             # --------------------------------------------------------
 
             shipment_data.append({
 
-                "id": shipment.id,
+                "id": shipment_id,
 
                 "shipment_reference": (
                     shipment.shipment_reference
@@ -581,85 +665,161 @@ def admin_get_shipper_company_id(
                 ),
 
                 "tracking": {
-                    "status": shipment.tracking_status,
+
+                    "status": (
+                        shipment.tracking_status
+                    ),
+
                     "comment": None,
                 },
 
                 "origin": {
+
                     "city_province": (
                         origin.city_province
-                        if origin else None
+                        if origin
+                        else None
                     ),
+
                     "facility_name": (
                         origin.facility_name
-                        if origin else None
+                        if origin
+                        else None
                     ),
+
                     "pickup_date": (
                         shipment.pickup_date.isoformat()
                         if shipment.pickup_date
                         else None
                     ),
-                    "window": get_stop_window(origin),
+
+                    "window": stop_window(
+                        origin
+                    ),
                 },
 
                 "trip": {
+
                     "distance_km": (
                         float(shipment.distance)
                         if shipment.distance is not None
                         else None
                     ),
-                    "trip_type": shipment.trip_type,
-                    "stops": len(intermediate_stops),
+
+                    "trip_type": (
+                        shipment.trip_type
+                    ),
+
+                    "stops": intermediate_count,
                 },
 
                 "equipment": equipment,
 
                 "commodity": shipment.commodity,
 
-                "shipment_weight": shipment.shipment_weight,
+                "shipment_weight": (
+                    shipment.shipment_weight
+                ),
 
                 "carrier": carrier_data,
 
                 "destination": {
+
                     "city_province": (
                         destination.city_province
-                        if destination else None
+                        if destination
+                        else None
                     ),
+
                     "facility_name": (
                         destination.facility_name
-                        if destination else None
+                        if destination
+                        else None
                     ),
+
                     "eta_date": (
                         shipment.eta_date.isoformat()
                         if shipment.eta_date
                         else None
                     ),
+
                     "window": (
                         shipment.eta_window
                         if shipment.eta_window
-                        else get_stop_window(destination)
+                        else stop_window(
+                            destination
+                        )
                     ),
                 },
 
-                "rate": rate_data,
+                "rate": {
 
-                "rate_includes": rate_includes,
+                    "basis": shipment.pricing_basis,
+
+                    "amount": (
+                        float(shipment.rate)
+                        if shipment.rate is not None
+                        else None
+                    ),
+
+                    "vat_included": (
+                        shipment.vat_included
+                    ),
+                },
+
+                "rate_includes": {
+
+                    "fuel": shipment.rate_includes_fuel,
+
+                    "driver": shipment.rate_includes_driver,
+
+                    "maintenance": (
+                        shipment.rate_includes_maintenance
+                    ),
+
+                    "insurance": (
+                        shipment.rate_includes_insurance
+                    ),
+
+                    "tolls": shipment.rate_includes_tolls,
+
+                    "border_charges": (
+                        shipment.rate_includes_border_charges
+                    ),
+
+                    "empty_return": (
+                        shipment.rate_includes_empty_return
+                    ),
+
+                    "waiting_time": (
+                        shipment.rate_includes_waiting_time
+                    ),
+
+                    "loading_assistance": (
+                        shipment.rate_includes_loading_assistance
+                    ),
+
+                    "offloading_assistance": (
+                        shipment.rate_includes_offloading_assistance
+                    ),
+                },
 
                 "git_cover": (
                     shipment.minimum_git_cover_amount
                 ),
-
-                "booking_source": shipment.booking_source,
             })
 
         # ============================================================
-        # 7. CONTRACT LANES
+        # ============================================================
+        # CONTRACT LANES
+        # ============================================================
         # ============================================================
 
         lanes = (
             db.query(Client_Lane)
             .filter(
-                Client_Lane.client_id == company_id
+                Client_Lane.client_id
+                == company_id
             )
             .order_by(
                 Client_Lane.id.desc()
@@ -671,68 +831,101 @@ def admin_get_shipper_company_id(
 
         for lane in lanes:
 
-            origin, destination, intermediate_stops = get_route_stops(
-                Lane_Stop,
-                Lane_Stop.lane_id,
-                lane.id
-            )
+            lane_id = lane.id
 
             # --------------------------------------------------------
-            # Lane equipment
+            # LANE STOPS
             # --------------------------------------------------------
 
-            lane_vehicle_configs = (
-                db.query(Lane_Vehicle_Config)
+            lane_stops = (
+                db.query(
+                    Lane_Stop
+                )
                 .filter(
-                    Lane_Vehicle_Config.lane_id == lane.id,
-                    Lane_Vehicle_Config.is_active == True
+                    Lane_Stop.lane_id
+                    == lane_id
+                )
+                .order_by(
+                    Lane_Stop.stop_sequence.asc()
                 )
                 .all()
             )
 
-            lane_equipment = []
+            origin = None
+            destination = None
 
-            for vehicle in lane_vehicle_configs:
+            for stop in lane_stops:
 
-                equipment_parts = []
+                if stop.stop_type == "Origin":
+                    origin = stop
+
+                elif stop.stop_type == "Destination":
+                    destination = stop
+
+            # --------------------------------------------------------
+            # LANE EQUIPMENT
+            # --------------------------------------------------------
+
+            lane_vehicles = (
+                db.query(
+                    Lane_Vehicle_Config
+                )
+                .filter(
+                    Lane_Vehicle_Config.lane_id
+                    == lane_id,
+
+                    Lane_Vehicle_Config.is_active
+                    == True
+                )
+                .all()
+            )
+
+            equipment_list = []
+
+            for vehicle in lane_vehicles:
+
+                parts = []
 
                 if vehicle.truck_type:
-                    equipment_parts.append(
+                    parts.append(
                         vehicle.truck_type
                     )
 
                 if vehicle.equipment_type:
-                    equipment_parts.append(
+                    parts.append(
                         vehicle.equipment_type
                     )
 
                 if vehicle.trailer_type:
-                    equipment_parts.append(
+                    parts.append(
                         vehicle.trailer_type
                     )
 
                 if vehicle.trailer_length:
-                    equipment_parts.append(
+                    parts.append(
                         vehicle.trailer_length
                     )
 
-                if equipment_parts:
-                    lane_equipment.append(
-                        " - ".join(equipment_parts)
+                if parts:
+                    equipment_list.append(
+                        " - ".join(parts)
                     )
 
-            equipment_string = ", ".join(
-                lane_equipment
+            equipment = ", ".join(
+                equipment_list
             )
 
             # --------------------------------------------------------
-            # Lane volume
+            # VOLUME
             # --------------------------------------------------------
 
             volume_profiles = (
-                db.query(Lane_Volume_Profile)
+                db.query(
+                    Lane_Volume_Profile
+                )
                 .filter(
-                    Lane_Volume_Profile.lane_id == lane.id
+                    Lane_Volume_Profile.lane_id
+                    == lane_id
                 )
                 .order_by(
                     Lane_Volume_Profile.period_sequence.asc()
@@ -743,58 +936,74 @@ def admin_get_shipper_company_id(
             total_loads = 0
 
             for volume in volume_profiles:
+
                 if volume.expected_loads:
                     total_loads += volume.expected_loads
-
-            # Convert loads to approximate tonnes
-            # using the lane's average shipment weight.
 
             total_tonnes = None
 
             if lane.average_shipment_weight_kg:
+
                 total_tonnes = (
                     total_loads
-                    * float(lane.average_shipment_weight_kg)
+                    * float(
+                        lane.average_shipment_weight_kg
+                    )
                     / 1000
                 )
 
             monthly_volume = None
 
             if total_loads:
+
                 if total_tonnes is not None:
+
                     monthly_volume = (
                         f"{total_loads} loads "
                         f"({total_tonnes:g} T)"
                     )
+
                 else:
+
                     monthly_volume = (
                         f"{total_loads} loads"
                     )
 
             # --------------------------------------------------------
-            # Primary / awarded carrier
+            # AWARDED CARRIER
             # --------------------------------------------------------
 
             primary_carrier = None
 
             if lane.awarded_carrier_id:
 
+                # IMPORTANT:
+                # Replace Carrier with your actual carrier model.
+                #
+                # We deliberately do NOT query it using the entire
+                # lane object. We use the integer awarded_carrier_id.
+
                 try:
+
                     carrier = (
                         db.query(Carrier)
                         .filter(
-                            Carrier.id == lane.awarded_carrier_id
+                            Carrier.id
+                            == lane.awarded_carrier_id
                         )
                         .first()
                     )
 
                     if carrier:
+
                         primary_carrier = {
+
                             "name": getattr(
                                 carrier,
                                 "company_name",
                                 None
                             ),
+
                             "registration": getattr(
                                 carrier,
                                 "registration_number",
@@ -803,43 +1012,43 @@ def admin_get_shipper_company_id(
                         }
 
                 except Exception:
+
                     primary_carrier = None
 
             # --------------------------------------------------------
-            # Contract rate
+            # RATES
             # --------------------------------------------------------
 
             contracted_rate = (
                 lane.awarded_rate_per_shipment
             )
 
-            # --------------------------------------------------------
-            # Spot benchmark
-            # --------------------------------------------------------
-
             spot_benchmark_rate = (
                 lane.incumbent_transport_rate_per_shipment
             )
-
-            # --------------------------------------------------------
-            # Rate per KM
-            # --------------------------------------------------------
 
             rate_per_km = None
 
             if (
                 contracted_rate is not None
-                and lane.actual_distance_km
+                and lane.actual_distance_km is not None
                 and float(lane.actual_distance_km) > 0
             ):
+
                 rate_per_km = (
                     float(contracted_rate)
                     / float(lane.actual_distance_km)
                 )
 
+            # --------------------------------------------------------
+            # LANE RESPONSE
+            # --------------------------------------------------------
+
             contract_lanes.append({
 
-                "lane_reference": lane.lane_reference,
+                "lane_reference": (
+                    lane.lane_reference
+                ),
 
                 "origin": (
                     origin.city_province
@@ -859,7 +1068,7 @@ def admin_get_shipper_company_id(
                     else None
                 ),
 
-                "equipment": equipment_string,
+                "equipment": equipment,
 
                 "monthly_volume": monthly_volume,
 
@@ -890,34 +1099,54 @@ def admin_get_shipper_company_id(
             })
 
         # ============================================================
-        # 8. SUMMARY
+        # SUMMARY
         # ============================================================
 
         summary = {
-            "total_shipments": len(shipment_data),
-            "total_auctions": len(shipment_auctions),
-            "total_tenders": len(contract_tenders),
-            "total_contract_lanes": len(contract_lanes),
-            "total_users": len(users_data),
+
+            "total_shipments": len(
+                shipment_data
+            ),
+
+            "total_auctions": len(
+                shipment_auctions
+            ),
+
+            "total_tenders": len(
+                contract_tenders
+            ),
+
+            "total_contract_lanes": len(
+                contract_lanes
+            ),
+
+            "total_users": len(
+                users_data
+            ),
         }
 
         # ============================================================
-        # 9. FINAL RESPONSE
+        # FINAL RESPONSE
         # ============================================================
 
         return {
+
             "company_information": {
+
                 "id": shipper_company.id,
+
                 "company_name": getattr(
                     shipper_company,
                     "company_name",
                     None
                 ),
+
                 "registration_number": getattr(
                     shipper_company,
                     "registration_number",
                     None
                 ),
+
                 "status": getattr(
                     shipper_company,
                     "status",
@@ -925,14 +1154,24 @@ def admin_get_shipper_company_id(
                 ),
             },
 
-            "financial_account": financial_account_data,
+            "financial_account": (
+                financial_account_data
+            ),
 
             "users": users_data,
 
             "activity": {
-                "shipment_auctions": shipment_auctions,
-                "contract_tenders": contract_tenders,
+
+                "shipment_auctions": (
+                    shipment_auctions
+                ),
+
+                "contract_tenders": (
+                    contract_tenders
+                ),
+
                 "shipments": shipment_data,
+
                 "contract_lanes": contract_lanes,
             },
 
@@ -943,11 +1182,14 @@ def admin_get_shipper_company_id(
         raise
 
     except Exception as e:
+
         db.rollback()
 
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to fetch shipper company: {str(e)}"
+            detail=(
+                f"Failed to fetch shipper company: {str(e)}"
+            )
         )
 
 @router.get("/admin/brokerage-firm/{id}")
