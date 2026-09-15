@@ -254,7 +254,9 @@ def admin_get_shipper_company_id(
                 )
                 .filter(
                     Client_Shipment_Auction_Vehicle_Requirement.auction_id
-                    == auction_id
+                    == auction_id,
+                    Client_Shipment_Auction_Vehicle_Requirement.configuration_type
+                    == "Primary"
                 )
                 .all()
             )
