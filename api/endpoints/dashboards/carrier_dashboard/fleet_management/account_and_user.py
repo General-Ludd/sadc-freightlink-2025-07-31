@@ -210,7 +210,7 @@ def get_carrier_user_with_documents(
 
         # Fetch documents belonging to this user
         documents = db.query(CarrierUserDocs).filter(
-            CarrierUserDocs.carrier_user_id == user.id
+            CarrierUserDocs.user_id == user.id
         ).all()
 
         return {
@@ -326,13 +326,13 @@ def update_carrier_user(
             document_data = user_data.id_document
 
             old_document = db.query(CarrierUserDocs).filter(
-                CarrierUserDocs.carrier_user_id == user.id,
+                CarrierUserDocs.user_id == user.id,
                 CarrierUserDocs.document_type == "Identity Document",
                 CarrierUserDocs.is_active == True
             ).first()
 
             new_document = CarrierUserDocs(
-                carrier_user_id=user.id,
+                user_id=user.id,
                 document_type=document_data.document_type or "Identity Document",
                 document_url=document_data.document_url,
                 expiry_date=document_data.expiry_date,
@@ -373,13 +373,13 @@ def update_carrier_user(
             document_data = user_data.proof_of_address
 
             old_document = db.query(CarrierUserDocs).filter(
-                CarrierUserDocs.carrier_user_id == user.id,
+                CarrierUserDocs.user_id == user.id,
                 CarrierUserDocs.document_type == "Proof of Address",
                 CarrierUserDocs.is_active == True
             ).first()
 
             new_document = CarrierUserDocs(
-                carrier_user_id=user.id,
+                user_id=user.id,
                 document_type=document_data.document_type or "Proof of Address",
                 document_url=document_data.document_url,
                 expiry_date=document_data.expiry_date,
