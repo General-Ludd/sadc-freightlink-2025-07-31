@@ -206,16 +206,8 @@ def admin_get_shipper_company_id(
             # Vehicle configuration
             # --------------------------------------------------------
 
-            vehicle_configs = (
-                db.query(Client_Shipment_Auction_Vehicle_Requirement)
-                .filter(
-                    Client_Shipment_Auction_Vehicle_Requirement.auction_id
-                    == auction,
-                    Client_Shipment_Auction_Vehicle_Requirement.stop_type
-                    == "Primary"
-                )
-                .all()
-            )
+            vehicle_configs = (db.query(Client_Shipment_Auction_Vehicle_Requirement).filter(Client_Shipment_Auction_Vehicle_Requirement.auction_id == auction,
+                                                                             Client_Shipment_Auction_Vehicle_Requirement.stop_type == "Primary").first())
 
             equipment = []
 
