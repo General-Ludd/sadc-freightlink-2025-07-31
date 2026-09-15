@@ -1159,7 +1159,7 @@ def admin_get_shipper_company_id(
             "company_information": {
 
                 "id": shipper_company.id,
-                "logo_link": shipper_company.company_logo if company_logo else None,
+                "logo_link": shipper_company.company_logo if shipper_company.company_logo else None,
                 "is-verified": shipper_company.is_verified,
                 "status": shipper_company.status,
                 "company_name": shipper_company.legal_business_name,
