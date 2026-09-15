@@ -253,7 +253,7 @@ def get_carrier_user_with_documents(
             detail=f"Failed to fetch carrier user: {str(e)}"
         )
 
-@router.put("/carrier/update-account-user/{user_id}")
+@router.put("/carrier/update-user-account/{user_id}")
 def update_carrier_user(
     db: Session = Depends(get_db),
     user_id = int,
