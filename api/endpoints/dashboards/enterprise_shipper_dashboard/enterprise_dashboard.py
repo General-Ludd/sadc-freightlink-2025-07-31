@@ -743,6 +743,448 @@ def make_aware(dt):
     # Case 3: naive datetime → make SAST aware
     return dt.replace(tzinfo=sast)
 
+def get_client_contracts(
+    tender_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    try:
+        # ---------------------------------------------------------
+        # GET CLIENT ID FROM AUTHENTICATED USER
+        # ---------------------------------------------------------
+        company_id = current_user.get("company_id")
+
+        if not company_id:
+            raise HTTPException(
+                status_code=401,
+                detail="Client company could not be identified."
+            )
+
+        # ---------------------------------------------------------
+        # FETCH ALL CLIENT CONTRACTS FOR THIS TENDER
+        # ---------------------------------------------------------
+        contracts = (
+            db.query(Client_Lane)
+            .filter(
+                Client_Lane.tender_id == tender_id,
+                Client_Lane.client_id == company_id
+            )
+            .all()
+        )
+
+        if not contracts:
+            raise HTTPException(
+                status_code=404,
+                detail="No contracts found for this tender."
+            )
+
+        # ---------------------------------------------------------
+        # BASIC TENDER / CONTRACT INFORMATION
+        # ---------------------------------------------------------
+
+        first_contract = contracts[0]
+
+        contract_start_dates = [
+            contract.contract_start_date
+            for contract in contracts
+            if contract.contract_start_date
+        ]
+
+        contract_end_dates = [
+            contract.contract_end_date
+            for contract in contracts
+            if contract.contract_end_date
+        ]
+
+        contract_start_date = (
+            min(contract_start_dates)
+            if contract_start_dates
+            else None
+        )
+
+        contract_end_date = (
+            max(contract_end_dates)
+            if contract_end_dates
+            else None
+        )
+
+        # ---------------------------------------------------------
+        # CONTRACT STATUS
+        #
+        # If any active contract exists, the overall tender
+        # contract is considered Active.
+        # ---------------------------------------------------------
+
+        statuses = {
+            contract.contract_status
+            for contract in contracts
+        }
+
+        if "Active" in statuses:
+            overall_status = "Active"
+        elif "Awarded" in statuses:
+            overall_status = "Awarded"
+        elif "Suspended" in statuses:
+            overall_status = "Suspended"
+        elif "Completed" in statuses:
+            overall_status = "Completed"
+        elif "Cancelled" in statuses:
+            overall_status = "Cancelled"
+        else:
+            overall_status = first_contract.contract_status
+
+        # ---------------------------------------------------------
+        # TENDER TITLE
+        #
+        # All contracts belonging to the same tender should share
+        # the tender-level information, so use the first contract.
+        # ---------------------------------------------------------
+
+        contract_title = first_contract.lane_title
+
+        # ---------------------------------------------------------
+        # ORIGIN / DESTINATION
+        # ---------------------------------------------------------
+
+        origin = first_contract.origin_address
+        destination = first_contract.destination_address
+
+        # ---------------------------------------------------------
+        # FETCH LANE STOPS
+        #
+        # Stops are used to obtain facility names.
+        # ---------------------------------------------------------
+
+        all_stops = (
+            db.query(Lane_Stop)
+            .filter(
+                Lane_Stop.lane_id.in_(
+                    [contract.id for contract in contracts]
+                )
+            )
+            .order_by(
+                Lane_Stop.lane_id,
+                Lane_Stop.stop_sequence
+            )
+            .all()
+        )
+
+        origin_facility = None
+        destination_facility = None
+
+        if all_stops:
+
+            origin_stops = [
+                stop for stop in all_stops
+                if stop.stop_type.lower() == "origin"
+            ]
+
+            destination_stops = [
+                stop for stop in all_stops
+                if stop.stop_type.lower() == "destination"
+            ]
+
+            if origin_stops:
+                origin_facility = origin_stops[0].facility_name
+
+            if destination_stops:
+                destination_facility = destination_stops[-1].facility_name
+
+        # ---------------------------------------------------------
+        # FETCH ALL SHIPMENTS BELONGING TO THESE CONTRACTS
+        # ---------------------------------------------------------
+
+        contract_ids = [
+            contract.id
+            for contract in contracts
+        ]
+
+        shipments = (
+            db.query(Client_Shipment)
+            .filter(
+                Client_Shipment.client_lane_id.in_(contract_ids)
+            )
+            .all()
+        )
+
+        # ---------------------------------------------------------
+        # SHIPMENT PERFORMANCE
+        # ---------------------------------------------------------
+
+        total_shipments = len(shipments)
+
+        completed_shipments = sum(
+            1
+            for shipment in shipments
+            if shipment.status
+            and shipment.status.lower() == "completed"
+        )
+
+        remaining_shipments = max(
+            total_shipments - completed_shipments,
+            0
+        )
+
+        fulfilment_percentage = (
+            round(
+                (completed_shipments / total_shipments) * 100,
+                2
+            )
+            if total_shipments > 0
+            else 0.0
+        )
+
+        # ---------------------------------------------------------
+        # TOTAL CONTRACT VALUE
+        #
+        # We calculate this from the awarded contract rates and
+        # contractual volume.
+        #
+        # If total_slots exists elsewhere in your Client_Lane
+        # model, you can replace this calculation with that field.
+        # ---------------------------------------------------------
+
+        total_contract_value = Decimal("0.00")
+
+        for contract in contracts:
+
+            if contract.awarded_savings_contract_value:
+                total_contract_value += Decimal(
+                    str(contract.awarded_savings_contract_value)
+                )
+
+            elif (
+                contract.awarded_rate_per_shipment
+                and contract.volume_commitment
+            ):
+                try:
+                    committed_volume = int(
+                        contract.volume_commitment
+                    )
+
+                    total_contract_value += (
+                        Decimal(
+                            str(contract.awarded_rate_per_shipment)
+                        )
+                        * committed_volume
+                    )
+
+                except (ValueError, TypeError):
+                    pass
+
+        # ---------------------------------------------------------
+        # ANNUAL CONTRACT VALUE
+        # ---------------------------------------------------------
+
+        annual_contract_value = None
+
+        if contract_start_date and contract_end_date:
+
+            days = (
+                contract_end_date - contract_start_date
+            ).days
+
+            if days > 0:
+                annual_contract_value = (
+                    total_contract_value
+                    / Decimal(str(days))
+                    * Decimal("365")
+                )
+
+        # ---------------------------------------------------------
+        # PAYMENT TERMS
+        # ---------------------------------------------------------
+
+        payment_terms = first_contract.payment_terms
+
+        # ---------------------------------------------------------
+        # BUILD CARRIER SUMMARIES
+        # ---------------------------------------------------------
+
+        carrier_summaries = []
+
+        carrier_ids = list({
+            contract.awarded_carrier_id
+            for contract in contracts
+            if contract.awarded_carrier_id
+        })
+
+        carriers = (
+            db.query(Carrier)
+            .filter(Carrier.id.in_(carrier_ids))
+            .all()
+        )
+
+        carrier_map = {
+            carrier.id: carrier
+            for carrier in carriers
+        }
+
+        total_committed_slots_per_interval = 0
+
+        for contract in contracts:
+
+            carrier = carrier_map.get(
+                contract.awarded_carrier_id
+            )
+
+            carrier_shipments = [
+                shipment
+                for shipment in shipments
+                if shipment.client_lane_id == contract.id
+            ]
+
+            contract_total_shipments = len(
+                carrier_shipments
+            )
+
+            contract_completed_shipments = sum(
+                1
+                for shipment in carrier_shipments
+                if shipment.status
+                and shipment.status.lower() == "completed"
+            )
+
+            contract_fulfilment_percentage = (
+                round(
+                    (
+                        contract_completed_shipments
+                        / contract_total_shipments
+                    ) * 100,
+                    2
+                )
+                if contract_total_shipments > 0
+                else 0.0
+            )
+
+            # -----------------------------------------------------
+            # COMMITTED VOLUME
+            #
+            # volume_commitment is currently stored as a String,
+            # while the exact numeric commitment may be represented
+            # differently depending on your tender.
+            # -----------------------------------------------------
+
+            committed_slots = 0
+
+            try:
+                committed_slots = int(
+                    contract.volume_commitment
+                )
+            except (ValueError, TypeError):
+                committed_slots = 0
+
+            total_committed_slots_per_interval += (
+                committed_slots
+            )
+
+            carrier_summaries.append(
+                {
+                    "carrier_id": contract.awarded_carrier_id,
+
+                    "carrier_name": (
+                        carrier.legal_business_name
+                        if carrier
+                        else "Unknown Carrier"
+                    ),
+
+                    "client_lane_id": contract.id,
+
+                    "committed_slots_per_interval": (
+                        committed_slots
+                    ),
+
+                    "rate_per_shipment": (
+                        contract.awarded_rate_per_shipment
+                    ),
+
+                    "contract_rate": (
+                        contract.awarded_contract_rate
+                    ),
+
+                    "total_contract_value": (
+                        contract.awarded_savings_contract_value
+                        or Decimal("0.00")
+                    ),
+
+                    "shipments_fulfilled": (
+                        contract_completed_shipments
+                    ),
+
+                    "fulfilment_percentage": (
+                        contract_fulfilment_percentage
+                    )
+                }
+            )
+
+        # ---------------------------------------------------------
+        # TENDER REFERENCE
+        #
+        # If you have a Tender model with a reference field,
+        # fetch it here.
+        # ---------------------------------------------------------
+
+        tender_reference = None
+
+        # Example:
+        #
+        # tender = db.query(Tender).filter(
+        #     Tender.id == tender_id
+        # ).first()
+        #
+        # if tender:
+        #     tender_reference = tender.tender_reference
+
+        # ---------------------------------------------------------
+        # FINAL RESPONSE
+        # ---------------------------------------------------------
+
+        return {
+            "tender_id": tender_id,
+            "tender_reference": tender_reference,
+            "status": overall_status,
+
+            "contract_title": contract_title,
+
+            "contract_start_date": contract_start_date,
+            "contract_end_date": contract_end_date,
+
+            "origin": origin,
+            "origin_facility": origin_facility,
+
+            "destination": destination,
+            "destination_facility": destination_facility,
+
+            "total_shipments": total_shipments,
+            "completed_shipments": completed_shipments,
+            "remaining_shipments": remaining_shipments,
+            "fulfilment_percentage": fulfilment_percentage,
+
+            "total_contract_value": total_contract_value,
+            "annual_contract_value": annual_contract_value,
+
+            "payment_terms": payment_terms,
+
+            "awarded_carriers": len(carrier_ids),
+
+            "total_committed_slots_per_interval": (
+                total_committed_slots_per_interval
+            ),
+
+            "carriers": carrier_summaries
+        }
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch client contracts: {str(e)}"
+        )
+
 @router.get("/enterprise-exchange-lanes")
 def get_enteprise_shipper_exchange_lanes(
     db: Session = Depends(get_db),

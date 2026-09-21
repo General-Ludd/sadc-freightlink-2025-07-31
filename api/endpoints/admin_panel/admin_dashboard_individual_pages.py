@@ -1319,172 +1319,1247 @@ def admin_get_carrier_company_id(
     current_user: dict = Depends(get_current_admin),
 ):
     try:
-        carrier = db.query(Carrier).filter(Carrier.id == id).first()
-        financial_account = db.query(CarrierFinancialAccounts).filter(CarrierFinancialAccounts.id == carrier.id).first()
-        carrier_users = db.query(CarrierUser).filter(CarrierUser.company_id == carrier.id).all()
-        vehicles = db.query(Vehicle).filter(Vehicle.owner_id == carrier.id).all()
-        trailers = db.query(Trailer).filter(Trailer.owner_id == carrier.id).all()
-        ftl_shipments = db.query(Assigned_Spot_Ftl_Shipments).filter(Assigned_Spot_Ftl_Shipments.carrier_id == carrier.id).all()
-        power_shipments = db.query(Assigned_Power_Shipments).filter(Assigned_Power_Shipments.carrier_id == carrier.id).all()
-        ftl_lanes = db.query(Assigned_Ftl_Lanes).filter(Assigned_Ftl_Lanes.carrier_id == carrier.id).all()
+
+        # ============================================================
+        # CARRIER
+        # ============================================================
+
+        carrier = (
+            db.query(Carrier)
+            .filter(Carrier.id == id)
+            .first()
+        )
+
+        if not carrier:
+            raise HTTPException(
+                status_code=404,
+                detail="Carrier company not found"
+            )
+
+        # ============================================================
+        # FINANCIAL ACCOUNT
+        # ============================================================
+
+        financial_account = (
+            db.query(CarrierFinancialAccounts)
+            .filter(CarrierFinancialAccounts.id == carrier.id)
+            .first()
+        )
+
+        # ============================================================
+        # USERS
+        # ============================================================
+
+        carrier_users = (
+            db.query(CarrierUser)
+            .filter(CarrierUser.company_id == carrier.id)
+            .all()
+        )
+
+        # ============================================================
+        # VEHICLES
+        # ============================================================
+
+        vehicles = (
+            db.query(Vehicle)
+            .filter(Vehicle.owner_id == carrier.id)
+            .all()
+        )
+
+        # ============================================================
+        # TRAILERS
+        # ============================================================
+
+        trailers = (
+            db.query(Trailer)
+            .filter(Trailer.owner_id == carrier.id)
+            .all()
+        )
+
+        # ============================================================
+        # DRIVERS
+        # ============================================================
+
+        drivers = (
+            db.query(Driver)
+            .filter(Driver.company_id == carrier.id)
+            .all()
+        )
+
+        # ============================================================
+        # CARRIER SHIPMENTS
+        # ============================================================
+
+        carrier_shipments = (
+            db.query(Carrier_Shipment)
+            .filter(Carrier_Shipment.carrier_id == carrier.id)
+            .all()
+        )
+
+        # ============================================================
+        # CARRIER LANES
+        # ============================================================
+
+        carrier_lanes = (
+            db.query(Carrier_Lane)
+            .filter(Carrier_Lane.carrier_id == carrier.id)
+            .all()
+        )
+
+        # ============================================================
+        # DOCUMENTS
+        # ============================================================
+
+        carrier_docs = (
+            db.query(CarrierDocs)
+            .filter(
+                CarrierDocs.carrier_id == carrier.id,
+                CarrierDocs.is_active == True
+            )
+            .all()
+        )
+
+        # ============================================================
+        # USER DOCUMENTS
+        # ============================================================
+
+        user_ids = [user.id for user in carrier_users]
+
+        user_docs = (
+            db.query(CarrierUserDocs)
+            .filter(CarrierUserDocs.user_id.in_(user_ids))
+            .all()
+            if user_ids
+            else []
+        )
+
+        # ============================================================
+        # VEHICLE DOCUMENTS
+        # ============================================================
+
+        vehicle_ids = [vehicle.id for vehicle in vehicles]
+
+        vehicle_docs = (
+            db.query(VehicleDocs)
+            .filter(VehicleDocs.vehicle_id.in_(vehicle_ids))
+            .all()
+            if vehicle_ids
+            else []
+        )
+
+        # ============================================================
+        # TRAILER DOCUMENTS
+        # ============================================================
+
+        trailer_ids = [trailer.id for trailer in trailers]
+
+        trailer_docs = (
+            db.query(Trailer_Docs)
+            .filter(Trailer_Docs.trailer_id.in_(trailer_ids))
+            .all()
+            if trailer_ids
+            else []
+        )
+
+        # ============================================================
+        # DRIVER DOCUMENTS
+        # ============================================================
+
+        driver_ids = [driver.id for driver in drivers]
+
+        driver_docs = (
+            db.query(DriverDocs)
+            .filter(DriverDocs.driver_id.in_(driver_ids))
+            .all()
+            if driver_ids
+            else []
+        )
+
+        # ============================================================
+        # HELPERS
+        # ============================================================
+
+        def stop_window(stop):
+            return {
+                "start_time": stop.operating_start_time if stop else None,
+                "end_time": stop.operating_end_time if stop else None
+            }
+
+        def get_shipment_stops(client_shipment_id):
+
+            return (
+                db.query(Client_Shipment_Stop)
+                .filter(
+                    Client_Shipment_Stop.shipment_id
+                    == client_shipment_id
+                )
+                .order_by(
+                    Client_Shipment_Stop.stop_sequence
+                )
+                .all()
+            )
+
+        # ============================================================
+        # ACTIVITY — SHIPMENTS
+        # ============================================================
+
+        shipment_activity = []
+
+        for shipment in carrier_shipments:
+
+            # --------------------------------------------------------
+            # CLIENT SHIPMENT
+            # --------------------------------------------------------
+
+            client_shipment = (
+                db.query(Client_Shipment)
+                .filter(
+                    Client_Shipment.id
+                    == shipment.client_shipment_id
+                )
+                .first()
+            )
+
+            # --------------------------------------------------------
+            # STOPS COME FROM CLIENT SIDE
+            # --------------------------------------------------------
+
+            stops = []
+
+            if client_shipment:
+                stops = get_shipment_stops(
+                    client_shipment.id
+                )
+
+            origin = next(
+                (
+                    stop for stop in stops
+                    if stop.stop_type == "Origin"
+                ),
+                None
+            )
+
+            destination = next(
+                (
+                    stop for stop in stops
+                    if stop.stop_type == "Destination"
+                ),
+                None
+            )
+
+            intermediate_stops = [
+                stop for stop in stops
+                if stop.stop_type == "Intermediate"
+            ]
+
+            # --------------------------------------------------------
+            # ASSIGNED VEHICLE
+            # --------------------------------------------------------
+
+            vehicle = None
+
+            if shipment.vehicle_id:
+                vehicle = (
+                    db.query(Vehicle)
+                    .filter(
+                        Vehicle.id == shipment.vehicle_id
+                    )
+                    .first()
+                )
+
+            # --------------------------------------------------------
+            # ASSIGNED TRAILER
+            # --------------------------------------------------------
+
+            trailer = None
+
+            if vehicle and vehicle.trailer_id:
+                trailer = (
+                    db.query(Trailer)
+                    .filter(
+                        Trailer.id == vehicle.trailer_id
+                    )
+                    .first()
+                )
+
+            # --------------------------------------------------------
+            # ASSIGNED DRIVER
+            # --------------------------------------------------------
+
+            driver = None
+
+            if shipment.driver_id:
+                driver = (
+                    db.query(Driver)
+                    .filter(
+                        Driver.id == shipment.driver_id
+                    )
+                    .first()
+                )
+
+            # --------------------------------------------------------
+            # SHIPMENT RESPONSE
+            # --------------------------------------------------------
+
+            shipment_activity.append({
+
+                "id": shipment.id,
+
+                "shipment_reference":
+                    shipment.shipment_reference,
+
+                "sub_shipment": {
+                    "is_subshipment":
+                        shipment.is_subshipment,
+
+                    "lane_id":
+                        shipment.carrier_lane_id
+                },
+
+                "status":
+                    shipment.status,
+
+                "rate_and_basis": {
+                    "rate":
+                        shipment.rate,
+
+                    "rate_basis":
+                        shipment.pricing_basis
+                },
+
+                "origin": {
+                    "city_province":
+                        origin.city_province
+                        if origin else None,
+
+                    "facility_name":
+                        origin.facility_name
+                        if origin else None,
+
+                    "pickup_date":
+                        shipment.pickup_date,
+
+                    "pickup_start_time":
+                        origin.operating_start_time
+                        if origin else None
+                },
+
+                "transit": {
+                    "distance":
+                        shipment.distance,
+
+                    "no_of_stops":
+                        len(intermediate_stops),
+
+                    "via": [
+                        stop.city_province
+                        for stop in intermediate_stops
+                    ]
+                },
+
+                "destination": {
+                    "city_province":
+                        destination.city_province
+                        if destination else None,
+
+                    "facility_name":
+                        destination.facility_name
+                        if destination else None,
+
+                    "eta_date":
+                        shipment.eta_date,
+
+                    "eta_window":
+                        stop_window(destination)
+                },
+
+                "assigned_vehicle": {
+                    "make_model": {
+                        "make":
+                            vehicle.make
+                            if vehicle else None,
+
+                        "model":
+                            vehicle.model
+                            if vehicle else None
+                    },
+
+                    "license_plate":
+                        vehicle.license_plate
+                        if vehicle else None,
+
+                    "vehicle_type":
+                        vehicle.type
+                        if vehicle else None,
+
+                    "equipment":
+                        vehicle.equipment_type
+                        if vehicle else None,
+
+                    "trailer": {
+                        "type":
+                            trailer.trailer_type,
+
+                        "equipment":
+                            trailer.equipment_type,
+
+                        "length":
+                            trailer.trailer_length
+                    } if trailer else None
+                },
+
+                "assigned_driver": {
+                    "id":
+                        driver.id
+                        if driver else None,
+
+                    "first_name":
+                        driver.first_name
+                        if driver else None,
+
+                    "last_name":
+                        driver.last_name
+                        if driver else None,
+
+                    "phone_number":
+                        driver.phone_number
+                        if driver else None,
+
+                    "prdp_status":
+                        (
+                            "Valid"
+                            if driver
+                            and (
+                                driver.prdp_expiry_date is None
+                                or driver.prdp_expiry_date
+                                >= date.today()
+                            )
+                            else "Expired"
+                            if driver
+                            else None
+                        )
+                },
+
+                "cycle_and_trip_progress_status":
+                    shipment.trip_status
+            })
+
+        # ============================================================
+        # ACTIVITY — CONTRACT LANES
+        # ============================================================
+
+        lane_activity = []
+
+        for carrier_lane in carrier_lanes:
+
+            # --------------------------------------------------------
+            # CLIENT LANE
+            # --------------------------------------------------------
+
+            lane = (
+                db.query(Client_Lane)
+                .filter(
+                    Client_Lane.id
+                    == carrier_lane.client_lane_id
+                )
+                .first()
+            )
+
+            if not lane:
+                continue
+
+            # --------------------------------------------------------
+            # CLIENT LANE STOPS
+            # --------------------------------------------------------
+
+            lane_stops = (
+                db.query(Lane_Stop)
+                .filter(
+                    Lane_Stop.lane_id == lane.id
+                )
+                .order_by(
+                    Lane_Stop.stop_sequence
+                )
+                .all()
+            )
+
+            origin = next(
+                (
+                    stop for stop in lane_stops
+                    if stop.stop_type == "Origin"
+                ),
+                None
+            )
+
+            destination = next(
+                (
+                    stop for stop in lane_stops
+                    if stop.stop_type == "Destination"
+                ),
+                None
+            )
+
+            # --------------------------------------------------------
+            # CLIENT LANE VEHICLE CONFIGURATION
+            # --------------------------------------------------------
+
+            lane_vehicle_configs = (
+                db.query(Lane_Vehicle_Config)
+                .filter(
+                    Lane_Vehicle_Config.lane_id == lane.id,
+                    Lane_Vehicle_Config.is_active == True
+                )
+                .all()
+            )
+
+            equipment = [
+                {
+                    "configuration_type":
+                        config.configuration_type,
+
+                    "truck_type":
+                        config.truck_type,
+
+                    "equipment_type":
+                        config.equipment_type,
+
+                    "trailer_type":
+                        config.trailer_type,
+
+                    "trailer_length":
+                        config.trailer_length
+                }
+                for config in lane_vehicle_configs
+            ]
+
+            # --------------------------------------------------------
+            # CLIENT LANE VOLUME PROFILE
+            # --------------------------------------------------------
+
+            volume_profiles = (
+                db.query(Lane_Volume_Profile)
+                .filter(
+                    Lane_Volume_Profile.lane_id == lane.id
+                )
+                .order_by(
+                    Lane_Volume_Profile.period_sequence
+                )
+                .all()
+            )
+
+            total_committed_loads = sum(
+                (profile.expected_loads or 0)
+                for profile in volume_profiles
+            )
+
+            # --------------------------------------------------------
+            # COMPLETED LOADS
+            #
+            # Carrier shipments are linked to Carrier_Lane through
+            # carrier_lane_id.
+            # --------------------------------------------------------
+
+            completed_loads = (
+                db.query(Carrier_Shipment)
+                .filter(
+                    Carrier_Shipment.carrier_lane_id
+                    == carrier_lane.id,
+                    Carrier_Shipment.status
+                    == "Completed"
+                )
+                .count()
+            )
+
+            loads_remaining = max(
+                total_committed_loads - completed_loads,
+                0
+            )
+
+            # --------------------------------------------------------
+            # EARNED REVENUE
+            # --------------------------------------------------------
+
+            completed_revenue = (
+                db.query(Carrier_Shipment)
+                .filter(
+                    Carrier_Shipment.carrier_lane_id
+                    == carrier_lane.id,
+                    Carrier_Shipment.status
+                    == "Completed"
+                )
+                .all()
+            )
+
+            lane_earned_revenue = sum(
+                float(load.rate or 0)
+                for load in completed_revenue
+            )
+
+            # --------------------------------------------------------
+            # WEIGHT
+            # --------------------------------------------------------
+
+            average_shipment_weight_kg = (
+                lane.average_shipment_weight_kg
+                or 0
+            )
+
+            average_shipment_weight_tons = (
+                average_shipment_weight_kg / 1000
+            )
+
+            # --------------------------------------------------------
+            # PROJECTED CONTRACT VALUE
+            # --------------------------------------------------------
+
+            contract_rate = float(
+                lane.rate or 0
+            )
+
+            projected_total_contract_value = (
+                contract_rate
+                * total_committed_loads
+            )
+
+            # --------------------------------------------------------
+            # PAYMENT DATE
+            #
+            # No dedicated payment-date calculation was supplied
+            # in the models, so this remains None.
+            # --------------------------------------------------------
+
+            payment_date = None
+
+            # --------------------------------------------------------
+            # LANE RESPONSE
+            # --------------------------------------------------------
+
+            lane_activity.append({
+
+                "id":
+                    carrier_lane.id,
+
+                "client_lane_id":
+                    carrier_lane.client_lane_id,
+
+                "lane_reference":
+                    carrier_lane.lane_reference,
+
+                "status":
+                    carrier_lane.contract_status.value
+                    if hasattr(
+                        carrier_lane.contract_status,
+                        "value"
+                    )
+                    else carrier_lane.contract_status,
+
+                "origin": {
+                    "city_province":
+                        origin.city_province
+                        if origin else lane.origin_city_province,
+
+                    "facility_name":
+                        origin.facility_name
+                        if origin else None
+                },
+
+                "destination": {
+                    "city_province":
+                        destination.city_province
+                        if destination
+                        else lane.destination_city_province,
+
+                    "facility_name":
+                        destination.facility_name
+                        if destination else None
+                },
+
+                "distance":
+                    lane.actual_distance_km,
+
+                "equipment":
+                    equipment,
+
+                "completed_loads": {
+
+                    "completed_shipments":
+                        completed_loads,
+
+                    "total_lane_shipments":
+                        total_committed_loads,
+
+                    "loads_remaining":
+                        loads_remaining,
+
+                    "on_time_sla":
+                        0.0
+                },
+
+                "contract_rate_details": {
+
+                    "rate":
+                        lane.rate,
+
+                    "pricing_basis":
+                        lane.pricing_basis,
+
+                    "average_shipment_weight_kg":
+                        average_shipment_weight_kg,
+
+                    "average_shipment_weight_tons":
+                        average_shipment_weight_tons,
+
+                    "earned_to_date":
+                        lane_earned_revenue,
+
+                    "projected_total_contract_value":
+                        projected_total_contract_value,
+
+                    "payment_terms":
+                        lane.payment_terms,
+
+                    "payment_date":
+                        payment_date
+                }
+            })
+
+        # ============================================================
+        # DOCUMENT HELPERS
+        # ============================================================
+
+        def documents_for(
+            documents,
+            foreign_key,
+            foreign_id
+        ):
+            return [
+                {
+                    "id": document.id,
+                    "document_type":
+                        document.document_type,
+                    "document_url":
+                        document.document_url,
+                    "expiry_date":
+                        document.expiry_date,
+                    "verification_status":
+                        document.is_verified,
+                    "status":
+                        document.status,
+                    "is_active":
+                        getattr(
+                            document,
+                            "is_active",
+                            None
+                        )
+                }
+                for document in documents
+                if getattr(
+                    document,
+                    foreign_key
+                ) == foreign_id
+            ]
+
+        # ============================================================
+        # RETURN
+        # ============================================================
 
         return {
+
             "company_information": {
-                "company_id": carrier.id,
-                "type": carrier.type,
-                "legal_business_name": carrier.legal_business_name,
-                "country_of_incorporation": carrier.country_of_incorporation,
-                "business_registration_number": carrier.business_registration_number,
-                "git_policy_insurer": carrier.name_of_git_cover_insurance_company,
-                "git_insurance_policy_number": carrier.git_insurance_policy_number,
-                "git_cover_amount": carrier.git_cover_amount,
-                "liability_policy_insurer": carrier.name_of_liability_cover_insurance_company,
-                "liability_insurance_policy_number": carrier.liability_insurance_policy_number,
-                "liability_cover_amount": carrier.liability_insurance_cover_amount,
-                "business_address": carrier.business_address,
-                "business_email": carrier.business_email,
-                "business_phone_number": carrier.business_phone_number,
-                "number_of_vehicles": carrier.number_of_vehicles,
-                "number_of_trailers": carrier.number_of_trailers,
-                "number_of_drivers": carrier.number_of_drivers,
-                "number_of_completed_shipments": carrier.number_of_completed_shipments,
-                "number_of_completed_lanes": carrier.number_of_completed_dedicated_lanes,
-                "number_of_in_progress_lane": carrier.number_of_ongoing_dedicated_lanes,
-                "rating": carrier.rating,
-                "verification_status": carrier.is_verified,
-                "status": carrier.status,
-                "created_at": carrier.created_at,
-                "updated_at": carrier.updated_at,
-                "company_documents": {
-                    "business_registration_certificate": carrier.business_registration_certificate,
-                    "git_insurance_certificate": carrier.git_insurance_certificate,
-                    "business_proof_of_address": carrier.proof_of_address,
-                    "liability_insurance_certificate": carrier.liability_insurance_certificate,
-                }
+
+                "company_id":
+                    carrier.id,
+
+                "type":
+                    carrier.type,
+
+                "legal_business_name":
+                    carrier.legal_business_name,
+
+                "country_of_incorporation":
+                    carrier.country_of_incorporation,
+
+                "business_registration_number":
+                    carrier.business_registration_number,
+
+                "git_policy_insurer":
+                    carrier.name_of_git_cover_insurance_company,
+
+                "git_insurance_policy_number":
+                    carrier.git_insurance_policy_number,
+
+                "git_cover_amount":
+                    carrier.git_cover_amount,
+
+                "liability_policy_insurer":
+                    carrier.name_of_liability_cover_insurance_company,
+
+                "liability_insurance_policy_number":
+                    carrier.liability_insurance_policy_number,
+
+                "liability_cover_amount":
+                    carrier.liability_insurance_cover_amount,
+
+                "business_address":
+                    carrier.business_address,
+
+                "business_email":
+                    carrier.business_email,
+
+                "business_phone_number":
+                    carrier.business_phone_number,
+
+                "number_of_vehicles":
+                    carrier.number_of_vehicles,
+
+                "number_of_trailers":
+                    carrier.number_of_trailers,
+
+                "number_of_drivers":
+                    carrier.number_of_drivers,
+
+                "number_of_completed_shipments":
+                    carrier.number_of_completed_shipments,
+
+                "number_of_completed_lanes":
+                    carrier.number_of_completed_dedicated_lanes,
+
+                "number_of_in_progress_lane":
+                    carrier.number_of_ongoing_dedicated_lanes,
+
+                "rating":
+                    carrier.rating,
+
+                "verification_status":
+                    carrier.is_verified,
+
+                "status":
+                    carrier.status,
+
+                "created_at":
+                    carrier.created_at,
+
+                "updated_at":
+                    carrier.updated_at,
+
+                "company_documents":
+                    [
+                        {
+                            "id":
+                                document.id,
+
+                            "document_type":
+                                document.document_type,
+
+                            "document_url":
+                                document.document_url,
+
+                            "expiry_date":
+                                document.expiry_date,
+
+                            "verification_status":
+                                document.is_verified,
+
+                            "status":
+                                document.status
+                        }
+                        for document in carrier_docs
+                    ]
             },
 
-            "financial_account_information": {
-                "id": financial_account.id,
-                "company_name": financial_account.legal_business_name,
-                "bank_name": financial_account.bank_name,
-                "branch_code": financial_account.branch_code,
-                "account_number": financial_account.account_number,
-                "paid_invoices_amount": financial_account.paid_invoices_amount,
-                "outstanding_invoices": financial_account.outstanding_invoices_amount,
-                "earned_from_contract_lanes": financial_account.earned_from_contracts,
-                "total_number_of_contracts": financial_account.total_contracts,
-                "total_shipments_completed": financial_account.total_shipments_completed,
-                "total_earned": financial_account.total_earned,
-                "holding_balance": financial_account.holding_balance,
-                "current_balance": financial_account.current_balance,
-                "total_withdrawn": financial_account.total_withdrawn,
-                "status": financial_account.status,
-                "verification_status": financial_account.is_verified,
-                "created_at": financial_account.created_at,
-                "updated_at": financial_account.updated_at,
-                "financial_account_documents": {
-                    "account_confirmation_letter": financial_account.account_confirmation_letter
+            "financial_account_information": (
+                {
+                    "id":
+                        financial_account.id,
+
+                    "company_name":
+                        financial_account.legal_business_name,
+
+                    "bank_name":
+                        financial_account.bank_name,
+
+                    "branch_code":
+                        financial_account.branch_code,
+
+                    "account_number":
+                        financial_account.account_number,
+
+                    "paid_invoices_amount":
+                        financial_account.paid_invoices_amount,
+
+                    "outstanding_invoices":
+                        financial_account.outstanding_invoices_amount,
+
+                    "earned_from_contract_lanes":
+                        financial_account.earned_from_contracts,
+
+                    "total_number_of_contracts":
+                        financial_account.total_contracts,
+
+                    "total_shipments_completed":
+                        financial_account.total_shipments_completed,
+
+                    "total_earned":
+                        financial_account.total_earned,
+
+                    "holding_balance":
+                        financial_account.holding_balance,
+
+                    "current_balance":
+                        financial_account.current_balance,
+
+                    "total_withdrawn":
+                        financial_account.total_withdrawn,
+
+                    "status":
+                        financial_account.status,
+
+                    "verification_status":
+                        financial_account.is_verified,
+
+                    "created_at":
+                        financial_account.created_at,
+
+                    "updated_at":
+                        financial_account.updated_at,
+
+                    "financial_account_documents": {
+                        "account_confirmation_letter":
+                            financial_account.account_confirmation_letter
+                    }
                 }
-            },
+                if financial_account
+                else None
+            ),
 
-            "users": [{
-                "name": f"{carrier_user.first_name} - {carrier_user.last_name}",
-                "id": carrier_user.id,
-                "company_id": carrier_user.company_id,
-                "role": carrier_user.role,
-                "nationality": carrier_user.nationality,
-                "id_number": carrier_user.id_number,
-                "is_director": carrier_user.is_director,
-                "verification_status": carrier_user.is_verified,
-                "status": carrier_user.status,
-            } for carrier_user in carrier_users],
+            # ========================================================
+            # USERS
+            # ========================================================
 
-            "vehicles": [{
-                "make_and_year": f"{vehicle.make}-{vehicle.year}",
-                "id": vehicle.id,
-                "color": vehicle.color,
-                "type": vehicle.type,
-                "axle_configuration": vehicle.axle_configuration,
-                "equipment_type": vehicle.equipment_type,
-                "payload_capacity": vehicle.payload_capacity,
-                "trailer_type": vehicle.trailer_type,
-                "trailer_length": vehicle.trailer_length,
-                "company_id": vehicle.owner_id,
-                "verification_status": vehicle.is_verified,
-                "status": vehicle.status
-            } for vehicle in vehicles],
+            "users": [
 
-            "trailers": [{
-                "make_and_model": f"{trailer.make}-{trailer.model}",
-                "id": trailer.id,
-                "company_id": trailer.owner_id,
-                "year": trailer.year,
-                "color": trailer.color,
-                "license_plate": trailer.license_plate,
-                "payload_capacity": trailer.payload_capacity,
-                "vehicle_id": trailer.vehicle_id,
-                "equipment_type": trailer.equipment_type,
-                "trailer_type": trailer.trailer_type,
-                "trailer_length": trailer.trailer_length,
-                "verification_status": trailer.verification_status,
-                "staus": trailer.status
-            } for trailer in trailers],
+                {
+                    "name":
+                        f"{user.first_name} {user.last_name}",
+
+                    "id":
+                        user.id,
+
+                    "company_id":
+                        user.company_id,
+
+                    "role":
+                        user.role,
+
+                    "nationality":
+                        user.nationality,
+
+                    "id_number":
+                        user.id_number,
+
+                    "is_director":
+                        user.is_director,
+
+                    "verification_status":
+                        user.is_verified,
+
+                    "status":
+                        user.status,
+
+                    "documents":
+                        documents_for(
+                            user_docs,
+                            "user_id",
+                            user.id
+                        )
+                }
+
+                for user in carrier_users
+            ],
+
+            # ========================================================
+            # VEHICLES
+            # ========================================================
+
+            "vehicles": [
+
+                {
+                    "id":
+                        vehicle.id,
+
+                    "make":
+                        vehicle.make,
+
+                    "model":
+                        vehicle.model,
+
+                    "year":
+                        vehicle.year,
+
+                    "color":
+                        vehicle.color,
+
+                    "type":
+                        vehicle.type,
+
+                    "axle_configuration":
+                        vehicle.axle_configuration,
+
+                    "vin":
+                        vehicle.vin,
+
+                    "license_plate":
+                        vehicle.license_plate,
+
+                    "license_expiry_date":
+                        vehicle.license_expiry_date,
+
+                    "payload_capacity":
+                        vehicle.payload_capacity,
+
+                    "equipment_type":
+                        vehicle.equipment_type,
+
+                    "trailer_type":
+                        vehicle.trailer_type,
+
+                    "trailer_length":
+                        vehicle.trailer_length,
+
+                    "primary_driver_id":
+                        vehicle.primary_driver_id,
+
+                    "secondary_driver_id":
+                        vehicle.secondary_driver_id,
+
+                    "company_id":
+                        vehicle.owner_id,
+
+                    "verification_status":
+                        vehicle.is_verified,
+
+                    "status":
+                        vehicle.status,
+
+                    "service_status":
+                        vehicle.service_status,
+
+                    "documents":
+                        documents_for(
+                            vehicle_docs,
+                            "vehicle_id",
+                            vehicle.id
+                        )
+                }
+
+                for vehicle in vehicles
+            ],
+
+            # ========================================================
+            # TRAILERS
+            # ========================================================
+
+            "trailers": [
+
+                {
+                    "id":
+                        trailer.id,
+
+                    "make":
+                        trailer.make,
+
+                    "model":
+                        trailer.model,
+
+                    "year":
+                        trailer.year,
+
+                    "color":
+                        trailer.color,
+
+                    "company_id":
+                        trailer.owner_id,
+
+                    "license_plate":
+                        trailer.license_plate,
+
+                    "vin":
+                        trailer.vin,
+
+                    "payload_capacity":
+                        trailer.payload_capacity,
+
+                    "vehicle_id":
+                        trailer.vehicle_id,
+
+                    "equipment_type":
+                        trailer.equipment_type,
+
+                    "trailer_type":
+                        trailer.trailer_type,
+
+                    "trailer_length":
+                        trailer.trailer_length,
+
+                    "verification_status":
+                        trailer.is_verified,
+
+                    "status":
+                        trailer.status,
+
+                    "documents":
+                        documents_for(
+                            trailer_docs,
+                            "trailer_id",
+                            trailer.id
+                        )
+                }
+
+                for trailer in trailers
+            ],
+
+            # ========================================================
+            # DRIVERS
+            # ========================================================
+
+            "drivers": [
+
+                {
+                    "id":
+                        driver.id,
+
+                    "first_name":
+                        driver.first_name,
+
+                    "last_name":
+                        driver.last_name,
+
+                    "nationality":
+                        driver.nationality,
+
+                    "id_number":
+                        driver.id_number,
+
+                    "license_number":
+                        driver.license_number,
+
+                    "license_expiry_date":
+                        driver.license_expiry_date,
+
+                    "prdp_number":
+                        driver.prdp_number,
+
+                    "prdp_expiry_date":
+                        driver.prdp_expiry_date,
+
+                    "phone_number":
+                        driver.phone_number,
+
+                    "email":
+                        driver.email,
+
+                    "current_vehicle_id":
+                        driver.current_vehicle_id,
+
+                    "service_status":
+                        driver.service_status,
+
+                    "rating":
+                        driver.rating,
+
+                    "verification_status":
+                        driver.is_verified,
+
+                    "status":
+                        driver.status,
+
+                    "documents":
+                        documents_for(
+                            driver_docs,
+                            "driver_id",
+                            driver.id
+                        )
+                }
+
+                for driver in drivers
+            ],
+
+            # ========================================================
+            # ACTIVITY
+            # ========================================================
 
             "activity": {
-                "shipments": {
-                    "ftl_shipments": [{
-                        "id": ftl_shipment.shipment_id,
-                        "origin": ftl_shipment.origin_city_province,
-                        "destination": ftl_shipment.destination_city_province,
-                        "distance": ftl_shipment.distance,
-                        "status": ftl_shipment.status,
-                        "required_truck_type": ftl_shipment.required_truck_type,
-                        "equipment_type": ftl_shipment.equipment_type,
-                        "trailer_type": ftl_shipment.trailer_type if ftl_shipment.trailer_type else None,
-                        "trailer_length": ftl_shipment.trailer_length if ftl_shipment.trailer_length else None,
-                        "weight_bracket": ftl_shipment.minimum_weight_bracket,
-                        "shipment_weight": ftl_shipment.shipment_weight,
-                        "hazardous_materials": ftl_shipment.hazardous_materials,
-                        "rate": ftl_shipment.shipment_rate
-                    } for ftl_shipment in ftl_shipments],
 
-                    "power_shipments": [{
-                        "id": power_shipment.shipment_id,
-                        "origin": power_shipment.origin_city_province,
-                        "destination": power_shipment.destination_city_province,
-                        "distance": power_shipment.distance,
-                        "status": power_shipment.status,
-                        "required_truck_type": power_shipment.required_truck_type,
-                        "axle_configuration": power_shipment.axle_configuration,
-                        "weight_bracket": power_shipment.minimum_weight_bracket,
-                        "shipment_weight": power_shipment.shipment_weight,
-                        "rate": power_shipment.shipment_rate
-                    } for power_shipment in power_shipments],
-                },
-                "lanes": {
-                    "ftl_lanes": [{
-                        "id": ftl_lane.lane_id,
-                        "origin": ftl_lane.origin_city_province,
-                        "destination": ftl_lane.destination_city_province,
-                        "distance": ftl_lane.distance,
-                        "status": ftl_lane.status,
-                        "required_truck_type": ftl_lane.required_truck_type,
-                        "equipment_type": ftl_lane.equipment_type,
-                        "trailer_type": f"{ftl_lane.trailer_type if ftl_lane.trailer_type else None} ({ftl_lane.trailer_length if ftl_lane.trailer_length else None})",
-                        "start_date": ftl_lane.start_date,
-                        "end_date": ftl_lane.end_date,
-                        "recurrence_frequency": ftl_lane.recurrence_frequency,
-                        "recurrence_days": ftl_lane.recurrence_days,
-                        "shipments_per_interval": ftl_lane.shipments_per_interval,
-                        "total_shipments": ftl_lane.total_shipments,
-                        "per_shipment_rate": ftl_lane.rate_per_shipment,
-                        "contract_rate": ftl_lane.contract_rate
-                    } for ftl_lane in ftl_lanes],
-                },
+                "shipments":
+                    shipment_activity,
+
+                "contract_lanes":
+                    lane_activity
             },
+
+            # ========================================================
+            # SUMMARY
+            # ========================================================
+
+            "summary": {
+
+                "total_users":
+                    len(carrier_users),
+
+                "total_vehicles":
+                    len(vehicles),
+
+                "total_trailers":
+                    len(trailers),
+
+                "total_drivers":
+                    len(drivers),
+
+                "total_shipments":
+                    len(carrier_shipments),
+
+                "total_contract_lanes":
+                    len(carrier_lanes),
+
+                "completed_shipments":
+                    sum(
+                        1
+                        for shipment in carrier_shipments
+                        if shipment.status == "Completed"
+                    ),
+
+                "active_shipments":
+                    sum(
+                        1
+                        for shipment in carrier_shipments
+                        if shipment.status != "Completed"
+                    ),
+
+                "active_contract_lanes":
+                    sum(
+                        1
+                        for lane in carrier_lanes
+                        if (
+                            lane.contract_status.value
+                            if hasattr(
+                                lane.contract_status,
+                                "value"
+                            )
+                            else lane.contract_status
+                        ) == "Active"
+                    )
+            }
         }
+
+    except HTTPException:
+        raise
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch carrier company: {str(e)}"
+        )
+
 
 @router.get("/admin/carrier-financial-account/{id}")
 def admin_get_carrier_financial_account(

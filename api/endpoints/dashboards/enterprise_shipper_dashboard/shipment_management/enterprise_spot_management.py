@@ -34,6 +34,383 @@ def get_db():
     finally:
         db.close()
 
+def get_client_contracts(
+    tender_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    try:
+        # ---------------------------------------------------------
+        # CLIENT ID
+        # ---------------------------------------------------------
+        company_id = current_user.get("company_id")
+
+        if not company_id:
+            raise HTTPException(
+                status_code=401,
+                detail="Client company could not be identified."
+            )
+
+        # ---------------------------------------------------------
+        # FETCH ALL CLIENT CONTRACTS FOR THIS TENDER
+        # ---------------------------------------------------------
+        client_lanes = (
+            db.query(Client_Lane)
+            .filter(
+                Client_Lane.tender_id == tender_id,
+                Client_Lane.client_id == company_id
+            )
+            .all()
+        )
+
+        if not client_lanes:
+            raise HTTPException(
+                status_code=404,
+                detail="No contracts found for this tender."
+            )
+
+        # ---------------------------------------------------------
+        # FETCH ALL CARRIER CONTRACTS FOR THIS TENDER
+        #
+        # These are the actual awarded carrier contracts.
+        # ---------------------------------------------------------
+        carrier_lanes = (
+            db.query(Carrier_Lane)
+            .filter(
+                Carrier_Lane.tender_id == tender_id
+            )
+            .all()
+        )
+
+        if not carrier_lanes:
+            raise HTTPException(
+                status_code=404,
+                detail="No awarded carrier contracts found for this tender."
+            )
+
+        # ---------------------------------------------------------
+        # FETCH CARRIERS
+        # ---------------------------------------------------------
+        carrier_ids = list({
+            lane.carrier_id
+            for lane in carrier_lanes
+            if lane.carrier_id
+        })
+
+        carriers = (
+            db.query(Carrier)
+            .filter(
+                Carrier.id.in_(carrier_ids)
+            )
+            .all()
+        )
+
+        carrier_map = {
+            carrier.id: carrier
+            for carrier in carriers
+        }
+
+        # ---------------------------------------------------------
+        # FETCH SHIPMENTS FOR ALL CLIENT LANES
+        # ---------------------------------------------------------
+        client_lane_ids = [
+            lane.id
+            for lane in client_lanes
+        ]
+
+        shipments = (
+            db.query(Client_Shipment)
+            .filter(
+                Client_Shipment.client_lane_id.in_(
+                    client_lane_ids
+                )
+            )
+            .all()
+        )
+
+        # ---------------------------------------------------------
+        # CONTRACT STATUS
+        #
+        # All Client_Lanes belong to the same tender.
+        # Determine the overall tender contract status.
+        # ---------------------------------------------------------
+        statuses = {
+            lane.contract_status
+            for lane in client_lanes
+        }
+
+        if "Active" in statuses:
+            contract_status = "Active"
+
+        elif "Awarded" in statuses:
+            contract_status = "Awarded"
+
+        elif "Suspended" in statuses:
+            contract_status = "Suspended"
+
+        elif "Completed" in statuses:
+            contract_status = "Completed"
+
+        elif "Expired" in statuses:
+            contract_status = "Expired"
+
+        elif "Cancelled" in statuses:
+            contract_status = "Cancelled"
+
+        else:
+            contract_status = client_lanes[0].contract_status
+
+        # ---------------------------------------------------------
+        # CONTRACT TERM
+        # ---------------------------------------------------------
+        start_dates = [
+            lane.contract_start_date
+            for lane in client_lanes
+            if lane.contract_start_date
+        ]
+
+        end_dates = [
+            lane.contract_end_date
+            for lane in client_lanes
+            if lane.contract_end_date
+        ]
+
+        contract_start_date = (
+            min(start_dates)
+            if start_dates
+            else None
+        )
+
+        contract_end_date = (
+            max(end_dates)
+            if end_dates
+            else None
+        )
+
+        # ---------------------------------------------------------
+        # TOTAL CONTRACTUAL SHIPMENTS
+        #
+        # total_slots is the total contractual load commitment
+        # for each awarded Carrier_Lane.
+        # ---------------------------------------------------------
+        total_shipments = sum(
+            lane.total_slots or 0
+            for lane in carrier_lanes
+        )
+
+        # ---------------------------------------------------------
+        # COMPLETED SHIPMENTS
+        # ---------------------------------------------------------
+        completed_shipments = sum(
+            1
+            for shipment in shipments
+            if shipment.status
+            and shipment.status.lower() == "completed"
+        )
+
+        # ---------------------------------------------------------
+        # PROGRESS
+        # ---------------------------------------------------------
+        progress_percentage = (
+            round(
+                (
+                    completed_shipments
+                    / total_shipments
+                ) * 100,
+                2
+            )
+            if total_shipments > 0
+            else 0
+        )
+
+        # ---------------------------------------------------------
+        # SHIPMENTS PER INTERVAL
+        # ---------------------------------------------------------
+        shipments_per_interval = sum(
+            lane.slots_per_interval or 0
+            for lane in carrier_lanes
+        )
+
+        # ---------------------------------------------------------
+        # INTERVAL PERIOD
+        #
+        # Example:
+        # "Weekly"
+        # "Monthly"
+        # "Daily"
+        # ---------------------------------------------------------
+        interval_periods = list({
+            lane.volume_entry_method
+            for lane in client_lanes
+            if lane.volume_entry_method
+        })
+
+        if len(interval_periods) == 1:
+            interval_period = interval_periods[0]
+
+        else:
+            interval_period = interval_periods
+
+        # ---------------------------------------------------------
+        # AVERAGE SHIPMENT RATE
+        #
+        # Weighted average based on each carrier's total_slots.
+        # ---------------------------------------------------------
+        total_rate_value = Decimal("0.00")
+
+        for lane in carrier_lanes:
+
+            rate = lane.rate or Decimal("0.00")
+            slots = lane.total_slots or 0
+
+            total_rate_value += (
+                rate * slots
+            )
+
+        average_shipment_rate = (
+            (
+                total_rate_value
+                / Decimal(str(total_shipments))
+            ).quantize(
+                Decimal("0.01")
+            )
+            if total_shipments > 0
+            else Decimal("0.00")
+        )
+
+        # ---------------------------------------------------------
+        # TOTAL COMBINED CONTRACT VALUE
+        #
+        # Use the carrier contract rate x total contracted loads.
+        # This represents the combined awarded carrier value.
+        # ---------------------------------------------------------
+        total_combined_contract_value = Decimal("0.00")
+
+        for lane in carrier_lanes:
+
+            contract_rate = (
+                lane.contract_rate
+                or Decimal("0.00")
+            )
+
+            total_slots = lane.total_slots or 0
+
+            total_combined_contract_value += (
+                contract_rate * total_slots
+            )
+
+        # ---------------------------------------------------------
+        # PAYMENT TERMS
+        #
+        # Should be the same across contracts for the tender.
+        # ---------------------------------------------------------
+        payment_terms = client_lanes[0].payment_terms
+
+        # ---------------------------------------------------------
+        # TITLE
+        # ---------------------------------------------------------
+        title = client_lanes[0].lane_title
+
+        # ---------------------------------------------------------
+        # AWARDED CARRIERS
+        # ---------------------------------------------------------
+        awarded_carriers = []
+
+        for carrier_lane in carrier_lanes:
+
+            carrier = carrier_map.get(
+                carrier_lane.carrier_id
+            )
+
+            # ---------------------------------------------
+            # SHIPMENTS FOR THIS CARRIER CONTRACT
+            # ---------------------------------------------
+            carrier_shipments = [
+                shipment
+                for shipment in shipments
+                if (
+                    shipment.client_lane_id
+                    == carrier_lane.client_lane_id
+                )
+            ]
+
+            carrier_completed_shipments = sum(
+                1
+                for shipment in carrier_shipments
+                if shipment.status
+                and shipment.status.lower() == "completed"
+            )
+
+            awarded_carriers.append({
+                "id": carrier_lane.carrier_id,
+
+                "name": (
+                    carrier.legal_business_name
+                    if carrier
+                    else None
+                ),
+
+                "committed_slots_per_interval": (
+                    carrier_lane.slots_per_interval
+                ),
+
+                "completed_shipments": (
+                    carrier_completed_shipments
+                ),
+
+                "rate": carrier_lane.rate
+            })
+
+        # ---------------------------------------------------------
+        # FINAL RESPONSE
+        # ---------------------------------------------------------
+        return {
+            "tender_id": tender_id,
+            "title": title,
+            "status": contract_status,
+            "term": {
+                "start_date": contract_start_date,
+                "end_date": contract_end_date
+            },
+            "average_shipment_rate": (
+                average_shipment_rate
+            ),
+            "awarded_carriers": len(
+                awarded_carriers
+            ),
+            "shipments_per_interval": (
+                shipments_per_interval
+            ),
+            "interval_period": (
+                interval_period
+            ),
+            "total_shipments": (
+                total_shipments
+            ),
+            "completed_shipments": (
+                completed_shipments
+            ),
+            "progress_percentage": (
+                progress_percentage
+            ),
+            "total_combined_contract_value": (
+                total_combined_contract_value
+            ),
+            "payment_terms": payment_terms,
+            "carriers": awarded_carriers
+        }
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch client contracts: {str(e)}"
+        )
+
 @router.get("/client-shipments")
 def get_client_shipments(
     db: Session = Depends(get_db),

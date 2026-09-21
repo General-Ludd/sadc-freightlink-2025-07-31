@@ -564,6 +564,7 @@ def get_carrier_contracts(
             detail=f"Failed to retrieve carrier contracts: {str(e)}"
         )
 
+
 @router.get("/carrier/all-ftl-assigned-lanes", response_model=List[Dedicated_Ftl_Lane_Summary_Response])
 def get_all_carrier_assigned_ftl_lanes_summary(
     db: Session = Depends(get_db),

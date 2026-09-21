@@ -95,6 +95,15 @@ class Client_Shipment(Base):
     created_at = Column(DateTime(timezone=True), default=get_sast_time)
     updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)
 
+class Shipment_Documents(Base):
+    __tablename__ = "shipment_documents"
+
+    id = Column(Integer, primary_key=True, index=True)
+    shipment_id = Column(Integer, nullable=False)
+    name = Column(String, nullable=False)
+    doc_url = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=get_sast_time)
+    updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)
 
 class Client_Shipment_Stop(Base):
     __tablename__ = "client_shipment_stops"

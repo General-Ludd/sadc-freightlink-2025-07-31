@@ -7,7 +7,6 @@ from models.Exchange.auction import Lane_Tender_RFQ_Bids
 from models.spot_bookings.dedicated_lane_ftl_shipment import Client_Lane, Lane_Stop, Lane_Vehicle_Config, Lane_Volume_Profile, Lane_Accessorial
 from models.brokerage.finance import Dedicated_Lane_BrokerageLedger
 
-
 def award_tender_bid(
     db: Session,
     tender_id: int,
@@ -34,7 +33,23 @@ def award_tender_bid(
         )
 
     # ============================================================
-    # 2. LOAD AND LOCK BID
+    # 2. VALIDATE TENDER STATUS
+    # ============================================================
+
+    if tender.status == "Awarded":
+        raise HTTPException(
+            status_code=400,
+            detail="Tender has already been fully awarded"
+        )
+
+    if not tender.is_active:
+        raise HTTPException(
+            status_code=400,
+            detail="Tender is not active and cannot receive an award"
+        )
+
+    # ============================================================
+    # 3. LOAD AND LOCK BID
     # ============================================================
 
     bid = (
@@ -54,7 +69,7 @@ def award_tender_bid(
         )
 
     # ============================================================
-    # 3. VALIDATE BID STATUS
+    # 4. VALIDATE BID STATUS
     # ============================================================
 
     if bid.status not in [
@@ -71,7 +86,7 @@ def award_tender_bid(
         )
 
     # ============================================================
-    # 4. VALIDATE BID VALUES
+    # 5. VALIDATE BID VALUES
     # ============================================================
 
     if not bid.slots_per_interval or bid.slots_per_interval <= 0:
@@ -93,7 +108,7 @@ def award_tender_bid(
         )
 
     # ============================================================
-    # 5. CHECK IF THIS CARRIER ALREADY HAS A LANE
+    # 6. CHECK IF THIS CARRIER ALREADY HAS AN AWARDED LANE
     # ============================================================
 
     existing_award = (
@@ -115,7 +130,7 @@ def award_tender_bid(
         )
 
     # ============================================================
-    # 6. LOAD TENDER VOLUME PROFILES
+    # 7. LOAD TENDER VOLUME PROFILES
     # ============================================================
 
     volume_profiles = (
@@ -136,33 +151,7 @@ def award_tender_bid(
         )
 
     # ============================================================
-    # 7. DETERMINE NUMBER OF INTERVALS
-    #
-    # Example:
-    #
-    # Weekly tender:
-    # Monday
-    # Tuesday
-    # Wednesday
-    # Thursday
-    # Friday
-    #
-    # = 5 intervals
-    #
-    # Monthly tender:
-    # Week 1
-    # Week 2
-    # Week 3
-    # Week 4
-    #
-    # = 4 intervals
-    #
-    # Annual tender:
-    # Jan
-    # Feb
-    # Mar
-    #
-    # = 12 intervals
+    # 8. DETERMINE NUMBER OF INTERVALS
     # ============================================================
 
     number_of_intervals = len(volume_profiles)
@@ -174,20 +163,9 @@ def award_tender_bid(
         )
 
     # ============================================================
-    # 8. DETERMINE PEAK INTERVAL CAPACITY
+    # 9. DETERMINE REQUIRED PEAK CAPACITY
     #
-    # Example:
-    #
-    # Monday    = 5
-    # Tuesday   = 4
-    # Wednesday = 6
-    # Thursday  = 6
-    # Friday    = 7
-    #
-    # Peak = 7
-    #
-    # For now the tender capacity model is based on
-    # the peak interval.
+    # Tender capacity is currently based on the peak interval.
     # ============================================================
 
     required_slots_per_interval = max(
@@ -205,10 +183,13 @@ def award_tender_bid(
         )
 
     # ============================================================
-    # 9. FIND ALREADY ACCEPTED BIDS
+    # 10. FIND ALREADY AWARDED BIDS
+    #
+    # IMPORTANT:
+    # Awarded bids MUST use status == "Awarded".
     # ============================================================
 
-    accepted_bids = (
+    awarded_bids = (
         db.query(Lane_Tender_RFQ_Bids)
         .filter(
             Lane_Tender_RFQ_Bids.tender_id == tender_id,
@@ -219,22 +200,18 @@ def award_tender_bid(
     )
 
     # ============================================================
-    # 10. CALCULATE CURRENTLY AWARDED CAPACITY
+    # 11. CALCULATE CURRENTLY AWARDED CAPACITY
     #
-    # IMPORTANT:
-    #
-    # This is slots PER INTERVAL.
-    #
-    # NOT total contract shipments.
+    # This represents slots PER INTERVAL.
     # ============================================================
 
     currently_awarded_slots_per_interval = sum(
         b.slots_per_interval or 0
-        for b in accepted_bids
+        for b in awarded_bids
     )
 
     # ============================================================
-    # 11. CALCULATE REMAINING CAPACITY
+    # 12. DETERMINE REMAINING CAPACITY
     # ============================================================
 
     remaining_slots_per_interval = max(
@@ -253,14 +230,15 @@ def award_tender_bid(
         )
 
     # ============================================================
-    # 12. DETERMINE AWARDED SLOTS PER INTERVAL
+    # 13. DETERMINE ACTUAL AWARDED CAPACITY
     #
     # Example:
     #
-    # Remaining = 4
-    # Bid = 5
+    # Required = 10
+    # Already awarded = 7
+    # New bid = 5
     #
-    # Award = 4
+    # Actual award = 3
     # ============================================================
 
     awarded_slots_per_interval = min(
@@ -275,20 +253,9 @@ def award_tender_bid(
         )
 
     # ============================================================
-    # 13. CALCULATE TOTAL CONTRACT SLOTS
+    # 14. CALCULATE TOTAL CONTRACT SLOTS
     #
-    # THIS IS THE IMPORTANT CHANGE.
-    #
-    # Contract slots =
-    #
-    # slots_per_interval × number_of_intervals
-    #
-    # Example:
-    #
-    # 2 slots/interval
-    # × 4 intervals
-    #
-    # = 8 contract slots
+    # Awarded slots per interval × number of intervals
     # ============================================================
 
     total_contract_slots = (
@@ -297,16 +264,16 @@ def award_tender_bid(
     )
 
     # ============================================================
-    # 14. CALCULATE CONTRACT VALUE
-    #
-    # Example:
-    #
-    # R10,000 × 8 slots
-    #
-    # = R80,000
+    # 15. CALCULATE BID RATE
     # ============================================================
 
-    bid_rate = Decimal(str(bid.bid_per_shipment))
+    bid_rate = Decimal(
+        str(bid.bid_per_shipment)
+    )
+
+    # ============================================================
+    # 16. CALCULATE TOTAL CONTRACT VALUE
+    # ============================================================
 
     contract_rate = (
         bid_rate
@@ -314,7 +281,7 @@ def award_tender_bid(
     )
 
     # ============================================================
-    # 15. CALCULATE PROCUREMENT SAVINGS
+    # 17. CALCULATE PROCUREMENT SAVINGS
     # ============================================================
 
     incumbent_rate = Decimal(
@@ -335,7 +302,7 @@ def award_tender_bid(
     )
 
     # ============================================================
-    # 16. GENERATE CLIENT LANE REFERENCE
+    # 18. GENERATE CLIENT LANE REFERENCE
     # ============================================================
 
     client_lane_reference = (
@@ -344,29 +311,71 @@ def award_tender_bid(
     )
 
     # ============================================================
-    # 17. CREATE CLIENT / SHIPPER LANE
+    # 19. CREATE CLIENT / SHIPPER LANE
     # ============================================================
 
     client_lane = Client_Lane(
         tender_id=tender.id,
         client_id=tender.client_id,
         publisher_user_id=tender.publisher_user_id,
+
+        # IMPORTANT:
+        # Required by Client_Lane model.
+        awarded_carrier_id=bid.carrier_id,
+
         lane_title=tender.tender_title,
         lane_length_category=tender.tender_length_category,
         lane_category=tender.tender_category,
         scope_description=tender.scope_description,
         business_unit=tender.business_unit,
         cost_centre_project_code=tender.cost_centre_project_code,
+
         parent_lane_id=None,
         lane_reference=client_lane_reference,
+
         contract_status="Awarded",
+
         contract_start_date=tender.contract_start_date,
         contract_end_date=tender.contract_end_date,
+
         actual_distance_km=tender.actual_distance_km,
         polyline=tender.polyline,
+
+        # ========================================================
+        # ROUTING
+        # ========================================================
+
+        origin_address=tender.origin_address,
+        complete_origin_address=tender.complete_origin_address,
+        origin_city_province=tender.origin_city_province,
+        origin_country=tender.origin_country,
+        origin_region=tender.origin_region,
+
+        destination_address=tender.destination_address,
+        complete_destination_address=tender.complete_destination_address,
+        destination_city_province=tender.destination_city_province,
+        destination_country=tender.destination_country,
+        destination_region=tender.destination_region,
+
+        border_customs_responsibility=(
+            tender.border_customs_responsibility
+        ),
+
+        priority_level=tender.priority_level,
+        load_type=tender.load_type,
+        customer_reference=tender.customer_reference,
+
+        # ========================================================
+        # CARGO
+        # ========================================================
+
         commodity=tender.commodity,
-        average_shipment_weight_kg=tender.average_shipment_weight_kg,
-        minimum_weight_bracket_kg=tender.minimum_weight_bracket_kg,
+        average_shipment_weight_kg=(
+            tender.average_shipment_weight_kg
+        ),
+        minimum_weight_bracket_kg=(
+            tender.minimum_weight_bracket_kg
+        ),
         packaging_type=tender.packaging_type,
         packaging_quantity=tender.packaging_quantity,
         temperature_control=tender.temperature_control,
@@ -375,59 +384,173 @@ def award_tender_bid(
         hazchem_classification=tender.hazchem_classification,
         under_bond=tender.under_bond,
         rib_requirements=tender.rib_requirements,
+
+        # ========================================================
+        # COMMERCIAL
+        # ========================================================
+
         pricing_basis=tender.pricing_basis,
-        incumbent_transport_rate_per_shipment=tender.incumbent_transport_rate_per_shipment,
-        incumbent_contract_rate=tender.incumbent_contract_rate,
-        procurement_target_rate=tender.procurement_target_rate,
-        procurement_target_contract_rate=tender.procurement_target_contract_rate,
+
+        incumbent_transport_rate_per_shipment=(
+            tender.incumbent_transport_rate_per_shipment
+        ),
+
+        incumbent_contract_rate=(
+            tender.incumbent_contract_rate
+        ),
+
+        procurement_target_rate=(
+            tender.procurement_target_rate
+        ),
+
+        procurement_target_contract_rate=(
+            tender.procurement_target_contract_rate
+        ),
+
         awarded_rate_per_shipment=bid_rate,
         awarded_contract_rate=contract_rate,
         awarded_rate_per_shipment_savings=rate_savings,
         awarded_savings_contract_value=contract_savings,
+
         vat_included=tender.vat_included,
         rate_validity=tender.rate_validity,
+
+        # ========================================================
+        # RATE INCLUSIONS
+        # ========================================================
+
         rate_includes_fuel=tender.rate_includes_fuel,
         rate_includes_driver=tender.rate_includes_driver,
-        rate_includes_maintenance=tender.rate_includes_maintenance,
-        rate_includes_insurance=tender.rate_includes_insurance,
+        rate_includes_maintenance=(
+            tender.rate_includes_maintenance
+        ),
+        rate_includes_insurance=(
+            tender.rate_includes_insurance
+        ),
         rate_includes_tolls=tender.rate_includes_tolls,
-        rate_includes_border_charges=tender.rate_includes_border_charges,
-        rate_includes_empty_return=tender.rate_includes_empty_return,
-        rate_includes_waiting_time=tender.rate_includes_waiting_time,
-        rate_includes_loading_assistance=tender.rate_includes_loading_assistance,
-        rate_includes_offloading_assistance=tender.rate_includes_offloading_assistance,
+        rate_includes_border_charges=(
+            tender.rate_includes_border_charges
+        ),
+        rate_includes_empty_return=(
+            tender.rate_includes_empty_return
+        ),
+        rate_includes_waiting_time=(
+            tender.rate_includes_waiting_time
+        ),
+        rate_includes_loading_assistance=(
+            tender.rate_includes_loading_assistance
+        ),
+        rate_includes_offloading_assistance=(
+            tender.rate_includes_offloading_assistance
+        ),
+
+        # ========================================================
+        # PAYMENT
+        # ========================================================
+
         payment_terms=tender.payment_terms,
-        invoice_submission_frequency=tender.invoice_submission_frequency,
-        invoice_submission_deadline=tender.invoice_submission_deadline,
-        minimum_git_cover_amount=tender.minimum_git_cover_amount,
-        minimum_liability_cover_amount=tender.minimum_liability_cover_amount,
-        git_all_risk_required=tender.git_all_risk_required,
-        git_first_loss_required=tender.git_first_loss_required,
-        git_driver_fidelity_required=tender.git_driver_fidelity_required,
-        delivery_documentation_sla=tender.delivery_documentation_sla,
+        invoice_submission_frequency=(
+            tender.invoice_submission_frequency
+        ),
+        invoice_submission_deadline=(
+            tender.invoice_submission_deadline
+        ),
+
+        # ========================================================
+        # INSURANCE
+        # ========================================================
+
+        minimum_git_cover_amount=(
+            tender.minimum_git_cover_amount
+        ),
+        minimum_liability_cover_amount=(
+            tender.minimum_liability_cover_amount
+        ),
+
+        git_all_risk_required=(
+            tender.git_all_risk_required
+        ),
+        git_first_loss_required=(
+            tender.git_first_loss_required
+        ),
+        git_driver_fidelity_required=(
+            tender.git_driver_fidelity_required
+        ),
+
+        # ========================================================
+        # DOCUMENTATION / RISK
+        # ========================================================
+
+        delivery_documentation_sla=(
+            tender.delivery_documentation_sla
+        ),
         claims_risk_policy=tender.claims_risk_policy,
-        claims_risk_requirements=tender.claims_risk_requirements,
-        vehicle_tracking_required=tender.vehicle_tracking_required,
-        all_time_hour_control_room=tender.all_time_hour_control_room,
-        driver_mobile_phone=tender.driver_mobile_phone,
-        clean_compliant_equipment=tender.clean_compliant_equipment,
+        claims_risk_requirements=(
+            tender.claims_risk_requirements
+        ),
+
+        # ========================================================
+        # OPERATIONAL REQUIREMENTS
+        # ========================================================
+
+        vehicle_tracking_required=(
+            tender.vehicle_tracking_required
+        ),
+        all_time_hour_control_room=(
+            tender.all_time_hour_control_room
+        ),
+        driver_mobile_phone=(
+            tender.driver_mobile_phone
+        ),
+        clean_compliant_equipment=(
+            tender.clean_compliant_equipment
+        ),
         pallet_management=tender.pallet_management,
-        pod_submission_local=tender.pod_submission_local,
-        pod_submission_long_haul=tender.pod_submission_long_haul,
-        pod_submission_cross_border=tender.pod_submission_cross_border,
-        subcontracting_policy=tender.subcontracting_policy,
-        tarpaulin_compliance_required=tender.tarpaulin_compliance_required,
-        corner_plates_required=tender.corner_plates_required,
-        chock_blocks_required=tender.chock_blocks_required,
-        ratchets_belts_required=tender.ratchets_belts_required,
-        other_equipment_requirements=tender.other_equipment_requirements
+
+        pod_submission_local=(
+            tender.pod_submission_local
+        ),
+        pod_submission_long_haul=(
+            tender.pod_submission_long_haul
+        ),
+        pod_submission_cross_border=(
+            tender.pod_submission_cross_border
+        ),
+
+        subcontracting_policy=(
+            tender.subcontracting_policy
+        ),
+
+        # ========================================================
+        # EQUIPMENT COMPLIANCE
+        # ========================================================
+
+        tarpaulin_compliance_required=(
+            tender.tarpaulin_compliance_required
+        ),
+        corner_plates_required=(
+            tender.corner_plates_required
+        ),
+        chock_blocks_required=(
+            tender.chock_blocks_required
+        ),
+        ratchets_belts_required=(
+            tender.ratchets_belts_required
+        ),
+        other_equipment_requirements=(
+            tender.other_equipment_requirements
+        )
     )
 
     db.add(client_lane)
     db.flush()
 
     # ============================================================
-    # 18. CREATE CLIENT LANE STOPS
+    # 20. LOAD TENDER STOPS
+    #
+    # We only copy fields that actually exist on the tender stop.
+    # The client can complete operational facility information
+    # after award.
     # ============================================================
 
     tender_stops = (
@@ -457,7 +580,7 @@ def award_tender_bid(
         )
 
     # ============================================================
-    # 19. CREATE CLIENT LANE VEHICLE CONFIGURATIONS
+    # 21. CREATE CLIENT LANE VEHICLE CONFIGURATIONS
     # ============================================================
 
     tender_configs = (
@@ -482,7 +605,7 @@ def award_tender_bid(
         )
 
     # ============================================================
-    # 20. CREATE CLIENT LANE VOLUME PROFILES
+    # 22. CREATE CLIENT LANE VOLUME PROFILES
     # ============================================================
 
     for profile in volume_profiles:
@@ -500,7 +623,7 @@ def award_tender_bid(
         )
 
     # ============================================================
-    # 21. CREATE CLIENT LANE ACCESSORIALS
+    # 23. CREATE CLIENT LANE ACCESSORIALS
     # ============================================================
 
     tender_accessorials = (
@@ -524,7 +647,7 @@ def award_tender_bid(
         )
 
     # ============================================================
-    # 22. GENERATE CARRIER LANE REFERENCE
+    # 24. GENERATE CARRIER LANE REFERENCE
     # ============================================================
 
     carrier_lane_reference = (
@@ -534,7 +657,7 @@ def award_tender_bid(
     )
 
     # ============================================================
-    # 23. CREATE CARRIER LANE
+    # 25. CREATE CARRIER LANE
     # ============================================================
 
     carrier_lane = Carrier_Lane(
@@ -542,22 +665,36 @@ def award_tender_bid(
         client_lane_id=client_lane.id,
         carrier_id=bid.carrier_id,
         bidder_user_id=bid.bidder_user_id,
+
         lane_title=tender.tender_title,
         lane_length_category=tender.tender_length_category,
         lane_category=tender.tender_category,
         scope_description=tender.scope_description,
         business_unit=tender.business_unit,
         cost_centre_project_code=tender.cost_centre_project_code,
+
         parent_lane_id=None,
         lane_reference=carrier_lane_reference,
+
         contract_status="Awarded",
+
         contract_start_date=tender.contract_start_date,
         contract_end_date=tender.contract_end_date,
+
         actual_distance_km=tender.actual_distance_km,
         polyline=tender.polyline,
+
+        # ========================================================
+        # CARGO
+        # ========================================================
+
         commodity=tender.commodity,
-        average_shipment_weight_kg=tender.average_shipment_weight_kg,
-        minimum_weight_bracket_kg=tender.minimum_weight_bracket_kg,
+        average_shipment_weight_kg=(
+            tender.average_shipment_weight_kg
+        ),
+        minimum_weight_bracket_kg=(
+            tender.minimum_weight_bracket_kg
+        ),
         packaging_type=tender.packaging_type,
         packaging_quantity=tender.packaging_quantity,
         temperature_control=tender.temperature_control,
@@ -566,53 +703,197 @@ def award_tender_bid(
         hazchem_classification=tender.hazchem_classification,
         under_bond=tender.under_bond,
         rib_requirements=tender.rib_requirements,
+
+        # ========================================================
+        # VOLUME / CAPACITY
+        #
+        # IMPORTANT:
+        # This carrier only receives the capacity actually
+        # awarded to it.
+        # ========================================================
+
+        volume_entry_method=(
+            tender.volume_entry_method
+        ),
+        volume_commitment=(
+            tender.volume_commitment
+        ),
+
+        # ========================================================
+        # COMMERCIAL
+        # ========================================================
+
         pricing_basis=tender.pricing_basis,
-        rate_per_shipment=bid_rate,
+
+        rate=bid_rate,
         contract_rate=contract_rate,
+
+        slots_per_interval=awarded_slots_per_interval,
+        total_slots=total_contract_slots,
+
         vat_included=tender.vat_included,
         rate_validity=tender.rate_validity,
+
+        # ========================================================
+        # RATE INCLUSIONS
+        # ========================================================
+
         rate_includes_fuel=tender.rate_includes_fuel,
         rate_includes_driver=tender.rate_includes_driver,
-        rate_includes_maintenance=tender.rate_includes_maintenance,
-        rate_includes_insurance=tender.rate_includes_insurance,
+        rate_includes_maintenance=(
+            tender.rate_includes_maintenance
+        ),
+        rate_includes_insurance=(
+            tender.rate_includes_insurance
+        ),
         rate_includes_tolls=tender.rate_includes_tolls,
-        rate_includes_border_charges=tender.rate_includes_border_charges,
-        rate_includes_empty_return=tender.rate_includes_empty_return,
-        rate_includes_waiting_time=tender.rate_includes_waiting_time,
-        rate_includes_loading_assistance=tender.rate_includes_loading_assistance,
-        rate_includes_offloading_assistance=tender.rate_includes_offloading_assistance,
+        rate_includes_border_charges=(
+            tender.rate_includes_border_charges
+        ),
+        rate_includes_empty_return=(
+            tender.rate_includes_empty_return
+        ),
+        rate_includes_waiting_time=(
+            tender.rate_includes_waiting_time
+        ),
+        rate_includes_loading_assistance=(
+            tender.rate_includes_loading_assistance
+        ),
+        rate_includes_offloading_assistance=(
+            tender.rate_includes_offloading_assistance
+        ),
+
+        # ========================================================
+        # PAYMENT
+        # ========================================================
+
         payment_terms=tender.payment_terms,
-        invoice_submission_frequency=tender.invoice_submission_frequency,
-        invoice_submission_deadline=tender.invoice_submission_deadline,
-        minimum_git_cover_amount=tender.minimum_git_cover_amount,
-        minimum_liability_cover_amount=tender.minimum_liability_cover_amount,
-        git_all_risk_required=tender.git_all_risk_required,
-        git_first_loss_required=tender.git_first_loss_required,
-        git_driver_fidelity_required=tender.git_driver_fidelity_required,
-        delivery_documentation_sla=tender.delivery_documentation_sla,
+        invoice_submission_frequency=(
+            tender.invoice_submission_frequency
+        ),
+        invoice_submission_deadline=(
+            tender.invoice_submission_deadline
+        ),
+
+        # ========================================================
+        # ROUTING
+        # ========================================================
+
+        origin_address=tender.origin_address,
+        complete_origin_address=(
+            tender.complete_origin_address
+        ),
+        origin_city_province=(
+            tender.origin_city_province
+        ),
+        origin_country=tender.origin_country,
+        origin_region=tender.origin_region,
+
+        destination_address=tender.destination_address,
+        complete_destination_address=(
+            tender.complete_destination_address
+        ),
+        destination_city_province=(
+            tender.destination_city_province
+        ),
+        destination_country=tender.destination_country,
+        destination_region=tender.destination_region,
+
+        # ========================================================
+        # INSURANCE
+        # ========================================================
+
+        minimum_git_cover_amount=(
+            tender.minimum_git_cover_amount
+        ),
+        minimum_liability_cover_amount=(
+            tender.minimum_liability_cover_amount
+        ),
+
+        git_all_risk_required=(
+            tender.git_all_risk_required
+        ),
+        git_first_loss_required=(
+            tender.git_first_loss_required
+        ),
+        git_driver_fidelity_required=(
+            tender.git_driver_fidelity_required
+        ),
+
+        # ========================================================
+        # DOCUMENTATION / RISK
+        # ========================================================
+
+        delivery_documentation_sla=(
+            tender.delivery_documentation_sla
+        ),
         claims_risk_policy=tender.claims_risk_policy,
-        claims_risk_requirements=tender.claims_risk_requirements,
-        vehicle_tracking_required=tender.vehicle_tracking_required,
-        all_time_hour_control_room=tender.all_time_hour_control_room,
-        driver_mobile_phone=tender.driver_mobile_phone,
-        clean_compliant_equipment=tender.clean_compliant_equipment,
+        claims_risk_requirements=(
+            tender.claims_risk_requirements
+        ),
+
+        # ========================================================
+        # OPERATIONAL REQUIREMENTS
+        # ========================================================
+
+        vehicle_tracking_required=(
+            tender.vehicle_tracking_required
+        ),
+        all_time_hour_control_room=(
+            tender.all_time_hour_control_room
+        ),
+        driver_mobile_phone=(
+            tender.driver_mobile_phone
+        ),
+        clean_compliant_equipment=(
+            tender.clean_compliant_equipment
+        ),
         pallet_management=tender.pallet_management,
-        pod_submission_local=tender.pod_submission_local,
-        pod_submission_long_haul=tender.pod_submission_long_haul,
-        pod_submission_cross_border=tender.pod_submission_cross_border,
-        subcontracting_policy=tender.subcontracting_policy,
-        tarpaulin_compliance_required=tender.tarpaulin_compliance_required,
-        corner_plates_required=tender.corner_plates_required,
-        chock_blocks_required=tender.chock_blocks_required,
-        ratchets_belts_required=tender.ratchets_belts_required,
-        other_equipment_requirements=tender.other_equipment_requirements
+
+        pod_submission_local=(
+            tender.pod_submission_local
+        ),
+        pod_submission_long_haul=(
+            tender.pod_submission_long_haul
+        ),
+        pod_submission_cross_border=(
+            tender.pod_submission_cross_border
+        ),
+
+        subcontracting_policy=(
+            tender.subcontracting_policy
+        ),
+
+        # ========================================================
+        # EQUIPMENT COMPLIANCE
+        # ========================================================
+
+        tarpaulin_compliance_required=(
+            tender.tarpaulin_compliance_required
+        ),
+        corner_plates_required=(
+            tender.corner_plates_required
+        ),
+        chock_blocks_required=(
+            tender.chock_blocks_required
+        ),
+        ratchets_belts_required=(
+            tender.ratchets_belts_required
+        ),
+        other_equipment_requirements=(
+            tender.other_equipment_requirements
+        )
     )
 
     db.add(carrier_lane)
     db.flush()
 
     # ============================================================
-    # 24. CREATE CARRIER LANE STOPS
+    # 26. CREATE CARRIER LANE STOPS
+    #
+    # Same tender-stop data only.
+    # Carrier does not receive operational facility fields that
+    # do not exist on the tender stop.
     # ============================================================
 
     for stop in tender_stops:
@@ -620,6 +901,7 @@ def award_tender_bid(
             Lane_Stop(
                 lane_id=carrier_lane.id,
                 stop_sequence=stop.stop_sequence,
+                stop_type=stop.stop_type,
                 facility_name=stop.facility_name,
                 address=stop.address,
                 complete_address=stop.complete_address,
@@ -630,7 +912,7 @@ def award_tender_bid(
         )
 
     # ============================================================
-    # 25. CREATE CARRIER LANE VEHICLE CONFIGURATIONS
+    # 27. CREATE CARRIER LANE VEHICLE CONFIGURATIONS
     # ============================================================
 
     for config in tender_configs:
@@ -647,7 +929,7 @@ def award_tender_bid(
         )
 
     # ============================================================
-    # 26. CREATE CARRIER LANE VOLUME PROFILES
+    # 28. CREATE CARRIER LANE VOLUME PROFILES
     # ============================================================
 
     for profile in volume_profiles:
@@ -665,7 +947,7 @@ def award_tender_bid(
         )
 
     # ============================================================
-    # 27. CREATE CARRIER LANE ACCESSORIALS
+    # 29. CREATE CARRIER LANE ACCESSORIALS
     # ============================================================
 
     for accessorial in tender_accessorials:
@@ -681,13 +963,17 @@ def award_tender_bid(
         )
 
     # ============================================================
-    # 28. UPDATE BID
+    # 30. UPDATE BID STATUS
+    #
+    # IMPORTANT:
+    # Use "Awarded" consistently because capacity calculations
+    # search for Awarded bids.
     # ============================================================
 
-    bid.status = "Accepted"
+    bid.status = "Awarded"
 
     # ============================================================
-    # 29. CALCULATE TOTAL AWARDED CAPACITY
+    # 31. CALCULATE TOTAL AWARDED CAPACITY
     # ============================================================
 
     total_awarded_slots_per_interval = (
@@ -702,18 +988,20 @@ def award_tender_bid(
     )
 
     # ============================================================
-    # 30. UPDATE TENDER STATUS
+    # 32. UPDATE TENDER STATUS
     # ============================================================
 
     if remaining_slots_per_interval == 0:
         tender.status = "Awarded"
+        tender.is_active = False
     else:
         tender.status = "Partially Awarded"
-
-    tender.is_active = True
+        tender.is_active = True
 
     # ============================================================
-    # 31. CREATE BROKERAGE LEDGER
+    # 33. CREATE BROKERAGE LEDGER
+    #
+    # LEFT STRUCTURALLY UNCHANGED AS REQUESTED.
     # ============================================================
 
     def calculate_commission(bid_rate: float) -> int:
@@ -735,7 +1023,6 @@ def award_tender_bid(
     )
 
     if shipper:
-        # Calculate the commission using contract_rate as the input asset
         commission_fee = calculate_commission(bid_rate)
 
         brokerage_ledger = Dedicated_Lane_BrokerageLedger(
@@ -751,9 +1038,19 @@ def award_tender_bid(
             ),
             payment_terms=client_lane.payment_terms,
             contract_booking_amount=contract_rate,
-            contract_platform_commission=(commission_fee * total_contract_slots),
-            contract_true_platform_earnings=(commission_fee * total_contract_slots),
-            contract_carrier_payable=(contract_rate - (commission_fee * total_contract_slots)),
+            contract_platform_commission=(
+                commission_fee * total_contract_slots
+            ),
+            contract_true_platform_earnings=(
+                commission_fee * total_contract_slots
+            ),
+            contract_carrier_payable=(
+                contract_rate
+                - (
+                    commission_fee
+                    * total_contract_slots
+                )
+            ),
             contract_amount_paid=0,
             carrier_payable_paid=0,
             platform_commission_generated=0,
@@ -762,16 +1059,18 @@ def award_tender_bid(
             booking_amount_per_shipment=bid_rate,
             platform_commission_per_shipment=commission_fee,
             true_platform_earnings_per_shipment=commission_fee,
-            carrier_payable_per_shipment=(bid_rate - commission_fee),
+            carrier_payable_per_shipment=(
+                bid_rate - commission_fee
+            ),
             num_shipments_completed=0,
             total_slots_assigned=awarded_slots_per_interval,
             shipments_per_slot=number_of_intervals,
         )
+
         db.add(brokerage_ledger)
-        db.refresh()
-        db.commit(brokerage_ledger)
+
     # ============================================================
-    # 32. COMMIT EVERYTHING AS ONE TRANSACTION
+    # 34. COMMIT EVERYTHING AS ONE TRANSACTION
     # ============================================================
 
     try:
@@ -782,7 +1081,7 @@ def award_tender_bid(
         raise
 
     # ============================================================
-    # 33. REFRESH OBJECTS
+    # 35. REFRESH OBJECTS
     # ============================================================
 
     db.refresh(client_lane)
@@ -791,54 +1090,71 @@ def award_tender_bid(
     db.refresh(bid)
 
     # ============================================================
-    # 34. RETURN AWARD RESULT
+    # 36. RETURN AWARD RESULT
     # ============================================================
 
     return {
         "success": True,
+
         "message": (
             "Bid awarded and tender fully awarded"
             if tender.status == "Awarded"
             else "Bid awarded and tender partially awarded"
         ),
+
         "tender_id": tender.id,
         "tender_status": tender.status,
+
         "bid_id": bid.id,
         "bid_status": bid.status,
+
         "client_lane_id": client_lane.id,
         "carrier_lane_id": carrier_lane.id,
+
         "carrier_id": bid.carrier_id,
+
         "number_of_intervals": number_of_intervals,
+
         "required_slots_per_interval": (
             required_slots_per_interval
         ),
+
         "previously_awarded_slots_per_interval": (
             currently_awarded_slots_per_interval
         ),
+
         "bid_slots_per_interval": (
             bid.slots_per_interval
         ),
+
         "awarded_slots_per_interval": (
             awarded_slots_per_interval
         ),
+
         "total_awarded_slots_per_interval": (
             total_awarded_slots_per_interval
         ),
+
         "remaining_slots_per_interval": (
             remaining_slots_per_interval
         ),
+
         "total_contract_slots": (
             total_contract_slots
         ),
+
         "rate_per_shipment": str(
             bid_rate
         ),
+
         "contract_rate": str(
             contract_rate
         ),
+
         "rate_savings_per_shipment": str(
             rate_savings
         ),
+
         "contract_savings": str(
             contract_savings
         )

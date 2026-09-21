@@ -62,6 +62,7 @@ class Client_Lane(Base):
     procurement_target_rate = Column(Numeric(14, 2), nullable=True)
     procurement_target_contract_rate = Column(Numeric(14, 2), nullable=True)
     awarded_rate_per_shipment = Column(Numeric(14, 2), nullable=True)
+    contract_service_fee = Column(Numeric(14, 2), nullable=False, default=Decimal("0.00"))
     awarded_contract_rate = Column(Numeric(14, 2), nullable=True)
     awarded_rate_per_shipment_savings = Column(Numeric(14, 2), nullable=True)
     awarded_savings_contract_value = Column(Numeric(16, 2), nullable=True)
@@ -164,12 +165,43 @@ class Lane_Stop(Base):
     stop_type = Column(
         String(30), nullable=False
     )  # 'Origin', 'Intermediate', 'Destination'
-    facility_name = Column(String, nullable=True)
     address = Column(Text, nullable=False)
     complete_address = Column(String)
     city_province = Column(String)
     country = Column(String)
     region = Column(String)
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
+    # -------------------------------------------------------------------------
+    # MERGED FACILITY DATA FIELDS
+    # -------------------------------------------------------------------------
+    scheduling_type = Column(
+        String(50), nullable=True, default="FCFS"
+    )  # 'Appointment', 'FCFS', 'Window'
+    # Operational Availability Window (Dumping facility operational window matching dates)
+    operating_start_time = Column(Time, nullable=True)  # Operating hours start
+    operating_end_time = Column(Time, nullable=True)  # Operating hours end
+    # Weekday availability flags for validation engines
+    open_monday = Column(Boolean, default=True)
+    open_tuesday = Column(Boolean, default=True)
+    open_wednesday = Column(Boolean, default=True)
+    open_thursday = Column(Boolean, default=True)
+    open_friday = Column(Boolean, default=True)
+    open_saturday = Column(Boolean, default=False)
+    open_sunday = Column(Boolean, default=False)
+    # Contact Person Details
+    contact_first_name = Column(String(100), nullable=True)
+    contact_last_name = Column(String(100), nullable=True)
+    contact_phone_number = Column(String(30), nullable=True)
+    contact_email = Column(String(100), nullable=True)
+
+    # -------------------------------------------------------------------------
+    # TRACKING METRICS
+    # -------------------------------------------------------------------------
+    reference_number = Column(String, nullable=True)
+    arrival_time = Column(DateTime, nullable=True)  # Actual arrival
+    departure_time = Column(DateTime, nullable=True)  # Actual departure
+    notes = Column(Text, nullable=True)
 
 class Lane_Vehicle_Config(Base):
 
