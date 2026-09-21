@@ -191,13 +191,13 @@ def create_vehicle(
             )
 
         if vehicle_data.vehicle_permits:
-            for vehicle in vehicle_data:
+            for permit in vehicle_data.vehicle_permits:
                 vehicle_documents.append(
                     VehicleDocs(
                         vehicle_id=truck.id,
-                        document_type=vehicle.vehicle_permits.document_type,
-                        document_url=vehicle.vehicle_permits.document_url,
-                        expiry_date=vehicle.vehicle_permits.expiry_date,
+                        document_type=permit.document_type,
+                        document_url=permit.document_url,
+                        expiry_date=permit.expiry_date,
                         is_verified=False,
                         status="Un-verified"
                     )
