@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from models.carrier import Carrier, Carrier_Notification
 from models.shipper import Corporation
-from models.vehicle import Vehicle, Trailer, ShipperTrailer
+from models.vehicle import Vehicle, VehicleDocs, Trailer, ShipperTrailer
 from models.user import CarrierDirector
 from schemas.vehicle import VehicleCreate, TrailerCreate, ShipperTrailerCreate, TrailerUpdate
 from utils.auth import get_current_user

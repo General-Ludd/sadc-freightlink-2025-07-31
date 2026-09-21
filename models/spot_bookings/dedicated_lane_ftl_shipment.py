@@ -1,4 +1,4 @@
-from sqlalchemy import Integer, String, Column, Boolean, Date, DateTime, Enum, func, Text, Numeric
+from sqlalchemy import Integer, String, Column, Boolean, Date, DateTime, Enum, func, Text, Float, Time, Numeric
 from sqlalchemy.dialects.postgresql import ARRAY
 from models.base import Base
 from utils.sast_datetime import get_sast_time
@@ -62,7 +62,7 @@ class Client_Lane(Base):
     procurement_target_rate = Column(Numeric(14, 2), nullable=True)
     procurement_target_contract_rate = Column(Numeric(14, 2), nullable=True)
     awarded_rate_per_shipment = Column(Numeric(14, 2), nullable=True)
-    contract_service_fee = Column(Numeric(14, 2), nullable=False, default=Decimal("0.00"))
+    contract_service_fee = Column(Numeric(14, 2), nullable=False, default=0.00)
     awarded_contract_rate = Column(Numeric(14, 2), nullable=True)
     awarded_rate_per_shipment_savings = Column(Numeric(14, 2), nullable=True)
     awarded_savings_contract_value = Column(Numeric(16, 2), nullable=True)
