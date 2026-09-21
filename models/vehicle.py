@@ -70,7 +70,7 @@ class VehicleDocs(Base):
     document_url = Column(String, nullable=False)
     expiry_date = Column(Date, nullable=True)
     is_verified = Column(Boolean, default=False)
-    status = Column(Enum("Un-verified", "Verified", "Suspended"), default="Un-verified") #Update in Database
+    status = Column(Enum("Un-verified", "Verified", "Rejected", name="vehicle_document_status_enum"))
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
