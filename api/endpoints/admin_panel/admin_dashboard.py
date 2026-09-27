@@ -521,7 +521,7 @@ def get_prospect_id(
             detail=f"Failed to fetch prospect account: {str(e)}"
         )
 
-@router.get("/prospect-contact-{id}")
+@router.get("/prospect-contact/{id}")
 def get_prospect_contact(
     id: int,
     db: Session = Depends(get_db),
