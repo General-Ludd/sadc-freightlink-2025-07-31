@@ -8,6 +8,7 @@ class Platform_Super_Admins(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     type = Column(String, nullable=False)
+    role = Column(String, nullable=True)
     first_name = Column(String, nullable=False)
     last_name = Column(String, nullable=False)
     id_number = Column(String, nullable=False)

@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from requests import Session
 from db.database import SessionLocal
 from models.administration import Platform_Super_Admins, Platform_Super_and_Support_Admins_Permissions
+from models.administration_models.prospects import Prospect, Branches, Prospect_Contact, Contact_Interaction, Freight_Profile
 from models.shipper import Corporation, Consignor
 from models.user import Director, CarrierUser, Driver
 from models.carrier import Carrier
@@ -161,6 +162,525 @@ def admin_get_all_shipper_accounts_by_status(
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/prospects")
+def get_prospects_dashboard(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_admin),
+):
+    try:
+        # ---------------------------------------------------------
+        # FETCH ALL PROSPECTS
+        # ---------------------------------------------------------
+        prospects = (
+            db.query(Prospect)
+            .order_by(Prospect.updated_at.desc())
+            .all()
+        )
+
+        # ---------------------------------------------------------
+        # STAGE COUNTS
+        # ---------------------------------------------------------
+        stage_counts = {
+            "prospect": 0,
+            "contacted": 0,
+            "connected": 0,
+            "qualified": 0,
+            "freight_discovered": 0,
+            "lane_qualified": 0,
+            "procurement_agreed": 0,
+        }
+
+        for prospect in prospects:
+            stage = (prospect.current_stage or "").strip().lower()
+
+            if stage in stage_counts:
+                stage_counts[stage] += 1
+
+        # ---------------------------------------------------------
+        # TODAY'S FOLLOW-UPS
+        # ---------------------------------------------------------
+        now = get_sast_time()
+
+        start_of_day = now.replace(
+            hour=0,
+            minute=0,
+            second=0,
+            microsecond=0,
+        )
+
+        end_of_day = start_of_day.replace(
+            hour=23,
+            minute=59,
+            second=59,
+            microsecond=999999,
+        )
+
+        follow_ups = (
+            db.query(
+                Contact_Interaction,
+                Prospect,
+                Prospect_Contact,
+            )
+            .join(
+                Prospect,
+                Prospect.id == Contact_Interaction.company_id,
+            )
+            .join(
+                Prospect_Contact,
+                Prospect_Contact.id == Contact_Interaction.contact_id,
+            )
+            .filter(
+                Contact_Interaction.next_follow_up_at >= start_of_day,
+                Contact_Interaction.next_follow_up_at <= end_of_day,
+            )
+            .order_by(
+                Contact_Interaction.next_follow_up_at.asc()
+            )
+            .all()
+        )
+
+        formatted_follow_ups = []
+
+        for interaction, prospect, contact in follow_ups:
+            formatted_follow_ups.append({
+                "id": interaction.id,
+                "company": prospect.company_name,
+                "type": interaction.interaction_type,
+                "contact_person": (
+                    f"{contact.first_name or ''} "
+                    f"{contact.last_name or ''}"
+                ).strip(),
+                "subject": interaction.subject,
+                "due_date": interaction.next_follow_up_at,
+            })
+
+        # ---------------------------------------------------------
+        # RETURN DASHBOARD
+        # ---------------------------------------------------------
+        return {
+            "summary": {
+                "prospects": stage_counts["prospect"],
+                "contacted": stage_counts["contacted"],
+                "qualified": stage_counts["qualified"],
+                "procurement": stage_counts["procurement_agreed"],
+            },
+
+            "sales_pipeline": {
+                "prospects": stage_counts["prospect"],
+                "contacted": stage_counts["contacted"],
+                "connected": stage_counts["connected"],
+                "qualified": stage_counts["qualified"],
+                "freight_discovered": stage_counts["freight_discovered"],
+                "lane_qualified": stage_counts["lane_qualified"],
+                "procurement_agreed": stage_counts["procurement_agreed"],
+            },
+
+            "follow_ups": formatted_follow_ups,
+
+            "prospects": [
+                {
+                    "id": p.id,
+                    "company_name": p.company_name,
+                    "industry": p.industry,
+                    "website": p.website,
+                    "country": p.country,
+                    "status": p.status,
+                    "current_stage": p.current_stage,
+                    "next_follow_up": None,
+                    "notes": p.notes,
+                    "created_at": p.created_at,
+                    "updated_at": p.updated_at,
+                }
+                for p in prospects
+            ],
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch CRM prospects dashboard: {str(e)}"
+        )
+
+@router.get("/prospect-{id}")
+def get_prospect_id(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_admin),
+):
+    try:
+        # ---------------------------------------------------------
+        # PROSPECT
+        # ---------------------------------------------------------
+        prospect = (
+            db.query(Prospect)
+            .filter(Prospect.id == id)
+            .first()
+        )
+
+        if not prospect:
+            raise HTTPException(
+                status_code=404,
+                detail="Prospect not found"
+            )
+
+        # ---------------------------------------------------------
+        # BRANCHES
+        # ---------------------------------------------------------
+        branches = (
+            db.query(Branches)
+            .filter(Branches.company_id == prospect.id)
+            .all()
+        )
+
+        # ---------------------------------------------------------
+        # CONTACTS
+        # ---------------------------------------------------------
+        contacts = (
+            db.query(Prospect_Contact)
+            .filter(
+                Prospect_Contact.company_id == prospect.id
+            )
+            .all()
+        )
+
+        # ---------------------------------------------------------
+        # INTERACTIONS
+        # ---------------------------------------------------------
+        interactions = (
+            db.query(Contact_Interaction)
+            .filter(
+                Contact_Interaction.company_id == prospect.id
+            )
+            .order_by(
+                Contact_Interaction.interaction_date.desc()
+            )
+            .all()
+        )
+
+        # ---------------------------------------------------------
+        # FREIGHT PROFILE
+        # ---------------------------------------------------------
+        freight_profile = (
+            db.query(Freight_Profile)
+            .filter(
+                Freight_Profile.company_id == prospect.id
+            )
+            .first()
+        )
+
+        # ---------------------------------------------------------
+        # CONTACT LOOKUP
+        # Used to identify the contact associated with
+        # each interaction.
+        # ---------------------------------------------------------
+        contact_map = {
+            contact.id: contact
+            for contact in contacts
+        }
+
+        # ---------------------------------------------------------
+        # NEXT FOLLOW-UP
+        # ---------------------------------------------------------
+        next_follow_up = (
+            db.query(Contact_Interaction)
+            .filter(
+                Contact_Interaction.company_id == prospect.id,
+                Contact_Interaction.next_follow_up_at.isnot(None),
+            )
+            .order_by(
+                Contact_Interaction.next_follow_up_at.asc()
+            )
+            .first()
+        )
+
+        # ---------------------------------------------------------
+        # RESPONSE
+        # ---------------------------------------------------------
+        return {
+            "company": {
+                "id": prospect.id,
+                "name": prospect.company_name,
+                "industry": prospect.industry,
+                "website": prospect.website,
+                "country": prospect.country,
+                "notes": prospect.notes,
+            },
+            "qualification_overview": {
+                "current_stage": prospect.current_stage,
+                "status": prospect.status,
+
+                "branches": [
+                    {
+                        "id": b.id,
+                        "name": b.branch_name,
+                        "city": b.city,
+                        "province": b.province,
+                        "country": b.country,
+                        "division": b.division,
+                        "description": b.description,
+                    }
+                    for b in branches
+                ],
+                "next_steps": {
+                    "next_action": (
+                        next_follow_up.next_action
+                        if next_follow_up
+                        else None
+                    ),
+                    "next_follow_up_at": (
+                        next_follow_up.next_follow_up_at
+                        if next_follow_up
+                        else None
+                    ),
+                },
+            },
+            "contacts": [
+                {
+                    "id": c.id,
+                    "name": (
+                        f"{c.first_name or ''} "
+                        f"{c.last_name or ''}"
+                    ).strip(),
+
+                    "location": c.location,
+
+                    "job_title": c.job_title,
+                    "department": c.department,
+
+                    "phone_number": c.phone,
+                    "mobile": c.mobile,
+                    "email": c.email,
+                    "linkedin_url": c.linkedin_url,
+
+                    "stage": c.contact_status,
+                    "notes": c.notes,
+
+                    "last_interaction": c.updated_at,
+                }
+                for c in contacts
+            ],
+            "freight_profile": (
+                {
+                    "commodity": freight_profile.commodity,
+                    "estimated_volume": (
+                        f"{freight_profile.estimated_volumes}/"
+                        f"{freight_profile.interval}"
+                    ),
+                    "core_route": freight_profile.core_routes,
+                    "current_carrier_model": (
+                        freight_profile.current_carrier_model
+                    ),
+                    "equipment": freight_profile.equipment,
+                    "pain_point": freight_profile.pain_point,
+                    "frequency": freight_profile.frequency,
+                    "procurement_model": (
+                        freight_profile.procurement_model
+                    ),
+                }
+                if freight_profile
+                else None
+            ),
+
+            "recent_activity": [
+                {
+                    "id": interaction.id,
+                    "contact_person": (
+                        f"{contact_map[interaction.contact_id].first_name or ''} "
+                        f"{contact_map[interaction.contact_id].last_name or ''}"
+                    ).strip()
+                    if interaction.contact_id in contact_map
+                    else None,
+                    "interaction_date": interaction.interaction_date,
+                    "interaction_type": (
+                        interaction.interaction_type
+                    ),
+                    "interaction_direction": (
+                        interaction.interaction_direction
+                    ),
+                    "subject": interaction.subject,
+                    "notes": interaction.notes,
+                    "outcome": interaction.outcome,
+                    "next_action": interaction.next_action,
+                    "next_follow_up_at": (
+                        interaction.next_follow_up_at
+                    ),
+                }
+                for interaction in interactions
+            ],
+        }
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch prospect account: {str(e)}"
+        )
+
+@router.get("/prospect-contact-{id}")
+def get_prospect_contact(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_admin),
+):
+    try:
+        # ---------------------------------------------------------
+        # CONTACT
+        # ---------------------------------------------------------
+        contact = (
+            db.query(Prospect_Contact)
+            .filter(Prospect_Contact.id == id)
+            .first()
+        )
+
+        if not contact:
+            raise HTTPException(
+                status_code=404,
+                detail="Prospect contact not found"
+            )
+
+        # ---------------------------------------------------------
+        # COMPANY
+        # ---------------------------------------------------------
+        company = (
+            db.query(Prospect)
+            .filter(Prospect.id == contact.company_id)
+            .first()
+        )
+
+        if not company:
+            raise HTTPException(
+                status_code=404,
+                detail="Prospect company not found"
+            )
+
+        # ---------------------------------------------------------
+        # INTERACTIONS
+        # ---------------------------------------------------------
+        interactions = (
+            db.query(Contact_Interaction)
+            .filter(
+                Contact_Interaction.contact_id == contact.id
+            )
+            .order_by(
+                Contact_Interaction.interaction_date.desc()
+            )
+            .all()
+        )
+
+        # ---------------------------------------------------------
+        # LAST INTERACTION
+        # ---------------------------------------------------------
+        last_interaction = (
+            interactions[0]
+            if interactions
+            else None
+        )
+
+        # ---------------------------------------------------------
+        # NEXT FOLLOW-UP
+        # ---------------------------------------------------------
+        now = get_sast_time()
+
+        next_follow_up = (
+            db.query(Contact_Interaction)
+            .filter(
+                Contact_Interaction.contact_id == contact.id,
+                Contact_Interaction.next_follow_up_at.isnot(None),
+                Contact_Interaction.next_follow_up_at >= now,
+            )
+            .order_by(
+                Contact_Interaction.next_follow_up_at.asc()
+            )
+            .first()
+        )
+
+        # ---------------------------------------------------------
+        # RESPONSE
+        # ---------------------------------------------------------
+        return {
+            "contact": {
+                "id": contact.id,
+
+                "name": {
+                    "first_name": contact.first_name,
+                    "last_name": contact.last_name,
+                    "full_name": (
+                        f"{contact.first_name or ''} "
+                        f"{contact.last_name or ''}"
+                    ).strip(),
+                },
+                "company": {
+                    "id": company.id,
+                    "name": company.company_name,
+                    "industry": company.industry,
+                },
+                "role": contact.job_title,
+                "contact_information": {
+                    "location": contact.location,
+                    "division": contact.department,
+                    "phone": contact.phone,
+                    "mobile": contact.mobile,
+                    "email": contact.email,
+                    "linkedin_url": contact.linkedin_url,
+                },
+                "sales_execution": {
+                    "contact_stage": contact.contact_status,
+                    "next_follow_up": (
+                        next_follow_up.next_follow_up_at
+                        if next_follow_up
+                        else None
+                    ),
+                    "next_action": (
+                        next_follow_up.next_action
+                        if next_follow_up
+                        else None
+                    ),
+                    "last_interaction": (
+                        last_interaction.interaction_date
+                        if last_interaction
+                        else None
+                    ),
+                },
+
+                "activity_timeline": [
+                    {
+                        "id": i.id,
+                        "date": i.interaction_date,
+                        "type": i.interaction_type,
+                        "direction": i.interaction_direction,
+                        "subject": i.subject,
+                        "notes": i.notes,
+                        "outcome": i.outcome,
+                        "next_action": i.next_action,
+                        "next_follow_up_at": i.next_follow_up_at,
+                        "created_by": (
+                            {
+                                "id": user.id,
+                                "name": user.first_name,
+                                "last_name": user.last_name,
+                                "role": user.role,
+                            }
+                            if (user := db.query(Platform_Super_Admins)
+                                .filter(Platform_Super_Admins.id == i.created_by)
+                                .first())
+                            else None
+                        ),
+                    }
+                    for i in interactions
+                ],
+            }
+        }
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch prospect contact: {str(e)}"
+        )
 
 @router.get("/all-financial-accounts")
 def get_all_shipper_and_broker_financial_account(

@@ -50,7 +50,6 @@ def create_truck_endpoint(
         return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-    
 
 @router.get("/all-fleet-vehicles")
 def get_all_fleet_vehicles(
@@ -106,6 +105,262 @@ def get_all_fleet_vehicles(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/carrier-vehicle/{vehicle_id}")
+def carrier_get_vehicle(
+    vehicle_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    try:
+
+        # =============================================================
+        # VEHICLE
+        # =============================================================
+
+        vehicle = (
+            db.query(Vehicle)
+            .filter(Vehicle.id == vehicle_id)
+            .first()
+        )
+
+        if not vehicle:
+            raise HTTPException(
+                status_code=404,
+                detail="Vehicle not found"
+            )
+
+        trailer = db.query(Trailer).filter(Trailer.id == vehicle.trailer_id).first()
+        driver = db.query(Driver).filter(Driver.id == vehicle.primary_driver_id).first()
+
+        # =============================================================
+        # TRACKER
+        # =============================================================
+
+        tracker = (
+            db.query(VehicleTracker)
+            .filter(
+                VehicleTracker.vehicle_id == vehicle.id
+            )
+            .first()
+        )
+
+        # =============================================================
+        # VEHICLE DOCUMENTS
+        # =============================================================
+
+        docs = (
+            db.query(VehicleDocs)
+            .filter(
+                VehicleDocs.vehicle_id == vehicle.id
+            )
+            .all()
+        )
+
+        # =============================================================
+        # SHIPMENT HISTORY
+        # =============================================================
+
+        shipments = (
+            db.query(Carrier_Shipment)
+            .filter(
+                Carrier_Shipment.vehicle_id == vehicle.id
+            )
+            .order_by(
+                Carrier_Shipment.id.desc()
+            )
+            .all()
+        )
+
+        shipment_history = []
+
+        for shipment in shipments:
+
+            # =========================================================
+            # ORIGIN
+            # =========================================================
+
+            origin = (
+                db.query(Client_Shipment_Stop)
+                .filter(
+                    Client_Shipment_Stop.shipment_id == shipment.client_shipment_id,
+                    Client_Shipment_Stop.stop_type == "Origin"
+                )
+                .order_by(
+                    Client_Shipment_Stop.stop_sequence.asc()
+                )
+                .first()
+            )
+
+            destination = (
+                db.query(Client_Shipment_Stop)
+                .filter(
+                    Client_Shipment_Stop.shipment_id == shipment.client_shipment_id,
+                    Client_Shipment_Stop.stop_type == "Destination"
+                )
+                .order_by(
+                    Client_Shipment_Stop.stop_sequence.asc()
+                )
+                .first()
+            )
+
+
+            # =========================================================
+            # PRIMARY VEHICLE CONFIGURATION
+            # =========================================================
+
+            primary_vehicle_config = (
+                db.query(Client_Shipment_Vehicle_Requirement)
+                .filter(
+                    Client_Shipment_Vehicle_Requirement.shipment_id == shipment.client_shipment_id,
+                    Client_Shipment_Vehicle_Requirement.configuration_type == "Primary"
+                )
+                .first()
+            )
+
+            # =========================================================
+            # SHIPMENT HISTORY ENTRY
+            # =========================================================
+
+            shipment_history.append({
+
+                "shipment_id": shipment.id,
+                "status": getattr(
+                    shipment,
+                    "status",
+                    None
+                ),
+                "rate": shipment.rate,
+                "route": {
+                    "origin": {
+                        "city_province": origin.city_province,
+                        "facility_name": origin.facility_name,
+                    },
+                    "destination": {
+                        "city_province": destination.city_province,
+                        "facility_name": destination.facility_name,
+                    },
+                },
+                "primary_vehicle_configuration": {
+                    "truck_type": primary_vehicle_config.truck_type,
+                    "equipment_type": primary_vehicle_config.equipment_type,
+                    "trailer_type": primary_vehicle_config.trailer_type if primary_vehicle_config.trailer_type else None,
+                    "trailer_length": primary_vehicle_config.trailer_length if primary_vehicle_config.trailer_length else Nonem
+                },
+            })
+
+        # =============================================================
+        # FINAL RESPONSE
+        # =============================================================
+
+        return {
+
+            "vehicle_information": {
+                "id": vehicle.id,
+                "make": vehicle.make,
+                "model": vehicle.model,
+                "year": vehicle.year,
+                "color": vehicle.color,
+                "axle_configuration": (
+                    vehicle.axle_configuration
+                ),
+                "vin": vehicle.vin,
+                "license_plate": vehicle.license_plate,
+                "tare_weight": vehicle.tare_weight,
+                "gvm_weight": vehicle.gvm_weight,
+                "equipment_type": vehicle.equipment_type if vehicle.equipment_type else None,
+                # =====================================================
+                # TRACKER
+                # =====================================================
+                "tracker_unit_credentials": (
+                    {
+                        "provider_name": (
+                            tracker.tracker_providers_name
+                        ),
+                        "country": (
+                            tracker.tracker_providers_country
+                        ),
+                        "unit_id": tracker.id,
+                        "login_username": (
+                            tracker.tracker_login_username
+                        ),
+                        "login_password": (
+                            tracker.tracker_login_password
+                        ),
+                        "is_verified": (
+                            tracker.is_verified
+                        ),
+                        "service_status": (
+                            tracker.service_status
+                        ),
+                        "status": (
+                            tracker.status
+                        ),
+                        "submitted_at": (
+                            tracker.created_at
+                        ),
+                    }
+                    if tracker
+                    else None
+                ),
+                # =====================================================
+                # VEHICLE DOCUMENTS
+                # =====================================================
+                "vehicle_docs": [
+                    {
+                        "id": doc.id,
+                        "name": doc.document_type,
+                        "url": doc.document_url,
+                        "expiry_date": doc.expiry_date if doc.expiry_date else None,
+                        "is_verified": doc.is_verified,
+                        "status": doc.status,
+                        "submitted_at": doc.created_at,
+                    }
+                    for doc in docs
+                ],
+                "trailer_information": {
+                    "id": trailer.id,
+                    "make": trailer.make,
+                    "model": trailer.model,
+                    "year": trailer.year,
+                    "color": trailer.color,
+                    "vin": trailer.vin,
+                    "license_plate": trailer.license_plate,
+                    "tare_weight": trailer.tare_weight,
+                    "gvm_weight": trailer.gvm_weight,
+                    "payload_capacity": (trailer.gvm_weight - trailer.tare_weight),
+                    "equipment_type": trailer.equipment_type,
+                    "trailer_type": trailer.trailer_type,
+                    "trailer_length": trailer.trailer_length,
+                },
+                "driver_information": {
+                    "id": driver.id,
+                    "make": driver.first_name,
+                    "model": driver.last_name,
+                    "id_number": driver.id_number,
+                    "license_number": driver.license_number,
+                    "prdp_number": driver.prdp_number if driver.prdp_number else None,
+                    "passport_number": driver.passport_number if driver.passport_number else None,
+                    "phone_number": driver.phone_number,
+                    "email": driver.email if driver.email else None,
+                },
+            },
+            # =========================================================
+            # SHIPMENT HISTORY
+            # =========================================================
+            "shipment_history": shipment_history,
+        }
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve vehicle information: {str(e)}"
+        )
 
 @router.get("/loadboard-all-fleet-vehicles")
 def loadboard_get_all_fleet_vehicles(
@@ -413,6 +668,54 @@ def get_all_fleet_trailers(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("carrier-trailer/{trailer_id}")
+def carrier_get_trailer(
+    trailer_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    try:
+        trailer = db.query(Trailer).filter(Trailer.id == trailer_id).first()
+        docs = db.query(Trailer_Docs).filter(Trailer_Docs.trailer_id == trailer.id).first()
+
+        return {
+            "trailer_information": {
+                "id": trailer.id,
+                "is_verified": trailer.is_verified,
+                "status": trailer.status,
+                "make": trailer.make,
+                "model": trailer.model,
+                "year": trailer.year,
+                "color": trailer.color,
+                "vin": trailer.vin,
+                "license_plate": trailer.license_plate,
+                "tare_weight": trailer.tare_weight,
+                "gvm_weight": trailer.gvm_weight,
+                "equipment_type": trailer.equipment_type,
+                "trailer_type": trailer.trailer_type,
+                "trailer_length": trailer.trailer_length if trailer.trailer_length else None,
+            },
+            "documents": [{
+                "id": doc.id,
+                "name": doc.document_type,
+                "url": doc.document_url,
+                "expiry_date": doc.expiry_date if doc.expiry_date else None,
+                "is_verified": doc.is_verified,
+                "status": doc.status,
+                "submitted_at": doc.created_at,
+            } for doc in docs],
+        }
+    except HTTPException:
+        raise
+
+    except Exception as e:
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve vehicle information: {str(e)}"
+        )
 
 @router.get("/all-fleet-trailers-to-assign")  # UnTested
 def get_all_fleet_trailers_for_vehicle_assignment(
