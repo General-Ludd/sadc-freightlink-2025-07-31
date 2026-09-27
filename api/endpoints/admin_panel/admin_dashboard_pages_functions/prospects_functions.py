@@ -175,7 +175,6 @@ def create_prospect(
                 "branches": len(created_branches),
                 "contacts": len(created_contacts),
                 "freight_profile": created_freight_profile is not None,
-                "interactions": len(created_interactions),
             },
         }
 
