@@ -71,7 +71,7 @@ class Contact_Interaction(Base):
     updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)
 
 class Freight_Profile(Base):
-    __tablename__ = "prospect_freight_profile"
+    __tablename__ = "prospect_freight_profiles"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     company_id = Column(Integer)
