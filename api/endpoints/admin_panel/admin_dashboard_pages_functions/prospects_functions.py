@@ -143,62 +143,6 @@ def create_prospect(
             db.flush()
 
             created_freight_profile = freight_profile
-
-
-        # ==========================================================
-        # CREATE INTERACTIONS
-        # ==========================================================
-
-        created_interactions = []
-
-        if data.interactions:
-
-            for interaction_data in data.interactions:
-
-                if not interaction_data.contact_id:
-                    raise HTTPException(
-                        status_code=400,
-                        detail="Each interaction must have a contact_id"
-                    )
-
-                contact_exists = (
-                    db.query(Prospect_Contact)
-                    .filter(
-                        Prospect_Contact.id == interaction_data.contact_id,
-                        Prospect_Contact.company_id == prospect.id,
-                    )
-                    .first()
-                )
-
-                if not contact_exists:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Contact {interaction_data.contact_id} does not belong to this prospect"
-                    )
-
-                interaction = Contact_Interaction(
-                    company_id=prospect.id,
-                    contact_id=interaction_data.contact_id,
-                    interaction_type=interaction_data.interaction_type,
-                    interaction_direction=interaction_data.interaction_direction,
-                    subject=interaction_data.subject,
-                    notes=interaction_data.notes,
-                    outcome=interaction_data.outcome,
-                    interaction_date=(
-                        interaction_data.interaction_date
-                        or get_sast_time()
-                    ),
-                    next_action=interaction_data.next_action,
-                    next_follow_up_at=interaction_data.next_follow_up_at,
-                    created_by=current_user.get("id"),
-                )
-
-                db.add(interaction)
-                db.flush()
-
-                created_interactions.append(interaction)
-
-
         # ==========================================================
         # COMMIT EVERYTHING
         # ==========================================================
