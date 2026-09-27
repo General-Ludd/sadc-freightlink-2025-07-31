@@ -41,6 +41,7 @@ from api.endpoints.admin_panel.nexus import dashboard
 from api.endpoints.admin_panel.nexus import nexus_individual_pages
 from api.endpoints.admin_panel.nexus import nexus_admin_func
 from api.endpoints.admin_panel import admin_dashboard
+from api.endpoints.admin_panel.admin_dashboard_pages_functions import prospects_functions
 from api.endpoints.admin_panel import admin_dashboard_individual_pages
 from api.endpoints.admin_panel.admin_dashboard_pages_functions import client_admin_functions
 from api.endpoints.admin_panel.admin_dashboard_pages_functions import admin_financial_account, company
@@ -174,6 +175,7 @@ app.include_router(early_access_requests.router, prefix="/api", tags=["Early Acc
 
 ################################################Admin Dashboard#######################################
 app.include_router(admin_dashboard.router, prefix="/api", tags=["Admin Dashboard"])
+app.include_router(prospects_functions.router, prefix="/api", tags=["Admin Dashboard Prospects Management"])
 app.include_router(admin_dashboard_individual_pages.router, prefix="/api", tags=["Admin Dashboard Pages"])
 app.include_router(dashboard.router, prefix="/api", tags=["Admin Nexus"])
 app.include_router(nexus_individual_pages.router, prefix="/api", tags=["Admin Nexus individual Pages"])
