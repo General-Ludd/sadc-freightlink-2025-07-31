@@ -192,7 +192,7 @@ def create_prospect(
 ######################################################################################
 ######################################Branch Managements##############################
 ######################################################################################
-@router.post("/prospects/{prospect_id}/branches")
+@router.post("/create-prospect/{prospect_id}/branch")
 def create_prospect_branch(
     prospect_id: int,
     data: ProspectBranchCreate,
@@ -254,7 +254,7 @@ def create_prospect_branch(
             detail=f"Failed to create prospect branch: {str(e)}"
         )
 
-@router.patch("/prospect-branches/{branch_id}")
+@router.patch("/update_prospect-branch/{branch_id}")
 def update_prospect_branch(
     branch_id: int,
     data: ProspectBranchUpdate,
@@ -314,7 +314,7 @@ def update_prospect_branch(
 ######################################################################################
 ####################################Contact Managements##############################
 ######################################################################################
-@router.post("/prospects/{prospect_id}/contacts")
+@router.post("/create-prospect/{prospect_id}/contact")
 def create_prospect_contact(
     prospect_id: int,
     data: ProspectContactCreate,
@@ -405,7 +405,7 @@ def create_prospect_contact(
         )
 
 
-@router.patch("/prospect-contacts/{contact_id}")
+@router.patch("/update-prospect-contact/{contact_id}")
 def update_prospect_contact(
     contact_id: int,
     data: ProspectContactUpdate,
@@ -489,7 +489,7 @@ def update_prospect_contact(
 ######################################################################################
 #################################Interaction Managements##############################
 ######################################################################################
-@router.post("/prospect-contacts/{contact_id}/interactions")
+@router.post("/create-prospect-contact/{contact_id}/interaction")
 def create_contact_interaction(
     contact_id: int,
     data: ContactInteractionCreate,
@@ -559,7 +559,7 @@ def create_contact_interaction(
         )
 
 
-@router.patch("/prospect-interactions/{interaction_id}")
+@router.patch("/update-prospect-interaction/{interaction_id}")
 def update_contact_interaction(
     interaction_id: int,
     data: ContactInteractionUpdate,
@@ -623,7 +623,7 @@ def update_contact_interaction(
 ######################################################################################
 #############################Freight Profile Managements##############################
 ######################################################################################
-@router.post("/prospects/{prospect_id}/freight-profile")
+@router.post("/create-prospect/{prospect_id}/freight-profile")
 def create_freight_profile(
     prospect_id: int,
     data: FreightProfileCreate,
@@ -701,7 +701,7 @@ def create_freight_profile(
             detail=f"Failed to create freight profile: {str(e)}"
         )
 
-@router.patch("/freight-profiles/{freight_profile_id}")
+@router.patch("/update-freight-profile/{freight_profile_id}")
 def update_freight_profile(
     freight_profile_id: int,
     data: FreightProfileUpdate,
