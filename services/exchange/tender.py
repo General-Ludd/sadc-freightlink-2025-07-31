@@ -407,6 +407,29 @@ def create_tender_and_publish(
             != master_tender_data.client_ref
         ]
 
+        print(
+            "TENDER PROCESSING ORDER:",
+            [
+                {
+                    "client_ref": tender.client_ref,
+                    "relationship_type": (
+                        tender.relationship_type
+                    )
+                }
+                for tender in ordered_tenders
+            ]
+        )
+
+        print(
+            "EXPECTED MASTER:",
+            {
+                "client_ref": master_tender_data.client_ref,
+                "relationship_type": (
+                    master_tender_data.relationship_type
+                )
+            }
+        )
+
         # ========================================================
         # PROCESS TENDERS
         # ========================================================
@@ -414,32 +437,53 @@ def create_tender_and_publish(
         for index, tender_data in enumerate(
             ordered_tenders
         ):
+            print(
+                "PROCESSING TENDER:",
+                index,
+                tender_data.client_ref,
+                tender_data.relationship_type
+            )
+
+            print(
+                "MASTER DB OBJECT:",
+                (
+                    None
+                    if master_tender is None
+                    else master_tender.id
+                )
+            )
 
             # ====================================================
             # TENDER HIERARCHY
             # ====================================================
 
-            # IMPORTANT:
-            # Do NOT use array position to identify the master.
-            # We compare the current tender's client_ref against
-            # the explicitly identified master tender.
-
-            if (
+            is_master_tender = (
                 tender_data.client_ref
                 == master_tender_data.client_ref
-            ):
+            )
+
+            if is_master_tender:
 
                 is_sub_tender = False
                 parent_tender_id = None
 
             else:
 
+                # The master is intentionally processed first.
+                # If this is a child and the database master has
+                # not been created yet, this is a server-side
+                # sequencing error.
+
                 if master_tender is None:
+
                     raise HTTPException(
                         status_code=500,
                         detail=(
-                            "Master tender must be created "
-                            "before child tenders."
+                            f"Tender ordering failure: "
+                            f"'{tender_data.client_ref}' "
+                            "was processed before the database "
+                            f"master tender "
+                            f"'{master_tender_data.client_ref}'."
                         )
                     )
 
@@ -1138,9 +1182,18 @@ def create_tender_and_publish(
             # MASTER TENDER INITIALIZATION
             # ====================================================
 
-            if tender_data.relationship_type == "Master":
+            if (
+                tender_data.client_ref
+                == master_tender_data.client_ref
+            ):
 
                 master_tender = tender
+
+                print(
+                    "MASTER TENDER CREATED:",
+                    master_tender.id,
+                    master_tender.client_ref
+                )
 
                 # ================================================
                 # CREATE ALL EXPLICIT BUNDLES
