@@ -103,6 +103,8 @@ class Lane_Tender_Bundle(Base):
     stage_count = Column(Integer, nullable=True)
     status = Column(String(30), nullable=False, default="Tendering")
     created_by_user_id = Column(Integer, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=get_sast_time)
+    updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)
 
 class Lane_Tender_RFQ(Base):
 
