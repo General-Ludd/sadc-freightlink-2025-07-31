@@ -392,6 +392,8 @@ def create_tender_and_publish(
 
         master_tender = None
 
+        master_tender_id = None
+
         created_bundles = {}
 
         # --------------------------------------------------------
@@ -474,21 +476,19 @@ def create_tender_and_publish(
                 # not been created yet, this is a server-side
                 # sequencing error.
 
-                if master_tender is None:
-
+                if master_tender_id is None:
                     raise HTTPException(
                         status_code=500,
                         detail=(
                             f"Tender ordering failure: "
-                            f"'{tender_data.client_ref}' "
-                            "was processed before the database "
-                            f"master tender "
+                            f"'{tender_data.client_ref}' was processed before "
+                            f"the database master tender "
                             f"'{master_tender_data.client_ref}'."
                         )
                     )
 
                 is_sub_tender = True
-                parent_tender_id = master_tender.id
+                parent_tender_id = master_tender_id
 
             # ====================================================
             # BUNDLE CONTEXT
@@ -1199,17 +1199,23 @@ def create_tender_and_publish(
                 # CREATE ALL EXPLICIT BUNDLES
                 # ================================================
 
-                for bundle_data in batch_data.bundles:
+                if is_master_tender:
+                    master_tender = tender
 
-                    bundle = create_tender_bundle(
-                        db=db,
-                        shipper=shipper,
-                        user_id=user_id
+                    print(
+                        f"MASTER TENDER CREATED: "
+                        f"client_ref={tender_data.client_ref}, "
+                        f"id={tender.id}"
                     )
 
-                    created_bundles[
-                        bundle_data.client_bundle_ref
-                    ] = bundle
+                    for bundle_data in batch_data.bundles:
+                        bundle = create_tender_bundle(
+                            db=db,
+                            shipper=shipper,
+                            user_id=user_id
+                        )
+
+                        created_bundles[bundle_data.client_bundle_ref] = bundle
 
             # ====================================================
             # 17. CREATE ORIGIN STOP
