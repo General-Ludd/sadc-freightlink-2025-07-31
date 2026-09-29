@@ -1,5 +1,5 @@
-from pydantic import BaseModel, EmailStr
-from typing import List, Optional
+from pydantic import BaseModel, EmailStr, Field, model_validator
+from typing import List, Optional, Literal
 from datetime import date, datetime
 
 from enums import EquipmentType, Load_Type, Priority_Level, TrailerLength, TrailerType, TruckType, Recurrence_Frequency, HazchemClass
@@ -445,9 +445,25 @@ class TenderAccessorialResponse(BaseModel):
 class TenderCreate(BaseModel):
 
     # =========================================================
-    # 1. TENDER INFORMATION
+    # TENDER IDENTITY / RELATIONSHIP
     # =========================================================
 
+    client_ref: str = Field(
+        ...,
+        min_length=1,
+        max_length=100
+    )
+
+    relationship_type: Literal[
+        "Master",
+        "Independant",
+        "Bundle"
+    ]
+
+    # =========================================================
+    # 1. TENDER INFORMATION
+    # =========================================================
+    lane_commitment_type: str = Field(..., min_length=1)
     tender_title: str = Field(..., min_length=1, max_length=255)
     scope_description: str = Field(..., min_length=1)
     business_unit: str = Field(..., max_length=100)
@@ -695,11 +711,293 @@ class TenderCreate(BaseModel):
     accessorials: list[TenderAccessorialCreate] = Field(
         default_factory=list
     )
+class TenderBundleStageCreate(BaseModel):
+
+    tender_ref: str = Field(
+        ...,
+        min_length=1,
+        max_length=100
+    )
+
+    stage_sequence: int = Field(
+        ...,
+        gt=0
+    )
+
+    stage_role: str = Field(
+        ...,
+        min_length=1,
+        max_length=50
+    )
+
+
+class TenderBundleCreate(BaseModel):
+
+    client_bundle_ref: str = Field(
+        ...,
+        min_length=1,
+        max_length=100
+    )
+
+    bundle_type: Literal[
+        "Round-Trip",
+        "Multi-Stage"
+    ]
+
+    stages: list[TenderBundleStageCreate] = Field(
+        ...,
+        min_length=2
+    )
+
+    @model_validator(mode="after")
+    def validate_bundle(self):
+
+        # =====================================================
+        # STAGE COUNT
+        # =====================================================
+
+        if len(self.stages) < 2:
+            raise ValueError(
+                "A bundle must contain at least two stages."
+            )
+
+        # =====================================================
+        # STAGE SEQUENCES
+        # =====================================================
+
+        sequences = [
+            stage.stage_sequence
+            for stage in self.stages
+        ]
+
+        expected_sequences = list(
+            range(1, len(self.stages) + 1)
+        )
+
+        if sorted(sequences) != expected_sequences:
+            raise ValueError(
+                "Bundle stage_sequence values must be "
+                "consecutive starting from 1."
+            )
+
+        # =====================================================
+        # UNIQUE TENDER REFERENCES
+        # =====================================================
+
+        tender_refs = [
+            stage.tender_ref
+            for stage in self.stages
+        ]
+
+        if len(tender_refs) != len(set(tender_refs)):
+            raise ValueError(
+                "A tender cannot appear more than once "
+                "inside the same bundle."
+            )
+
+        # =====================================================
+        # ROUND TRIP
+        # =====================================================
+
+        if self.bundle_type == "Round-Trip":
+
+            if len(self.stages) != 2:
+                raise ValueError(
+                    "Round-Trip bundles must contain exactly two stages."
+                )
+
+            ordered_stages = sorted(
+                self.stages,
+                key=lambda stage: stage.stage_sequence
+            )
+
+            if ordered_stages[0].stage_role != "OUTBOUND":
+                raise ValueError(
+                    "Round-Trip Stage 1 must have "
+                    "stage_role='OUTBOUND'."
+                )
+
+            if ordered_stages[1].stage_role != "RETURN":
+                raise ValueError(
+                    "Round-Trip Stage 2 must have "
+                    "stage_role='RETURN'."
+                )
+
+        return self
 
 
 class TenderBatchCreate(BaseModel):
 
+    # =========================================================
+    # ALL TENDERS
+    # =========================================================
+
     tenders: list[TenderCreate] = Field(
         ...,
-        min_length=1
+        min_length=1,
+        max_length=50
     )
+
+    # =========================================================
+    # EXPLICIT BUNDLES
+    # =========================================================
+
+    bundles: list[TenderBundleCreate] = Field(
+        default_factory=list
+    )
+
+    @model_validator(mode="after")
+    def validate_batch(self):
+
+        # =====================================================
+        # UNIQUE TENDER CLIENT REFERENCES
+        # =====================================================
+
+        tender_refs = [
+            tender.client_ref
+            for tender in self.tenders
+        ]
+
+        if len(tender_refs) != len(set(tender_refs)):
+            raise ValueError(
+                "Every tender client_ref must be unique "
+                "within the batch."
+            )
+
+        # =====================================================
+        # EXACTLY ONE MASTER
+        # =====================================================
+
+        masters = [
+            tender
+            for tender in self.tenders
+            if tender.relationship_type == "MASTER"
+        ]
+
+        if len(masters) != 1:
+            raise ValueError(
+                "A tender batch must contain exactly "
+                "one MASTER tender."
+            )
+
+        # =====================================================
+        # UNIQUE BUNDLE REFERENCES
+        # =====================================================
+
+        bundle_refs = [
+            bundle.client_bundle_ref
+            for bundle in self.bundles
+        ]
+
+        if len(bundle_refs) != len(set(bundle_refs)):
+            raise ValueError(
+                "Every client_bundle_ref must be unique "
+                "within the batch."
+            )
+
+        # =====================================================
+        # TRACK BUNDLE ASSIGNMENTS
+        # =====================================================
+
+        bundle_assignments = {}
+
+        for bundle in self.bundles:
+
+            for stage in bundle.stages:
+
+                tender_ref = stage.tender_ref
+
+                # ---------------------------------------------
+                # TENDER MUST EXIST
+                # ---------------------------------------------
+
+                matching_tenders = [
+                    tender
+                    for tender in self.tenders
+                    if tender.client_ref == tender_ref
+                ]
+
+                if not matching_tenders:
+                    raise ValueError(
+                        f"Bundle {bundle.client_bundle_ref}: "
+                        f"tender_ref '{tender_ref}' does not "
+                        "exist in the batch."
+                    )
+
+                tender = matching_tenders[0]
+
+                # ---------------------------------------------
+                # MASTER CANNOT BE IN A BUNDLE
+                # ---------------------------------------------
+
+                if tender.relationship_type == "MASTER":
+                    raise ValueError(
+                        f"Tender {tender_ref} is MASTER and "
+                        "cannot belong to a bundle."
+                    )
+
+                # ---------------------------------------------
+                # MUST BE DECLARED AS BUNDLE_STAGE
+                # ---------------------------------------------
+
+                if tender.relationship_type != "BUNDLE_STAGE":
+                    raise ValueError(
+                        f"Tender {tender_ref} is referenced "
+                        f"by Bundle {bundle.client_bundle_ref} "
+                        "but is not declared as BUNDLE_STAGE."
+                    )
+
+                # ---------------------------------------------
+                # CANNOT BELONG TO TWO BUNDLES
+                # ---------------------------------------------
+
+                if tender_ref in bundle_assignments:
+
+                    existing_bundle = (
+                        bundle_assignments[tender_ref]
+                    )
+
+                    raise ValueError(
+                        f"Tender {tender_ref} is already assigned "
+                        f"to Bundle {existing_bundle} and cannot "
+                        f"also belong to Bundle "
+                        f"{bundle.client_bundle_ref}."
+                    )
+
+                bundle_assignments[tender_ref] = (
+                    bundle.client_bundle_ref
+                )
+
+        # =====================================================
+        # EVERY BUNDLE_STAGE MUST BE ASSIGNED
+        # =====================================================
+
+        for tender in self.tenders:
+
+            if tender.relationship_type == "BUNDLE_STAGE":
+
+                if tender.client_ref not in bundle_assignments:
+
+                    raise ValueError(
+                        f"Tender {tender.client_ref} is declared "
+                        "as BUNDLE_STAGE but is not assigned "
+                        "to any bundle."
+                    )
+
+        # =====================================================
+        # INDEPENDENT LANES MUST NOT BE IN A BUNDLE
+        # =====================================================
+
+        for tender in self.tenders:
+
+            if tender.relationship_type == "INDEPENDENT_LANE":
+
+                if tender.client_ref in bundle_assignments:
+
+                    raise ValueError(
+                        f"Tender {tender.client_ref} is declared "
+                        "as INDEPENDENT_LANE but is assigned "
+                        "to a bundle."
+                    )
+
+        return self

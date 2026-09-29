@@ -71,8 +71,6 @@ def get_client_contracts(
 
         # ---------------------------------------------------------
         # FETCH ALL CARRIER CONTRACTS FOR THIS TENDER
-        #
-        # These are the actual awarded carrier contracts.
         # ---------------------------------------------------------
         carrier_lanes = (
             db.query(Carrier_Lane)
@@ -111,13 +109,16 @@ def get_client_contracts(
         }
 
         # ---------------------------------------------------------
-        # FETCH SHIPMENTS FOR ALL CLIENT LANES
+        # CLIENT LANE IDS
         # ---------------------------------------------------------
         client_lane_ids = [
             lane.id
             for lane in client_lanes
         ]
 
+        # ---------------------------------------------------------
+        # FETCH SHIPMENTS FOR ALL CLIENT LANES
+        # ---------------------------------------------------------
         shipments = (
             db.query(Client_Shipment)
             .filter(
@@ -131,38 +132,107 @@ def get_client_contracts(
         # ---------------------------------------------------------
         # CONTRACT STATUS
         #
-        # All Client_Lanes belong to the same tender.
-        # Determine the overall tender contract status.
+        # Rules:
+        #
+        # 1. ALL Completed
+        #       -> Completed
+        #
+        # 2. Active + Completed
+        #       -> Partially Completed
+        #
+        # 3. Any Active with no Completed
+        #       -> Active
+        #
+        # 4. Any Awarded
+        #       -> Awarded
+        #
+        # 5. Expired / Suspended are disregarded when determining
+        #    the overall status.
+        #
+        # 6. If all are Cancelled
+        #       -> Cancelled
         # ---------------------------------------------------------
-        statuses = {
+
+        statuses = [
             lane.contract_status
             for lane in client_lanes
-        }
+            if lane.contract_status
+        ]
 
-        if "Active" in statuses:
-            contract_status = "Active"
+        status_set = set(statuses)
 
-        elif "Awarded" in statuses:
-            contract_status = "Awarded"
-
-        elif "Suspended" in statuses:
-            contract_status = "Suspended"
-
-        elif "Completed" in statuses:
+        if statuses and all(
+            status == "Completed"
+            for status in statuses
+        ):
             contract_status = "Completed"
 
-        elif "Expired" in statuses:
-            contract_status = "Expired"
+        elif (
+            "Active" in status_set
+            and "Completed" in status_set
+        ):
+            contract_status = "Partially Completed"
 
-        elif "Cancelled" in statuses:
+        elif "Active" in status_set:
+            contract_status = "Active"
+
+        elif "Awarded" in status_set:
+            contract_status = "Awarded"
+
+        elif statuses and all(
+            status == "Cancelled"
+            for status in statuses
+        ):
             contract_status = "Cancelled"
 
         else:
-            contract_status = client_lanes[0].contract_status
+            # Expired / Suspended are disregarded.
+            # Find any meaningful remaining status.
+            meaningful_statuses = [
+                status
+                for status in statuses
+                if status not in {
+                    "Expired",
+                    "Suspended"
+                }
+            ]
+
+            if meaningful_statuses:
+                contract_status = meaningful_statuses[0]
+
+            else:
+                # If everything is Expired/Suspended,
+                # retain the first lane's actual status.
+                contract_status = statuses[0] if statuses else None
+
+        # ---------------------------------------------------------
+        # EXECUTION STATUS
+        #
+        # No shipments:
+        #       Planned
+        #
+        # At least one shipment:
+        #       Executing
+        #
+        # Overall contract Completed:
+        #       Completed
+        # ---------------------------------------------------------
+
+        if contract_status == "Completed":
+            execution_status = "Completed"
+
+        elif shipments:
+            execution_status = "Executing"
+
+        else:
+            execution_status = "Planned"
 
         # ---------------------------------------------------------
         # CONTRACT TERM
+        #
+        # Return the overall date range represented by the contracts.
         # ---------------------------------------------------------
+
         start_dates = [
             lane.contract_start_date
             for lane in client_lanes
@@ -188,11 +258,119 @@ def get_client_contracts(
         )
 
         # ---------------------------------------------------------
-        # TOTAL CONTRACTUAL SHIPMENTS
+        # LONGEST CONTRACT DURATION
         #
-        # total_slots is the total contractual load commitment
-        # for each awarded Carrier_Lane.
+        # Determine the longest individual Client_Lane contract.
+        #
+        # Examples:
+        # 1 year  -> "Annually"
+        # 2 years -> "2 years"
+        # 3 months -> "3 months"
         # ---------------------------------------------------------
+
+        def calculate_contract_duration(start_date, end_date):
+            if not start_date or not end_date:
+                return None
+
+            # Exact whole years
+            years = end_date.year - start_date.year
+
+            try:
+                anniversary = start_date.replace(
+                    year=start_date.year + years
+                )
+            except ValueError:
+                # Handles leap-day dates
+                anniversary = start_date.replace(
+                    month=2,
+                    day=28,
+                    year=start_date.year + years
+                )
+
+            if anniversary > end_date:
+                years -= 1
+
+                try:
+                    anniversary = start_date.replace(
+                        year=start_date.year + years
+                    )
+                except ValueError:
+                    anniversary = start_date.replace(
+                        month=2,
+                        day=28,
+                        year=start_date.year + years
+                    )
+
+            if years >= 1:
+                remaining_days = (
+                    end_date - anniversary
+                ).days
+
+                if remaining_days < 30:
+                    if years == 1:
+                        return "Annually"
+
+                    return f"{years} years"
+
+            # Whole months
+            months = (
+                (end_date.year - start_date.year) * 12
+                + end_date.month
+                - start_date.month
+            )
+
+            if end_date.day < start_date.day:
+                months -= 1
+
+            if months >= 1:
+                if months == 1:
+                    return "1 month"
+
+                return f"{months} months"
+
+            # Remaining days
+            days = (
+                end_date - start_date
+            ).days
+
+            if days == 1:
+                return "1 day"
+
+            return f"{days} days"
+
+        longest_contract_duration = None
+        longest_contract_days = -1
+        longest_contract_lane = None
+
+        for lane in client_lanes:
+
+            if (
+                not lane.contract_start_date
+                or not lane.contract_end_date
+            ):
+                continue
+
+            duration_days = (
+                lane.contract_end_date
+                - lane.contract_start_date
+            ).days
+
+            if duration_days > longest_contract_days:
+                longest_contract_days = duration_days
+                longest_contract_lane = lane
+
+        if longest_contract_lane:
+            longest_contract_duration = (
+                calculate_contract_duration(
+                    longest_contract_lane.contract_start_date,
+                    longest_contract_lane.contract_end_date
+                )
+            )
+
+        # ---------------------------------------------------------
+        # TOTAL CONTRACTUAL SHIPMENTS
+        # ---------------------------------------------------------
+
         total_shipments = sum(
             lane.total_slots or 0
             for lane in carrier_lanes
@@ -201,16 +379,29 @@ def get_client_contracts(
         # ---------------------------------------------------------
         # COMPLETED SHIPMENTS
         # ---------------------------------------------------------
+
         completed_shipments = sum(
             1
             for shipment in shipments
-            if shipment.status
-            and shipment.status.lower() == "completed"
+            if (
+                shipment.status
+                and shipment.status.lower() == "completed"
+            )
+        )
+
+        # ---------------------------------------------------------
+        # REMAINING SHIPMENTS
+        # ---------------------------------------------------------
+
+        remaining_shipments = max(
+            total_shipments - completed_shipments,
+            0
         )
 
         # ---------------------------------------------------------
         # PROGRESS
         # ---------------------------------------------------------
+
         progress_percentage = (
             round(
                 (
@@ -226,6 +417,7 @@ def get_client_contracts(
         # ---------------------------------------------------------
         # SHIPMENTS PER INTERVAL
         # ---------------------------------------------------------
+
         shipments_per_interval = sum(
             lane.slots_per_interval or 0
             for lane in carrier_lanes
@@ -233,12 +425,8 @@ def get_client_contracts(
 
         # ---------------------------------------------------------
         # INTERVAL PERIOD
-        #
-        # Example:
-        # "Weekly"
-        # "Monthly"
-        # "Daily"
         # ---------------------------------------------------------
+
         interval_periods = list({
             lane.volume_entry_method
             for lane in client_lanes
@@ -254,13 +442,18 @@ def get_client_contracts(
         # ---------------------------------------------------------
         # AVERAGE SHIPMENT RATE
         #
-        # Weighted average based on each carrier's total_slots.
+        # Weighted by total contractual shipments.
         # ---------------------------------------------------------
+
         total_rate_value = Decimal("0.00")
 
         for lane in carrier_lanes:
 
-            rate = lane.rate or Decimal("0.00")
+            rate = (
+                lane.rate
+                or Decimal("0.00")
+            )
+
             slots = lane.total_slots or 0
 
             total_rate_value += (
@@ -281,9 +474,9 @@ def get_client_contracts(
         # ---------------------------------------------------------
         # TOTAL COMBINED CONTRACT VALUE
         #
-        # Use the carrier contract rate x total contracted loads.
-        # This represents the combined awarded carrier value.
+        # Retaining the current calculation for now.
         # ---------------------------------------------------------
+
         total_combined_contract_value = Decimal("0.00")
 
         for lane in carrier_lanes:
@@ -301,19 +494,51 @@ def get_client_contracts(
 
         # ---------------------------------------------------------
         # PAYMENT TERMS
-        #
-        # Should be the same across contracts for the tender.
         # ---------------------------------------------------------
-        payment_terms = client_lanes[0].payment_terms
+
+        payment_terms = (
+            client_lanes[0].payment_terms
+        )
+
+        # ---------------------------------------------------------
+        # PAYMENT BASIS
+        #
+        # TEMPORARY DUMMY DATA
+        # ---------------------------------------------------------
+
+        payment_basis = "From Statement"
 
         # ---------------------------------------------------------
         # TITLE
         # ---------------------------------------------------------
+
         title = client_lanes[0].lane_title
+
+        # ---------------------------------------------------------
+        # FUEL
+        #
+        # TEMPORARY DUMMY DATA
+        # ---------------------------------------------------------
+
+        fuel = {
+            "base_diesel_price": 29.45,
+            "unit": "L",
+            "review_period": "Monthly"
+        }
+
+        # ---------------------------------------------------------
+        # TARGET OTIF
+        #
+        # TEMPORARY DUMMY DATA
+        # ---------------------------------------------------------
+
+        target_otif_percentage = 97.0
+        otif_period = "30-day rolling"
 
         # ---------------------------------------------------------
         # AWARDED CARRIERS
         # ---------------------------------------------------------
+
         awarded_carriers = []
 
         for carrier_lane in carrier_lanes:
@@ -329,75 +554,103 @@ def get_client_contracts(
                 shipment
                 for shipment in shipments
                 if (
-                    shipment.client_lane_id
-                    == carrier_lane.client_lane_id
+                    shipment.carrier_lane_id
+                    == carrier_lane.id
                 )
             ]
+
+            # ---------------------------------------------
+            # FALLBACK
+            #
+            # If carrier_lane_id has not yet been populated
+            # on older shipments, use client_lane_id.
+            # ---------------------------------------------
+            if not carrier_shipments:
+
+                carrier_shipments = [
+                    shipment
+                    for shipment in shipments
+                    if (
+                        shipment.client_lane_id
+                        == carrier_lane.client_lane_id
+                    )
+                ]
 
             carrier_completed_shipments = sum(
                 1
                 for shipment in carrier_shipments
-                if shipment.status
-                and shipment.status.lower() == "completed"
+                if (
+                    shipment.status
+                    and shipment.status.lower()
+                    == "completed"
+                )
             )
 
-            awarded_carriers.append({
-                "id": carrier_lane.carrier_id,
+            # ---------------------------------------------
+            # TEMPORARY OTIF DUMMY DATA
+            # ---------------------------------------------
+            carrier_otif = 97.0
 
+            awarded_carriers.append({
                 "name": (
                     carrier.legal_business_name
                     if carrier
                     else None
                 ),
-
+                "otif_percentage": (
+                    carrier_otif
+                ),
                 "committed_slots_per_interval": (
                     carrier_lane.slots_per_interval
                 ),
-
-                "completed_shipments": (
-                    carrier_completed_shipments
-                ),
-
-                "rate": carrier_lane.rate
+                "rate": carrier_lane.rate,
             })
 
         # ---------------------------------------------------------
         # FINAL RESPONSE
         # ---------------------------------------------------------
+
         return {
             "tender_id": tender_id,
-            "title": title,
+            "execution_status": execution_status,
             "status": contract_status,
+            "title": title,
             "term": {
                 "start_date": contract_start_date,
-                "end_date": contract_end_date
+                "end_date": contract_end_date,
             },
-            "average_shipment_rate": (
-                average_shipment_rate
-            ),
-            "awarded_carriers": len(
-                awarded_carriers
-            ),
-            "shipments_per_interval": (
-                shipments_per_interval
-            ),
-            "interval_period": (
-                interval_period
-            ),
-            "total_shipments": (
-                total_shipments
-            ),
-            "completed_shipments": (
-                completed_shipments
-            ),
-            "progress_percentage": (
-                progress_percentage
-            ),
-            "total_combined_contract_value": (
-                total_combined_contract_value
-            ),
-            "payment_terms": payment_terms,
-            "carriers": awarded_carriers
+            "shipments_per_interval": {
+                "no_of_shipments": shipments_per_interval,
+                "interval_period": interval_period,
+            },
+            "no_of_awarded_carriers": len(awarded_carriers),
+            "no_of_master_lanes": len(awarded_carriers),
+            "progress": {
+                "total_shipments": total_shipments,
+                "completed_shipments": completed_shipments,
+                "remaining_shipments_balance": remaining_shipments,
+                "progress_percentage": progress_percentage,
+            },
+            "total_value": {
+                "total_combined_contract_value": total_combined_contract_value,
+                "term": longest_contract_duration,
+            },
+            "cef_diesel_base": {
+                "fuel": fuel,
+            },
+            "target_otif": {
+                "target_otif_percentage": (
+                    target_otif_percentage
+                ),
+                "otif_period": (
+                    otif_period
+                )
+            },
+            "payment_terms": {
+                "payment_terms": payment_terms,
+                "payment_basis": payment_basis,
+            },
+            "carriers": awarded_carriers,
         }
 
     except HTTPException:
@@ -408,7 +661,9 @@ def get_client_contracts(
 
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to fetch client contracts: {str(e)}"
+            detail=(
+                f"Failed to fetch client contracts: {str(e)}"
+            )
         )
 
 @router.get("/client-shipments")

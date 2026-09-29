@@ -3,10 +3,13 @@ from __future__ import annotations
 from datetime import date
 from decimal import Decimal
 from typing import Optional
-
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
-
+from models.Exchange.dedicated_ftl_lane import Lane_Tender_RFQ
+from models.spot_bookings.dedicated_lane_ftl_shipment import Client_Lane, Lane_Stop, Lane_Vehicle_Config, Lane_Volume_Profile, Lane_Accessorial
+from models.spot_bookings.ftl_shipment import Client_Shipment, Shipment_Documents, Client_Shipment_Stop, Client_Shipment_Vehicle_Requirement
+from models.brokerage.assigned_shipments import Carrier_Shipment
+from services.brokerage.contract_management.contract_distribution import allocate_contract_shipment_slots
 import uuid
 
 

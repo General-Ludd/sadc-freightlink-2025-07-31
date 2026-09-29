@@ -395,6 +395,7 @@ class Lane_Tender_Loadboard(Base):
     # ============================================================
 
     tender_title = Column(String(255), nullable=False)
+    lane_commitment_type = Column(String(255), nullable=False)
     tender_category = Column(String(100), nullable=False)
     tender_length_category = Column(String(50), nullable=False)
     scope_description = Column(String, nullable=False)

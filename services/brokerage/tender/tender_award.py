@@ -324,6 +324,7 @@ def award_tender_bid(
         awarded_carrier_id=bid.carrier_id,
 
         lane_title=tender.tender_title,
+        lane_commitment_type=tender.lane_commitment_type,
         lane_length_category=tender.tender_length_category,
         lane_category=tender.tender_category,
         scope_description=tender.scope_description,
@@ -667,6 +668,7 @@ def award_tender_bid(
         bidder_user_id=bid.bidder_user_id,
 
         lane_title=tender.tender_title,
+        lane_commitment_type=tender.lane_commitment_type,
         lane_length_category=tender.tender_length_category,
         lane_category=tender.tender_category,
         scope_description=tender.scope_description,

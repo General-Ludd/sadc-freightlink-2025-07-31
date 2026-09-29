@@ -2,6 +2,7 @@ from datetime import date, datetime, time, timezone
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from models.Exchange.dedicated_ftl_lane import (
+    Lane_Tender_Bundle,
     Lane_Tender_RFQ,
     Lane_Tender_RFQ_Stop,
     Lane_Tender_RFQ_Vehicle_Config,
@@ -16,7 +17,7 @@ from models.brokerage.loadboard import Lane_Tender_Loadboard
 from models.brokerage.finance import FinancialAccounts
 from models.shipper import Corporation
 from utils.google_maps import AddressInput, RouteETAInput, calculate_distance, get_eta_and_polyline
-
+from uuid import uuid4
 from schemas.exchange_bookings.dedicated_ftl_lane import TenderCreate, TenderBatchCreate
 
 def calculate_tender_distance(
@@ -89,11 +90,46 @@ def calculate_tender_distance(
 
     return distance_km
 
+def create_tender_bundle(
+    db: Session,
+    shipper,
+    user_id: int
+):
+    bundle_reference = (
+        f"BND-{uuid4().hex[:12].upper()}"
+    )
+
+    bundle = Lane_Tender_Bundle(
+        client_id=shipper.id,
+        bundle_reference=bundle_reference,
+        status="Draft",
+        created_by_user_id=user_id
+    )
+
+    db.add(bundle)
+    db.flush()
+
+    return bundle
+
+
 def create_tender_and_publish(
     db: Session,
     batch_data: TenderBatchCreate,
     current_user: dict
 ):
+    assert "company_id" in current_user, \
+        "Missing company_id in current_user"
+
+    print(f"current_user: {current_user}")
+
+    company_id = current_user.get("company_id")
+    user_id = current_user.get("id")
+
+    if not company_id:
+        raise HTTPException(
+            status_code=400,
+            detail="User does not belong to a company"
+        )
     try:
 
         # ========================================================
@@ -109,26 +145,15 @@ def create_tender_and_publish(
         if len(batch_data.tenders) > 50:
             raise HTTPException(
                 status_code=400,
-                detail="A maximum of 50 tenders can be created in one batch."
+                detail=(
+                    "A maximum of 50 tenders can be "
+                    "created in one batch."
+                )
             )
 
         # ========================================================
         # 1. VALIDATE USER / SHIPPER ACCOUNT ONCE
         # ========================================================
-
-        assert "company_id" in current_user, \
-            "Missing company_id in current_user"
-
-        print(f"current_user: {current_user}")
-
-        company_id = current_user.get("company_id")
-        user_id = current_user.get("id")
-
-        if not company_id:
-            raise HTTPException(
-                status_code=400,
-                detail="User does not belong to a company"
-            )
 
         shipper = db.query(Corporation).filter(
             Corporation.id == company_id
@@ -186,25 +211,117 @@ def create_tender_and_publish(
 
         master_tender = None
 
-        for index, tender_data in enumerate(batch_data.tenders):
+        created_bundles = {}
 
-            # ----------------------------------------------------
-            # FIRST ROUTE = MASTER TENDER
-            # ----------------------------------------------------
+        # ========================================================
+        # ALWAYS PROCESS MASTER FIRST
+        # ========================================================
 
-            if index == 0:
+        ordered_tenders = [
+            master_tender_data
+        ] + [
+            tender
+            for tender in batch_data.tenders
+            if tender.client_ref
+            != master_tender_data.client_ref
+        ]
+
+        # ========================================================
+        # PROCESS TENDERS
+        # ========================================================
+
+        for index, tender_data in enumerate(ordered_tenders):
+
+            # ====================================================
+            # TENDER HIERARCHY
+            # ====================================================
+
+            if tender_data.relationship_type == "MASTER":
 
                 is_sub_tender = False
                 parent_tender_id = None
 
-            # ----------------------------------------------------
-            # ALL OTHER ROUTES = SUB-TENDERS
-            # ----------------------------------------------------
-
             else:
+
+                if master_tender is None:
+                    raise HTTPException(
+                        status_code=500,
+                        detail=(
+                            "Master tender must be created "
+                            "before child tenders."
+                        )
+                    )
 
                 is_sub_tender = True
                 parent_tender_id = master_tender.id
+
+            # ====================================================
+            # BUNDLE CONTEXT
+            # ====================================================
+
+            current_bundle_id = None
+            current_bundle_reference = None
+            current_bundle_trip_sequence = None
+            current_bundle_role = None
+
+            if (
+                tender_data.relationship_type
+                == "BUNDLE_STAGE"
+            ):
+
+                bundle_assignment = (
+                    bundle_stage_assignments.get(
+                        tender_data.client_ref
+                    )
+                )
+
+                if bundle_assignment is None:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=(
+                            f"Tender "
+                            f"{tender_data.client_ref} "
+                            "is declared as BUNDLE_STAGE "
+                            "but has no bundle assignment."
+                        )
+                    )
+
+                client_bundle_ref = (
+                    bundle_assignment[
+                        "client_bundle_ref"
+                    ]
+                )
+
+                bundle = created_bundles.get(
+                    client_bundle_ref
+                )
+
+                if bundle is None:
+                    raise HTTPException(
+                        status_code=500,
+                        detail=(
+                            f"Bundle "
+                            f"{client_bundle_ref} "
+                            "has not been created."
+                        )
+                    )
+
+                current_bundle_id = bundle.id
+                current_bundle_reference = (
+                    bundle.bundle_reference
+                )
+
+                current_bundle_trip_sequence = (
+                    bundle_assignment[
+                        "stage_sequence"
+                    ]
+                )
+
+                current_bundle_role = (
+                    bundle_assignment[
+                        "stage_role"
+                    ]
+                )
 
             # ====================================================
             # 3. VALIDATE CONTRACT DATES
@@ -218,6 +335,62 @@ def create_tender_and_publish(
                         "Contract end date cannot be before the contract start date."
                     )
                 )
+
+        # ========================================================
+        # 1A. PREPARE TENDER / BUNDLE RELATIONSHIPS
+        # ========================================================
+
+        # --------------------------------------------------------
+        # TENDER LOOKUP
+        # --------------------------------------------------------
+
+        tender_lookup = {
+            tender.client_ref: tender
+            for tender in batch_data.tenders
+        }
+
+        # --------------------------------------------------------
+        # FIND EXPLICIT MASTER
+        # --------------------------------------------------------
+
+        master_tender_data = next(
+            (
+                tender
+                for tender in batch_data.tenders
+                if tender.relationship_type == "MASTER"
+            ),
+            None
+        )
+
+        if master_tender_data is None:
+            raise HTTPException(
+                status_code=400,
+                detail="No MASTER tender was provided."
+            )
+
+        # --------------------------------------------------------
+        # MAP EACH BUNDLE STAGE TO ITS BUNDLE
+        # --------------------------------------------------------
+
+        bundle_stage_assignments = {}
+
+        for bundle_data in batch_data.bundles:
+
+            for stage_data in bundle_data.stages:
+
+                bundle_stage_assignments[
+                    stage_data.tender_ref
+                ] = {
+                    "client_bundle_ref": (
+                        bundle_data.client_bundle_ref
+                    ),
+                    "stage_sequence": (
+                        stage_data.stage_sequence
+                    ),
+                    "stage_role": (
+                        stage_data.stage_role
+                    )
+                }
 
             # ====================================================
             # 4. NORMALIZE TENDER CLOSING DATE
@@ -499,8 +672,15 @@ def create_tender_and_publish(
                 is_sub_tender=is_sub_tender,
                 parent_tender_id=parent_tender_id,
 
+                # BUNDLE
+                bundle_id=current_bundle_id,
+                bundle_reference=current_bundle_reference,
+                bundle_trip_sequence=current_bundle_trip_sequence,
+                bundle_role=current_bundle_role,
+
                 # BASIC
                 tender_title=tender_data.tender_title,
+                lane_commitment_type=tender_data.lane_commitment_type,
                 scope_description=tender_data.scope_description,
                 business_unit=tender_data.business_unit,
                 cost_centre_project_code=(
@@ -755,9 +935,29 @@ def create_tender_and_publish(
             db.add(tender)
             db.flush()
 
-            # First tender becomes master
-            if index == 0:
+            # ====================================================
+            # MASTER TENDER INITIALIZATION
+            # ====================================================
+
+            if tender_data.relationship_type == "MASTER":
+
                 master_tender = tender
+
+                # ================================================
+                # CREATE EXPLICIT BUNDLES
+                # ================================================
+
+                for bundle_data in batch_data.bundles:
+
+                    bundle = create_tender_bundle(
+                        db=db,
+                        shipper=shipper,
+                        user_id=user_id
+                    )
+
+                    created_bundles[
+                        bundle_data.client_bundle_ref
+                    ] = bundle
 
             # ====================================================
             # 17. CREATE ORIGIN STOP
@@ -952,49 +1152,49 @@ def create_tender_and_publish(
 
                 db.add(turnaround_protocol)
 
-                # ====================================================
-                # 22. CREATE CARRIER CERTIFICATIONS / DRIVER STANDARDS
-                # ====================================================
+            # ====================================================
+            # 22. CREATE CARRIER CERTIFICATIONS / DRIVER STANDARDS
+            # ====================================================
 
-                for certification_data in (
-                    tender_data.carrier_certification_driver_standards
-                ):
+            for certification_data in (
+                tender_data.carrier_certification_driver_standards
+            ):
 
-                    certification = Carrier_Certification_Driver_Standards(
-                        tender_id=tender.id,
-                        certification_name=(
-                            certification_data.certification_name
-                        ),
-                        driver_qualification_security_directives=(
-                            certification_data
-                            .driver_qualification_security_directives
-                        ),
-                        is_required=True
+                certification = Carrier_Certification_Driver_Standards(
+                    tender_id=tender.id,
+                    certification_name=(
+                        certification_data.certification_name
+                    ),
+                    driver_qualification_security_directives=(
+                        certification_data
+                        .driver_qualification_security_directives
+                    ),
+                    is_required=True
+                )
+
+                db.add(certification)
+
+            # ====================================================
+            # 23. CREATE ESCORT POLICY
+            # ====================================================
+
+            if tender_data.escort_policy is not None:
+
+                escort_policy = Escort_Policy(
+                    tender_id=tender.id,
+                    armed_escort_required=(
+                        tender_data
+                        .escort_policy
+                        .armed_escort_required
+                    ),
+                    escort_expense_responsible_party=(
+                        tender_data
+                        .escort_policy
+                        .escort_expense_responsible_party
                     )
+                )
 
-                    db.add(certification)
-
-                # ====================================================
-                # 23. CREATE ESCORT POLICY
-                # ====================================================
-
-                if tender_data.escort_policy is not None:
-
-                    escort_policy = Escort_Policy(
-                        tender_id=tender.id,
-                        armed_escort_required=(
-                            tender_data
-                            .escort_policy
-                            .armed_escort_required
-                        ),
-                        escort_expense_responsible_party=(
-                            tender_data
-                            .escort_policy
-                            .escort_expense_responsible_party
-                        )
-                    )
-
-                    db.add(escort_policy)
+                db.add(escort_policy)
 
             # ====================================================
             # 24. CREATE SLA / INCIDENT REPORTING POLICY
@@ -1105,6 +1305,7 @@ def create_tender_and_publish(
                 questions_deadline=tender.questions_deadline,
 
                 tender_title=tender.tender_title,
+                lane_commitment_type=tender_data.lane_commitment_type,
                 tender_category=tender.tender_category,
                 tender_length_category=(
                     tender.tender_length_category
@@ -1344,9 +1545,11 @@ def create_tender_and_publish(
             # ====================================================
 
             created_tenders.append({
+                "tender_data": tender_data,
                 "tender": tender,
                 "loadboard": loadboard
             })
+   
 
         # ========================================================
         # 31. ONE COMMIT FOR ENTIRE BATCH
@@ -1368,21 +1571,93 @@ def create_tender_and_publish(
 
         return {
             "success": True,
+
             "message": (
                 "Tender created successfully."
                 if len(created_tenders) == 1
                 else "Tender batch created successfully."
             ),
+
             "master_tender_id": master_tender.id,
-            "tender_count": len(created_tenders),
-            "tenders": [
+
+            "tender_count": len(
+                created_tenders
+            ),
+
+            "bundle_count": len(
+                created_bundles
+            ),
+
+            "bundles": [
                 {
-                    "tender_id": item["tender"].id,
-                    "loadboard_id": item["loadboard"].id,
-                    "is_sub_tender": item["tender"].is_sub_tender,
-                    "parent_tender_id": item["tender"].parent_tender_id,
-                    "status": item["tender"].status
+                    "client_bundle_ref": (
+                        bundle_ref
+                    ),
+                    "bundle_id": bundle.id,
+                    "bundle_reference": (
+                        bundle.bundle_reference
+                    )
                 }
+                for bundle_ref, bundle
+                in created_bundles.items()
+            ],
+
+            "tenders": [
+
+                {
+                    "client_ref": (
+                        item["tender_data"].client_ref
+                    ),
+
+                    "relationship_type": (
+                        item["tender_data"]
+                        .relationship_type
+                    ),
+
+                    "tender_id": (
+                        item["tender"].id
+                    ),
+
+                    "loadboard_id": (
+                        item["loadboard"].id
+                    ),
+
+                    "is_sub_tender": (
+                        item["tender"]
+                        .is_sub_tender
+                    ),
+
+                    "parent_tender_id": (
+                        item["tender"]
+                        .parent_tender_id
+                    ),
+
+                    "bundle_id": (
+                        item["tender"]
+                        .bundle_id
+                    ),
+
+                    "bundle_reference": (
+                        item["tender"]
+                        .bundle_reference
+                    ),
+
+                    "bundle_trip_sequence": (
+                        item["tender"]
+                        .bundle_trip_sequence
+                    ),
+
+                    "bundle_role": (
+                        item["tender"]
+                        .bundle_role
+                    ),
+
+                    "status": (
+                        item["tender"]
+                        .status
+                    )
+                }
+
                 for item in created_tenders
             ]
         }

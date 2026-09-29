@@ -90,6 +90,20 @@ class FTL_Lane_Exchange(Base):
 from sqlalchemy import Column, Integer, String, Text, Boolean, Date, DateTime, Float, Numeric, ForeignKey
 from sqlalchemy.orm import relationship
 
+class Lane_Tender_Bundle(Base):
+
+    __tablename__ = "ftl_lane_tender_bundles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    client_id = Column(Integer, nullable=False)
+    master_tender_id = Column(Integer, ForeignKey("ftl_lane_tenders.id"), nullable=False, index=True)
+    bundle_reference = Column(String(100), nullable=False, unique=True, index=True)
+    bundle_type = Column(String(30), nullable=True)
+    award_scope = Column(String(20), nullable=True)
+    stage_count = Column(Integer, nullable=True)
+    status = Column(String(30), nullable=False, default="Tendering")
+    created_by_user_id = Column(Integer, nullable=False)
+
 class Lane_Tender_RFQ(Base):
 
     __tablename__ = "ftl_lane_tenders"
@@ -105,10 +119,20 @@ class Lane_Tender_RFQ(Base):
     parent_tender_id = Column(Integer, ForeignKey("ftl_lane_tenders.id"), nullable=True)
 
     # ============================================================
+    # TENDER BUNDLE
+    # ============================================================
+    bundle_reference = Column(String(100), nullable=True, index=True)
+    bundle_role = Column(String(20), nullable=True)
+    bundle_stage_sequence = Column(Integer, nullable=True)
+    bundle_id = Column(Integer, ForeignKey("ftl_lane_tender_bundles.id"), nullable=True, index=True)
+    bundle_trip_sequence = Column(Integer, nullable=True)
+    
+    # ============================================================
     # SECTION 1 — TENDER SCOPE & ROUTING INFORMATION
     # ============================================================
 
     tender_title = Column(String(255), nullable=False)
+    lane_commitment_type = Column(String, nullable=False) ## Contract / Ad-hoc
     scope_description = Column(Text, nullable=False)
     business_unit = Column(String(100), nullable=False)
     cost_centre_project_code = Column(String(100), nullable=False)
