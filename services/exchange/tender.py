@@ -20,6 +20,7 @@ from utils.google_maps import AddressInput, RouteETAInput, calculate_distance, g
 from uuid import uuid4
 from schemas.exchange_bookings.dedicated_ftl_lane import TenderCreate, TenderBatchCreate
 
+
 def calculate_tender_distance(
     origin_address: str,
     destination_address: str,
@@ -90,6 +91,7 @@ def calculate_tender_distance(
 
     return distance_km
 
+
 def create_tender_bundle(
     db: Session,
     shipper,
@@ -119,8 +121,6 @@ def create_tender_and_publish(
 ):
     assert "company_id" in current_user, \
         "Missing company_id in current_user"
-
-    print(f"current_user: {current_user}")
 
     company_id = current_user.get("company_id")
     user_id = current_user.get("id")
@@ -207,24 +207,16 @@ def create_tender_and_publish(
         # 2. PREPARE TENDER / BUNDLE RELATIONSHIPS
         # ========================================================
 
-        # --------------------------------------------------------
-        # TENDER LOOKUP
-        # --------------------------------------------------------
-
         tender_lookup = {
             tender.client_ref: tender
             for tender in batch_data.tenders
         }
 
-        # --------------------------------------------------------
-        # FIND EXPLICIT MASTER TENDER
-        # --------------------------------------------------------
-
         master_tender_data = next(
             (
                 tender
                 for tender in batch_data.tenders
-                if tender.relationship_type == "Master"
+                if tender.relationship_type.upper() == "MASTER"
             ),
             None
         )
@@ -232,156 +224,34 @@ def create_tender_and_publish(
         if master_tender_data is None:
             raise HTTPException(
                 status_code=400,
-                detail="A tender batch must contain one Master tender."
+                detail="A tender batch must contain exactly one Master tender."
             )
 
-        # --------------------------------------------------------
-        # MAP BUNDLE STAGES
-        # --------------------------------------------------------
-
         bundle_stage_assignments = {}
-
         for bundle_data in batch_data.bundles:
-
             for stage_data in bundle_data.stages:
-
                 tender_ref = stage_data.tender_ref
-
                 if tender_ref not in tender_lookup:
                     raise HTTPException(
                         status_code=400,
                         detail=(
-                            f"Bundle "
-                            f"{bundle_data.client_bundle_ref}: "
-                            f"Tender reference '{tender_ref}' "
-                            "does not exist in the batch."
+                            f"Bundle {bundle_data.client_bundle_ref}: "
+                            f"Tender reference '{tender_ref}' does not exist in the batch."
                         )
                     )
-
                 if tender_ref in bundle_stage_assignments:
+                    existing_bundle = bundle_stage_assignments[tender_ref]["client_bundle_ref"]
                     raise HTTPException(
                         status_code=400,
                         detail=(
-                            f"Tender {tender_ref} "
-                            "has been assigned to more than one bundle."
+                            f"Tender {tender_ref} is already assigned to bundle {existing_bundle} "
+                            f"and cannot also belong to bundle {bundle_data.client_bundle_ref}."
                         )
                     )
-
                 bundle_stage_assignments[tender_ref] = {
-                    "client_bundle_ref": (
-                        bundle_data.client_bundle_ref
-                    ),
-                    "stage_sequence": (
-                        stage_data.stage_sequence
-                    ),
-                    "stage_role": (
-                        stage_data.stage_role
-                    )
-                }
-
-        # ========================================================
-        # 2. PREPARE TENDER / BUNDLE RELATIONSHIPS
-        # ========================================================
-
-        # --------------------------------------------------------
-        # TENDER LOOKUP
-        # --------------------------------------------------------
-
-        tender_lookup = {
-            tender.client_ref: tender
-            for tender in batch_data.tenders
-        }
-
-        # --------------------------------------------------------
-        # FIND THE MASTER TENDER
-        # --------------------------------------------------------
-
-        master_tender_data = next(
-            (
-                tender
-                for tender in batch_data.tenders
-                if tender.relationship_type == "Master"
-            ),
-            None
-        )
-
-        if master_tender_data is None:
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    "A tender batch must contain "
-                    "exactly one Master tender."
-                )
-            )
-
-        # --------------------------------------------------------
-        # MAP BUNDLE STAGES
-        # --------------------------------------------------------
-
-        bundle_stage_assignments = {}
-
-        for bundle_data in batch_data.bundles:
-
-            for stage_data in bundle_data.stages:
-
-                tender_ref = stage_data.tender_ref
-
-                # ----------------------------------------------
-                # REFERENCED TENDER MUST EXIST
-                # ----------------------------------------------
-
-                if tender_ref not in tender_lookup:
-
-                    raise HTTPException(
-                        status_code=400,
-                        detail=(
-                            f"Bundle "
-                            f"{bundle_data.client_bundle_ref}: "
-                            f"Tender reference "
-                            f"'{tender_ref}' does not exist "
-                            "in the batch."
-                        )
-                    )
-
-                # ----------------------------------------------
-                # TENDER CANNOT BELONG TO TWO BUNDLES
-                # ----------------------------------------------
-
-                if tender_ref in bundle_stage_assignments:
-
-                    existing_bundle = (
-                        bundle_stage_assignments[
-                            tender_ref
-                        ]["client_bundle_ref"]
-                    )
-
-                    raise HTTPException(
-                        status_code=400,
-                        detail=(
-                            f"Tender {tender_ref} is already "
-                            f"assigned to bundle "
-                            f"{existing_bundle} and cannot "
-                            f"also belong to bundle "
-                            f"{bundle_data.client_bundle_ref}."
-                        )
-                    )
-
-                # ----------------------------------------------
-                # STORE BUNDLE RELATIONSHIP
-                # ----------------------------------------------
-
-                bundle_stage_assignments[
-                    tender_ref
-                ] = {
-                    "client_bundle_ref": (
-                        bundle_data.client_bundle_ref
-                    ),
-                    "stage_sequence": (
-                        stage_data.stage_sequence
-                    ),
-                    "stage_role": (
-                        stage_data.stage_role
-                    )
+                    "client_bundle_ref": bundle_data.client_bundle_ref,
+                    "stage_sequence": stage_data.stage_sequence,
+                    "stage_role": stage_data.stage_role
                 }
 
         # ========================================================
@@ -389,400 +259,136 @@ def create_tender_and_publish(
         # ========================================================
 
         created_tenders = []
-
         master_tender = None
-
         master_tender_id = None
-
         created_bundles = {}
-
-        # --------------------------------------------------------
-        # MASTER IS ALWAYS PROCESSED FIRST
-        # --------------------------------------------------------
 
         ordered_tenders = [
             master_tender_data
         ] + [
             tender
             for tender in batch_data.tenders
-            if tender.client_ref
-            != master_tender_data.client_ref
+            if tender.client_ref != master_tender_data.client_ref
         ]
 
-        print(
-            "TENDER PROCESSING ORDER:",
-            [
-                {
-                    "client_ref": tender.client_ref,
-                    "relationship_type": (
-                        tender.relationship_type
-                    )
-                }
-                for tender in ordered_tenders
-            ]
-        )
-
-        print(
-            "EXPECTED MASTER:",
-            {
-                "client_ref": master_tender_data.client_ref,
-                "relationship_type": (
-                    master_tender_data.relationship_type
-                )
-            }
-        )
-
-        # ========================================================
-        # PROCESS TENDERS
-        # ========================================================
-
-        for index, tender_data in enumerate(
-            ordered_tenders
-        ):
-            print(
-                "PROCESSING TENDER:",
-                index,
-                tender_data.client_ref,
-                tender_data.relationship_type
-            )
-
-            print(
-                "MASTER DB OBJECT:",
-                (
-                    None
-                    if master_tender is None
-                    else master_tender.id
-                )
-            )
-
-            # ====================================================
-            # TENDER HIERARCHY
-            # ====================================================
-
-            is_master_tender = (
-                tender_data.client_ref
-                == master_tender_data.client_ref
-            )
+        for index, tender_data in enumerate(ordered_tenders):
+            is_master_tender = (tender_data.client_ref == master_tender_data.client_ref)
 
             if is_master_tender:
-
                 is_sub_tender = False
                 parent_tender_id = None
-
             else:
-
-                # The master is intentionally processed first.
-                # If this is a child and the database master has
-                # not been created yet, this is a server-side
-                # sequencing error.
-
                 if master_tender_id is None:
                     raise HTTPException(
                         status_code=500,
                         detail=(
-                            f"Tender ordering failure: "
-                            f"'{tender_data.client_ref}' was processed before "
-                            f"the database master tender "
-                            f"'{master_tender_data.client_ref}'."
+                            f"Tender ordering failure: '{tender_data.client_ref}' was processed before "
+                            f"the database master tender '{master_tender_data.client_ref}'."
                         )
                     )
-
                 is_sub_tender = True
                 parent_tender_id = master_tender_id
-
-            # ====================================================
-            # BUNDLE CONTEXT
-            # ====================================================
 
             current_bundle_id = None
             current_bundle_reference = None
             current_bundle_trip_sequence = None
             current_bundle_role = None
 
-            # ----------------------------------------------------
-            # ROUND-TRIP / MULTI-STAGE
-            # ----------------------------------------------------
-
-            if tender_data.relationship_type in (
-                "Round-Trip",
-                "Multi-Stage"
-            ):
-
-                bundle_assignment = (
-                    bundle_stage_assignments.get(
-                        tender_data.client_ref
-                    )
-                )
-
+            if tender_data.relationship_type.upper() == "BUNDLE_STAGE":
+                bundle_assignment = bundle_stage_assignments.get(tender_data.client_ref)
                 if bundle_assignment is None:
-
                     raise HTTPException(
                         status_code=400,
                         detail=(
-                            f"Tender "
-                            f"{tender_data.client_ref} "
-                            f"is marked as "
-                            f"{tender_data.relationship_type} "
-                            "but is not assigned to a bundle."
+                            f"Tender {tender_data.client_ref} is marked as "
+                            f"{tender_data.relationship_type} but is not assigned to a bundle."
                         )
                     )
-
-                client_bundle_ref = (
-                    bundle_assignment[
-                        "client_bundle_ref"
-                    ]
-                )
-
-                bundle = created_bundles.get(
-                    client_bundle_ref
-                )
-
+                client_bundle_ref = bundle_assignment["client_bundle_ref"]
+                bundle = created_bundles.get(client_bundle_ref)
                 if bundle is None:
-
                     raise HTTPException(
                         status_code=500,
-                        detail=(
-                            f"Bundle "
-                            f"{client_bundle_ref} "
-                            "has not been created."
-                        )
+                        detail=f"Bundle {client_bundle_ref} has not been created."
                     )
-
                 current_bundle_id = bundle.id
-
-                current_bundle_reference = (
-                    bundle.bundle_reference
-                )
-
-                current_bundle_trip_sequence = (
-                    bundle_assignment[
-                        "stage_sequence"
-                    ]
-                )
-
-                current_bundle_role = (
-                    bundle_assignment[
-                        "stage_role"
-                    ]
-                )
-
-            # ====================================================
-            # 4. VALIDATE CONTRACT DATES
-            # ====================================================
+                current_bundle_reference = bundle.bundle_reference
+                current_bundle_trip_sequence = bundle_assignment["stage_sequence"]
+                current_bundle_role = bundle_assignment["stage_role"]
 
             if tender_data.contract_end_date < tender_data.contract_start_date:
                 raise HTTPException(
                     status_code=400,
                     detail=(
-                        f"Tender {index + 1}: "
-                        "Contract end date cannot be before the contract start date."
+                        f"Tender {index + 1}: Contract end date cannot be before the contract start date."
                     )
                 )
-
-        # ========================================================
-        # 1A. PREPARE TENDER / BUNDLE RELATIONSHIPS
-        # ========================================================
-
-        # --------------------------------------------------------
-        # TENDER LOOKUP
-        # --------------------------------------------------------
-
-        tender_lookup = {
-            tender.client_ref: tender
-            for tender in batch_data.tenders
-        }
-
-        # --------------------------------------------------------
-        # FIND EXPLICIT MASTER
-        # --------------------------------------------------------
-
-        master_tender_data = next(
-            (
-                tender
-                for tender in batch_data.tenders
-                if tender.relationship_type == "MASTER"
-            ),
-            None
-        )
-
-        if master_tender_data is None:
-            raise HTTPException(
-                status_code=400,
-                detail="No MASTER tender was provided."
-            )
-
-        # --------------------------------------------------------
-        # MAP EACH BUNDLE STAGE TO ITS BUNDLE
-        # --------------------------------------------------------
-
-        bundle_stage_assignments = {}
-
-        for bundle_data in batch_data.bundles:
-
-            for stage_data in bundle_data.stages:
-
-                bundle_stage_assignments[
-                    stage_data.tender_ref
-                ] = {
-                    "client_bundle_ref": (
-                        bundle_data.client_bundle_ref
-                    ),
-                    "stage_sequence": (
-                        stage_data.stage_sequence
-                    ),
-                    "stage_role": (
-                        stage_data.stage_role
-                    )
-                }
-
-            # ====================================================
-            # 4. NORMALIZE TENDER CLOSING DATE
-            # ====================================================
 
             tender_closing_date = tender_data.tender_closing_date
-
             if tender_closing_date.tzinfo is None:
-                tender_closing_date = tender_closing_date.replace(
-                    tzinfo=timezone.utc
-                )
+                tender_closing_date = tender_closing_date.replace(tzinfo=timezone.utc)
             else:
-                tender_closing_date = tender_closing_date.astimezone(
-                    timezone.utc
-                )
-
-            # ====================================================
-            # 5. VALIDATE TENDER CLOSING DATE
-            # ====================================================
+                tender_closing_date = tender_closing_date.astimezone(timezone.utc)
 
             contract_start_datetime = datetime.combine(
                 tender_data.contract_start_date,
                 time.min,
                 tzinfo=timezone.utc
             )
-
             if tender_closing_date >= contract_start_datetime:
                 raise HTTPException(
                     status_code=400,
                     detail=(
-                        f"Tender {index + 1}: "
-                        "Tender closing date must be before "
-                        "the contract start date."
+                        f"Tender {index + 1}: Tender closing date must be before the contract start date."
                     )
                 )
 
-            # ====================================================
-            # 6. NORMALIZE QUESTIONS DEADLINE
-            # ====================================================
-
             questions_deadline = tender_data.questions_deadline
-
             if questions_deadline is not None:
-
                 if questions_deadline.tzinfo is None:
-                    questions_deadline = questions_deadline.replace(
-                        tzinfo=timezone.utc
-                    )
+                    questions_deadline = questions_deadline.replace(tzinfo=timezone.utc)
                 else:
-                    questions_deadline = questions_deadline.astimezone(
-                        timezone.utc
-                    )
-
+                    questions_deadline = questions_deadline.astimezone(timezone.utc)
                 if questions_deadline >= tender_closing_date:
                     raise HTTPException(
                         status_code=400,
                         detail=(
-                            f"Tender {index + 1}: "
-                            "Questions deadline must be before "
-                            "the tender closing date."
+                            f"Tender {index + 1}: Questions deadline must be before the tender closing date."
                         )
                     )
 
-            # ====================================================
-            # 7. VALIDATE VOLUME PROFILES
-            # ====================================================
-
             for profile in tender_data.volume_profiles:
-
-                if (
-                    profile.period_start_date
-                    and profile.period_end_date
-                ):
-
+                if profile.period_start_date and profile.period_end_date:
                     if profile.period_end_date < profile.period_start_date:
-
                         raise HTTPException(
                             status_code=400,
                             detail=(
-                                f"Tender {index + 1}: "
-                                f"Volume profile period "
-                                f"{profile.period_sequence} "
+                                f"Tender {index + 1}: Volume profile period {profile.period_sequence} "
                                 "has an invalid date range."
                             )
                         )
 
-            # ====================================================
-            # 8. CALCULATE TOTAL EXPECTED LOADS
-            # ====================================================
-
             total_expected_loads = sum(
-                profile.expected_loads
-                for profile in tender_data.volume_profiles
+                profile.expected_loads for profile in tender_data.volume_profiles
             )
-
-            # ====================================================
-            # 9. CALCULATE PROCUREMENT TARGET CONTRACT RATE
-            # ====================================================
-
             procurement_target_contract_rate = (
-                tender_data.procurement_target_rate
-                * total_expected_loads
+                tender_data.procurement_target_rate * total_expected_loads
             )
 
-            # ====================================================
-            # 10. VALIDATE STOP SEQUENCES
-            # ====================================================
-
-            sorted_stops = sorted(
-                tender_data.stops,
-                key=lambda s: s.stop_sequence
-            )
-
-            stop_sequences = [
-                stop.stop_sequence
-                for stop in sorted_stops
-            ]
-
-            expected_sequences = list(
-                range(1, len(sorted_stops) + 1)
-            )
-
+            sorted_stops = sorted(tender_data.stops, key=lambda s: s.stop_sequence)
+            stop_sequences = [stop.stop_sequence for stop in sorted_stops]
+            expected_sequences = list(range(1, len(sorted_stops) + 1))
             if stop_sequences != expected_sequences:
-
                 raise HTTPException(
                     status_code=400,
                     detail=(
-                        f"Tender {index + 1}: "
-                        "Tender intermediate stop sequences "
+                        f"Tender {index + 1}: Tender intermediate stop sequences "
                         "must be consecutive starting from 1."
                     )
                 )
 
-            # ====================================================
-            # 11. BUILD GOOGLE MAPS WAYPOINTS
-            # ====================================================
-
-            waypoints = [
-                stop.address.strip()
-                for stop in sorted_stops
-                if stop.address and stop.address.strip()
-            ]
-
-            # ====================================================
-            # 12. CALCULATE COMPLETE ROUTE
-            # ====================================================
-
+            waypoints = [stop.address.strip() for stop in sorted_stops if stop.address and stop.address.strip()]
             try:
-
                 distance_data = calculate_distance(
                     AddressInput(
                         origin_address=tender_data.origin.address,
@@ -790,436 +396,149 @@ def create_tender_and_publish(
                         waypoints=waypoints
                     )
                 )
-
             except HTTPException as e:
-
                 raise HTTPException(
                     status_code=500,
-                    detail=(
-                        f"Tender {index + 1}: "
-                        f"Google Maps routing calculation failed: "
-                        f"{e.detail}"
-                    )
+                    detail=f"Tender {index + 1}: Google Maps routing calculation failed: {e.detail}"
                 )
 
             if not isinstance(distance_data, dict):
-
                 raise HTTPException(
                     status_code=500,
-                    detail=(
-                        f"Tender {index + 1}: "
-                        "Google Maps routing calculation "
-                        "returned an invalid response."
-                    )
+                    detail=f"Tender {index + 1}: Google Maps routing calculation returned an invalid response."
                 )
 
             distance_km = distance_data.get("distance")
-
-            estimated_transit_time = distance_data.get(
-                "duration"
-            )
-
-            route_preview_embed = distance_data.get(
-                "google_maps_embed_url"
-            )
-
             if distance_km is None:
-
                 raise HTTPException(
                     status_code=400,
-                    detail=(
-                        f"Tender {index + 1}: "
-                        "Google Maps did not return a valid route distance."
-                    )
+                    detail=f"Tender {index + 1}: Google Maps did not return a valid route distance."
                 )
 
-            # ====================================================
-            # 13. EXTRACT ORIGIN GEO INFORMATION
-            # ====================================================
-
-            complete_origin_address = distance_data.get(
-                "complete_origin_address",
-                tender_data.origin.address
-            )
-
-            origin_city_province = distance_data.get(
-                "origin_city_province"
-            )
-
-            origin_country = distance_data.get(
-                "origin_country"
-            )
-
-            origin_region = distance_data.get(
-                "origin_region"
-            )
-
-            # ====================================================
-            # 14. EXTRACT DESTINATION GEO INFORMATION
-            # ====================================================
-
-            complete_destination_address = distance_data.get(
-                "complete_destination_address",
-                tender_data.destination.address
-            )
-
-            destination_city_province = distance_data.get(
-                "destination_city_province"
-            )
-
-            destination_country = distance_data.get(
-                "destination_country"
-            )
-
-            destination_region = distance_data.get(
-                "destination_region"
-            )
-
-            # ====================================================
-            # 15. EXTRACT INTERMEDIATE STOP GEO INFORMATION
-            # ====================================================
+            complete_origin_address = distance_data.get("complete_origin_address", tender_data.origin.address)
+            origin_city_province = distance_data.get("origin_city_province")
+            origin_country = distance_data.get("origin_country")
+            origin_region = distance_data.get("origin_region")
+            complete_destination_address = distance_data.get("complete_destination_address", tender_data.destination.address)
+            destination_city_province = distance_data.get("destination_city_province")
+            destination_country = distance_data.get("destination_country")
+            destination_region = distance_data.get("destination_region")
 
             calculated_stops = []
-
-            for stop_index, stop_data in enumerate(
-                sorted_stops,
-                start=1
-            ):
-
+            for stop_index, stop_data in enumerate(sorted_stops, start=1):
                 calculated_stops.append({
-                    "complete_address": distance_data.get(
-                        f"complete_stop_{stop_index}_address",
-                        stop_data.address
-                    ),
-                    "city_province": distance_data.get(
-                        f"stop_{stop_index}_city_province"
-                    ),
-                    "country": distance_data.get(
-                        f"stop_{stop_index}_country"
-                    ),
-                    "region": distance_data.get(
-                        f"stop_{stop_index}_region"
-                    ),
+                    "complete_address": distance_data.get(f"complete_stop_{stop_index}_address", stop_data.address),
+                    "city_province": distance_data.get(f"stop_{stop_index}_city_province"),
+                    "country": distance_data.get(f"stop_{stop_index}_country"),
+                    "region": distance_data.get(f"stop_{stop_index}_region"),
                 })
 
-            # ====================================================
-            # 16. CREATE TENDER
-            # ====================================================
-
             tender = Lane_Tender_RFQ(
-
                 client_id=shipper.id,
                 publisher_user_id=user_id,
-
-                # HIERARCHY
                 is_sub_tender=is_sub_tender,
                 parent_tender_id=parent_tender_id,
-
-                # BUNDLE
                 bundle_id=current_bundle_id,
                 bundle_reference=current_bundle_reference,
                 bundle_trip_sequence=current_bundle_trip_sequence,
                 bundle_role=current_bundle_role,
-
-                # BASIC
                 tender_title=tender_data.tender_title,
                 lane_commitment_type=tender_data.lane_commitment_type,
                 scope_description=tender_data.scope_description,
                 business_unit=tender_data.business_unit,
-                cost_centre_project_code=(
-                    tender_data.cost_centre_project_code
-                ),
-                tender_length_category=(
-                    tender_data.tender_length_category
-                ),
+                cost_centre_project_code=tender_data.cost_centre_project_code,
+                tender_length_category=tender_data.tender_length_category,
                 tender_category=tender_data.tender_category,
-
-                # CONTRACT
-                contract_start_date=(
-                    tender_data.contract_start_date
-                ),
-                contract_end_date=(
-                    tender_data.contract_end_date
-                ),
-
-                # ROUTING
-                border_customs_responsibility=(
-                    tender_data.border_customs_responsibility
-                ),
-
-                estimated_distance_km=(
-                    tender_data.estimated_distance_km
-                    or distance_km
-                ),
-
+                contract_start_date=tender_data.contract_start_date,
+                contract_end_date=tender_data.contract_end_date,
+                border_customs_responsibility=tender_data.border_customs_responsibility,
+                estimated_distance_km=tender_data.estimated_distance_km or distance_km,
                 actual_distance_km=distance_km,
-
                 polyline=distance_data.get("polyline"),
-
                 priority_level=tender_data.priority_level,
                 load_type=tender_data.load_type,
-
-                # IMPORTANT
                 trip_type=tender_data.trip_type,
-
-                customer_reference=(
-                    tender_data.customer_reference
-                ),
-
-                # CARGO
+                customer_reference=tender_data.customer_reference,
                 commodity=tender_data.commodity,
-                average_shipment_weight_kg=(
-                    tender_data.average_shipment_weight_kg
-                ),
-                minimum_weight_bracket_kg=(
-                    tender_data.minimum_weight_bracket_kg
-                ),
+                average_shipment_weight_kg=tender_data.average_shipment_weight_kg,
+                minimum_weight_bracket_kg=tender_data.minimum_weight_bracket_kg,
                 packaging_type=tender_data.packaging_type,
                 packaging_quantity=tender_data.packaging_quantity,
                 temperature_control=tender_data.temperature_control,
-                target_temperature_spec=(
-                    tender_data.target_temperature_spec
-                ),
-                hazardous_materials=(
-                    tender_data.hazardous_materials
-                ),
-                hazchem_classification=(
-                    tender_data.hazchem_classification
-                ),
+                target_temperature_spec=tender_data.target_temperature_spec,
+                hazardous_materials=tender_data.hazardous_materials,
+                hazchem_classification=tender_data.hazchem_classification,
                 under_bond=tender_data.under_bond,
                 rib_requirements=tender_data.rib_requirements,
-
-                minimum_git_cover_amount=(
-                    tender_data.minimum_git_cover_amount
-                ),
-
-                minimum_liability_cover_amount=(
-                    tender_data.minimum_liability_cover_amount
-                ),
-
-                # VOLUME
-                volume_entry_method=(
-                    tender_data.volume_entry_method
-                ),
-                volume_commitment=(
-                    tender_data.volume_commitment
-                ),
-
-                # PRICING
+                minimum_git_cover_amount=tender_data.minimum_git_cover_amount,
+                minimum_liability_cover_amount=tender_data.minimum_liability_cover_amount,
+                volume_entry_method=tender_data.volume_entry_method,
+                volume_commitment=tender_data.volume_commitment,
                 pricing_basis=tender_data.pricing_basis,
-
-                incumbent_transport_rate_per_shipment=(
-                    tender_data.incumbent_transport_rate_per_shipment
-                ),
-
-                incumbent_contract_rate=(
-                    tender_data.incumbent_contract_rate
-                ),
-
-                procurement_target_rate=(
-                    tender_data.procurement_target_rate
-                ),
-
-                procurement_target_contract_rate=(
-                    procurement_target_contract_rate
-                ),
-
+                incumbent_transport_rate_per_shipment=tender_data.incumbent_transport_rate_per_shipment,
+                incumbent_contract_rate=tender_data.incumbent_contract_rate,
+                procurement_target_rate=tender_data.procurement_target_rate,
+                procurement_target_contract_rate=procurement_target_contract_rate,
                 rate_direction=tender_data.rate_direction,
-
-                # RATE INCLUSIONS
-                rate_includes_fuel=(
-                    tender_data.rate_includes_fuel
-                ),
-                rate_includes_driver=(
-                    tender_data.rate_includes_driver
-                ),
-                rate_includes_maintenance=(
-                    tender_data.rate_includes_maintenance
-                ),
-                rate_includes_insurance=(
-                    tender_data.rate_includes_insurance
-                ),
-                rate_includes_tolls=(
-                    tender_data.rate_includes_tolls
-                ),
-                rate_includes_border_charges=(
-                    tender_data.rate_includes_border_charges
-                ),
-                rate_includes_empty_return=(
-                    tender_data.rate_includes_empty_return
-                ),
-                rate_includes_waiting_time=(
-                    tender_data.rate_includes_waiting_time
-                ),
-                rate_includes_loading_assistance=(
-                    tender_data.rate_includes_loading_assistance
-                ),
-                rate_includes_offloading_assistance=(
-                    tender_data.rate_includes_offloading_assistance
-                ),
-
-                # FUEL
-                fuel_treatment_type=(
-                    tender_data.fuel_treatment_type
-                ),
-                base_diesel_price=(
-                    tender_data.base_diesel_price
-                ),
-                fuel_review_period=(
-                    tender_data.fuel_review_period
-                ),
-                fuel_component_percentage=(
-                    tender_data.fuel_component_percentage
-                ),
-
+                rate_includes_fuel=tender_data.rate_includes_fuel,
+                rate_includes_driver=tender_data.rate_includes_driver,
+                rate_includes_maintenance=tender_data.rate_includes_maintenance,
+                rate_includes_insurance=tender_data.rate_includes_insurance,
+                rate_includes_tolls=tender_data.rate_includes_tolls,
+                rate_includes_border_charges=tender_data.rate_includes_border_charges,
+                rate_includes_empty_return=tender_data.rate_includes_empty_return,
+                rate_includes_waiting_time=tender_data.rate_includes_waiting_time,
+                rate_includes_loading_assistance=tender_data.rate_includes_loading_assistance,
+                rate_includes_offloading_assistance=tender_data.rate_includes_offloading_assistance,
+                fuel_treatment_type=tender_data.fuel_treatment_type,
+                base_diesel_price=tender_data.base_diesel_price,
+                fuel_review_period=tender_data.fuel_review_period,
+                fuel_component_percentage=tender_data.fuel_component_percentage,
                 vat_included=tender_data.vat_included,
                 rate_validity=tender_data.rate_validity,
-
-                # PAYMENT
                 payment_terms=financial_account.payment_terms,
                 custom_payment_terms=None,
                 invoice_submission_frequency=None,
                 invoice_submission_deadline=None,
-
-                # TENDER PROCESS
                 tender_closing_date=tender_closing_date,
                 questions_deadline=questions_deadline,
-
-                # OPERATIONS
-                vehicle_tracking_required=(
-                    tender_data.vehicle_tracking_required
-                ),
-                all_time_hour_control_room=(
-                    tender_data.all_time_hour_control_room
-                ),
-                driver_mobile_phone=(
-                    tender_data.driver_mobile_phone
-                ),
-                clean_compliant_equipment=(
-                    tender_data.clean_compliant_equipment
-                ),
-                pallet_management=(
-                    tender_data.pallet_management
-                ),
-
-                pod_submission_local=(
-                    tender_data.pod_submission_local
-                ),
-                pod_submission_long_haul=(
-                    tender_data.pod_submission_long_haul
-                ),
-                pod_submission_cross_border=(
-                    tender_data.pod_submission_cross_border
-                ),
-
-                subcontracting_policy=(
-                    tender_data.subcontracting_policy
-                ),
-
-                # DOCUMENTATION / RISK
-                delivery_documentation_sla=(
-                    tender_data.delivery_documentation_sla
-                ),
-                claims_risk_policy=(
-                    tender_data.claims_risk_policy
-                ),
-                claims_risk_requirements=(
-                    tender_data.claims_risk_requirements
-                ),
-
-                # INSURANCE
-                git_all_risk_required=(
-                    tender_data.git_all_risk_required
-                ),
-                git_first_loss_required=(
-                    tender_data.git_first_loss_required
-                ),
-                git_driver_fidelity_required=(
-                    tender_data.git_driver_fidelity_required
-                ),
-
-                # EQUIPMENT
-                tarpaulin_compliance_required=(
-                    tender_data.tarpaulin_compliance_required
-                ),
-                corner_plates_required=(
-                    tender_data.corner_plates_required
-                ),
-                chock_blocks_required=(
-                    tender_data.chock_blocks_required
-                ),
-                ratchets_belts_required=(
-                    tender_data.ratchets_belts_required
-                ),
-                other_equipment_requirements=(
-                    tender_data.other_equipment_requirements
-                ),
-
-                # BID EVALUATION
-                evaluation_price_enabled=(
-                    tender_data.evaluation_price_enabled
-                ),
-                evaluation_capacity_enabled=(
-                    tender_data.evaluation_capacity_enabled
-                ),
-                evaluation_service_enabled=(
-                    tender_data.evaluation_service_enabled
-                ),
-                evaluation_compliance_enabled=(
-                    tender_data.evaluation_compliance_enabled
-                ),
-                evaluation_flexibility_enabled=(
-                    tender_data.evaluation_flexibility_enabled
-                ),
-
+                vehicle_tracking_required=tender_data.vehicle_tracking_required,
+                all_time_hour_control_room=tender_data.all_time_hour_control_room,
+                driver_mobile_phone=tender_data.driver_mobile_phone,
+                clean_compliant_equipment=tender_data.clean_compliant_equipment,
+                pallet_management=tender_data.pallet_management,
+                pod_submission_local=tender_data.pod_submission_local,
+                pod_submission_long_haul=tender_data.pod_submission_long_haul,
+                pod_submission_cross_border=tender_data.pod_submission_cross_border,
+                subcontracting_policy=tender_data.subcontracting_policy,
+                delivery_documentation_sla=tender_data.delivery_documentation_sla,
+                claims_risk_policy=tender_data.claims_risk_policy,
+                claims_risk_requirements=tender_data.claims_risk_requirements,
+                git_all_risk_required=tender_data.git_all_risk_required,
+                git_first_loss_required=tender_data.git_first_loss_required,
+                git_driver_fidelity_required=tender_data.git_driver_fidelity_required,
+                tarpaulin_compliance_required=tender_data.tarpaulin_compliance_required,
+                corner_plates_required=tender_data.corner_plates_required,
+                chock_blocks_required=tender_data.chock_blocks_required,
+                ratchets_belts_required=tender_data.ratchets_belts_required,
+                other_equipment_requirements=tender_data.other_equipment_requirements,
+                evaluation_price_enabled=tender_data.evaluation_price_enabled,
+                evaluation_capacity_enabled=tender_data.evaluation_capacity_enabled,
+                evaluation_service_enabled=tender_data.evaluation_service_enabled,
+                evaluation_compliance_enabled=tender_data.evaluation_compliance_enabled,
+                evaluation_flexibility_enabled=tender_data.evaluation_flexibility_enabled,
                 status="Draft"
             )
 
             db.add(tender)
             db.flush()
 
-            # ====================================================
-            # MASTER TENDER INITIALIZATION
-            # ====================================================
-
-            if (
-                tender_data.client_ref
-                == master_tender_data.client_ref
-            ):
-
+            if is_master_tender:
                 master_tender = tender
-
-                print(
-                    "MASTER TENDER CREATED:",
-                    master_tender.id,
-                    master_tender.client_ref
-                )
-
-                # ================================================
-                # CREATE ALL EXPLICIT BUNDLES
-                # ================================================
-
-                if is_master_tender:
-                    master_tender = tender
-
-                    print(
-                        f"MASTER TENDER CREATED: "
-                        f"client_ref={tender_data.client_ref}, "
-                        f"id={tender.id}"
-                    )
-
-                    for bundle_data in batch_data.bundles:
-                        bundle = create_tender_bundle(
-                            db=db,
-                            shipper=shipper,
-                            user_id=user_id
-                        )
-
-                        created_bundles[bundle_data.client_bundle_ref] = bundle
-
-            # ====================================================
-            # 17. CREATE ORIGIN STOP
-            # ====================================================
+                master_tender_id = tender.id
+                for bundle_data in batch_data.bundles:
+                    bundle = create_tender_bundle(db=db, shipper=shipper, user_id=user_id)
+                    created_bundles[bundle_data.client_bundle_ref] = bundle
 
             origin_stop = Lane_Tender_RFQ_Stop(
                 tender_id=tender.id,
@@ -1232,21 +551,10 @@ def create_tender_and_publish(
                 country=origin_country,
                 region=origin_region
             )
-
             db.add(origin_stop)
 
-
-            # ====================================================
-            # 18. CREATE INTERMEDIATE STOPS
-            # ====================================================
-
             created_intermediate_stops = []
-
-            for stop_data, geo_data in zip(
-                sorted_stops,
-                calculated_stops
-            ):
-
+            for stop_data, geo_data in zip(sorted_stops, calculated_stops):
                 intermediate_stop = Lane_Tender_RFQ_Stop(
                     tender_id=tender.id,
                     stop_sequence=stop_data.stop_sequence,
@@ -1258,17 +566,8 @@ def create_tender_and_publish(
                     country=geo_data["country"],
                     region=geo_data["region"]
                 )
-
                 db.add(intermediate_stop)
-
-                created_intermediate_stops.append(
-                    (stop_data, intermediate_stop)
-                )
-
-
-            # ====================================================
-            # 19. CREATE DESTINATION STOP
-            # ====================================================
+                created_intermediate_stops.append((stop_data, intermediate_stop))
 
             destination_stop = Lane_Tender_RFQ_Stop(
                 tender_id=tender.id,
@@ -1281,278 +580,112 @@ def create_tender_and_publish(
                 country=destination_country,
                 region=destination_region
             )
-
             db.add(destination_stop)
-
-
-            # ====================================================
-            # 20. FLUSH STOPS
-            # ====================================================
-
             db.flush()
 
-            # ====================================================
-            # 21. CREATE TURNAROUND / DEMURRAGE PROTOCOLS
-            # ====================================================
-
-            # ----------------------------------------------------
-            # ORIGIN
-            # ----------------------------------------------------
-
-            if (
-                tender_data.origin.turnaround_window_demurrage_protocol
-                is not None
-            ):
-
-                demurrage_data = (
-                    tender_data
-                    .origin
-                    .turnaround_window_demurrage_protocol
-                )
-
+            if tender_data.origin.turnaround_window_demurrage_protocol is not None:
+                demurrage_data = tender_data.origin.turnaround_window_demurrage_protocol
                 turnaround_protocol = Turnaround_Window_Demurrage_Protocals(
                     tender_id=tender.id,
                     stop_id=origin_stop.id,
-                    demurrage_conditions=(
-                        demurrage_data.demurrage_conditions
-                    ),
-                    loading_offloading_turnaround_hours=(
-                        demurrage_data.loading_offloading_turnaround_hours
-                    ),
-                    free_demurrage_hours=(
-                        demurrage_data.free_demurrage_hours
-                    ),
-                    demurrage_rate_per_hour=(
-                        demurrage_data.demurrage_rate_per_hour
-                    ),
-                    maximum_demurrage_incursion_hours=(
-                        demurrage_data.maximum_demurrage_incursion_hours
-                    )
+                    demurrage_conditions=demurrage_data.demurrage_conditions,
+                    loading_offloading_turnaround_hours=demurrage_data.loading_offloading_turnaround_hours,
+                    free_demurrage_hours=demurrage_data.free_demurrage_hours,
+                    demurrage_rate_per_hour=demurrage_data.demurrage_rate_per_hour,
+                    maximum_demurrage_incursion_hours=demurrage_data.maximum_demurrage_incursion_hours
                 )
-
                 db.add(turnaround_protocol)
 
-
-            # ----------------------------------------------------
-            # INTERMEDIATE STOPS
-            # ----------------------------------------------------
-
             for stop_data, created_stop in created_intermediate_stops:
-
-                if (
-                    stop_data.turnaround_window_demurrage_protocol
-                    is None
-                ):
+                if stop_data.turnaround_window_demurrage_protocol is None:
                     continue
-
-                demurrage_data = (
-                    stop_data
-                    .turnaround_window_demurrage_protocol
-                )
-
+                demurrage_data = stop_data.turnaround_window_demurrage_protocol
                 turnaround_protocol = Turnaround_Window_Demurrage_Protocals(
                     tender_id=tender.id,
                     stop_id=created_stop.id,
-                    demurrage_conditions=(
-                        demurrage_data.demurrage_conditions
-                    ),
-                    loading_offloading_turnaround_hours=(
-                        demurrage_data.loading_offloading_turnaround_hours
-                    ),
-                    free_demurrage_hours=(
-                        demurrage_data.free_demurrage_hours
-                    ),
-                    demurrage_rate_per_hour=(
-                        demurrage_data.demurrage_rate_per_hour
-                    ),
-                    maximum_demurrage_incursion_hours=(
-                        demurrage_data.maximum_demurrage_incursion_hours
-                    )
+                    demurrage_conditions=demurrage_data.demurrage_conditions,
+                    loading_offloading_turnaround_hours=demurrage_data.loading_offloading_turnaround_hours,
+                    free_demurrage_hours=demurrage_data.free_demurrage_hours,
+                    demurrage_rate_per_hour=demurrage_data.demurrage_rate_per_hour,
+                    maximum_demurrage_incursion_hours=demurrage_data.maximum_demurrage_incursion_hours
                 )
-
                 db.add(turnaround_protocol)
 
-
-            # ----------------------------------------------------
-            # DESTINATION
-            # ----------------------------------------------------
-
-            if (
-                tender_data.destination.turnaround_window_demurrage_protocol
-                is not None
-            ):
-
-                demurrage_data = (
-                    tender_data
-                    .destination
-                    .turnaround_window_demurrage_protocol
-                )
-
+            if tender_data.destination.turnaround_window_demurrage_protocol is not None:
+                demurrage_data = tender_data.destination.turnaround_window_demurrage_protocol
                 turnaround_protocol = Turnaround_Window_Demurrage_Protocals(
                     tender_id=tender.id,
                     stop_id=destination_stop.id,
-                    demurrage_conditions=(
-                        demurrage_data.demurrage_conditions
-                    ),
-                    loading_offloading_turnaround_hours=(
-                        demurrage_data.loading_offloading_turnaround_hours
-                    ),
-                    free_demurrage_hours=(
-                        demurrage_data.free_demurrage_hours
-                    ),
-                    demurrage_rate_per_hour=(
-                        demurrage_data.demurrage_rate_per_hour
-                    ),
-                    maximum_demurrage_incursion_hours=(
-                        demurrage_data.maximum_demurrage_incursion_hours
-                    )
+                    demurrage_conditions=demurrage_data.demurrage_conditions,
+                    loading_offloading_turnaround_hours=demurrage_data.loading_offloading_turnaround_hours,
+                    free_demurrage_hours=demurrage_data.free_demurrage_hours,
+                    demurrage_rate_per_hour=demurrage_data.demurrage_rate_per_hour,
+                    maximum_demurrage_incursion_hours=demurrage_data.maximum_demurrage_incursion_hours
                 )
-
                 db.add(turnaround_protocol)
 
-            # ====================================================
-            # 22. CREATE CARRIER CERTIFICATIONS / DRIVER STANDARDS
-            # ====================================================
-
-            for certification_data in (
-                tender_data.carrier_certification_driver_standards
-            ):
-
+            for certification_data in tender_data.carrier_certification_driver_standards:
                 certification = Carrier_Certification_Driver_Standards(
                     tender_id=tender.id,
-                    certification_name=(
-                        certification_data.certification_name
-                    ),
-                    driver_qualification_security_directives=(
-                        certification_data
-                        .driver_qualification_security_directives
-                    ),
+                    certification_name=certification_data.certification_name,
+                    driver_qualification_security_directives=certification_data.driver_qualification_security_directives,
                     is_required=True
                 )
-
                 db.add(certification)
 
-            # ====================================================
-            # 23. CREATE ESCORT POLICY
-            # ====================================================
-
             if tender_data.escort_policy is not None:
-
                 escort_policy = Escort_Policy(
                     tender_id=tender.id,
-                    armed_escort_required=(
-                        tender_data
-                        .escort_policy
-                        .armed_escort_required
-                    ),
-                    escort_expense_responsible_party=(
-                        tender_data
-                        .escort_policy
-                        .escort_expense_responsible_party
-                    )
+                    armed_escort_required=tender_data.escort_policy.armed_escort_required,
+                    escort_expense_responsible_party=tender_data.escort_policy.escort_expense_responsible_party
                 )
-
                 db.add(escort_policy)
 
-            # ====================================================
-            # 24. CREATE SLA / INCIDENT REPORTING POLICY
-            # ====================================================
-
             if tender_data.sla_reporting is not None:
-
                 sla_reporting = Sla_incident_Reporting(
                     tender_id=tender.id,
-                    incident_reporting_sla=(
-                        tender_data
-                        .sla_reporting
-                        .incident_reporting_sla
-                    ),
-                    service_level_agreement=(
-                        tender_data
-                        .sla_reporting
-                        .service_level_agreement
-                    )
+                    incident_reporting_sla=tender_data.sla_reporting.incident_reporting_sla,
+                    service_level_agreement=tender_data.sla_reporting.service_level_agreement
                 )
-
                 db.add(sla_reporting)
 
-            # ====================================================
-            # 25. CREATE VEHICLE CONFIGURATIONS
-            # ====================================================
-
             for vehicle_data in tender_data.vehicle_configurations:
-
                 vehicle_config = Lane_Tender_RFQ_Vehicle_Config(
                     tender_id=tender.id,
-                    configuration_type=(
-                        vehicle_data.configuration_type
-                    ),
+                    configuration_type=vehicle_data.configuration_type,
                     truck_type=vehicle_data.truck_type,
                     equipment_type=vehicle_data.equipment_type,
                     trailer_type=vehicle_data.trailer_type,
                     trailer_length=vehicle_data.trailer_length,
                     is_active=True
                 )
-
                 db.add(vehicle_config)
 
-            # ====================================================
-            # 26. CREATE VOLUME PROFILES
-            # ====================================================
-
             for volume_data in tender_data.volume_profiles:
-
                 volume_profile = Lane_Tender_RFQ_Volume_Profile(
                     tender_id=tender.id,
-                    volume_entry_method=(
-                        volume_data.volume_entry_method
-                    ),
-                    period_sequence=(
-                        volume_data.period_sequence
-                    ),
+                    volume_entry_method=volume_data.volume_entry_method,
+                    period_sequence=volume_data.period_sequence,
                     period_label=volume_data.period_label,
-                    period_start_date=(
-                        volume_data.period_start_date
-                    ),
-                    period_end_date=(
-                        volume_data.period_end_date
-                    ),
+                    period_start_date=volume_data.period_start_date,
+                    period_end_date=volume_data.period_end_date,
                     day_of_week=volume_data.day_of_week,
                     expected_loads=volume_data.expected_loads
                 )
-
                 db.add(volume_profile)
 
-            # ====================================================
-            # 27. CREATE ACCESSORIALS
-            # ====================================================
-
             for accessorial_data in tender_data.accessorials:
-
                 accessorial = Lane_Tender_RFQ_Accessorial(
                     tender_id=tender.id,
-                    charge_type=(
-                        accessorial_data.charge_type
-                    ),
-                    treatment=(
-                        accessorial_data.treatment
-                    ),
-                    threshold_value=(
-                        accessorial_data.threshold_value
-                    ),
-                    threshold_unit=(
-                        accessorial_data.threshold_unit
-                    ),
+                    charge_type=accessorial_data.charge_type,
+                    treatment=accessorial_data.treatment,
+                    threshold_value=accessorial_data.threshold_value,
+                    threshold_unit=accessorial_data.threshold_unit,
                     notes=accessorial_data.notes
                 )
-
                 db.add(accessorial)
 
             db.flush()
-
-            # ====================================================
-            # 28. CREATE LOADBOARD
-            # ====================================================
 
             loadboard = Lane_Tender_Loadboard(
                 tender_id=tender.id,
@@ -1561,375 +694,139 @@ def create_tender_and_publish(
                 bid_opening_date=datetime.utcnow(),
                 bid_closing_date=tender.tender_closing_date,
                 questions_deadline=tender.questions_deadline,
-
                 tender_title=tender.tender_title,
                 lane_commitment_type=tender_data.lane_commitment_type,
                 tender_category=tender.tender_category,
-                tender_length_category=(
-                    tender.tender_length_category
-                ),
+                tender_length_category=tender.tender_length_category,
                 scope_description=tender.scope_description,
-
-                contract_start_date=(
-                    tender.contract_start_date
-                ),
-                contract_end_date=(
-                    tender.contract_end_date
-                ),
-
-                estimated_distance_km=(
-                    tender.estimated_distance_km
-                ),
-                actual_distance_km=(
-                    tender.actual_distance_km
-                ),
-
+                contract_start_date=tender.contract_start_date,
+                contract_end_date=tender.contract_end_date,
+                estimated_distance_km=tender.estimated_distance_km,
+                actual_distance_km=tender.actual_distance_km,
                 polyline=tender.polyline,
-
-                border_customs_responsibility=(
-                    tender.border_customs_responsibility
-                ),
-
+                border_customs_responsibility=tender.border_customs_responsibility,
                 commodity=tender.commodity,
                 load_type=tender.load_type,
-
-                average_shipment_weight_kg=(
-                    tender.average_shipment_weight_kg
-                ),
-
-                minimum_weight_bracket_kg=(
-                    tender.minimum_weight_bracket_kg
-                ),
-
+                average_shipment_weight_kg=tender.average_shipment_weight_kg,
+                minimum_weight_bracket_kg=tender.minimum_weight_bracket_kg,
                 packaging_type=tender.packaging_type,
                 packaging_quantity=tender.packaging_quantity,
-
-                temperature_control=(
-                    tender.temperature_control
-                ),
-
-                target_temperature_spec=(
-                    tender.target_temperature_spec
-                ),
-
-                hazardous_materials=(
-                    tender.hazardous_materials
-                ),
-
-                hazchem_classification=(
-                    tender.hazchem_classification
-                ),
-
+                temperature_control=tender.temperature_control,
+                target_temperature_spec=tender.target_temperature_spec,
+                hazardous_materials=tender.hazardous_materials,
+                hazchem_classification=tender.hazchem_classification,
                 under_bond=tender.under_bond,
-
-                volume_entry_method=(
-                    tender.volume_entry_method
-                ),
-
-                volume_commitment=(
-                    tender.volume_commitment
-                ),
-
+                volume_entry_method=tender.volume_entry_method,
+                volume_commitment=tender.volume_commitment,
                 pricing_basis=tender.pricing_basis,
                 rate_direction=tender.rate_direction,
-
-                rate_includes_fuel=(
-                    tender.rate_includes_fuel
-                ),
-                rate_includes_driver=(
-                    tender.rate_includes_driver
-                ),
-                rate_includes_maintenance=(
-                    tender.rate_includes_maintenance
-                ),
-                rate_includes_insurance=(
-                    tender.rate_includes_insurance
-                ),
-                rate_includes_tolls=(
-                    tender.rate_includes_tolls
-                ),
-                rate_includes_border_charges=(
-                    tender.rate_includes_border_charges
-                ),
-                rate_includes_empty_return=(
-                    tender.rate_includes_empty_return
-                ),
-                rate_includes_waiting_time=(
-                    tender.rate_includes_waiting_time
-                ),
-                rate_includes_loading_assistance=(
-                    tender.rate_includes_loading_assistance
-                ),
-                rate_includes_offloading_assistance=(
-                    tender.rate_includes_offloading_assistance
-                ),
-
-                fuel_treatment_type=(
-                    tender.fuel_treatment_type
-                ),
-                base_diesel_price=(
-                    tender.base_diesel_price
-                ),
-                fuel_review_period=(
-                    tender.fuel_review_period
-                ),
-                fuel_component_percentage=(
-                    tender.fuel_component_percentage
-                ),
-
+                rate_includes_fuel=tender.rate_includes_fuel,
+                rate_includes_driver=tender.rate_includes_driver,
+                rate_includes_maintenance=tender.rate_includes_maintenance,
+                rate_includes_insurance=tender.rate_includes_insurance,
+                rate_includes_tolls=tender.rate_includes_tolls,
+                rate_includes_border_charges=tender.rate_includes_border_charges,
+                rate_includes_empty_return=tender.rate_includes_empty_return,
+                rate_includes_waiting_time=tender.rate_includes_waiting_time,
+                rate_includes_loading_assistance=tender.rate_includes_loading_assistance,
+                rate_includes_offloading_assistance=tender.rate_includes_offloading_assistance,
+                fuel_treatment_type=tender.fuel_treatment_type,
+                base_diesel_price=tender.base_diesel_price,
+                fuel_review_period=tender.fuel_review_period,
+                fuel_component_percentage=tender.fuel_component_percentage,
                 vat_included=tender.vat_included,
                 rate_validity=tender.rate_validity,
-
                 payment_terms=financial_account.payment_terms,
-
-                custom_payment_terms=(
-                    tender.custom_payment_terms
-                ),
-
-                invoice_submission_frequency=(
-                    tender.invoice_submission_frequency
-                ),
-
-                invoice_submission_deadline=(
-                    tender.invoice_submission_deadline
-                ),
-
-                vehicle_tracking_required=(
-                    tender.vehicle_tracking_required
-                ),
-                all_time_hour_control_room=(
-                    tender.all_time_hour_control_room
-                ),
-                driver_mobile_phone=(
-                    tender.driver_mobile_phone
-                ),
-                clean_compliant_equipment=(
-                    tender.clean_compliant_equipment
-                ),
-                pallet_management=(
-                    tender.pallet_management
-                ),
-
-                pod_submission_local=(
-                    tender.pod_submission_local
-                ),
-                pod_submission_long_haul=(
-                    tender.pod_submission_long_haul
-                ),
-                pod_submission_cross_border=(
-                    tender.pod_submission_cross_border
-                ),
-
-                subcontracting_policy=(
-                    tender.subcontracting_policy
-                ),
-
-                delivery_documentation_sla=(
-                    tender.delivery_documentation_sla
-                ),
-                claims_risk_policy=(
-                    tender.claims_risk_policy
-                ),
-                claims_risk_requirements=(
-                    tender.claims_risk_requirements
-                ),
-
-                minimum_git_cover_amount=(
-                    tender.minimum_git_cover_amount
-                ),
-
-                minimum_liability_cover_amount=(
-                    tender.minimum_liability_cover_amount
-                ),
-
-                git_all_risk_required=(
-                    tender.git_all_risk_required
-                ),
-                git_first_loss_required=(
-                    tender.git_first_loss_required
-                ),
-                git_driver_fidelity_required=(
-                    tender.git_driver_fidelity_required
-                ),
-
-                tarpaulin_compliance_required=(
-                    tender.tarpaulin_compliance_required
-                ),
-                corner_plates_required=(
-                    tender.corner_plates_required
-                ),
-                chock_blocks_required=(
-                    tender.chock_blocks_required
-                ),
-                ratchets_belts_required=(
-                    tender.ratchets_belts_required
-                ),
-                other_equipment_requirements=(
-                    tender.other_equipment_requirements
-                ),
-
-                evaluation_price_enabled=(
-                    tender.evaluation_price_enabled
-                ),
-                evaluation_capacity_enabled=(
-                    tender.evaluation_capacity_enabled
-                ),
-                evaluation_service_enabled=(
-                    tender.evaluation_service_enabled
-                ),
-                evaluation_compliance_enabled=(
-                    tender.evaluation_compliance_enabled
-                ),
-                evaluation_flexibility_enabled=(
-                    tender.evaluation_flexibility_enabled
-                ),
-
+                custom_payment_terms=tender.custom_payment_terms,
+                invoice_submission_frequency=tender.invoice_submission_frequency,
+                invoice_submission_deadline=tender.invoice_submission_deadline,
+                vehicle_tracking_required=tender.vehicle_tracking_required,
+                all_time_hour_control_room=tender.all_time_hour_control_room,
+                driver_mobile_phone=tender.driver_mobile_phone,
+                clean_compliant_equipment=tender.clean_compliant_equipment,
+                pallet_management=tender.pallet_management,
+                pod_submission_local=tender.pod_submission_local,
+                pod_submission_long_haul=tender.pod_submission_long_haul,
+                pod_submission_cross_border=tender.pod_submission_cross_border,
+                subcontracting_policy=tender.subcontracting_policy,
+                delivery_documentation_sla=tender.delivery_documentation_sla,
+                claims_risk_policy=tender.claims_risk_policy,
+                claims_risk_requirements=tender.claims_risk_requirements,
+                minimum_git_cover_amount=tender.minimum_git_cover_amount,
+                minimum_liability_cover_amount=tender.minimum_liability_cover_amount,
+                git_all_risk_required=tender.git_all_risk_required,
+                git_first_loss_required=tender.git_first_loss_required,
+                git_driver_fidelity_required=tender.git_driver_fidelity_required,
+                tarpaulin_compliance_required=tender.tarpaulin_compliance_required,
+                corner_plates_required=tender.corner_plates_required,
+                chock_blocks_required=tender.chock_blocks_required,
+                ratchets_belts_required=tender.ratchets_belts_required,
+                other_equipment_requirements=tender.other_equipment_requirements,
+                evaluation_price_enabled=tender.evaluation_price_enabled,
+                evaluation_capacity_enabled=tender.evaluation_capacity_enabled,
+                evaluation_service_enabled=tender.evaluation_service_enabled,
+                evaluation_compliance_enabled=tender.evaluation_compliance_enabled,
+                evaluation_flexibility_enabled=tender.evaluation_flexibility_enabled,
                 is_featured=False,
                 is_visible_to_carriers=True
             )
-
             db.add(loadboard)
-
-            # ====================================================
-            # 29. ACTIVATE TENDER
-            # ====================================================
-
             tender.status = "Active"
-
             db.flush()
-
-            # ====================================================
-            # 30. STORE RESULT
-            # ====================================================
 
             created_tenders.append({
                 "tender_data": tender_data,
                 "tender": tender,
                 "loadboard": loadboard
             })
-   
-
-        # ========================================================
-        # 31. ONE COMMIT FOR ENTIRE BATCH
-        # ========================================================
 
         db.commit()
-
-        # ========================================================
-        # 32. REFRESH RESULTS
-        # ========================================================
 
         for item in created_tenders:
             db.refresh(item["tender"])
             db.refresh(item["loadboard"])
 
-        # ========================================================
-        # 33. RESPONSE
-        # ========================================================
-
         return {
             "success": True,
-
             "message": (
                 "Tender created successfully."
                 if len(created_tenders) == 1
                 else "Tender batch created successfully."
             ),
-
             "master_tender_id": master_tender.id,
-
-            "tender_count": len(
-                created_tenders
-            ),
-
-            "bundle_count": len(
-                created_bundles
-            ),
-
+            "tender_count": len(created_tenders),
+            "bundle_count": len(created_bundles),
             "bundles": [
                 {
-                    "client_bundle_ref": (
-                        bundle_ref
-                    ),
+                    "client_bundle_ref": bundle_ref,
                     "bundle_id": bundle.id,
-                    "bundle_reference": (
-                        bundle.bundle_reference
-                    )
+                    "bundle_reference": bundle.bundle_reference
                 }
-                for bundle_ref, bundle
-                in created_bundles.items()
+                for bundle_ref, bundle in created_bundles.items()
             ],
-
             "tenders": [
-
                 {
-                    "client_ref": (
-                        item["tender_data"].client_ref
-                    ),
-
-                    "relationship_type": (
-                        item["tender_data"]
-                        .relationship_type
-                    ),
-
-                    "tender_id": (
-                        item["tender"].id
-                    ),
-
-                    "loadboard_id": (
-                        item["loadboard"].id
-                    ),
-
-                    "is_sub_tender": (
-                        item["tender"]
-                        .is_sub_tender
-                    ),
-
-                    "parent_tender_id": (
-                        item["tender"]
-                        .parent_tender_id
-                    ),
-
-                    "bundle_id": (
-                        item["tender"]
-                        .bundle_id
-                    ),
-
-                    "bundle_reference": (
-                        item["tender"]
-                        .bundle_reference
-                    ),
-
-                    "bundle_trip_sequence": (
-                        item["tender"]
-                        .bundle_trip_sequence
-                    ),
-
-                    "bundle_role": (
-                        item["tender"]
-                        .bundle_role
-                    ),
-
-                    "status": (
-                        item["tender"]
-                        .status
-                    )
+                    "client_ref": item["tender_data"].client_ref,
+                    "relationship_type": item["tender_data"].relationship_type,
+                    "tender_id": item["tender"].id,
+                    "loadboard_id": item["loadboard"].id,
+                    "is_sub_tender": item["tender"].is_sub_tender,
+                    "parent_tender_id": item["tender"].parent_tender_id,
+                    "bundle_id": item["tender"].bundle_id,
+                    "bundle_reference": item["tender"].bundle_reference,
+                    "bundle_trip_sequence": item["tender"].bundle_trip_sequence,
+                    "bundle_role": item["tender"].bundle_role,
+                    "status": item["tender"].status
                 }
-
                 for item in created_tenders
             ]
         }
-
     except HTTPException:
         db.rollback()
         raise
-
     except Exception as e:
-
         db.rollback()
-
         raise HTTPException(
             status_code=500,
             detail=f"Failed to create tender batch: {str(e)}"
         )
-
