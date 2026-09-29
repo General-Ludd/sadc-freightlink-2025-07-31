@@ -456,7 +456,7 @@ class TenderCreate(BaseModel):
 
     relationship_type: Literal[
         "Master",
-        "Independant",
+        "Independent",
         "Bundle"
     ]
 
