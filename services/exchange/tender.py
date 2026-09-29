@@ -216,7 +216,7 @@ def create_tender_and_publish(
             (
                 tender
                 for tender in batch_data.tenders
-                if tender.relationship_type.upper() == "MASTER"
+                if tender.relationship_type.upper() == "Master"
             ),
             None
         )
@@ -294,7 +294,7 @@ def create_tender_and_publish(
             current_bundle_trip_sequence = None
             current_bundle_role = None
 
-            if tender_data.relationship_type.upper() == "BUNDLE_STAGE":
+            if tender_data.relationship_type.upper() == "Bundle":
                 bundle_assignment = bundle_stage_assignments.get(tender_data.client_ref)
                 if bundle_assignment is None:
                     raise HTTPException(
