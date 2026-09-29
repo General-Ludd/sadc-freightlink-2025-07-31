@@ -280,6 +280,111 @@ def create_tender_and_publish(
                 }
 
         # ========================================================
+        # 2. PREPARE TENDER / BUNDLE RELATIONSHIPS
+        # ========================================================
+
+        # --------------------------------------------------------
+        # TENDER LOOKUP
+        # --------------------------------------------------------
+
+        tender_lookup = {
+            tender.client_ref: tender
+            for tender in batch_data.tenders
+        }
+
+        # --------------------------------------------------------
+        # FIND THE MASTER TENDER
+        # --------------------------------------------------------
+
+        master_tender_data = next(
+            (
+                tender
+                for tender in batch_data.tenders
+                if tender.relationship_type == "Master"
+            ),
+            None
+        )
+
+        if master_tender_data is None:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "A tender batch must contain "
+                    "exactly one Master tender."
+                )
+            )
+
+        # --------------------------------------------------------
+        # MAP BUNDLE STAGES
+        # --------------------------------------------------------
+
+        bundle_stage_assignments = {}
+
+        for bundle_data in batch_data.bundles:
+
+            for stage_data in bundle_data.stages:
+
+                tender_ref = stage_data.tender_ref
+
+                # ----------------------------------------------
+                # REFERENCED TENDER MUST EXIST
+                # ----------------------------------------------
+
+                if tender_ref not in tender_lookup:
+
+                    raise HTTPException(
+                        status_code=400,
+                        detail=(
+                            f"Bundle "
+                            f"{bundle_data.client_bundle_ref}: "
+                            f"Tender reference "
+                            f"'{tender_ref}' does not exist "
+                            "in the batch."
+                        )
+                    )
+
+                # ----------------------------------------------
+                # TENDER CANNOT BELONG TO TWO BUNDLES
+                # ----------------------------------------------
+
+                if tender_ref in bundle_stage_assignments:
+
+                    existing_bundle = (
+                        bundle_stage_assignments[
+                            tender_ref
+                        ]["client_bundle_ref"]
+                    )
+
+                    raise HTTPException(
+                        status_code=400,
+                        detail=(
+                            f"Tender {tender_ref} is already "
+                            f"assigned to bundle "
+                            f"{existing_bundle} and cannot "
+                            f"also belong to bundle "
+                            f"{bundle_data.client_bundle_ref}."
+                        )
+                    )
+
+                # ----------------------------------------------
+                # STORE BUNDLE RELATIONSHIP
+                # ----------------------------------------------
+
+                bundle_stage_assignments[
+                    tender_ref
+                ] = {
+                    "client_bundle_ref": (
+                        bundle_data.client_bundle_ref
+                    ),
+                    "stage_sequence": (
+                        stage_data.stage_sequence
+                    ),
+                    "stage_role": (
+                        stage_data.stage_role
+                    )
+                }
+
+        # ========================================================
         # 3. CREATE ALL TENDERS
         # ========================================================
 
@@ -290,7 +395,7 @@ def create_tender_and_publish(
         created_bundles = {}
 
         # --------------------------------------------------------
-        # ALWAYS PROCESS MASTER FIRST
+        # MASTER IS ALWAYS PROCESSED FIRST
         # --------------------------------------------------------
 
         ordered_tenders = [
@@ -306,13 +411,23 @@ def create_tender_and_publish(
         # PROCESS TENDERS
         # ========================================================
 
-        for index, tender_data in enumerate(ordered_tenders):
+        for index, tender_data in enumerate(
+            ordered_tenders
+        ):
 
             # ====================================================
             # TENDER HIERARCHY
             # ====================================================
 
-            if tender_data.relationship_type == "Master":
+            # IMPORTANT:
+            # Do NOT use array position to identify the master.
+            # We compare the current tender's client_ref against
+            # the explicitly identified master tender.
+
+            if (
+                tender_data.client_ref
+                == master_tender_data.client_ref
+            ):
 
                 is_sub_tender = False
                 parent_tender_id = None
@@ -341,7 +456,7 @@ def create_tender_and_publish(
             current_bundle_role = None
 
             # ----------------------------------------------------
-            # ROUND-TRIP / MULTI-STAGE TENDERS
+            # ROUND-TRIP / MULTI-STAGE
             # ----------------------------------------------------
 
             if tender_data.relationship_type in (
@@ -356,12 +471,13 @@ def create_tender_and_publish(
                 )
 
                 if bundle_assignment is None:
+
                     raise HTTPException(
                         status_code=400,
                         detail=(
                             f"Tender "
                             f"{tender_data.client_ref} "
-                            f"is declared as "
+                            f"is marked as "
                             f"{tender_data.relationship_type} "
                             "but is not assigned to a bundle."
                         )
@@ -378,6 +494,7 @@ def create_tender_and_publish(
                 )
 
                 if bundle is None:
+
                     raise HTTPException(
                         status_code=500,
                         detail=(
@@ -1040,7 +1157,7 @@ def create_tender_and_publish(
                     created_bundles[
                         bundle_data.client_bundle_ref
                     ] = bundle
-                    
+
             # ====================================================
             # 17. CREATE ORIGIN STOP
             # ====================================================
