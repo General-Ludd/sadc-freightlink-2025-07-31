@@ -940,11 +940,11 @@ class TenderBatchCreate(BaseModel):
                 # MUST BE DECLARED AS BUNDLE_STAGE
                 # ---------------------------------------------
 
-                if tender.relationship_type != "BUNDLE_STAGE":
+                if tender.relationship_type != "Bundle":
                     raise ValueError(
                         f"Tender {tender_ref} is referenced "
                         f"by Bundle {bundle.client_bundle_ref} "
-                        "but is not declared as BUNDLE_STAGE."
+                        "but is not declared as Bundle."
                     )
 
                 # ---------------------------------------------
@@ -974,13 +974,13 @@ class TenderBatchCreate(BaseModel):
 
         for tender in self.tenders:
 
-            if tender.relationship_type == "BUNDLE_STAGE":
+            if tender.relationship_type == "Bundle":
 
                 if tender.client_ref not in bundle_assignments:
 
                     raise ValueError(
                         f"Tender {tender.client_ref} is declared "
-                        "as BUNDLE_STAGE but is not assigned "
+                        "as Bundle but is not assigned "
                         "to any bundle."
                     )
 
