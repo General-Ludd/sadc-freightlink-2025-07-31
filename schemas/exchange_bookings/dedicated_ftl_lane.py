@@ -937,7 +937,7 @@ class TenderBatchCreate(BaseModel):
                     )
 
                 # ---------------------------------------------
-                # MUST BE DECLARED AS BUNDLE_STAGE
+                # MUST BE DECLARED AS BUNDLE
                 # ---------------------------------------------
 
                 if tender.relationship_type != "Bundle":
@@ -969,7 +969,7 @@ class TenderBatchCreate(BaseModel):
                 )
 
         # =====================================================
-        # EVERY BUNDLE_STAGE MUST BE ASSIGNED
+        # EVERY BUNDLE MUST BE ASSIGNED
         # =====================================================
 
         for tender in self.tenders:
