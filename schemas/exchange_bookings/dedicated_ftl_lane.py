@@ -871,7 +871,7 @@ class TenderBatchCreate(BaseModel):
         masters = [
             tender
             for tender in self.tenders
-            if tender.relationship_type == "MASTER"
+            if tender.relationship_type == "Master"
         ]
 
         if len(masters) != 1:
@@ -930,7 +930,7 @@ class TenderBatchCreate(BaseModel):
                 # MASTER CANNOT BE IN A BUNDLE
                 # ---------------------------------------------
 
-                if tender.relationship_type == "MASTER":
+                if tender.relationship_type == "Master":
                     raise ValueError(
                         f"Tender {tender_ref} is MASTER and "
                         "cannot belong to a bundle."
