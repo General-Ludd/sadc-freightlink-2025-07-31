@@ -177,6 +177,66 @@ class Client_Shipment_Vehicle_Requirement(Base):
 
     is_required = Column(Boolean, default=True, nullable=False)
 
+class Shipment_Execution_Metrics(Base):
+    __tablename__ = "shipment_execution_metrics"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    shipment_id = Column(Integer, nullable=False, index=True)
+    # ---------------------------------------------------------
+    # PRIMARY SHIPMENT TIMING
+    # ---------------------------------------------------------
+    planned_pickup_at = Column(DateTime(timezone=True), nullable=True)
+    actual_pickup_at = Column(DateTime(timezone=True), nullable=True)
+    planned_delivery_at = Column(DateTime(timezone=True), nullable=True)
+    actual_delivery_at = Column(DateTime(timezone=True), nullable=True)
+    # ---------------------------------------------------------
+    # DISTANCE
+    # ---------------------------------------------------------
+    planned_distance = Column(Integer, nullable=True)
+    actual_distance = Column(Integer, nullable=True)
+    route_variance_km = Column(Integer, nullable=True)
+    # ---------------------------------------------------------
+    # TRANSIT
+    # ---------------------------------------------------------
+    planned_transit_minutes = Column(Integer, nullable=True)
+    actual_transit_minutes = Column(Integer, nullable=True)
+    transit_variance_minutes = Column(Integer, nullable=True)
+    # ---------------------------------------------------------
+    # STOP SUMMARY
+    # ---------------------------------------------------------
+    planned_stop_count = Column(Integer, nullable=True)
+    actual_stop_count = Column(Integer, nullable=True)
+
+    origin_dwell_minutes = Column(Integer, nullable=True)
+    intermediate_dwell_minutes = Column(Integer, nullable=True)
+    destination_dwell_minutes = Column(Integer, nullable=True)
+
+    total_stop_dwell_minutes = Column(Integer, nullable=True)
+    longest_stop_dwell_minutes = Column(Integer, nullable=True)
+    # ---------------------------------------------------------
+    # DELAYS
+    # ---------------------------------------------------------
+    pickup_delay_minutes = Column(Integer, nullable=True)
+    delivery_delay_minutes = Column(Integer, nullable=True)
+    total_delay_minutes = Column(Integer, nullable=True)
+    # ---------------------------------------------------------
+    # TRACKING
+    # ---------------------------------------------------------
+    tracking_compliance_percent = Column(Float, nullable=True)
+    # ---------------------------------------------------------
+    # STATUS
+    # ---------------------------------------------------------
+    status = Column(String, nullable=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    # ---------------------------------------------------------
+    # AUDIT
+    # ---------------------------------------------------------
+    created_at = Column(DateTime(timezone=True), default=get_sast_time)
+    updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)
+
+
+
 class FTL_SHIPMENT(Base):
     __tablename__ = "ftl_shipments"
 

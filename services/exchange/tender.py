@@ -204,7 +204,83 @@ def create_tender_and_publish(
             )
 
         # ========================================================
-        # 2. CREATE ALL TENDERS
+        # 2. PREPARE TENDER / BUNDLE RELATIONSHIPS
+        # ========================================================
+
+        # --------------------------------------------------------
+        # TENDER LOOKUP
+        # --------------------------------------------------------
+
+        tender_lookup = {
+            tender.client_ref: tender
+            for tender in batch_data.tenders
+        }
+
+        # --------------------------------------------------------
+        # FIND EXPLICIT MASTER TENDER
+        # --------------------------------------------------------
+
+        master_tender_data = next(
+            (
+                tender
+                for tender in batch_data.tenders
+                if tender.relationship_type == "Master"
+            ),
+            None
+        )
+
+        if master_tender_data is None:
+            raise HTTPException(
+                status_code=400,
+                detail="A tender batch must contain one Master tender."
+            )
+
+        # --------------------------------------------------------
+        # MAP BUNDLE STAGES
+        # --------------------------------------------------------
+
+        bundle_stage_assignments = {}
+
+        for bundle_data in batch_data.bundles:
+
+            for stage_data in bundle_data.stages:
+
+                tender_ref = stage_data.tender_ref
+
+                if tender_ref not in tender_lookup:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=(
+                            f"Bundle "
+                            f"{bundle_data.client_bundle_ref}: "
+                            f"Tender reference '{tender_ref}' "
+                            "does not exist in the batch."
+                        )
+                    )
+
+                if tender_ref in bundle_stage_assignments:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=(
+                            f"Tender {tender_ref} "
+                            "has been assigned to more than one bundle."
+                        )
+                    )
+
+                bundle_stage_assignments[tender_ref] = {
+                    "client_bundle_ref": (
+                        bundle_data.client_bundle_ref
+                    ),
+                    "stage_sequence": (
+                        stage_data.stage_sequence
+                    ),
+                    "stage_role": (
+                        stage_data.stage_role
+                    )
+                }
+
+        # ========================================================
+        # 3. CREATE ALL TENDERS
         # ========================================================
 
         created_tenders = []
@@ -213,9 +289,9 @@ def create_tender_and_publish(
 
         created_bundles = {}
 
-        # ========================================================
+        # --------------------------------------------------------
         # ALWAYS PROCESS MASTER FIRST
-        # ========================================================
+        # --------------------------------------------------------
 
         ordered_tenders = [
             master_tender_data
@@ -236,7 +312,7 @@ def create_tender_and_publish(
             # TENDER HIERARCHY
             # ====================================================
 
-            if tender_data.relationship_type == "MASTER":
+            if tender_data.relationship_type == "Master":
 
                 is_sub_tender = False
                 parent_tender_id = None
@@ -264,9 +340,13 @@ def create_tender_and_publish(
             current_bundle_trip_sequence = None
             current_bundle_role = None
 
-            if (
-                tender_data.relationship_type
-                == "BUNDLE_STAGE"
+            # ----------------------------------------------------
+            # ROUND-TRIP / MULTI-STAGE TENDERS
+            # ----------------------------------------------------
+
+            if tender_data.relationship_type in (
+                "Round-Trip",
+                "Multi-Stage"
             ):
 
                 bundle_assignment = (
@@ -281,8 +361,9 @@ def create_tender_and_publish(
                         detail=(
                             f"Tender "
                             f"{tender_data.client_ref} "
-                            "is declared as BUNDLE_STAGE "
-                            "but has no bundle assignment."
+                            f"is declared as "
+                            f"{tender_data.relationship_type} "
+                            "but is not assigned to a bundle."
                         )
                     )
 
@@ -307,6 +388,7 @@ def create_tender_and_publish(
                     )
 
                 current_bundle_id = bundle.id
+
                 current_bundle_reference = (
                     bundle.bundle_reference
                 )
@@ -324,7 +406,7 @@ def create_tender_and_publish(
                 )
 
             # ====================================================
-            # 3. VALIDATE CONTRACT DATES
+            # 4. VALIDATE CONTRACT DATES
             # ====================================================
 
             if tender_data.contract_end_date < tender_data.contract_start_date:
@@ -939,12 +1021,12 @@ def create_tender_and_publish(
             # MASTER TENDER INITIALIZATION
             # ====================================================
 
-            if tender_data.relationship_type == "MASTER":
+            if tender_data.relationship_type == "Master":
 
                 master_tender = tender
 
                 # ================================================
-                # CREATE EXPLICIT BUNDLES
+                # CREATE ALL EXPLICIT BUNDLES
                 # ================================================
 
                 for bundle_data in batch_data.bundles:
@@ -958,7 +1040,7 @@ def create_tender_and_publish(
                     created_bundles[
                         bundle_data.client_bundle_ref
                     ] = bundle
-
+                    
             # ====================================================
             # 17. CREATE ORIGIN STOP
             # ====================================================
