@@ -8,6 +8,7 @@ from schemas.exchange_bookings.ftl_shipment import (
     ClientShipmentAuctionStopCreate,
 )
 from models.Exchange.ftl_shipment import (
+    Client_Shipment_Auction_Bundle,
     Client_Shipment_Auction,
     Client_Shipment_Auction_Stop,
     Client_Shipment_Auction_Vehicle_Requirement,
@@ -1851,7 +1852,7 @@ def create_shipment_batch(
                 f"BND-{uuid4().hex[:12].upper()}"
             )
 
-            bundle = Client_Shipment_Bundle(
+            bundle = Client_Shipment_Auction_Bundle(
 
                 client_id=shipper.id,
 
