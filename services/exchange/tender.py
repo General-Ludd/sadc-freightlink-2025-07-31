@@ -11,7 +11,7 @@ from models.Exchange.dedicated_ftl_lane import (
     Turnaround_Window_Demurrage_Protocals,
     Carrier_Certification_Driver_Standards,
     Escort_Policy,
-    Sla_incident_Reporting,
+    Tender_Service_Standard,
 )
 from models.brokerage.loadboard import Lane_Tender_Loadboard
 from models.brokerage.finance import FinancialAccounts
@@ -641,13 +641,24 @@ def create_tender_and_publish(
                 )
                 db.add(escort_policy)
 
-            if tender_data.sla_reporting is not None:
-                sla_reporting = Sla_incident_Reporting(
-                    tender_id=tender.id,
-                    incident_reporting_sla=tender_data.sla_reporting.incident_reporting_sla,
-                    service_level_agreement=tender_data.sla_reporting.service_level_agreement
-                )
-                db.add(sla_reporting)
+            service_standards_to_create = {
+                "OTIF": tender_data.otif,
+                "On Time Pickup": tender_data.on_time_pickup,
+                "On Time Delivery": tender_data.on_time_delivery,
+                "Reliability": tender_data.reliability,
+                "Capacity Fulfillment": tender_data.capacity_fulfillment,
+            }
+
+            for standard_type, standard_data in service_standards_to_create.items():
+                if standard_data is not None:
+                    service_standard = Tender_Service_Standard(
+                        tender_id=tender.id,
+                        standard_type=standard_type,
+                        target_value=standard_data.value,
+                        unit="%",
+                        is_mandatory=True,
+                    )
+                    db.add(service_standard)
 
             for vehicle_data in tender_data.vehicle_configurations:
                 vehicle_config = Lane_Tender_RFQ_Vehicle_Config(

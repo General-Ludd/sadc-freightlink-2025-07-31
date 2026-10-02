@@ -91,6 +91,15 @@ class Carrier_Lane(Base):
     id = Column(Integer, primary_key=True, index=True)
     tender_id = Column(Integer, nullable=True)
     client_lane_id = Column(Integer, nullable=False)
+    # ============================================================
+    # LANE BUNDLE
+    # ============================================================
+    bundlee_id = Column(Integer, ForeignKey("ftl_lane_tender_bundles.id"), nullable=True, index=True)
+    bundle_reference = Column(String(100), nullable=True, index=True)
+    bundle_role = Column(String(50), nullable=True)
+    bundle_trip_sequence = Column(Integer, nullable=True)
+    bundle_type = Column(String(30), nullable=True)
+    
     carrier_id = Column(Integer, nullable=False)
     bidder_user_id = Column(Integer, nullable=False)
     lane_title = Column(String(255), nullable=False)
@@ -138,6 +147,7 @@ class Carrier_Lane(Base):
     pricing_basis = Column(String(50), nullable=False)
     rate = Column(Numeric(14, 2), nullable=True)
     contract_rate = Column(Numeric(14, 2), nullable=True)
+    award_rate_type = Column(String(20), nullable=True)
     slots_per_interval = Column(Integer, nullable=False)
     total_slots = Column(Integer, nullable=False)
     vat_included = Column(Boolean)

@@ -8,6 +8,15 @@ class Client_Lane(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     tender_id = Column(Integer, nullable=True)
+    # ============================================================
+    # LANE BUNDLE
+    # ============================================================
+    bundlee_id = Column(Integer, nullable=True, index=True)
+    bundle_reference = Column(String(100), nullable=True, index=True)
+    bundle_role = Column(String(50), nullable=True)
+    bundle_trip_sequence = Column(Integer, nullable=True)
+    bundle_type = Column(String(30), nullable=True)
+    
     client_id = Column(Integer, nullable=False)
     publisher_user_id = Column(Integer, nullable=False)
     awarded_carrier_id = Column(Integer, nullable=False)

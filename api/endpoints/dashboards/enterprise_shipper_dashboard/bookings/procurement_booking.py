@@ -4,9 +4,9 @@ from sqlalchemy.orm import Session
 from db.database import SessionLocal
 from utils.auth import get_current_user
 from schemas.exchange_bookings.dedicated_ftl_lane import TenderCreate, TenderBatchCreate
-from schemas.exchange_bookings.ftl_shipment import ClientShipmentAuctionCreate
+from schemas.exchange_bookings.ftl_shipment import ShipmentBatchCreate
 from services.exchange.tender import create_tender_and_publish
-from services.exchange.load_auction import create_auction_and_publish
+from services.exchange.load_auction import create_shipment_batch
 
 router = APIRouter()
 
@@ -60,12 +60,12 @@ def create_ftl_tender_endpoint(
 
 @router.post("/procurement-exchange-create", status_code=status.HTTP_201_CREATED)
 def create_shipment_auction_endpoint(
-    auction_data: ClientShipmentAuctionCreate,
+    auction_data: ShipmentBatchCreate,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
     try:
-        result = create_auction_and_publish(
+        result = create_shipment_batch(
             db,
             auction_data,
             current_user=current_user

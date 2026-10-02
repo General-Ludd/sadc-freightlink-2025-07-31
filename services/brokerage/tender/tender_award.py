@@ -3,15 +3,557 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException
 import uuid
 from models.Exchange.dedicated_ftl_lane import Lane_Tender_RFQ, Lane_Tender_RFQ_Stop, Lane_Tender_RFQ_Vehicle_Config, Lane_Tender_RFQ_Volume_Profile, Lane_Tender_RFQ_Accessorial
-from models.Exchange.auction import Lane_Tender_RFQ_Bids
+from models.Exchange.bidding import Lane_Tender_Bid
 from models.spot_bookings.dedicated_lane_ftl_shipment import Client_Lane, Lane_Stop, Lane_Vehicle_Config, Lane_Volume_Profile, Lane_Accessorial
 from models.brokerage.finance import Dedicated_Lane_BrokerageLedger
 
-def award_tender_bid(
+ELIGIBLE_BID_STATUSES = {
+    "Submitted",
+    "Leading",
+    "Under-Evaluation"
+}
+
+
+def _has_positive_bid_amount(value) -> bool:
+    if value is None:
+        return False
+
+    try:
+        return Decimal(str(value)) > 0
+    except Exception:
+        return False
+
+
+def _calculate_award_rate(
+    tender,
+    bid,
+    award_rate_type: str
+) -> Decimal:
+
+    award_rate_type = award_rate_type.upper()
+
+    if award_rate_type not in {"MAIN", "SECONDARY"}:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid award rate type: {award_rate_type}"
+        )
+
+    if award_rate_type == "MAIN":
+
+        raw_amount = bid.main_bid_amount
+        stored_rate = getattr(
+            bid,
+            "main_rate_per_shipment",
+            None
+        )
+
+    else:
+
+        raw_amount = bid.secondary_bid_amount
+        stored_rate = getattr(
+            bid,
+            "secondary_rate_per_shipment",
+            None
+        )
+
+    if raw_amount is None:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"{award_rate_type} bid does not contain "
+                "a bid amount."
+            )
+        )
+
+    # Prefer the rate already calculated during bid submission.
+    if stored_rate is not None:
+        rate = Decimal(str(stored_rate))
+
+    else:
+
+        amount = Decimal(str(raw_amount))
+
+        if tender.pricing_basis == "Rate per Ton":
+
+            tons = (
+                Decimal(
+                    str(
+                        tender.average_shipment_weight_kg
+                        or 0
+                    )
+                )
+                / Decimal("1000")
+            )
+
+            if tons <= 0:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "Tender does not contain a valid "
+                        "average shipment weight."
+                    )
+                )
+
+            rate = amount * tons
+
+        elif tender.pricing_basis == "Rate per Km":
+
+            distance = Decimal(
+                str(
+                    tender.actual_distance_km
+                    or 0
+                )
+            )
+
+            if distance <= 0:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "Tender does not contain a valid "
+                        "actual distance."
+                    )
+                )
+
+            rate = amount * distance
+
+        else:
+
+            # Rate per Load / Shipment / Trip
+            rate = amount
+
+    if rate <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"{award_rate_type} award rate must "
+                "be greater than zero."
+            )
+        )
+
+    return rate
+
+
+def _get_remaining_tender_capacity(
+    db: Session,
+    tender_id: int
+):
+
+    volume_profiles = (
+        db.query(
+            Lane_Tender_RFQ_Volume_Profile
+        )
+        .filter(
+            Lane_Tender_RFQ_Volume_Profile.tender_id
+            == tender_id
+        )
+        .order_by(
+            Lane_Tender_RFQ_Volume_Profile.period_sequence
+        )
+        .all()
+    )
+
+    if not volume_profiles:
+        return 0, 0
+
+    required_slots_per_interval = max(
+        profile.expected_loads or 0
+        for profile in volume_profiles
+    )
+
+    awarded_bids = (
+        db.query(Lane_Tender_Bid)
+        .filter(
+            Lane_Tender_Bid.tender_id == tender_id,
+            Lane_Tender_Bid.status == "Awarded"
+        )
+        .with_for_update()
+        .all()
+    )
+
+    currently_awarded = sum(
+        b.slots_per_interval or 0
+        for b in awarded_bids
+    )
+
+    remaining = max(
+        required_slots_per_interval
+        - currently_awarded,
+        0
+    )
+
+    return (
+        required_slots_per_interval,
+        remaining
+    )
+
+
+def _find_existing_carrier_award(
+    db: Session,
+    tender_id: int,
+    carrier_id: int
+):
+
+    return (
+        db.query(Carrier_Lane)
+        .filter(
+            Carrier_Lane.tender_id == tender_id,
+            Carrier_Lane.carrier_id == carrier_id
+        )
+        .with_for_update()
+        .first()
+    )
+
+
+def _find_submission_bid(
+    db: Session,
+    tender_id: int,
+    carrier_id: int,
+    submission_id: str
+):
+
+    return (
+        db.query(Lane_Tender_Bid)
+        .filter(
+            Lane_Tender_Bid.tender_id == tender_id,
+            Lane_Tender_Bid.carrier_id == carrier_id,
+            Lane_Tender_Bid.submission_id == submission_id
+        )
+        .order_by(
+            Lane_Tender_Bid.id.desc()
+        )
+        .with_for_update()
+        .first()
+    )
+
+def _build_bundle_award_plan(
+    db: Session,
+    selected_tender,
+    selected_bid
+):
+
+    # ------------------------------------------------------------
+    # NOT A BUNDLE
+    # ------------------------------------------------------------
+
+    if not selected_tender.bundle_id:
+
+        if not _has_positive_bid_amount(
+            selected_bid.main_bid_amount
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Independent tender must have "
+                    "a valid main bid."
+                )
+            )
+
+        return [
+            {
+                "tender": selected_tender,
+                "bid": selected_bid,
+                "award_type": "MAIN"
+            }
+        ], None
+
+
+    # ------------------------------------------------------------
+    # LOCK BUNDLE
+    # ------------------------------------------------------------
+
+    bundle = (
+        db.query(Lane_Tender_Bundle)
+        .filter(
+            Lane_Tender_Bundle.id
+            == selected_tender.bundle_id
+        )
+        .with_for_update()
+        .first()
+    )
+
+    if not bundle:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Tender references a bundle that "
+                "does not exist."
+            )
+        )
+
+
+    # ------------------------------------------------------------
+    # LOAD AND LOCK ALL BUNDLE STAGES
+    # ------------------------------------------------------------
+
+    stages = (
+        db.query(Lane_Tender_RFQ)
+        .filter(
+            Lane_Tender_RFQ.bundle_id == bundle.id
+        )
+        .order_by(
+            Lane_Tender_RFQ.bundle_trip_sequence
+        )
+        .with_for_update()
+        .all()
+    )
+
+    if len(stages) < 2:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"Bundle {bundle.bundle_reference} "
+                "does not contain enough stages."
+            )
+        )
+
+
+    stage_sequences = [
+        stage.bundle_trip_sequence
+        for stage in stages
+    ]
+
+    expected_sequences = list(
+        range(1, len(stages) + 1)
+    )
+
+    if stage_sequences != expected_sequences:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"Bundle {bundle.bundle_reference} "
+                "has invalid stage sequencing."
+            )
+        )
+
+
+    selected_stage_sequence = (
+        selected_tender.bundle_trip_sequence
+    )
+
+    last_stage_sequence = stages[-1].bundle_trip_sequence
+
+
+    # ------------------------------------------------------------
+    # TERMINAL STAGE
+    #
+    # C in A -> B -> C
+    #
+    # C only has MAIN.
+    # ------------------------------------------------------------
+
+    if selected_stage_sequence == last_stage_sequence:
+
+        if not _has_positive_bid_amount(
+            selected_bid.main_bid_amount
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "The final bundle stage must contain "
+                    "a valid main bid."
+                )
+            )
+
+        return [
+            {
+                "tender": selected_tender,
+                "bid": selected_bid,
+                "award_type": "MAIN"
+            }
+        ], bundle
+
+
+    # ------------------------------------------------------------
+    # CURRENT STAGE IS NOT THE FINAL STAGE
+    #
+    # Example:
+    #
+    # A -> B -> C
+    #
+    # A MAIN is only valid if B and C can also be awarded
+    # to this carrier.
+    # ------------------------------------------------------------
+
+    downstream_plan = []
+    main_chain_possible = True
+
+    later_stages = [
+        stage
+        for stage in stages
+        if stage.bundle_trip_sequence
+        > selected_stage_sequence
+    ]
+
+
+    for stage in later_stages:
+
+        # --------------------------------------------------------
+        # Already awarded to this carrier?
+        #
+        # Then this downstream stage already satisfies
+        # the bundle continuity requirement.
+        # --------------------------------------------------------
+
+        existing_award = _find_existing_carrier_award(
+            db=db,
+            tender_id=stage.id,
+            carrier_id=selected_bid.carrier_id
+        )
+
+        if existing_award:
+            continue
+
+
+        # --------------------------------------------------------
+        # The downstream lane must still have capacity.
+        # --------------------------------------------------------
+
+        required_capacity, remaining_capacity = (
+            _get_remaining_tender_capacity(
+                db=db,
+                tender_id=stage.id
+            )
+        )
+
+        if remaining_capacity <= 0:
+            main_chain_possible = False
+            break
+
+
+        # --------------------------------------------------------
+        # Find the same carrier's bid from the SAME submission.
+        #
+        # This is important because create_tender_bid()
+        # gives all bundle bids in one submission the same
+        # submission_id.
+        # --------------------------------------------------------
+
+        downstream_bid = _find_submission_bid(
+            db=db,
+            tender_id=stage.id,
+            carrier_id=selected_bid.carrier_id,
+            submission_id=selected_bid.submission_id
+        )
+
+        if not downstream_bid:
+            main_chain_possible = False
+            break
+
+
+        if downstream_bid.status not in ELIGIBLE_BID_STATUSES:
+            main_chain_possible = False
+            break
+
+
+        if not downstream_bid.slots_per_interval:
+            main_chain_possible = False
+            break
+
+
+        if downstream_bid.slots_per_interval <= 0:
+            main_chain_possible = False
+            break
+
+
+        # --------------------------------------------------------
+        # Every downstream stage must be MAIN-capable.
+        #
+        # Example:
+        #
+        # A MAIN requires B MAIN, which requires C MAIN.
+        #
+        # A MAIN must not be created merely because B has a
+        # SECONDARY price.
+        # --------------------------------------------------------
+
+        if not _has_positive_bid_amount(
+            downstream_bid.main_bid_amount
+        ):
+            main_chain_possible = False
+            break
+
+
+        _calculate_award_rate(
+            tender=stage,
+            bid=downstream_bid,
+            award_rate_type="MAIN"
+        )
+
+
+        downstream_plan.append(
+            {
+                "tender": stage,
+                "bid": downstream_bid,
+                "award_type": "MAIN"
+            }
+        )
+
+
+    # ------------------------------------------------------------
+    # MAIN BUNDLE AWARD IS AVAILABLE
+    # ------------------------------------------------------------
+
+    if (
+        _has_positive_bid_amount(
+            selected_bid.main_bid_amount
+        )
+        and main_chain_possible
+    ):
+
+        return (
+            [
+                {
+                    "tender": selected_tender,
+                    "bid": selected_bid,
+                    "award_type": "MAIN"
+                }
+            ]
+            + downstream_plan,
+            bundle
+        )
+
+
+    # ------------------------------------------------------------
+    # MAIN BUNDLE CANNOT BE HONOURED
+    #
+    # Use SECONDARY as standalone fallback.
+    # ------------------------------------------------------------
+
+    if _has_positive_bid_amount(
+        selected_bid.secondary_bid_amount
+    ):
+
+        return [
+            {
+                "tender": selected_tender,
+                "bid": selected_bid,
+                "award_type": "SECONDARY"
+            }
+        ], bundle
+
+
+    raise HTTPException(
+        status_code=400,
+        detail=(
+            f"Carrier cannot be awarded tender "
+            f"{selected_tender.id} at its main bundle rate "
+            "because the downstream bundle cannot be "
+            "completed, and no secondary bid was supplied."
+        )
+    )
+
+#######################################################################################################################################################
+#######################################################################################################################################################
+#################################################################Award Single Tender###################################################################
+#######################################################################################################################################################
+#######################################################################################################################################################
+def _award_single_tender_bid(
     db: Session,
     tender_id: int,
     bid_id: int,
-    current_user: dict
+    current_user: dict,
+    award_rate_type: str = "MAIN",
+    commit: bool = True
 ):
     # ============================================================
     # 1. LOCK AND LOAD TENDER
@@ -53,10 +595,10 @@ def award_tender_bid(
     # ============================================================
 
     bid = (
-        db.query(Lane_Tender_RFQ_Bids)
+        db.query(Lane_Tender_Bid)
         .filter(
-            Lane_Tender_RFQ_Bids.id == bid_id,
-            Lane_Tender_RFQ_Bids.tender_id == tender_id
+            Lane_Tender_Bid.id == bid_id,
+            Lane_Tender_Bid.tender_id == tender_id
         )
         .with_for_update()
         .first()
@@ -89,23 +631,28 @@ def award_tender_bid(
     # 5. VALIDATE BID VALUES
     # ============================================================
 
-    if not bid.slots_per_interval or bid.slots_per_interval <= 0:
+    selected_bid_amount = (
+        bid.main_bid_amount
+        if award_rate_type.upper() == "MAIN"
+        else bid.secondary_bid_amount
+    )
+
+    if not _has_positive_bid_amount(
+        selected_bid_amount
+    ):
         raise HTTPException(
             status_code=400,
             detail=(
-                "Bid does not contain a valid "
-                "slots_per_interval value"
+                f"{award_rate_type.upper()} bid does not "
+                "contain a valid bid amount."
             )
         )
 
-    if not bid.bid_per_shipment or bid.bid_per_shipment <= 0:
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "Bid does not contain a valid "
-                "bid_per_shipment"
-            )
-        )
+    bid_rate = _calculate_award_rate(
+        tender=tender,
+        bid=bid,
+        award_rate_type=award_rate_type
+    )
 
     # ============================================================
     # 6. CHECK IF THIS CARRIER ALREADY HAS AN AWARDED LANE
@@ -190,10 +737,10 @@ def award_tender_bid(
     # ============================================================
 
     awarded_bids = (
-        db.query(Lane_Tender_RFQ_Bids)
+        db.query(Lane_Tender_Bid)
         .filter(
-            Lane_Tender_RFQ_Bids.tender_id == tender_id,
-            Lane_Tender_RFQ_Bids.status == "Awarded"
+            Lane_Tender_Bid.tender_id == tender_id,
+            Lane_Tender_Bid.status == "Awarded"
         )
         .with_for_update()
         .all()
@@ -264,12 +811,11 @@ def award_tender_bid(
     )
 
     # ============================================================
-    # 15. CALCULATE BID RATE
+    # 15. BID RATE
+    #
+    # Already calculated during Section 5 according to
+    # MAIN or SECONDARY award type.
     # ============================================================
-
-    bid_rate = Decimal(
-        str(bid.bid_per_shipment)
-    )
 
     # ============================================================
     # 16. CALCULATE TOTAL CONTRACT VALUE
@@ -318,7 +864,13 @@ def award_tender_bid(
         tender_id=tender.id,
         client_id=tender.client_id,
         publisher_user_id=tender.publisher_user_id,
-
+        # ========================================================
+        # BUNDLE LINEAGE
+        # ========================================================
+        bundle_id=getattr(tender, "bundle_id", None),
+        bundle_reference=getattr(tender, "bundle_reference", None),
+        bundle_role=getattr(tender, "bundle_role", None),
+        bundle_trip_sequence=getattr(tender, "bundle_trip_sequence", None),
         # IMPORTANT:
         # Required by Client_Lane model.
         awarded_carrier_id=bid.carrier_id,
@@ -667,6 +1219,14 @@ def award_tender_bid(
         carrier_id=bid.carrier_id,
         bidder_user_id=bid.bidder_user_id,
 
+        # ========================================================
+        # BUNDLE LINEAGE
+        # ========================================================
+        bundle_id=getattr(tender, "bundle_id", None),
+        bundle_reference=getattr(tender, "bundle_reference", None),
+        bundle_role=getattr(tender, "bundle_role", None),
+        bundle_trip_sequence=getattr(tender, "bundle_trip_sequence", None),
+
         lane_title=tender.tender_title,
         lane_commitment_type=tender.lane_commitment_type,
         lane_length_category=tender.tender_length_category,
@@ -726,8 +1286,8 @@ def award_tender_bid(
         # ========================================================
 
         pricing_basis=tender.pricing_basis,
-
         rate=bid_rate,
+        award_rate_type=award_rate_type,
         contract_rate=contract_rate,
 
         slots_per_interval=awarded_slots_per_interval,
@@ -1075,21 +1635,25 @@ def award_tender_bid(
     # 34. COMMIT EVERYTHING AS ONE TRANSACTION
     # ============================================================
 
-    try:
-        db.commit()
+    if commit:
 
-    except Exception:
-        db.rollback()
-        raise
+        try:
+            db.commit()
+
+        except Exception:
+            db.rollback()
+            raise
 
     # ============================================================
     # 35. REFRESH OBJECTS
     # ============================================================
 
-    db.refresh(client_lane)
-    db.refresh(carrier_lane)
-    db.refresh(tender)
-    db.refresh(bid)
+    if commit:
+
+        db.refresh(client_lane)
+        db.refresh(carrier_lane)
+        db.refresh(tender)
+        db.refresh(bid)
 
     # ============================================================
     # 36. RETURN AWARD RESULT
@@ -1161,3 +1725,321 @@ def award_tender_bid(
             contract_savings
         )
     }
+
+
+
+#######################################################################################################################################################
+#######################################################################################################################################################
+#################################################################Award Tender Bid######################################################################
+#######################################################################################################################################################
+#######################################################################################################################################################
+def award_tender_bid(
+    db: Session,
+    tender_id: int,
+    bid_id: int,
+    current_user: dict
+):
+
+    try:
+
+        # ========================================================
+        # 1. LOAD TENDER
+        # ========================================================
+
+        tender = (
+            db.query(Lane_Tender_RFQ)
+            .filter(
+                Lane_Tender_RFQ.id == tender_id
+            )
+            .first()
+        )
+
+        if not tender:
+            raise HTTPException(
+                status_code=404,
+                detail="Tender not found"
+            )
+
+
+        # ========================================================
+        # 2. LOCK BUNDLE FIRST
+        #
+        # Prevent concurrent awards on different stages
+        # of the same bundle.
+        # ========================================================
+
+        bundle = None
+
+        if tender.bundle_id:
+
+            bundle = (
+                db.query(Lane_Tender_Bundle)
+                .filter(
+                    Lane_Tender_Bundle.id
+                    == tender.bundle_id
+                )
+                .with_for_update()
+                .first()
+            )
+
+            if not bundle:
+                raise HTTPException(
+                    status_code=500,
+                    detail=(
+                        "Tender references a bundle "
+                        "that does not exist."
+                    )
+                )
+
+            (
+                db.query(Lane_Tender_RFQ)
+                .filter(
+                    Lane_Tender_RFQ.bundle_id
+                    == bundle.id
+                )
+                .with_for_update()
+                .all()
+            )
+
+
+        # ========================================================
+        # 3. LOCK SELECTED TENDER
+        # ========================================================
+
+        tender = (
+            db.query(Lane_Tender_RFQ)
+            .filter(
+                Lane_Tender_RFQ.id == tender_id
+            )
+            .with_for_update()
+            .first()
+        )
+
+        if not tender:
+            raise HTTPException(
+                status_code=404,
+                detail="Tender not found"
+            )
+
+
+        # ========================================================
+        # 4. VALIDATE TENDER
+        # ========================================================
+
+        if tender.status == "Awarded":
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Tender has already been "
+                    "fully awarded."
+                )
+            )
+
+        if not tender.is_active:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Tender is not active and cannot "
+                    "receive an award."
+                )
+            )
+
+
+        # ========================================================
+        # 5. LOAD AND LOCK SELECTED BID
+        # ========================================================
+
+        bid = (
+            db.query(Lane_Tender_Bid)
+            .filter(
+                Lane_Tender_Bid.id == bid_id,
+                Lane_Tender_Bid.tender_id == tender_id
+            )
+            .with_for_update()
+            .first()
+        )
+
+        if not bid:
+            raise HTTPException(
+                status_code=404,
+                detail="Bid not found for this tender"
+            )
+
+
+        # ========================================================
+        # 6. VALIDATE BID STATUS
+        # ========================================================
+
+        if bid.status not in ELIGIBLE_BID_STATUSES:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Bid cannot be awarded from status "
+                    f"'{bid.status}'"
+                )
+            )
+
+
+        # ========================================================
+        # 7. VALIDATE BID CAPACITY
+        # ========================================================
+
+        if (
+            not bid.slots_per_interval
+            or bid.slots_per_interval <= 0
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Bid does not contain a valid "
+                    "slots_per_interval value."
+                )
+            )
+
+
+        # ========================================================
+        # 8. BUILD AWARD PLAN
+        # ========================================================
+
+        award_plan, bundle = (
+            _build_bundle_award_plan(
+                db=db,
+                selected_tender=tender,
+                selected_bid=bid
+            )
+        )
+
+
+        # ========================================================
+        # 9. EXECUTE AWARD PLAN
+        #
+        # Each tender is still awarded by your original
+        # single-lane award engine.
+        # ========================================================
+
+        award_results = []
+
+        for award_item in award_plan:
+
+            plan_tender = award_item["tender"]
+            plan_bid = award_item["bid"]
+            award_type = award_item["award_type"]
+
+
+            # ----------------------------------------------------
+            # Do not award the same tender/carrier twice.
+            # ----------------------------------------------------
+
+            existing_award = (
+                db.query(Carrier_Lane)
+                .filter(
+                    Carrier_Lane.tender_id
+                    == plan_tender.id,
+                    Carrier_Lane.carrier_id
+                    == plan_bid.carrier_id
+                )
+                .first()
+            )
+
+            if existing_award:
+                continue
+
+
+            result = _award_single_tender_bid(
+                db=db,
+                tender_id=plan_tender.id,
+                bid_id=plan_bid.id,
+                current_user=current_user,
+                award_rate_type=award_type,
+                commit=False
+            )
+
+            result["award_type"] = award_type
+
+            award_results.append(result)
+
+
+        # ========================================================
+        # 10. UPDATE BUNDLE STATUS
+        # ========================================================
+
+        bundle_summary = None
+
+        if bundle:
+
+            bundle_tenders = (
+                db.query(Lane_Tender_RFQ)
+                .filter(
+                    Lane_Tender_RFQ.bundle_id
+                    == bundle.id
+                )
+                .order_by(
+                    Lane_Tender_RFQ.bundle_trip_sequence
+                )
+                .all()
+            )
+
+            all_awarded = all(
+                stage.status == "Awarded"
+                for stage in bundle_tenders
+            )
+
+            bundle.status = (
+                "Awarded"
+                if all_awarded
+                else "Partially Awarded"
+            )
+
+            bundle_summary = {
+                "bundle_id": bundle.id,
+                "bundle_reference": (
+                    bundle.bundle_reference
+                ),
+                "bundle_status": bundle.status,
+                "stage_count": len(
+                    bundle_tenders
+                )
+            }
+
+
+        # ========================================================
+        # 11. COMMIT ENTIRE AWARD TRANSACTION
+        # ========================================================
+
+        db.commit()
+
+
+        # ========================================================
+        # 12. RETURN RESULT
+        # ========================================================
+
+        return {
+            "success": True,
+
+            "message": (
+                "Bundle award completed."
+                if bundle and len(award_results) > 1
+                else "Tender award completed."
+            ),
+
+            "tender_id": tender.id,
+
+            "bundle": bundle_summary,
+
+            "awards_created": len(
+                award_results
+            ),
+
+            "awards": award_results
+        }
+
+
+    except HTTPException:
+
+        db.rollback()
+        raise
+
+    except Exception:
+
+        db.rollback()
+        raise

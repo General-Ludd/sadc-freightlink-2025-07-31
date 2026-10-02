@@ -182,10 +182,8 @@ class EscortPolicyCreate(BaseModel):
     armed_escort_required: bool = False
     escort_expense_responsible_party: Optional[str] = None
 
-class SlaReportingCreate(BaseModel):
-
-    incident_reporting_sla: str = Field(..., min_length=1, max_length=5000)
-    service_level_agreement: str = Field(..., min_length=1, max_length=5000) 
+class ServiceStandardCreate(BaseModel):
+    value: Optional[float] = Field(95.0, ge=0, le=100)
 
 class TenderLocationCreate(BaseModel):
     address: str = Field(
@@ -666,7 +664,11 @@ class TenderCreate(BaseModel):
     # 13. SLA & REPORTING
     # =========================================================
 
-    sla_reporting: Optional[SlaReportingCreate] = None
+    otif: Optional[ServiceStandardCreate] = None
+    on_time_pickup: Optional[ServiceStandardCreate] = None
+    on_time_delivery: Optional[ServiceStandardCreate] = None
+    reliability: Optional[ServiceStandardCreate] = None
+    capacity_fulfillment: Optional[ServiceStandardCreate] = None
 
 
     # =========================================================
@@ -995,7 +997,7 @@ class TenderBatchCreate(BaseModel):
                 if tender.client_ref in bundle_assignments:
 
                     raise ValueError(
-                        f"Tender {tender.client_ref} is declared "
+                        f"Tender {tender_ref} is declared "
                         "as INDEPENDENT_LANE but is assigned "
                         "to a bundle."
                     )

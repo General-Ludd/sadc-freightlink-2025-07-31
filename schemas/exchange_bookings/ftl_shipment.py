@@ -316,6 +316,21 @@ class ClientShipmentAuctionCreate(BaseModel):
     stops: list[ClientShipmentAuctionStopCreate] = []
     vehicle_configurations: list[ClientShipmentAuctionVehicleRequirementCreate] = []
 
+class ShipmentBundleStageCreate(BaseModel):
+    auction_ref: str
+    stage_sequence: int
+    stage_role: str
+
+
+class ShipmentBundleCreate(BaseModel):
+    client_bundle_ref: str = Field(..., max_length=100)
+    bundle_type: str = Field(..., max_length=50)
+    stages: list[ShipmentBundleStageCreate]
+
+
+class ShipmentBatchCreate(BaseModel):
+    auctions: list[ClientShipmentAuctionCreate]
+    bundles: list[ShipmentBundleCreate] = []
 
 class ClientShipmentAuctionUpdate(BaseModel):
     shipment_reference: Optional[str] = Field(None, max_length=100)

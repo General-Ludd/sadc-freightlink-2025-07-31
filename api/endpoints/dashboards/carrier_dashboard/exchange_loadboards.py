@@ -5,17 +5,20 @@ from sqlalchemy.orm import Session
 from db.database import SessionLocal
 from models.Exchange.ftl_shipment import Client_Shipment_Auction, Client_Shipment_Auction_Stop, Client_Shipment_Auction_Vehicle_Requirement
 from models.Exchange.dedicated_ftl_lane import Lane_Tender_RFQ, Lane_Tender_RFQ_Stop, Lane_Tender_RFQ_Vehicle_Config, Lane_Tender_RFQ_Volume_Profile, Lane_Tender_RFQ_Accessorial
-from models.brokerage.loadboard import Shipment_Auction_Loadboard, Lane_Tender_Loadboard
 from models.shipper import Corporation
 from models.Exchange.dedicated_ftl_lane import Lane_Tender_RFQ, Lane_Tender_RFQ_Stop, Lane_Tender_RFQ_Vehicle_Config, Lane_Tender_RFQ_Volume_Profile, Lane_Tender_RFQ_Accessorial, Turnaround_Window_Demurrage_Protocals, Carrier_Certification_Driver_Standards, Escort_Policy, Sla_incident_Reporting
-from models.Exchange.auction import Exchange_FTL_Shipment_Bid, Exchange_FTL_Lane_Bid, Exchange_POWER_Shipment_Bid, Shipment_Auction_Bid, Lane_Tender_RFQ_Bids
+from models.Exchange.auction import Exchange_FTL_Shipment_Bid, Exchange_FTL_Lane_Bid, Exchange_POWER_Shipment_Bid, Shipment_Auction_Bid
+from models.Exchange.bidding import Lane_Tender_Bid
 from models.brokerage.loadboards.exchange_loadboards import Exchange_Ftl_Load_Board, Exchange_Ftl_Lane_LoadBoard
+from models.brokerage.loadboard import Shipment_Auction_Loadboard, Lane_Tender_Loadboard
 from models.carrier import Carrier
 from schemas.brokerage.loadboard import IndividualLoadboardShipmentRequest
 from schemas.brokerage.exchange_loadboards import Exchange_Ftl_Load_Board_Response, Exchange_Ftl_Loadboard_Summary_Response
-from schemas.exchange_bookings.auction import Exchange_FTL_Lane_Bid_Create, Exchange_FTL_Shipment_Bid_Create, Exchange_FTL_Exchange_Loadboard_BidResponse, Exchange_POWER_Shipment_Bid_Create, Exchange_Power_Exchange_Loadboard_BidResponse, Create_Shipment_Bid, Create_Tender_Bid, Update_Tender_Bid
+from schemas.exchange_bookings.auction import Exchange_FTL_Lane_Bid_Create, Exchange_FTL_Shipment_Bid_Create, Exchange_FTL_Exchange_Loadboard_BidResponse, Exchange_POWER_Shipment_Bid_Create, Exchange_Power_Exchange_Loadboard_BidResponse, Create_Shipment_Bid, Update_Tender_Bid
+from schemas.exchange_bookings.bidding import TenderBidCreate
 from schemas.exchange_bookings.ftl_shipment import Exchange_Ftl_Shipments_Summary_Response
-from services.exchange.auction import place_auction_bid, process_tender_bid, update_tender_bid
+from services.exchange.auction import place_auction_bid, update_tender_bid
+from services.exchange.bidding import create_tender_bid
 from services.docs_constructor.tender_document_builder import (
     build_tender_rfq_document,
 )
@@ -1330,29 +1333,81 @@ def get_tender_loadboard(
             )
 
             # ====================================================
-            # SLA / INCIDENT REPORTING
+            # TENDER SERVICE STANDARDS
             # ====================================================
 
-            sla_reporting = (
-                db.query(Sla_incident_Reporting)
+            DEFAULT_SERVICE_STANDARDS = [
+                {
+                    "standard_type": "OTIF",
+                    "target_value": 95,
+                    "unit": "%",
+                    "is_mandatory": True
+                },
+                {
+                    "standard_type": "On Time Pickup",
+                    "target_value": 95,
+                    "unit": "%",
+                    "is_mandatory": True
+                },
+                {
+                    "standard_type": "On Time Delivery",
+                    "target_value": 90,
+                    "unit": "%",
+                    "is_mandatory": True
+                },
+                {
+                    "standard_type": "Reliability",
+                    "target_value": 95,
+                    "unit": "%",
+                    "is_mandatory": True
+                },
+                {
+                    "standard_type": "Capacity Fulfillment",
+                    "target_value": 95,
+                    "unit": "%",
+                    "is_mandatory": True
+                }
+            ]
+
+
+            service_standards = (
+                db.query(Tender_Service_Standard)
                 .filter(
-                    Sla_incident_Reporting.tender_id ==
+                    Tender_Service_Standard.tender_id ==
                     tender.id
                 )
-                .first()
+                .order_by(
+                    Tender_Service_Standard.id.asc()
+                )
+                .all()
             )
 
-            sla_response = (
-                {
-                    "incident_reporting_sla":
-                        sla_reporting.incident_reporting_sla,
 
-                    "service_level_agreement":
-                        sla_reporting.service_level_agreement
-                }
-                if sla_reporting
-                else None
-            )
+            if service_standards:
+
+                service_standards_response = [
+                    {
+                        "standard_type":
+                            standard.standard_type,
+
+                        "target_value":
+                            standard.target_value,
+
+                        "unit":
+                            standard.unit,
+
+                        "is_mandatory":
+                            standard.is_mandatory
+                    }
+
+                    for standard in service_standards
+                ]
+
+            else:
+
+                service_standards_response = (
+                    DEFAULT_SERVICE_STANDARDS.copy()
+                )
 
             # ====================================================
             # ACCESSORIALS
@@ -1394,39 +1449,94 @@ def get_tender_loadboard(
             # ====================================================
 
             bids = (
-                db.query(
-                    Lane_Tender_RFQ_Bids
-                )
+                db.query(Lane_Tender_Bid)
                 .filter(
-                    Lane_Tender_RFQ_Bids.tender_id ==
+                    Lane_Tender_Bid.tender_id ==
                     tender.id,
-                    Lane_Tender_RFQ_Bids.carrier_id ==
-                    company_id,
-                    Lane_Tender_RFQ_Bids.is_active ==
-                    True
+
+                    Lane_Tender_Bid.carrier_id ==
+                    company_id
+                )
+                .order_by(
+                    Lane_Tender_Bid.id.asc()
                 )
                 .all()
             )
 
-            bid_response = [
-                {
-                    "bid_id": bid.id if bid.id else None,
-                    "status": bid.status if bid.status else None,
-                    "rate_per_shipment": bid.bid_per_shipment if bid.bid_per_shipment else None,
-                    "shipment_per_interval": bid.slots_per_interval if bid.slots_per_interval else None,
-                    "individual_slot_size": bid.per_slot_size if bid.per_slot_size else None,
-                    "commited_slots": bid.slots_per_interval if bid.slots_per_interval else None,
-                    "total_shipments_commitment": (bid.per_slot_size if bid.per_slot_size else None * bid.slots_per_interval if bid.slots_per_interval else None),
-                    # Include whatever public/carrier-owned
-                    # bid fields you have here.
-                    "submitted_at": getattr(
-                        bid,
-                        "created_at",
-                        None
-                    )
-                }
-                for bid in bids
-            ]
+
+            bid_response = []
+
+
+            for bid in bids:
+
+                # ------------------------------------------------
+                # ESTIMATED TOTAL SHIPMENTS COMMITTED
+                #
+                # Slots per interval × number of intervals
+                # ------------------------------------------------
+
+                estimated_total_shipments_committed = (
+                    (bid.slots_per_interval or 0)
+                    * (bid.number_of_intervals or 0)
+                )
+
+
+                bid_response.append({
+                    # ============================================
+                    # BID IDENTITY
+                    # ============================================
+                    "id": bid.id,
+                    "status": bid.status,
+                    # ============================================
+                    # MAIN BID
+                    # ============================================
+                    "main": {
+                        "rate":
+                            bid.main_rate_per_shipment,
+                        "rate_basis":
+                            tender.pricing_basis
+                    }
+                    if bid.main_bid_amount is not None
+                    else None,
+                    # ============================================
+                    # SECONDARY BID
+                    # ============================================
+                    "secondary": {
+                        "rate":
+                            bid.secondary_rate_per_shipment,
+                        "rate_basis":
+                            tender.pricing_basis
+                    }
+                    if bid.secondary_bid_amount is not None
+                    else None,
+                    # ============================================
+                    # COMMITTED CAPACITY
+                    # ============================================
+                    "slots_per_interval":
+                        bid.slots_per_interval,
+                    "number_of_intervals":
+                        bid.number_of_intervals,
+                    "individual_slot_size":
+                        bid.per_slot_size,
+                    "estimated_total_shipments_committed":
+                        estimated_total_shipments_committed,
+                    # ============================================
+                    # SUBMISSION
+                    # ============================================
+                    "submission_id":
+                        getattr(
+                            bid,
+                            "submission_id",
+                            None
+                        ),
+                    "submitted_at":
+                        getattr(
+                            bid,
+                            "created_at",
+                            None
+                        )
+                })# ====================================================
+
 
             # ====================================================
             # VOLUME PROFILE RESPONSE
@@ -1469,6 +1579,30 @@ def get_tender_loadboard(
                 # =================================================
 
                 "tender_id": tender.id,
+
+                "bundle_id": getattr(
+                    tender,
+                    "bundle_id",
+                    None
+                ),
+
+                "bundle_reference": getattr(
+                    tender,
+                    "bundle_reference",
+                    None
+                ),
+
+                "bundle_trip_sequence": getattr(
+                    tender,
+                    "bundle_trip_sequence",
+                    None
+                ),
+
+                "bundle_role": getattr(
+                    tender,
+                    "bundle_role",
+                    None
+                ),
 
                 "parent_tender_id": getattr(
                     tender,
@@ -1756,19 +1890,8 @@ def get_tender_loadboard(
                     "delivery_documentation_sla":
                         tender.delivery_documentation_sla,
 
-                    "incident_reporting_sla":
-                        (
-                            sla_response["incident_reporting_sla"]
-                            if sla_response
-                            else None
-                        ),
-
-                    "service_level_agreement":
-                        (
-                            sla_response["service_level_agreement"]
-                            if sla_response
-                            else None
-                        )
+                    "service_standards":
+                        service_standards_response,
                 },
 
                 # =================================================
@@ -1949,9 +2072,87 @@ def get_tender_loadboard(
         )
 
         # ========================================================
-        # 10. GET MASTER LOADBOARD INFORMATION
+        # 9A. GROUP FAMILY TENDERS INTO BUNDLES
         # ========================================================
 
+        independent_tenders = []
+        bundle_map = {}
+        for full_tender in full_tenders:
+            bundle_id = full_tender.get(
+                "bundle_id"
+            )
+            # ----------------------------------------------------
+            # INDEPENDENT / MASTER TENDER
+            # ----------------------------------------------------
+            if bundle_id is None:
+                independent_tenders.append(
+                    full_tender
+                )
+                continue
+            # ----------------------------------------------------
+            # BUNDLED TENDER
+            # ----------------------------------------------------
+            if bundle_id not in bundle_map:
+                bundle_map[bundle_id] = {
+                    "bundle_id":
+                        bundle_id,
+                    "bundle_reference":
+                        full_tender.get(
+                            "bundle_reference"
+                        ),
+                    "stages": []
+                }
+            bundle_map[bundle_id][
+                "stages"
+            ].append(
+                full_tender
+            )
+        # --------------------------------------------------------
+        # SORT STAGES WITHIN EACH BUNDLE
+        # --------------------------------------------------------
+        bundle_responses = []
+        for bundle in bundle_map.values():
+            bundle["stages"].sort(
+                key=lambda stage: (
+                    stage.get(
+                        "bundle_trip_sequence"
+                    )
+                    if stage.get(
+                        "bundle_trip_sequence"
+                    ) is not None
+                    else 999999
+                )
+            )
+            # ----------------------------------------------------
+            # ADD HUMAN-READABLE STAGE NUMBER
+            # ----------------------------------------------------
+            for index, stage in enumerate(
+                bundle["stages"],
+                start=1
+            ):
+                stage["stage_number"] = index
+            bundle["stage_count"] = len(
+                bundle["stages"]
+            )
+            bundle_responses.append(
+                bundle
+            )
+        # --------------------------------------------------------
+        # SORT BUNDLES BY FIRST STAGE
+        # --------------------------------------------------------
+        bundle_responses.sort(
+            key=lambda bundle: (
+                bundle["stages"][0].get(
+                    "bundle_trip_sequence",
+                    999999
+                )
+                if bundle["stages"]
+                else 999999
+            )
+        )
+        # ========================================================
+        # 10. GET MASTER LOADBOARD INFORMATION
+        # ========================================================
         # Use the root loadboard record where available.
         root_loadboard = (
             db.query(Lane_Tender_Loadboard)
@@ -1967,7 +2168,6 @@ def get_tender_loadboard(
         # ========================================================
 
         return {
-
             # ====================================================
             # CORPORATE SUMMARY
             # ====================================================
@@ -2084,15 +2284,27 @@ def get_tender_loadboard(
                     root_tender.id,
 
                 "total_tenders":
-                    tender_count
+                    tender_count,
+
+                "total_bundles":
+                    len(bundle_responses),
+
+                "total_independent_tenders":
+                    len(independent_tenders)
             },
 
             # ====================================================
-            # ALL FULL TENDERS
+            # FAMILY TENDERS
             # ====================================================
 
-            "tenders":
-                full_tenders
+            "tenders": {
+
+                "independent_tenders":
+                    independent_tenders,
+
+                "bundles":
+                    bundle_responses
+            },
         }
 
     except HTTPException:
@@ -2111,7 +2323,7 @@ def get_tender_loadboard(
 
 @router.post("/place-tender-bid")
 def place_tender_bid(
-    bid_data: Create_Tender_Bid,
+    bid_data: TenderBidCreate,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
@@ -2124,7 +2336,7 @@ def place_tender_bid(
         )
 
     try:
-        result = process_tender_bid(
+        result = create_tender_bid(
             db,
             bid_data,
             current_user

@@ -2,10 +2,31 @@ from sqlalchemy import Boolean, Integer, String, Column, Float, Date, DateTime, 
 from models.base import Base
 from utils.sast_datetime import get_sast_time
 
+class Client_Shipment_Auction_Bundle(Base):
+    __tablename__ = "client_shipment_auction_bundles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    client_id = Column(Integer, nullable=False, index=True)
+    bundle_reference = Column(String(100), nullable=False, unique=True, index=True)
+    bundle_type = Column(String(50), nullable=False)
+    stage_count = Column(Integer, nullable=False)
+    status = Column(String(50), nullable=False, default="Active")
+    created_by_user_id = Column(Integer, nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
 class Client_Shipment_Auction(Base):
     __tablename__ = "client_shipment_auctions"
 
     id = Column(Integer, primary_key=True, index=True)
+
+    # ============================================================
+    # SHIPMENT BUNDLE RELATIONSHIP
+    # ============================================================
+    bundle_id = Column(Integer, nullable=True, index=True)
+    bundle_reference = Column(String(100), nullable=True, index=True)
+    bundle_trip_sequence = Column(Integer, nullable=True)
+    bundle_role = Column(String(20), nullable=True)
 
     shipment_reference = Column(String(100), unique=True, index=True)
     booking_reference = Column(String(100), nullable=True, index=True)
