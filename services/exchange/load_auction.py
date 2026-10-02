@@ -134,30 +134,9 @@ def calculate_auction_distance(
     destination_address: str,
     stops=None
 ):
-    """
-    Calculate the complete tender route distance using:
-
-    Origin
-        ↓
-    Stop 1
-        ↓
-    Stop 2
-        ↓
-    ...
-        ↓
-    Destination
-
-    Uses the existing calculate_distance() function.
-    """
-
-    # ---------------------------------------------------------
-    # Build waypoint list from tender stops
-    # ---------------------------------------------------------
-
     waypoints = []
 
     if stops:
-        # Sort stops by stop_sequence
         sorted_stops = sorted(
             stops,
             key=lambda stop: stop.stop_sequence
@@ -169,35 +148,35 @@ def calculate_auction_distance(
             if stop.address and stop.address.strip()
         ]
 
-    # ---------------------------------------------------------
-    # Build AddressInput for existing distance function
-    # ---------------------------------------------------------
-
     route_input = AddressInput(
         origin_address=origin_address,
         destination_address=destination_address,
         waypoints=waypoints
     )
 
-    # ---------------------------------------------------------
-    # Call existing Google Maps distance function
-    # ---------------------------------------------------------
-
     result = calculate_distance(route_input)
 
-    # ---------------------------------------------------------
-    # Extract calculated distance
-    # ---------------------------------------------------------
+    # calculate_distance() may return the distance
+    # directly as a float.
+    if isinstance(result, (int, float)):
+        return float(result)
 
-    distance_km = result.get("distance")
+    # Or it may return a dictionary.
+    if isinstance(result, dict):
+        distance_km = result.get("distance")
 
-    if distance_km is None:
-        raise HTTPException(
-            status_code=400,
-            detail="Google Maps did not return a route distance."
-        )
+        if distance_km is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Google Maps did not return a route distance."
+            )
 
-    return distance_km
+        return float(distance_km)
+
+    raise HTTPException(
+        status_code=500,
+        detail="Unexpected response from distance calculation service."
+    )
 
 
 def create_single_shipment_auction(
