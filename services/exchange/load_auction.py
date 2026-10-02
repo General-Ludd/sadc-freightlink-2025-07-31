@@ -134,6 +134,24 @@ def calculate_auction_distance(
     destination_address: str,
     stops=None
 ):
+    """
+    Calculate the complete auction route distance.
+
+    Route:
+
+        Origin
+            ↓
+        Stop 1
+            ↓
+        Stop 2
+            ↓
+        ...
+            ↓
+        Destination
+
+    Uses the existing calculate_distance() function.
+    """
+
     waypoints = []
 
     if stops:
@@ -156,27 +174,27 @@ def calculate_auction_distance(
 
     result = calculate_distance(route_input)
 
-    # calculate_distance() may return the distance
-    # directly as a float.
-    if isinstance(result, (int, float)):
-        return float(result)
-
-    # Or it may return a dictionary.
-    if isinstance(result, dict):
-        distance_km = result.get("distance")
-
-        if distance_km is None:
-            raise HTTPException(
-                status_code=400,
-                detail="Google Maps did not return a route distance."
+    if not isinstance(result, dict):
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Google Maps routing calculation "
+                "returned an invalid response."
             )
+        )
 
-        return float(distance_km)
+    distance_km = result.get("distance")
 
-    raise HTTPException(
-        status_code=500,
-        detail="Unexpected response from distance calculation service."
-    )
+    if distance_km is None:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Google Maps did not return "
+                "a valid route distance."
+            )
+        )
+
+    return result
 
 
 def create_single_shipment_auction(
