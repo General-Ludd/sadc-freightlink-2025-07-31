@@ -484,9 +484,9 @@ def get_enterprise_shipper_tender_rfqs(
             # ----------------------------------------------------
 
             bids = db.query(
-                Lane_Tender_RFQ_Bids
+                Lane_Tender_Bid
             ).filter(
-                Lane_Tender_RFQ_Bids.tender_id == tender.id
+                Lane_Tender_Bid.tender_id == tender.id
             ).all()
 
             # ----------------------------------------------------
@@ -508,8 +508,8 @@ def get_enterprise_shipper_tender_rfqs(
             for bid in bids:
 
                 bid_rate = (
-                    bid.bid_per_shipment
-                    if bid.bid_per_shipment is not None
+                    bid.main_rate_per_shipment
+                    if bid.main_rate_per_shipment is not None
                     else Decimal("0.00")
                 )
 

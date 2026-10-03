@@ -584,8 +584,6 @@ class TenderCreate(BaseModel):
 
     fuel_treatment_type: str = Field(..., max_length=100)
 
-    base_diesel_price: Optional[float] = Field(None, ge=0)
-
     fuel_review_period: Optional[str] = Field(
         None,
         max_length=50

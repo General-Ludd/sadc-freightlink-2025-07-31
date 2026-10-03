@@ -491,7 +491,7 @@ def create_tender_and_publish(
                 rate_includes_loading_assistance=tender_data.rate_includes_loading_assistance,
                 rate_includes_offloading_assistance=tender_data.rate_includes_offloading_assistance,
                 fuel_treatment_type=tender_data.fuel_treatment_type,
-                base_diesel_price=tender_data.base_diesel_price,
+                base_diesel_price=29.44,
                 fuel_review_period=tender_data.fuel_review_period,
                 fuel_component_percentage=tender_data.fuel_component_percentage,
                 vat_included=tender_data.vat_included,

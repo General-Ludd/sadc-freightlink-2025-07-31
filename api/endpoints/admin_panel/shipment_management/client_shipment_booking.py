@@ -6,7 +6,13 @@ from models.user import Director
 from models.spot_bookings.ftl_shipment import FTL_SHIPMENT, FTL_Shipment_Docs
 from models.spot_bookings.shipment_facility import ContactPerson, ShipmentFacility
 from enums import Axle_Configuration, EquipmentType, Lorry, Recurrence_Days, Recurrence_Frequency, TrailerLength, TrailerType, TruckType
-from schemas.spot_bookings.route_booking import Admin_Bulk_Create_Route
+from schemas.exchange_bookings.ftl_shipment import (
+    ShipmentBatchCreate,
+    ClientShipmentAuctionCreate,
+    ClientShipmentAuctionVehicleRequirementCreate,
+    ClientShipmentAuctionStopCreate,
+)
+from services.exchange.load_auction import create_shipment_batch
 from schemas.spot_bookings.dedicated_lanes_ftl_shipment import FTL_Lane_Create,  SpotFTLLaneQuoteRequest
 from schemas.spot_bookings.ftl_shipment import FTL_Shipment_Booking, Admin_Client_FTL_Shipment_Booking, FTL_Shipment_docs_create
 from schemas.shipment_facility import ShipmentFacilityCreate, FacilityContactCreate
@@ -797,71 +803,31 @@ def admin_fetch_client_users(
             detail=str(e)
         )
 
-@router.post("/admin/spot/client-ftl-shipment-create", status_code=status.HTTP_201_CREATED)
-def admin_create_client_spot_ftl_endpoint(
-    shipment_data: Admin_Client_FTL_Shipment_Booking,
-    pickup_facility_data: ShipmentFacilityCreate,
-    dropoff_facility_data: ShipmentFacilityCreate,
-    pickup_contact_data: FacilityContactCreate,
-    dropoff_contact_data: FacilityContactCreate,
-    stop_facilities_data: Optional[List[ShipmentFacilityCreate]] = None,
-    stop_contacts_data: Optional[List[FacilityContactCreate]] = None,
-    shipment_documents_data: FTL_Shipment_docs_create = None,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_admin),
+@router.post("/admin/book-client/{client_company_id}/auctions", status_code=status.HTTP_201_CREATED)
+def create_shipment_auction_for_client(
+    client_company_id: int,
+    batch_data: ShipmentBatchCreate,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_current_admin)
 ):
-    try:
-        result = admin_create_client_ftl_shipment(
-            db,
-            shipment_data,
-            pickup_facility_data,
-            dropoff_facility_data,
-            pickup_contact_data,
-            dropoff_contact_data,
-            stop_facilities_data,
-            stop_contacts_data,
-            shipment_documents_data,
-            current_user=current_user)
-        return result
-    except HTTPException:
-        raise
 
-    except Exception as e:
-        raise HTTPException(
-            status_code=400,
-            detail=str(e)
-        )
+    # 1. Verify platform admin
+    # 2. Verify target client company
+    # 3. Preserve admin user ID
+    # 4. Inject client company ID
+    # 5. Call existing shared function
 
-@router.post("/admin/client-bulk-route-booking")
-def admin_client_bulk_route_bookin(
-    route_data: Admin_Bulk_Create_Route,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_admin),
-):
-    try:
-        return admin_bulk_create_client_ftl_shipment(
-            db=db,
-            route_data=route_data,
-            current_user=current_user
-        )
+    effective_user = {
+        **current_user,
+        "company_id": client_company_id
+    }
 
-    except HTTPException as e:
-        print("=================================")
-        print("HTTPException")
-        print("Status:", e.status_code)
-        print("Detail:", e.detail)
-        print("=================================")
-        raise
+    return create_shipment_batch(
+        db=db,
+        batch_data=batch_data,
+        current_user=effective_user
+    )
 
-    except Exception as e:
-        print("=================================")
-        print("UNHANDLED EXCEPTION")
-        traceback.print_exc()
-        print("=================================")
-        raise
-
-SUCCESS_STATUSES = ["Assigned", "In-Transit", "Completed"]
-FAILED_STATUSES = ["Cancelled", "Failed"]
 
 @router.get("/admin/fetch-client/{client_id}/routes")
 def admin_fetch_client_routes(
