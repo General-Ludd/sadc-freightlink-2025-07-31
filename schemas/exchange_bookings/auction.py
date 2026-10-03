@@ -107,10 +107,3 @@ class Update_Tender_Bid(BaseModel):
     rate_basis: str
     slots_per_interval: int
     bid_notes: Optional[str] = None
-
-
-class Create_Shipment_Bid(BaseModel):
-    rate: float
-    number_of_loads: int
-    lead_time: str
-    bid_notes: Optional [str] = None

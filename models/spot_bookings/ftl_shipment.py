@@ -235,7 +235,17 @@ class Shipment_Execution_Metrics(Base):
     created_at = Column(DateTime(timezone=True), default=get_sast_time)
     updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)
 
+class Shipment_Service_Standard(Base):
+    __tablename__ = "shipment_service_standards"
 
+    id = Column(Integer, primary_key=True, index=True)
+    tender_id = Column(Integer, nullable=False, index=True)
+    standard_type = Column(String(50), nullable=False)
+    target_value = Column(Float, nullable=False)
+    unit = Column(String(20), nullable=False)
+    is_mandatory = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=get_sast_time)
+    updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)
 
 class FTL_SHIPMENT(Base):
     __tablename__ = "ftl_shipments"

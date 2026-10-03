@@ -7,7 +7,7 @@ from models.Exchange.dedicated_ftl_lane import FTL_Lane_Exchange, Lane_Tender_RF
 from models.Exchange.ftl_shipment import FTL_SHIPMENT_EXCHANGE, Client_Shipment_Auction, Client_Shipment_Auction_Stop, Client_Shipment_Auction_Vehicle_Requirement
 from models.spot_bookings.ftl_shipment import Client_Shipment, Client_Shipment_Stop, Client_Shipment_Vehicle_Requirement
 from models.brokerage.assigned_shipments import Carrier_Shipment
-from models.Exchange.auction import Exchange_FTL_Lane_Bid, Exchange_FTL_Shipment_Bid, Exchange_POWER_Shipment_Bid, Shipment_Auction_Bid
+from models.Exchange.bidding import Shipment_Auction_Bid
 from models.Exchange.power_shipment import POWER_SHIPMENT_EXCHANGE
 from models.brokerage.assigned_shipments import Carrier_Shipment
 from models.brokerage.assigned_lanes import Assigned_Ftl_Lanes
@@ -22,7 +22,8 @@ from models.spot_bookings.dedicated_lane_ftl_shipment import Client_Lane
 from models.spot_bookings.ftl_shipment import FTL_SHIPMENT, Client_Shipment, Client_Shipment_Stop, Client_Shipment_Vehicle_Requirement
 from models.spot_bookings.power_shipment import POWER_SHIPMENT
 from models.vehicle import Vehicle
-from schemas.exchange_bookings.auction import Accept_Bid, Exchange_FTL_Lane_Bid_Create, Exchange_FTL_Shipment_Bid_Create, Exchange_POWER_Shipment_Bid_Create, Create_Tender_Bid, Update_Tender_Bid, Create_Shipment_Bid
+from schemas.exchange_bookings.bidding import TenderBidCreate, Create_Shipment_Bid
+from schemas.exchange_bookings.auction import Update_Tender_Bid
 from services.brokerage.carrier_loadboard_service import calculate_rates
 from services.brokerage.commission import calculate_commission
 from utils.billing import BillingEngine

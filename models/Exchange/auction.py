@@ -54,23 +54,3 @@ class Exchange_FTL_Lane_Bid(Base):
     status = Column(Enum("Placed", "Outbidded", "Accepted", "Rejected", default="Placed"))
     submitted_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
-
-
-class Shipment_Auction_Bid(Base):
-    __tablename__ = 'shipment_auction_bids'
-
-    id = Column(Integer, primary_key=True, index=True)
-    auction_id = Column(Integer, index=True)
-    carrier_id = Column(Integer, nullable=False)
-    bidder_user_id = Column(Integer)
-    carrier_name = Column(String, nullable=False)
-    fleet_size = Column(Integer, nullable=True)
-    primary_lanes = Column(String)
-    rate = Column(Numeric(12, 2), nullable=True)
-    number_of_loads = Column(Integer)
-    lead_time = Column(String, nullable=True)
-    bid_notes = Column(String, nullable=True)
-    status = Column(Enum("Submitted", "Leading", "Outbidded", "Under-Review","Awarded", "Rejected", default="Submitted"))
-    submitted_at = Column(DateTime, server_default=func.now())
-    created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

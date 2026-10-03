@@ -34,6 +34,36 @@ class Lane_Tender_Bid(Base):
     bid_notes = Column(String, nullable=True)
     status = Column(Enum("Submitted", "Leading", "Outbidded", "Under-Review","Accepted", "Rejected", default="Submitted"))
 
+    is_active = Column(Boolean, default=True)
     submitted_at = Column(DateTime, server_default=func.now())
     created_at = Column(DateTime(timezone=True), default=get_sast_time)
     updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)
+
+class Shipment_Auction_Bid(Base):
+    __tablename__ = "shipment_auction_bids"
+
+    id = Column(Integer, primary_key=True, index=True)
+    auction_id = Column(Integer, index=True)
+    carrier_id = Column(Integer, nullable=False)
+    bidder_user_id = Column(Integer)
+    carrier_name = Column(String, nullable=False)
+    fleet_size = Column(Integer, nullable=True)
+    primary_lanes = Column(String)
+
+    rate_basis = Column(String, nullable=True)
+    main_rate = Column(Numeric(12, 2), nullable=True)
+    main_rate_per_shipment = Column(Numeric(14, 2), nullable=True)
+    total_main_rate = Column(Numeric(12, 2), nullable=True)
+    secondary_rate = Column(Numeric(12, 2), nullable=True)
+    secondary_rate_per_shipment = Column(Numeric(14, 2), nullable=True)
+    total_secondary_rate = Column(Numeric(12, 2), nullable=True)
+    number_of_loads = Column(Integer)
+    lead_time = Column(String, nullable=True)
+    bid_notes = Column(String, nullable=True)
+
+    status = Column(Enum("Submitted", "Leading", "Outbidded", "Under-Review","Awarded", "Rejected", default="Submitted"))
+    is_active = Column(Boolean, default=True)
+    submitted_at = Column(DateTime, server_default=func.now())
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+

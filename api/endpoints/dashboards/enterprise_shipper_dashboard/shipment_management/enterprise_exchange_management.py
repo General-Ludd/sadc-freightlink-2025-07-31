@@ -5,7 +5,7 @@ from db.database import SessionLocal
 from models.Exchange.bidding import Lane_Tender_Bid
 from models.Exchange.auction import Exchange_FTL_Lane_Bid, Exchange_FTL_Shipment_Bid, Exchange_POWER_Shipment_Bid
 from models.Exchange.dedicated_ftl_lane import FTL_Lane_Exchange, Lane_Tender_RFQ, Lane_Tender_RFQ_Stop, Lane_Tender_RFQ_Vehicle_Config, Lane_Tender_RFQ_Volume_Profile, Lane_Tender_RFQ_Accessorial
-from models.Exchange.auction import Shipment_Auction_Bid
+from models.Exchange.bidding import Shipment_Auction_Bid
 from models.shipper import Corporation
 from models.user import Director
 from models.Exchange.ftl_shipment import Client_Shipment_Auction, Client_Shipment_Auction_Stop, Client_Shipment_Auction_Vehicle_Requirement

@@ -5,6 +5,7 @@ import json
 import threading
 from fastapi.middleware.cors import CORSMiddleware
 from api.endpoints.dashboards import tracking
+from api import get_enums
 from api.endpoints.dashboards.enterprise_shipper_dashboard.bookings import procurement_booking
 from api.endpoints.dashboards.enterprise_shipper_dashboard import enterprise_dashboard
 from api.endpoints.dashboards.enterprise_shipper_dashboard.facility_management import facility_sub_shipper
@@ -124,6 +125,7 @@ LOG_ROUTES = [
 
 #################################################Public################################################
 app.include_router(contact_us.router, prefix="/api", tags=["Contact Us"])
+app.include_router(get_enums.router, prefix="/api", tags=["Enums"])
 
 #################################################Enterprise############################################
 app.include_router(enterprise_dashboard.router, prefix="/api", tags=["Enterprise Shipper Dashboard"])
