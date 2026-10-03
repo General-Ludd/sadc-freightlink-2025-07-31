@@ -590,9 +590,9 @@ def get_single_tender_summary(
         # ========================================================
 
         bid_count = (
-            db.query(Lane_Tender_RFQ_Bids)
+            db.query(Lane_Tender_Bid)
             .filter(
-                Lane_Tender_RFQ_Bids.tender_id == tender.id
+                Lane_Tender_Bid.tender_id == tender.id
             )
             .count()
         )
