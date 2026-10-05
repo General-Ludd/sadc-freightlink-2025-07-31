@@ -608,7 +608,7 @@ def create_tender_bid(
             secondary_per_slot_contract_bid=secondary_per_slot_contract_bid,
             secondary_total_contract_bid=secondary_total_contract_bid,
             bid_notes=bid.notes,
-            status="Active"
+            status="Submitted"
         )
         db.add(db_bid)
         created_bids.append(db_bid)
