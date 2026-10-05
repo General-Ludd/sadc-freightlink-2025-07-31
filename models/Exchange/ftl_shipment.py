@@ -183,6 +183,18 @@ class Client_Shipment_Auction_Vehicle_Requirement(Base):
 
     is_required = Column(Boolean, default=True, nullable=False)
 
+class Shipment_Auction_Service_Standard(Base):
+    __tablename__ = "shipment_auction_service_standards"
+
+    id = Column(Integer, primary_key=True, index=True)
+    auction_id = Column(Integer, nullable=False, index=True)
+    standard_type = Column(String(50), nullable=False)
+    target_value = Column(Float, nullable=False)
+    unit = Column(String(20), nullable=False)
+    is_mandatory = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=get_sast_time)
+    updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)
+
 class FTL_SHIPMENT_EXCHANGE(Base):
     __tablename__ = "ftl_shipment_exchanges"
 

@@ -4,7 +4,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from db.database import SessionLocal
 from models.Exchange.ftl_shipment import Client_Shipment_Auction, Client_Shipment_Auction_Stop, Client_Shipment_Auction_Vehicle_Requirement
-from models.Exchange.dedicated_ftl_lane import Lane_Tender_RFQ, Lane_Tender_RFQ_Stop, Lane_Tender_RFQ_Vehicle_Config, Lane_Tender_RFQ_Volume_Profile, Lane_Tender_RFQ_Accessorial
+from models.Exchange.dedicated_ftl_lane import Lane_Tender_RFQ, Lane_Tender_RFQ_Stop, Lane_Tender_RFQ_Vehicle_Config, Lane_Tender_RFQ_Volume_Profile, Lane_Tender_RFQ_Accessorial, Tender_Service_Standard
 from models.shipper import Corporation
 from models.Exchange.dedicated_ftl_lane import Lane_Tender_RFQ, Lane_Tender_RFQ_Stop, Lane_Tender_RFQ_Vehicle_Config, Lane_Tender_RFQ_Volume_Profile, Lane_Tender_RFQ_Accessorial, Turnaround_Window_Demurrage_Protocals, Carrier_Certification_Driver_Standards, Escort_Policy, Sla_incident_Reporting
 from models.Exchange.bidding import Lane_Tender_Bid, Shipment_Auction_Bid
@@ -1334,7 +1334,6 @@ def get_tender_loadboard(
             # ====================================================
             # TENDER SERVICE STANDARDS
             # ====================================================
-
             DEFAULT_SERVICE_STANDARDS = [
                 {
                     "standard_type": "OTIF",
@@ -1386,7 +1385,7 @@ def get_tender_loadboard(
 
                 service_standards_response = [
                     {
-                        "standard_type":
+                        "type":
                             standard.standard_type,
 
                         "target_value":

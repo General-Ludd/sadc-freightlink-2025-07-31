@@ -203,7 +203,11 @@ def get_load_exchange_summary(
                     "id": bid.id,
                     "carrier_name": bid.carrier_name,
                     "lead_time": bid.lead_time,
-                    "rate": bid.rate,
+                    "bid_rate": {
+                        "rate": bid.main_bid_amount if bid.main_bid_amount else bid.secondary_bid_amount,
+                        "rate_basis": bid.rate_basis,
+                        "shipment_rate": bid.main_rate_per_shipment,
+                    },
                     "number_of_loads": bid.number_of_loads,
                     "notes": bid.notes,
                     "savings": (exchange.procurement_target_rate - bid.rate) if bid.rate is not None and exchange.procurement_target_rate is not None else None,
@@ -224,6 +228,7 @@ def get_load_exchange_information(
     current_user: dict = Depends(get_current_user)
 ):
     assert "company_id" in current_user, "Missing company_id in current_user"
+
     company_id = current_user.get("company_id")
 
     if not company_id:
@@ -231,19 +236,234 @@ def get_load_exchange_information(
             status_code=400,
             detail="User does not belong to a company"
         )
+
     try:
         print("STEP 1 - querying auction")
-        exchange = db.query(Client_Shipment_Auction).filter(Client_Shipment_Auction.id == id).first()
+
+        exchange = (
+            db.query(Client_Shipment_Auction)
+            .filter(Client_Shipment_Auction.id == id)
+            .first()
+        )
+
         if not exchange:
-            raise HTTPException(status_code=404, detail="Load exchange not found")
+            raise HTTPException(
+                status_code=404,
+                detail="Load exchange not found"
+            )
 
-        trip_points = db.query(Client_Shipment_Auction_Stop).filter(Client_Shipment_Auction_Stop.auction_id == exchange.id).order_by(Client_Shipment_Auction_Stop.stop_sequence.asc()).all()
-        bids = db.query(Shipment_Auction_Bid).filter(Shipment_Auction_Bid.auction_id == exchange.id).order_by(Shipment_Auction_Bid.rate.asc()).all()
-        configs = db.query(Client_Shipment_Auction_Vehicle_Requirement).filter(Client_Shipment_Auction_Vehicle_Requirement.auction_id == exchange.id).all()
+        # ---------------------------------------------------------
+        # QUERY RELATED DATA
+        # ---------------------------------------------------------
 
-        origin = db.query(Client_Shipment_Auction_Stop).filter(Client_Shipment_Auction_Stop.auction_id == exchange.id, Client_Shipment_Auction_Stop.stop_type == "Origin").first()
-        stops = db.query(Client_Shipment_Auction_Stop).filter(Client_Shipment_Auction_Stop.auction_id == exchange.id, Client_Shipment_Auction_Stop.stop_type == "Intermediate").all()
-        destination = db.query(Client_Shipment_Auction_Stop).filter(Client_Shipment_Auction_Stop.auction_id == exchange.id, Client_Shipment_Auction_Stop.stop_type == "Destination").first()
+        trip_points = (
+            db.query(Client_Shipment_Auction_Stop)
+            .filter(
+                Client_Shipment_Auction_Stop.auction_id == exchange.id
+            )
+            .order_by(
+                Client_Shipment_Auction_Stop.stop_sequence.asc()
+            )
+            .all()
+        )
+
+        bids = (
+            db.query(Shipment_Auction_Bid)
+            .filter(
+                Shipment_Auction_Bid.auction_id == exchange.id
+            )
+            .order_by(
+                Shipment_Auction_Bid.main_rate.asc()
+            )
+            .all()
+        )
+
+        configs = (
+            db.query(Client_Shipment_Auction_Vehicle_Requirement)
+            .filter(
+                Client_Shipment_Auction_Vehicle_Requirement.auction_id
+                == exchange.id
+            )
+            .all()
+        )
+
+        target_sla = (
+            db.query(Shipment_Auction_Service_Standard)
+            .filter(
+                Shipment_Auction_Service_Standard.auction_id
+                == exchange.id
+            )
+            .all()
+        )
+
+        # ---------------------------------------------------------
+        # SEPARATE ROUTE STOPS
+        # ---------------------------------------------------------
+
+        origin = next(
+            (
+                stop
+                for stop in trip_points
+                if stop.stop_type == "Origin"
+            ),
+            None
+        )
+
+        stops = [
+            stop
+            for stop in trip_points
+            if stop.stop_type == "Intermediate"
+        ]
+
+        destination = next(
+            (
+                stop
+                for stop in trip_points
+                if stop.stop_type == "Destination"
+            ),
+            None
+        )
+
+        if not origin:
+            raise HTTPException(
+                status_code=500,
+                detail="Auction is missing an Origin stop"
+            )
+
+        if not destination:
+            raise HTTPException(
+                status_code=500,
+                detail="Auction is missing a Destination stop"
+            )
+
+        # ---------------------------------------------------------
+        # BID RESPONSE
+        # ---------------------------------------------------------
+
+        bid_information = []
+
+        for bid in bids:
+
+            primary_rate = (
+                bid.main_rate
+                if bid.main_rate is not None
+                else None
+            )
+
+            secondary_rate = (
+                bid.secondary_rate
+                if bid.secondary_rate is not None
+                else None
+            )
+
+            primary_savings = None
+
+            if (
+                primary_rate is not None
+                and exchange.procurement_target_rate is not None
+            ):
+                primary_savings = (
+                    exchange.procurement_target_rate - primary_rate
+                )
+
+            secondary_savings = None
+
+            if (
+                secondary_rate is not None
+                and exchange.procurement_target_rate is not None
+            ):
+                secondary_savings = (
+                    exchange.procurement_target_rate - secondary_rate
+                )
+
+            bid_information.append(
+                {
+                    "id": bid.id,
+
+                    "primary_rate": {
+                        "rate": primary_rate,
+                        "rate_basis": bid.rate_basis,
+                        "shipment_rate": bid.main_rate_per_shipment,
+                        "total_rate": bid.total_main_rate,
+                        "potential_savings": primary_savings,
+                    },
+
+                    "secondary_rate": (
+                        {
+                            "rate": secondary_rate,
+                            "rate_basis": bid.rate_basis,
+                            "shipment_rate": bid.secondary_rate_per_shipment,
+                            "total_rate": bid.total_secondary_rate,
+                            "potential_savings": secondary_savings,
+                        }
+                        if secondary_rate is not None
+                        else None
+                    ),
+
+                    "number_of_loads": bid.number_of_loads,
+                    "status": bid.status,
+
+                    "carrier": {
+                        "id": bid.carrier_id,
+                        "name": bid.carrier_name,
+                        "fleet_size": bid.fleet_size,
+                        "primary_lanes": bid.primary_lanes,
+                        "lead_time": bid.lead_time,
+                    },
+
+                    "submitted_at": bid.submitted_at,
+                }
+            )
+
+        # ---------------------------------------------------------
+        # ROUTE STOP SERIALIZER
+        # ---------------------------------------------------------
+
+        def serialize_stop(stop):
+            if not stop:
+                return None
+
+            return {
+                "stop_type": stop.stop_type,
+
+                "city_province_country": {
+                    "city_province": stop.city_province,
+                    "country": stop.country,
+                },
+
+                "facility_name": stop.facility_name,
+                "reference_number": stop.reference_number,
+                "address": stop.address,
+                "scheduling_type": stop.scheduling_type,
+
+                "operating_hours": {
+                    "start_time": stop.operating_start_time,
+                    "end_time": stop.operating_end_time,
+                },
+
+                "operating_days": {
+                    "monday": stop.open_monday,
+                    "tuesday": stop.open_tuesday,
+                    "wednesday": stop.open_wednesday,
+                    "thursday": stop.open_thursday,
+                    "friday": stop.open_friday,
+                    "saturday": stop.open_saturday,
+                    "sunday": stop.open_sunday,
+                },
+
+                "contact_person": {
+                    "first_name": stop.contact_first_name,
+                    "last_name": stop.contact_last_name,
+                    "phone": stop.contact_phone_number,
+                    "email": stop.contact_email,
+                },
+
+                "facility_notes": stop.notes,
+            }
+
+        # ---------------------------------------------------------
+        # RETURN RESPONSE
+        # ---------------------------------------------------------
 
         return {
             "load_information": {
@@ -258,190 +478,174 @@ def get_load_exchange_information(
                 "pickup_date": exchange.pickup_date,
                 "priority_level": exchange.priority_level,
                 "customer_reference_number": exchange.customer_reference_number,
+
+                "shipment_weight": exchange.shipment_weight,
+                "commodity": exchange.commodity,
+                "packaging_type": exchange.packaging_type,
+                "packaging_quantity": exchange.packaging_quantity,
+
+                "temperature_control": exchange.temperature_control,
+                "temperature_control_spec": exchange.target_temperature_spec,
+
+                "hazardous_materials": exchange.hazardous_materials,
+                "hazchem_classification": exchange.hazchem_classification,
+                "under_bond": exchange.under_bond,
+                "rib_required": exchange.rib_requirements,
+
                 "pod_submission_local": exchange.pod_submission_local,
                 "pod_submission_long_haul": exchange.pod_submission_long_haul,
                 "pod_submission_cross_border": exchange.pod_submission_cross_border,
-                "auction_information": {
-                    "end_time": exchange.auction_closing_date,
-                    "bidding_activated": exchange.bidding_activated,
-                    "rates": {
-                        "pricing_basis": exchange.pricing_basis,
-                        "rate_direction": exchange.rate_direction,
-                        "benchmark": exchange.procurement_target_rate,
-                        "book_now_rate": exchange.book_now_rate if exchange.book_now_rate else None,
-                        "vat_inclusive": exchange.vat_included,
-                    },
-                    "bids": [{
-                        "id": bid.id,
-                        "rate": bid.rate,
-                        "number_of_loads": bid.number_of_loads,
-                        "status": bid.status,
-                        "potential_savings": (exchange.procurement_target_rate - bid.rate) if bid.rate is not None and exchange.procurement_target_rate is not None else None,
-                        "carrier": {
-                            "id": bid.carrier_id,
-                            "name": bid.carrier_name,
-                            "fleet_size": bid.fleet_size,
-                            "primary_lanes": bid.primary_lanes,
-                            "lead_time": bid.lead_time,
-                        },
-                        "submitted_at": bid.submitted_at,
-                    } for bid in bids],
-                    "rate_inclusive_of": {
-                        "fuel": exchange.rate_includes_fuel,
-                        "waiting_detention_time": exchange.rate_includes_waiting_time,
-                        "driver": exchange.rate_includes_driver,
-                        "maintenance": exchange.rate_includes_maintenance,
-                        "insurance": exchange.rate_includes_insurance,
-                        "tolls": exchange.rate_includes_tolls,
-                        "border_charges": exchange.rate_includes_border_charges,
-                        "empty_return": exchange.rate_includes_empty_return,
-                        "loading_assistance_charges": exchange.rate_includes_loading_assistance,
-                        "offloading_assistance_charges": exchange.rate_includes_offloading_assistance,
-                    },
+            },
+
+            "auction_information": {
+                "end_time": exchange.auction_closing_date,
+                "bidding_activated": exchange.bidding_activated,
+
+                "rates": {
+                    "pricing_basis": exchange.pricing_basis,
+                    "rate_direction": exchange.rate_direction,
+                    "benchmark": exchange.procurement_target_rate,
+                    "book_now_rate": (
+                        exchange.book_now_rate
+                        if exchange.book_now_rate is not None
+                        else None
+                    ),
+                    "vat_inclusive": exchange.vat_included,
                 },
-                "load_information": {
-                    "number_of_trucks_required": exchange.number_of_trucks_required,
-                    "number_of_slots_remaining": exchange.slots_remaining,
-                    "pickup_date": exchange.pickup_date,
-                    "shipment_weight": exchange.shipment_weight,
-                    "commodity": exchange.commodity,
-                    "packaging_type": exchange.packaging_type,
-                    "packaging_quantity": exchange.packaging_quantity,
-                    "temperature_control": exchange.temperature_control,
-                    "temperature_control_spec": exchange.target_temperature_spec,
-                    "hazardous_materials": exchange.hazardous_materials,
-                    "hazchem_classification": exchange.hazchem_classification,
-                    "under_bond": exchange.under_bond,
-                    "rib_required": exchange.rib_requirements,
+
+                "bids": bid_information,
+
+                "rate_inclusive_of": {
+                    "fuel": exchange.rate_includes_fuel,
+                    "waiting_detention_time": exchange.rate_includes_waiting_time,
+                    "driver": exchange.rate_includes_driver,
+                    "maintenance": exchange.rate_includes_maintenance,
+                    "insurance": exchange.rate_includes_insurance,
+                    "tolls": exchange.rate_includes_tolls,
+                    "border_charges": exchange.rate_includes_border_charges,
+                    "empty_return": exchange.rate_includes_empty_return,
+                    "loading_assistance_charges": (
+                        exchange.rate_includes_loading_assistance
+                    ),
+                    "offloading_assistance_charges": (
+                        exchange.rate_includes_offloading_assistance
+                    ),
                 },
-                "truck_requirements": [{
+            },
+
+            "truck_requirements": [
+                {
                     "configuration_type": config.configuration_type,
                     "truck_type": config.truck_type,
                     "equipment_type": config.equipment_type,
-                    "trailer_type": config.trailer_type if config.trailer_type else None,
-                    "trailer_length": config.trailer_length if config.trailer_length else None,
-                    "minimum_weight_bracket": exchange.minimum_weight_bracket,
+                    "trailer_type": (
+                        config.trailer_type
+                        if config.trailer_type
+                        else None
+                    ),
+                    "trailer_length": (
+                        config.trailer_length
+                        if config.trailer_length
+                        else None
+                    ),
+
+                    "minimum_weight_bracket": (
+                        exchange.minimum_weight_bracket
+                    ),
+
                     "compliance_requirements": {
-                        "vehicle_tracking_required": exchange.vehicle_tracking_required,
-                        "all_time_hour_control_room": exchange.all_time_hour_control_room,
-                        "driver_mobile_phone": exchange.driver_mobile_phone,
-                        "clean_compliant_equipment": exchange.clean_compliant_equipment,
+                        "vehicle_tracking_required": (
+                            exchange.vehicle_tracking_required
+                        ),
+                        "all_time_hour_control_room": (
+                            exchange.all_time_hour_control_room
+                        ),
+                        "driver_mobile_phone": (
+                            exchange.driver_mobile_phone
+                        ),
+                        "clean_compliant_equipment": (
+                            exchange.clean_compliant_equipment
+                        ),
                     },
+
                     "accessorials_requirement": {
                         "pallet_management": exchange.pallet_management,
-                        "tarpaulin_compliance_required": exchange.tarpaulin_compliance_required,
-                        "corner_plates_required": exchange.corner_plates_required,
-                        "chock_blocks_required": exchange.chock_blocks_required,
-                        "ratchets_belts_required": exchange.ratchets_belts_required,
-                        "other_equipment_requirements": exchange.other_equipment_requirements,
+                        "tarpaulin_compliance_required": (
+                            exchange.tarpaulin_compliance_required
+                        ),
+                        "corner_plates_required": (
+                            exchange.corner_plates_required
+                        ),
+                        "chock_blocks_required": (
+                            exchange.chock_blocks_required
+                        ),
+                        "ratchets_belts_required": (
+                            exchange.ratchets_belts_required
+                        ),
+                        "other_equipment_requirements": (
+                            exchange.other_equipment_requirements
+                        ),
                     },
-                } for config in configs],
-                "insurance_requirements": {
-                    "minimum_git_cover": exchange.minimum_git_cover_amount,
-                    "minimum_liability_cover": exchange.minimum_liability_cover_amount,
-                    "git_all_risk_required": exchange.git_all_risk_required,
-                    "git_first_loss_required": exchange.git_first_loss_required,
-                    "git_driver_fidelity_required": exchange.git_driver_fidelity_required,
-                },
-                "route_facilities_information": {
-                    "origin_facility": {
-                        "stop_type": origin.stop_type,
-                        "city_province_country": {
-                            "city_province": origin.city_province,
-                            "country": origin.country,
-                        },
-                        "facility_name": origin.facility_name,
-                        "reference_number": origin.reference_number,
-                        "address": origin.address,
-                        "scheduling_type": origin.scheduling_type,
-                        "operating_hours": {
-                            "start_time": origin.operating_start_time,
-                            "end_time": origin.operating_end_time,
-                        },
-                        "operating_days": {
-                            "monday": origin.open_monday,
-                            "tuesday": origin.open_tuesday,
-                            "wednesday": origin.open_wednesday,
-                            "thursday": origin.open_thursday,
-                            "friday": origin.open_friday,
-                            "saturday": origin.open_saturday,
-                            "sunday": origin.open_sunday
-                        },
-                        "contact_person": {
-                            "first_name": origin.contact_first_name,
-                            "last_name": origin.contact_first_name,
-                            "phone": origin.contact_phone_number,
-                            "email": origin.contact_email,
-                        },
-                        "facility_notes": origin.notes,
-                    },
-                    "stop_facilities": [{
-                        "stop_type": stop.stop_type,
-                        "city_province_country": {
-                            "city_province": stop.city_province,
-                            "country": stop.country,
-                        },
-                        "facility_name": stop.facility_name,
-                        "reference_number": stop.reference_number,
-                        "address": stop.address,
-                        "scheduling_type": stop.scheduling_type,
-                        "operating_hours": {
-                            "start_time": stop.operating_start_time,
-                            "end_time": stop.operating_end_time,
-                        },
-                        "operating_days": {
-                            "monday": stop.open_monday,
-                            "tuesday": stop.open_tuesday,
-                            "wednesday": stop.open_wednesday,
-                            "thursday": stop.open_thursday,
-                            "friday": stop.open_friday,
-                            "saturday": stop.open_saturday,
-                            "sunday": stop.open_sunday
-                        },
-                        "contact_person": {
-                            "first_name": stop.contact_first_name,
-                            "last_name": stop.contact_first_name,
-                            "phone": stop.contact_phone_number,
-                            "email": stop.contact_email,
-                        },
-                        "facility_notes": stop.notes,
-                    } for stop in stops] if stops else None,
-                    "destination_facility": {
-                        "stop_type": destination.stop_type,
-                        "city_province_country": {
-                            "city_province": destination.city_province,
-                            "country": destination.country,
-                        },
-                        "facility_name": destination.facility_name,
-                        "reference_number": destination.reference_number,
-                        "address": destination.address,
-                        "scheduling_type": destination.scheduling_type,
-                        "operating_hours": {
-                            "start_time": destination.operating_start_time,
-                            "end_time": destination.operating_end_time,
-                        },
-                        "operating_days": {
-                            "monday": destination.open_monday,
-                            "tuesday": destination.open_tuesday,
-                            "wednesday": destination.open_wednesday,
-                            "thursday": destination.open_thursday,
-                            "friday": destination.open_friday,
-                            "saturday": destination.open_saturday,
-                            "sunday": destination.open_sunday
-                        },
-                        "contact_person": {
-                            "first_name": destination.contact_first_name,
-                            "last_name": destination.contact_first_name,
-                            "phone": destination.contact_phone_number,
-                            "email": destination.contact_email,
-                        },
-                        "facility_notes": destination.notes,
-                    },
-                },
+                }
+                for config in configs
+            ],
+
+            "insurance_requirements": {
+                "minimum_git_cover": exchange.minimum_git_cover_amount,
+                "minimum_liability_cover": (
+                    exchange.minimum_liability_cover_amount
+                ),
+                "git_all_risk_required": (
+                    exchange.git_all_risk_required
+                ),
+                "git_first_loss_required": (
+                    exchange.git_first_loss_required
+                ),
+                "git_driver_fidelity_required": (
+                    exchange.git_driver_fidelity_required
+                ),
+            },
+
+            "target_service_levels": [
+                {
+                    "standards": {
+                        "type": sla.standard_type,
+                        "target_value": sla.target_value,
+                        "unit": sla.unit,
+                        "is_mandatory": sla.is_mandatory,
+                    }
+                }
+                for sla in target_sla
+            ],
+
+            "route_facilities_information": {
+                "origin_facility": serialize_stop(origin),
+
+                "stop_facilities": (
+                    [
+                        serialize_stop(stop)
+                        for stop in stops
+                    ]
+                    if stops
+                    else None
+                ),
+
+                "destination_facility": serialize_stop(destination),
             },
         }
+
+    except HTTPException:
+        raise
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(
+            f"ERROR loading shipment auction {id}: {str(e)}"
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve load exchange information: {str(e)}"
+        )
 
 @router.post("/award-auction/{auction_id}/bid/{bid_id}")
 def award_auction_bid(
