@@ -13,8 +13,6 @@ class LegBidCreate(BaseModel):
     def validate_bids(self):
         if self.main_bid_amount is None and self.secondary_bid_amount is None:
             raise ValueError("At least one of main_bid_amount or secondary_bid_amount must be provided.")
-        if self.main_bid_amount is not None and self.secondary_bid_amount is None:
-            raise ValueError("A main_bid_amount cannot be submitted without a secondary_bid_amount.")
         return self
 
 class TenderBidCreate(BaseModel):
