@@ -53,7 +53,7 @@ def calculate_service_fee(
     if benchmark_rate < 0:
         raise ValueError("Benchmark rate cannot be negative.")
 
-    pricing_basis = str(pricing_basis).strip().lower()
+    pricing_basis = pricing_basis
 
     # ============================================================
     # CALCULATE ACTUAL SHIPMENT VALUE
