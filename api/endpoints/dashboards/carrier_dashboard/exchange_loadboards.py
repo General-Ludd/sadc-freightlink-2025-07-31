@@ -336,6 +336,21 @@ def get_loadboard_shipment(
                     "pod_submission_long_haul": load.pod_submission_long_haul,
                     "pod_submission_cross_border": load.pod_submission_cross_border,
                 },
+                # ====================================================
+                # Auction SERVICE STANDARDS
+                # ====================================================
+                "service_standards_response": [
+                    {
+                        "type":
+                            standard.standard_type,
+                        "target_value":
+                            standard.target_value,
+                        "unit":
+                            standard.unit,
+                        "is_mandatory":
+                            standard.is_mandatory
+                    }
+                    for standard in service_standards],
                 "facilities": [
                     {
                         "sequence": facility.stop_sequence,

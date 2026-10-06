@@ -366,7 +366,7 @@ class ClientShipmentAuctionUpdate(BaseModel):
     temperature_control: Optional[str] = None
     target_temperature_spec: Optional[str] = None
     hazardous_materials: Optional[bool] = None
-    hazchem_classification: Optional[HazchemClass] = None
+    hazchem_classification: Optional[str] = None
     under_bond: Optional[bool] = None
     rib_requirements: Optional[bool] = None
     packaging_quantity: Optional[str] = None
