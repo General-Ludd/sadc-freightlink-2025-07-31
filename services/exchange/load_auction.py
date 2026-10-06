@@ -60,13 +60,13 @@ def calculate_service_fee(
     # ============================================================
 
     if pricing_basis in {
-        "rate per load",
-        "fixed trip rate",
-        "rate per container"
+        "Rate per Trip / Load",
+        "Rate per Shipment",
+        "Rate per Container"
     }:
         calculated_rate = benchmark_rate
 
-    elif pricing_basis == "rate per km":
+    elif pricing_basis == "Rate per Km":
 
         if distance is None:
             raise ValueError(
@@ -81,8 +81,8 @@ def calculate_service_fee(
         calculated_rate = benchmark_rate * distance
 
     elif pricing_basis in {
-        "rate per ton",
-        "rate per tonne"
+        "Rate per Ton",
+        "Rate per Tonne"
     }:
 
         if shipment_weight is None:
