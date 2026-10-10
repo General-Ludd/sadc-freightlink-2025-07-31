@@ -59,6 +59,7 @@ class Client_Shipment(Base):
     hazchem_classification = Column(String, nullable=True)
     under_bond = Column(Boolean, default=False) ########### Add to DB
     rib_requirements = Column(Boolean, default=False) ####### Add to DB
+    border_customs_responsibility = Column(String)
     packaging_quantity = Column(Integer)
     packaging_type = Column(String)
     distance = Column(Numeric(10, 2), nullable=True)
