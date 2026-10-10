@@ -221,6 +221,7 @@ def get_load_exchange_summary(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @router.get("/load-exchange/{id}")
 def get_load_exchange_information(
     id: int,
@@ -238,400 +239,911 @@ def get_load_exchange_information(
         )
 
     try:
-        print("STEP 1 - querying auction")
+        # =========================================================
+        # 1. QUERY THE REQUESTED AUCTION
+        # =========================================================
 
-        exchange = (
+        requested_auction = (
             db.query(Client_Shipment_Auction)
-            .filter(Client_Shipment_Auction.id == id)
+            .filter(
+                Client_Shipment_Auction.id == id,
+                Client_Shipment_Auction.client_id == company_id
+            )
             .first()
         )
 
-        if not exchange:
+        if not requested_auction:
             raise HTTPException(
                 status_code=404,
                 detail="Load exchange not found"
             )
 
-        # ---------------------------------------------------------
-        # QUERY RELATED DATA
-        # ---------------------------------------------------------
+        # =========================================================
+        # 2. QUERY BUNDLE METADATA AND ALL RELATED AUCTIONS
+        # =========================================================
 
-        trip_points = (
-            db.query(Client_Shipment_Auction_Stop)
-            .filter(
-                Client_Shipment_Auction_Stop.auction_id == exchange.id
-            )
-            .order_by(
-                Client_Shipment_Auction_Stop.stop_sequence.asc()
-            )
-            .all()
-        )
+        bundle_metadata = None
 
-        bids = (
-            db.query(Shipment_Auction_Bid)
-            .filter(
-                Shipment_Auction_Bid.auction_id == exchange.id
-            )
-            .order_by(
-                Shipment_Auction_Bid.main_rate.asc()
-            )
-            .all()
-        )
-
-        configs = (
-            db.query(Client_Shipment_Auction_Vehicle_Requirement)
-            .filter(
-                Client_Shipment_Auction_Vehicle_Requirement.auction_id
-                == exchange.id
-            )
-            .all()
-        )
-
-        target_sla = (
-            db.query(Shipment_Auction_Service_Standard)
-            .filter(
-                Shipment_Auction_Service_Standard.auction_id
-                == exchange.id
-            )
-            .all()
-        )
-
-        # ---------------------------------------------------------
-        # SEPARATE ROUTE STOPS
-        # ---------------------------------------------------------
-
-        origin = next(
-            (
-                stop
-                for stop in trip_points
-                if stop.stop_type == "Origin"
-            ),
-            None
-        )
-
-        stops = [
-            stop
-            for stop in trip_points
-            if stop.stop_type == "Intermediate"
-        ]
-
-        destination = next(
-            (
-                stop
-                for stop in trip_points
-                if stop.stop_type == "Destination"
-            ),
-            None
-        )
-
-        if not origin:
-            raise HTTPException(
-                status_code=500,
-                detail="Auction is missing an Origin stop"
+        if requested_auction.bundle_id is not None:
+            bundle_record = (
+                db.query(Client_Shipment_Auction_Bundle)
+                .filter(
+                    Client_Shipment_Auction_Bundle.id
+                    == requested_auction.bundle_id,
+                    Client_Shipment_Auction_Bundle.client_id
+                    == company_id
+                )
+                .first()
             )
 
-        if not destination:
-            raise HTTPException(
-                status_code=500,
-                detail="Auction is missing a Destination stop"
+            if bundle_record:
+                bundle_metadata = {
+                    "id": bundle_record.id,
+                    "bundle_reference": bundle_record.bundle_reference,
+                    "bundle_type": bundle_record.bundle_type,
+                    "stage_count": bundle_record.stage_count,
+                    "status": bundle_record.status,
+                    "created_by_user_id": (
+                        bundle_record.created_by_user_id
+                    ),
+                    "created_at": bundle_record.created_at,
+                    "updated_at": bundle_record.updated_at,
+                }
+
+            # Retrieve every auction belonging to this bundle.
+            # Always apply client isolation.
+            bundle_auctions = (
+                db.query(Client_Shipment_Auction)
+                .filter(
+                    Client_Shipment_Auction.bundle_id
+                    == requested_auction.bundle_id,
+                    Client_Shipment_Auction.client_id == company_id
+                )
+                .order_by(
+                    Client_Shipment_Auction.bundle_trip_sequence.asc(),
+                    Client_Shipment_Auction.id.asc()
+                )
+                .all()
             )
 
-        # ---------------------------------------------------------
-        # BID RESPONSE
-        # ---------------------------------------------------------
+            # Defensive fallback if the requested auction is not
+            # present in the returned bundle records.
+            if not any(
+                auction.id == requested_auction.id
+                for auction in bundle_auctions
+            ):
+                bundle_auctions.append(requested_auction)
 
-        bid_information = []
-
-        for bid in bids:
-
-            primary_rate = (
-                bid.main_rate
-                if bid.main_rate is not None
-                else None
+            # Re-establish deterministic stage order after fallback.
+            bundle_auctions.sort(
+                key=lambda auction: (
+                    auction.bundle_trip_sequence
+                    if auction.bundle_trip_sequence is not None
+                    else 0,
+                    auction.id
+                )
             )
 
-            secondary_rate = (
-                bid.secondary_rate
-                if bid.secondary_rate is not None
-                else None
-            )
+            is_bundle = True
+
+        else:
+            bundle_auctions = [requested_auction]
+            is_bundle = False
+
+        # =========================================================
+        # 3. HELPER: SERIALIZE A BID
+        # =========================================================
+
+        def serialize_bid(bid, auction):
+            primary_rate = bid.main_rate
+            secondary_rate = bid.secondary_rate
 
             primary_savings = None
-
-            if (
-                primary_rate is not None
-                and exchange.procurement_target_rate is not None
-            ):
-                primary_savings = (
-                    exchange.procurement_target_rate - primary_rate
-                )
-
             secondary_savings = None
 
             if (
-                secondary_rate is not None
-                and exchange.procurement_target_rate is not None
+                primary_rate is not None
+                and auction.procurement_target_rate is not None
             ):
-                secondary_savings = (
-                    exchange.procurement_target_rate - secondary_rate
+                primary_savings = (
+                    auction.procurement_target_rate - primary_rate
                 )
 
-            bid_information.append(
-                {
-                    "id": bid.id,
-
-                    "primary_rate": {
-                        "rate": primary_rate,
-                        "rate_basis": bid.rate_basis,
-                        "shipment_rate": bid.main_rate_per_shipment,
-                        "total_rate": bid.total_main_rate,
-                        "potential_savings": primary_savings,
-                    },
-
-                    "secondary_rate": (
-                        {
-                            "rate": secondary_rate,
-                            "rate_basis": bid.rate_basis,
-                            "shipment_rate": bid.secondary_rate_per_shipment,
-                            "total_rate": bid.total_secondary_rate,
-                            "potential_savings": secondary_savings,
-                        }
-                        if secondary_rate is not None
-                        else None
-                    ),
-
-                    "number_of_loads": bid.number_of_loads,
-                    "status": bid.status,
-
-                    "carrier": {
-                        "id": bid.carrier_id,
-                        "name": bid.carrier_name,
-                        "fleet_size": bid.fleet_size,
-                        "primary_lanes": bid.primary_lanes,
-                        "lead_time": bid.lead_time,
-                    },
-
-                    "submitted_at": bid.submitted_at,
-                }
-            )
-
-        # ---------------------------------------------------------
-        # ROUTE STOP SERIALIZER
-        # ---------------------------------------------------------
-
-        def serialize_stop(stop):
-            if not stop:
-                return None
+            if (
+                secondary_rate is not None
+                and auction.procurement_target_rate is not None
+            ):
+                secondary_savings = (
+                    auction.procurement_target_rate - secondary_rate
+                )
 
             return {
-                "stop_type": stop.stop_type,
+                "id": bid.id,
 
-                "city_province_country": {
-                    "city_province": stop.city_province,
-                    "country": stop.country,
+                "primary_rate": {
+                    "rate": primary_rate,
+                    "rate_basis": bid.rate_basis,
+                    "shipment_rate": bid.main_rate_per_shipment,
+                    "total_rate": bid.total_main_rate,
+                    "potential_savings": primary_savings,
                 },
 
-                "facility_name": stop.facility_name,
-                "reference_number": stop.reference_number,
-                "address": stop.address,
-                "scheduling_type": stop.scheduling_type,
+                "secondary_rate": (
+                    {
+                        "rate": secondary_rate,
+                        "rate_basis": bid.rate_basis,
+                        "shipment_rate": (
+                            bid.secondary_rate_per_shipment
+                        ),
+                        "total_rate": bid.total_secondary_rate,
+                        "potential_savings": secondary_savings,
+                    }
+                    if secondary_rate is not None
+                    else None
+                ),
 
-                "operating_hours": {
-                    "start_time": stop.operating_start_time,
-                    "end_time": stop.operating_end_time,
+                "number_of_loads": bid.number_of_loads,
+                "status": bid.status,
+
+                "carrier": {
+                    "id": bid.carrier_id,
+                    "name": bid.carrier_name,
+                    "fleet_size": bid.fleet_size,
+                    "primary_lanes": bid.primary_lanes,
+                    "lead_time": bid.lead_time,
                 },
 
-                "operating_days": {
-                    "monday": stop.open_monday,
-                    "tuesday": stop.open_tuesday,
-                    "wednesday": stop.open_wednesday,
-                    "thursday": stop.open_thursday,
-                    "friday": stop.open_friday,
-                    "saturday": stop.open_saturday,
-                    "sunday": stop.open_sunday,
-                },
-
-                "contact_person": {
-                    "first_name": stop.contact_first_name,
-                    "last_name": stop.contact_last_name,
-                    "phone": stop.contact_phone_number,
-                    "email": stop.contact_email,
-                },
-
-                "facility_notes": stop.notes,
+                "submitted_at": bid.submitted_at,
             }
 
-        # ---------------------------------------------------------
-        # RETURN RESPONSE
-        # ---------------------------------------------------------
+        # =========================================================
+        # 4. HELPER: SERIALIZE ONE AUCTION / BUNDLE STAGE
+        # =========================================================
 
-        return {
-            "load_information": {
-                "id": exchange.id,
-                "shipment_reference": exchange.shipment_reference,
-                "booking_reference": exchange.booking_reference,
-                "trip_type": exchange.trip_type,
-                "load_type": exchange.load_type,
-                "payment_terms": exchange.payment_terms,
-                "number_of_trucks_required": exchange.number_of_trucks_required,
-                "number_of_slots_remaining": exchange.slots_remaining,
-                "pickup_date": exchange.pickup_date,
-                "priority_level": exchange.priority_level,
-                "customer_reference_number": exchange.customer_reference_number,
+        def serialize_auction(auction):
+            # -----------------------------------------------------
+            # 4.1 ROUTE STOPS
+            # -----------------------------------------------------
 
-                "shipment_weight": exchange.shipment_weight,
-                "commodity": exchange.commodity,
-                "packaging_type": exchange.packaging_type,
-                "packaging_quantity": exchange.packaging_quantity,
+            trip_points = (
+                db.query(Client_Shipment_Auction_Stop)
+                .filter(
+                    Client_Shipment_Auction_Stop.auction_id
+                    == auction.id
+                )
+                .order_by(
+                    Client_Shipment_Auction_Stop.stop_sequence.asc()
+                )
+                .all()
+            )
 
-                "temperature_control": exchange.temperature_control,
-                "temperature_control_spec": exchange.target_temperature_spec,
+            origin = next(
+                (
+                    stop for stop in trip_points
+                    if stop.stop_type == "Origin"
+                ),
+                None
+            )
 
-                "hazardous_materials": exchange.hazardous_materials,
-                "hazchem_classification": exchange.hazchem_classification,
-                "under_bond": exchange.under_bond,
-                "rib_required": exchange.rib_requirements,
+            intermediate_stops = [
+                stop for stop in trip_points
+                if stop.stop_type == "Intermediate"
+            ]
 
-                "pod_submission_local": exchange.pod_submission_local,
-                "pod_submission_long_haul": exchange.pod_submission_long_haul,
-                "pod_submission_cross_border": exchange.pod_submission_cross_border,
-            },
+            destination = next(
+                (
+                    stop for stop in trip_points
+                    if stop.stop_type == "Destination"
+                ),
+                None
+            )
 
-            "auction_information": {
-                "end_time": exchange.auction_closing_date,
-                "bidding_activated": exchange.bidding_activated,
+            if not origin or not destination:
+                raise HTTPException(
+                    status_code=500,
+                    detail=(
+                        f"Auction {auction.id} is missing a required "
+                        "Origin or Destination stop"
+                    )
+                )
 
-                "rates": {
-                    "pricing_basis": exchange.pricing_basis,
-                    "rate_direction": exchange.rate_direction,
-                    "benchmark": exchange.procurement_target_rate,
-                    "book_now_rate": (
-                        exchange.book_now_rate
-                        if exchange.book_now_rate is not None
-                        else None
-                    ),
-                    "vat_inclusive": exchange.vat_included,
-                },
+            # -----------------------------------------------------
+            # 4.2 BIDS
+            # -----------------------------------------------------
 
-                "bids": bid_information,
+            bids = (
+                db.query(Shipment_Auction_Bid)
+                .filter(
+                    Shipment_Auction_Bid.auction_id == auction.id
+                )
+                .order_by(
+                    Shipment_Auction_Bid.main_rate.asc()
+                )
+                .all()
+            )
 
-                "rate_inclusive_of": {
-                    "fuel": exchange.rate_includes_fuel,
-                    "waiting_detention_time": exchange.rate_includes_waiting_time,
-                    "driver": exchange.rate_includes_driver,
-                    "maintenance": exchange.rate_includes_maintenance,
-                    "insurance": exchange.rate_includes_insurance,
-                    "tolls": exchange.rate_includes_tolls,
-                    "border_charges": exchange.rate_includes_border_charges,
-                    "empty_return": exchange.rate_includes_empty_return,
-                    "loading_assistance_charges": (
-                        exchange.rate_includes_loading_assistance
-                    ),
-                    "offloading_assistance_charges": (
-                        exchange.rate_includes_offloading_assistance
-                    ),
-                },
-            },
+            bid_information = [
+                serialize_bid(bid, auction)
+                for bid in bids
+            ]
 
-            "truck_requirements": [
+            # -----------------------------------------------------
+            # 4.3 VEHICLE CONFIGURATIONS
+            # -----------------------------------------------------
+
+            configs = (
+                db.query(Client_Shipment_Auction_Vehicle_Requirement)
+                .filter(
+                    Client_Shipment_Auction_Vehicle_Requirement.auction_id
+                    == auction.id
+                )
+                .order_by(
+                    Client_Shipment_Auction_Vehicle_Requirement.id.asc()
+                )
+                .all()
+            )
+
+            # -----------------------------------------------------
+            # 4.4 TARGET SERVICE STANDARDS
+            # -----------------------------------------------------
+
+            target_sla = (
+                db.query(Shipment_Auction_Service_Standard)
+                .filter(
+                    Shipment_Auction_Service_Standard.auction_id
+                    == auction.id
+                )
+                .order_by(
+                    Shipment_Auction_Service_Standard.id.asc()
+                )
+                .all()
+            )
+
+            target_service_levels = [
                 {
-                    "configuration_type": config.configuration_type,
-                    "truck_type": config.truck_type,
-                    "equipment_type": config.equipment_type,
-                    "trailer_type": (
-                        config.trailer_type
-                        if config.trailer_type
-                        else None
-                    ),
-                    "trailer_length": (
-                        config.trailer_length
-                        if config.trailer_length
-                        else None
-                    ),
-
-                    "minimum_weight_bracket": (
-                        exchange.minimum_weight_bracket
-                    ),
-
-                    "compliance_requirements": {
-                        "vehicle_tracking_required": (
-                            exchange.vehicle_tracking_required
-                        ),
-                        "all_time_hour_control_room": (
-                            exchange.all_time_hour_control_room
-                        ),
-                        "driver_mobile_phone": (
-                            exchange.driver_mobile_phone
-                        ),
-                        "clean_compliant_equipment": (
-                            exchange.clean_compliant_equipment
-                        ),
-                    },
-
-                    "accessorials_requirement": {
-                        "pallet_management": exchange.pallet_management,
-                        "tarpaulin_compliance_required": (
-                            exchange.tarpaulin_compliance_required
-                        ),
-                        "corner_plates_required": (
-                            exchange.corner_plates_required
-                        ),
-                        "chock_blocks_required": (
-                            exchange.chock_blocks_required
-                        ),
-                        "ratchets_belts_required": (
-                            exchange.ratchets_belts_required
-                        ),
-                        "other_equipment_requirements": (
-                            exchange.other_equipment_requirements
-                        ),
-                    },
-                }
-                for config in configs
-            ],
-
-            "insurance_requirements": {
-                "minimum_git_cover": exchange.minimum_git_cover_amount,
-                "minimum_liability_cover": (
-                    exchange.minimum_liability_cover_amount
-                ),
-                "git_all_risk_required": (
-                    exchange.git_all_risk_required
-                ),
-                "git_first_loss_required": (
-                    exchange.git_first_loss_required
-                ),
-                "git_driver_fidelity_required": (
-                    exchange.git_driver_fidelity_required
-                ),
-            },
-
-            "target_service_levels": [
-                {
+                    "id": sla.id,
                     "standards": {
                         "type": sla.standard_type,
                         "target_value": sla.target_value,
                         "unit": sla.unit,
                         "is_mandatory": sla.is_mandatory,
-                    }
+                    },
                 }
                 for sla in target_sla
-            ],
+            ]
 
-            "route_facilities_information": {
-                "origin_facility": serialize_stop(origin),
+            # -----------------------------------------------------
+            # 4.5 FACILITY DEMURRAGE / TURNAROUND
+            # -----------------------------------------------------
 
-                "stop_facilities": (
-                    [
-                        serialize_stop(stop)
-                        for stop in stops
-                    ]
-                    if stops
-                    else None
+            demurrage_protocols = (
+                db.query(Auction_Turnaround_Window_Demurrage_Protocals)
+                .filter(
+                    Auction_Turnaround_Window_Demurrage_Protocals.auction_id
+                    == auction.id
+                )
+                .all()
+            )
+
+            # Each protocol is attached to its own stop.
+            demurrage_by_stop_id = {
+                protocol.stop_id: protocol
+                for protocol in demurrage_protocols
+            }
+
+            def serialize_demurrage(stop):
+                if not stop:
+                    return None
+
+                protocol = demurrage_by_stop_id.get(stop.id)
+
+                if not protocol:
+                    return None
+
+                return {
+                    "id": protocol.id,
+                    "stop_id": protocol.stop_id,
+                    "demurrage_conditions": (
+                        protocol.demurrage_conditions
+                    ),
+                    "turnaround_hours": (
+                        protocol.loading_offloading_turnaround_hours
+                    ),
+                    "free_demurrage_hours": (
+                        protocol.free_demurrage_hours
+                    ),
+                    "demurrage_rate_per_hour": (
+                        protocol.demurrage_rate_per_hour
+                    ),
+                    "maximum_demurrage_incursion_hours": (
+                        protocol.maximum_demurrage_incursion_hours
+                    ),
+                }
+
+            # -----------------------------------------------------
+            # 4.6 STOP SERIALIZER
+            # -----------------------------------------------------
+
+            def serialize_stop(stop):
+                if not stop:
+                    return None
+
+                return {
+                    "id": stop.id,
+                    "stop_sequence": stop.stop_sequence,
+                    "stop_type": stop.stop_type,
+
+                    "city_province_country": {
+                        "city_province": stop.city_province,
+                        "country": stop.country,
+                        "region": stop.region,
+                    },
+
+                    "facility_name": stop.facility_name,
+                    "reference_number": stop.reference_number,
+                    "address": stop.address,
+                    "complete_address": stop.complete_address,
+                    "scheduling_type": stop.scheduling_type,
+
+                    "coordinates": {
+                        "latitude": stop.latitude,
+                        "longitude": stop.longitude,
+                    },
+
+                    "operating_hours": {
+                        "start_time": stop.operating_start_time,
+                        "end_time": stop.operating_end_time,
+                    },
+
+                    "operating_days": {
+                        "monday": stop.open_monday,
+                        "tuesday": stop.open_tuesday,
+                        "wednesday": stop.open_wednesday,
+                        "thursday": stop.open_thursday,
+                        "friday": stop.open_friday,
+                        "saturday": stop.open_saturday,
+                        "sunday": stop.open_sunday,
+                    },
+
+                    "contact_person": {
+                        "first_name": stop.contact_first_name,
+                        "last_name": stop.contact_last_name,
+                        "phone": stop.contact_phone_number,
+                        "email": stop.contact_email,
+                    },
+
+                    "facility_notes": stop.notes,
+
+                    "demurrage_protocol": serialize_demurrage(stop),
+                }
+
+            # -----------------------------------------------------
+            # 4.7 ACCESSORIAL CHARGES
+            # -----------------------------------------------------
+
+            accessorial_records = (
+                db.query(Auction_Accessorial)
+                .filter(
+                    Auction_Accessorial.auction_id == auction.id
+                )
+                .order_by(
+                    Auction_Accessorial.id.asc()
+                )
+                .all()
+            )
+
+            accessorial_information = [
+                {
+                    "id": item.id,
+                    "charge_type": item.charge_type,
+                    "treatment": item.treatment,
+                    "threshold_value": item.threshold_value,
+                    "threshold_unit": item.threshold_unit,
+                    "notes": item.notes,
+                }
+                for item in accessorial_records
+            ]
+
+            # -----------------------------------------------------
+            # 4.8 PERMITS / CERTIFICATIONS / DRIVER STANDARDS
+            # -----------------------------------------------------
+
+            certification_records = (
+                db.query(
+                    Auction_Carrier_Certification_Driver_Standards
+                )
+                .filter(
+                    Auction_Carrier_Certification_Driver_Standards.auction_id
+                    == auction.id
+                )
+                .order_by(
+                    Auction_Carrier_Certification_Driver_Standards.id.asc()
+                )
+                .all()
+            )
+
+            certification_information = [
+                {
+                    "id": item.id,
+                    "certification_name": item.certification_name,
+                    "directives": (
+                        item.driver_qualification_security_directives
+                    ),
+                    "is_required": item.is_required,
+                }
+                for item in certification_records
+            ]
+
+            # -----------------------------------------------------
+            # 4.9 ESCORT POLICY
+            # -----------------------------------------------------
+
+            escort_policy_record = (
+                db.query(Auction_Escort_Policy)
+                .filter(
+                    Auction_Escort_Policy.auction_id == auction.id
+                )
+                .order_by(
+                    Auction_Escort_Policy.id.asc()
+                )
+                .first()
+            )
+
+            escort_policy_information = (
+                {
+                    "id": escort_policy_record.id,
+                    "armed_escort_required": (
+                        escort_policy_record.armed_escort_required
+                    ),
+                    "escort_expense_responsible_party": (
+                        escort_policy_record.escort_expense_responsible_party
+                    ),
+                }
+                if escort_policy_record
+                else {
+                    "armed_escort_required": False,
+                    "escort_expense_responsible_party": None,
+                }
+            )
+
+            # -----------------------------------------------------
+            # 4.10 ROUTE SUMMARY FOR THIS AUCTION
+            # -----------------------------------------------------
+
+            origin_summary = {
+                "stop_id": origin.id,
+                "facility_name": origin.facility_name,
+                "city_province": origin.city_province,
+                "country": origin.country,
+                "address": origin.address,
+            }
+
+            destination_summary = {
+                "stop_id": destination.id,
+                "facility_name": destination.facility_name,
+                "city_province": destination.city_province,
+                "country": destination.country,
+                "address": destination.address,
+            }
+
+            # -----------------------------------------------------
+            # 4.11 INDIVIDUAL SHIPMENT SUMMARY
+            # -----------------------------------------------------
+
+            shipment_summary = {
+                "id": auction.id,
+                "shipment_reference": auction.shipment_reference,
+                "booking_reference": auction.booking_reference,
+
+                "bundle_id": auction.bundle_id,
+                "bundle_reference": auction.bundle_reference,
+                "bundle_trip_sequence": auction.bundle_trip_sequence,
+                "bundle_role": auction.bundle_role,
+
+                "trip_type": auction.trip_type,
+                "load_type": auction.load_type,
+                "commodity": auction.commodity,
+                "shipment_weight": auction.shipment_weight,
+
+                "pickup_date": auction.pickup_date,
+                "priority_level": auction.priority_level,
+
+                "number_of_trucks_required": (
+                    auction.number_of_trucks_required
                 ),
+                "slots_remaining": auction.slots_remaining,
 
-                "destination_facility": serialize_stop(destination),
-            },
+                "status": auction.status,
+
+                "origin": origin_summary,
+                "destination": destination_summary,
+            }
+
+            # -----------------------------------------------------
+            # 4.12 AUCTION SUMMARY
+            # -----------------------------------------------------
+
+            auction_summary = {
+                "auction_id": auction.id,
+                "end_time": auction.auction_closing_date,
+                "bidding_activated": auction.bidding_activated,
+
+                "pricing_basis": auction.pricing_basis,
+                "rate_direction": auction.rate_direction,
+                "benchmark": auction.procurement_target_rate,
+                "book_now_rate": auction.book_now_rate,
+                "vat_inclusive": auction.vat_included,
+
+                "bid_count": len(bid_information),
+            }
+
+            # -----------------------------------------------------
+            # 4.13 COMPLETE INDIVIDUAL AUCTION DETAILS
+            # -----------------------------------------------------
+
+            return {
+                "shipment_summary": shipment_summary,
+                "auction_summary": auction_summary,
+
+                # -------------------------------------------------
+                # LOAD INFORMATION
+                # -------------------------------------------------
+
+                "load_information": {
+                    "id": auction.id,
+                    "shipment_reference": auction.shipment_reference,
+                    "booking_reference": auction.booking_reference,
+
+                    "bundle_id": auction.bundle_id,
+                    "bundle_reference": auction.bundle_reference,
+                    "bundle_trip_sequence": auction.bundle_trip_sequence,
+                    "bundle_role": auction.bundle_role,
+
+                    "trip_type": auction.trip_type,
+                    "load_type": auction.load_type,
+                    "payment_terms": auction.payment_terms,
+
+                    "number_of_trucks_required": (
+                        auction.number_of_trucks_required
+                    ),
+                    "number_of_slots_remaining": auction.slots_remaining,
+
+                    "pickup_date": auction.pickup_date,
+                    "priority_level": auction.priority_level,
+                    "customer_reference_number": (
+                        auction.customer_reference_number
+                    ),
+
+                    "shipment_weight": auction.shipment_weight,
+                    "commodity": auction.commodity,
+                    "packaging_type": auction.packaging_type,
+                    "packaging_quantity": auction.packaging_quantity,
+
+                    "temperature_control": auction.temperature_control,
+                    "temperature_control_spec": (
+                        auction.target_temperature_spec
+                    ),
+
+                    "hazardous_materials": auction.hazardous_materials,
+                    "hazchem_classification": (
+                        auction.hazchem_classification
+                    ),
+                    "under_bond": auction.under_bond,
+                    "rib_required": auction.rib_requirements,
+
+                    "border_customs_responsibility": (
+                        auction.border_customs_responsibility
+                    ),
+
+                    "distance": auction.distance,
+                    "eta_date": auction.eta_date,
+                    "estimated_transit_time": (
+                        auction.estimated_transit_time
+                    ),
+                    "status": auction.status,
+
+                    "pod_submission_local": (
+                        auction.pod_submission_local
+                    ),
+                    "pod_submission_long_haul": (
+                        auction.pod_submission_long_haul
+                    ),
+                    "pod_submission_cross_border": (
+                        auction.pod_submission_cross_border
+                    ),
+                },
+
+                # -------------------------------------------------
+                # AUCTION INFORMATION
+                # -------------------------------------------------
+
+                "auction_information": {
+                    "end_time": auction.auction_closing_date,
+                    "bidding_activated": auction.bidding_activated,
+
+                    "rates": {
+                        "pricing_basis": auction.pricing_basis,
+                        "rate_direction": auction.rate_direction,
+                        "benchmark": auction.procurement_target_rate,
+                        "book_now_rate": auction.book_now_rate,
+                        "vat_inclusive": auction.vat_included,
+                    },
+
+                    "bids": bid_information,
+
+                    "rate_inclusive_of": {
+                        "fuel": auction.rate_includes_fuel,
+                        "waiting_detention_time": (
+                            auction.rate_includes_waiting_time
+                        ),
+                        "driver": auction.rate_includes_driver,
+                        "maintenance": auction.rate_includes_maintenance,
+                        "insurance": auction.rate_includes_insurance,
+                        "tolls": auction.rate_includes_tolls,
+                        "border_charges": (
+                            auction.rate_includes_border_charges
+                        ),
+                        "empty_return": auction.rate_includes_empty_return,
+                        "loading_assistance_charges": (
+                            auction.rate_includes_loading_assistance
+                        ),
+                        "offloading_assistance_charges": (
+                            auction.rate_includes_offloading_assistance
+                        ),
+                    },
+
+                    "accessorials": accessorial_information,
+                    "escort_policy": escort_policy_information,
+                },
+
+                # -------------------------------------------------
+                # TRUCK REQUIREMENTS
+                # -------------------------------------------------
+
+                "truck_requirements": [
+                    {
+                        "configuration_type": config.configuration_type,
+                        "truck_type": config.truck_type,
+                        "equipment_type": config.equipment_type,
+                        "trailer_type": config.trailer_type,
+                        "trailer_length": config.trailer_length,
+                        "is_required": config.is_required,
+
+                        "minimum_weight_bracket": (
+                            auction.minimum_weight_bracket
+                        ),
+
+                        "compliance_requirements": {
+                            "vehicle_tracking_required": (
+                                auction.vehicle_tracking_required
+                            ),
+                            "all_time_hour_control_room": (
+                                auction.all_time_hour_control_room
+                            ),
+                            "driver_mobile_phone": (
+                                auction.driver_mobile_phone
+                            ),
+                            "clean_compliant_equipment": (
+                                auction.clean_compliant_equipment
+                            ),
+                        },
+
+                        "accessorials_requirement": {
+                            "pallet_management": auction.pallet_management,
+                            "tarpaulin_compliance_required": (
+                                auction.tarpaulin_compliance_required
+                            ),
+                            "corner_plates_required": (
+                                auction.corner_plates_required
+                            ),
+                            "chock_blocks_required": (
+                                auction.chock_blocks_required
+                            ),
+                            "ratchets_belts_required": (
+                                auction.ratchets_belts_required
+                            ),
+                            "other_equipment_requirements": (
+                                auction.other_equipment_requirements
+                            ),
+                        },
+                    }
+                    for config in configs
+                ],
+
+                # -------------------------------------------------
+                # INSURANCE REQUIREMENTS
+                # -------------------------------------------------
+
+                "insurance_requirements": {
+                    "minimum_git_cover": (
+                        auction.minimum_git_cover_amount
+                    ),
+                    "minimum_liability_cover": (
+                        auction.minimum_liability_cover_amount
+                    ),
+                    "git_all_risk_required": (
+                        auction.git_all_risk_required
+                    ),
+                    "git_first_loss_required": (
+                        auction.git_first_loss_required
+                    ),
+                    "git_driver_fidelity_required": (
+                        auction.git_driver_fidelity_required
+                    ),
+                },
+
+                # -------------------------------------------------
+                # TARGET SERVICE LEVELS
+                # -------------------------------------------------
+
+                "target_service_levels": target_service_levels,
+
+                # -------------------------------------------------
+                # PERMITS AND CERTIFICATIONS
+                # -------------------------------------------------
+
+                "permits_and_certifications": certification_information,
+
+                # -------------------------------------------------
+                # ROUTE AND FACILITY INFORMATION
+                # -------------------------------------------------
+
+                "route_facilities_information": {
+                    "origin_facility": serialize_stop(origin),
+
+                    "stop_facilities": [
+                        serialize_stop(stop)
+                        for stop in intermediate_stops
+                    ],
+
+                    "destination_facility": serialize_stop(destination),
+
+                    # Complete ordered route, useful for map displays.
+                    "route_sequence": [
+                        serialize_stop(stop)
+                        for stop in trip_points
+                    ],
+                },
+            }
+
+        # =========================================================
+        # 5. SERIALIZE EVERY AUCTION IN THE GROUP
+        # =========================================================
+
+        shipment_details = [
+            serialize_auction(auction)
+            for auction in bundle_auctions
+        ]
+
+        # =========================================================
+        # 6. BUILD CONSOLIDATED OVERVIEW
+        # =========================================================
+
+        def safe_number(value):
+            """
+            Return a numeric value for aggregate counts.
+            Missing values are treated as zero.
+            """
+            if value is None:
+                return 0
+
+            try:
+                return float(value)
+            except (TypeError, ValueError):
+                return 0
+
+        status_counts = {}
+
+        for auction in bundle_auctions:
+            status = (
+                auction.status.value
+                if hasattr(auction.status, "value")
+                else auction.status
+            )
+
+            status_key = str(status) if status is not None else "Unknown"
+
+            status_counts[status_key] = (
+                status_counts.get(status_key, 0) + 1
+            )
+
+        route_sequence = [
+            {
+                "auction_id": item["shipment_summary"]["id"],
+                "shipment_reference": (
+                    item["shipment_summary"]["shipment_reference"]
+                ),
+                "bundle_trip_sequence": (
+                    item["shipment_summary"]["bundle_trip_sequence"]
+                ),
+                "bundle_role": item["shipment_summary"]["bundle_role"],
+                "origin": item["shipment_summary"]["origin"],
+                "destination": item["shipment_summary"]["destination"],
+                "status": item["shipment_summary"]["status"],
+            }
+            for item in shipment_details
+        ]
+
+        total_trucks_required = sum(
+            safe_number(auction.number_of_trucks_required)
+            for auction in bundle_auctions
+        )
+
+        total_slots_remaining = sum(
+            safe_number(auction.slots_remaining)
+            for auction in bundle_auctions
+        )
+
+        total_bids = sum(
+            item["auction_summary"]["bid_count"]
+            for item in shipment_details
+        )
+
+        overview = {
+            "group_type": "bundle" if is_bundle else "single_auction",
+
+            "requested_auction_id": requested_auction.id,
+
+            "bundle_id": requested_auction.bundle_id,
+            "bundle_reference": requested_auction.bundle_reference,
+
+            "total_auctions": len(bundle_auctions),
+
+            "declared_stage_count": (
+                bundle_metadata.get("stage_count")
+                if bundle_metadata
+                else None
+            ),
+
+            "status_counts": status_counts,
+
+            "total_number_of_trucks_required": total_trucks_required,
+            "total_slots_remaining": total_slots_remaining,
+            "total_bids_received": total_bids,
+
+            "route_sequence": route_sequence,
+
+            # Each auction keeps its own rate and pricing basis.
+            # Do not sum rates from different stages because they may
+            # use different pricing bases or currencies.
+            "stage_rates": [
+                {
+                    "auction_id": item["auction_summary"]["auction_id"],
+                    "shipment_reference": (
+                        item["shipment_summary"]["shipment_reference"]
+                    ),
+                    "pricing_basis": (
+                        item["auction_summary"]["pricing_basis"]
+                    ),
+                    "rate_direction": (
+                        item["auction_summary"]["rate_direction"]
+                    ),
+                    "benchmark": item["auction_summary"]["benchmark"],
+                    "book_now_rate": (
+                        item["auction_summary"]["book_now_rate"]
+                    ),
+                    "bid_count": item["auction_summary"]["bid_count"],
+                }
+                for item in shipment_details
+            ],
+        }
+
+        # =========================================================
+        # 7. FINAL RESPONSE
+        # =========================================================
+
+        return {
+            "group_type": (
+                "bundle" if is_bundle else "single_auction"
+            ),
+
+            "overview": overview,
+
+            "bundle": bundle_metadata,
+
+            # Retains the same collection key used by the shipment
+            # endpoint. Each entry represents one auction/stage.
+            "shipments": shipment_details,
         }
 
     except HTTPException:
@@ -644,9 +1156,13 @@ def get_load_exchange_information(
 
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to retrieve load exchange information: {str(e)}"
+            detail=(
+                "Failed to retrieve load exchange information: "
+                f"{str(e)}"
+            )
         )
 
+        
 @router.post("/award-auction/{auction_id}/bid/{bid_id}")
 def award_auction_bid(
     auction_id: int,
