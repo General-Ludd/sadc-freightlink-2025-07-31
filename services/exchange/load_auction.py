@@ -10,8 +10,13 @@ from schemas.exchange_bookings.ftl_shipment import (
 from models.Exchange.ftl_shipment import (
     Client_Shipment_Auction_Bundle,
     Client_Shipment_Auction,
+    Auction_Escort_Policy,
     Client_Shipment_Auction_Stop,
+    Auction_Turnaround_Window_Demurrage_Protocals,
     Client_Shipment_Auction_Vehicle_Requirement,
+    Auction_Accessorial,
+    Auction_Carrier_Certification_Driver_Standards,
+    Shipment_Auction_Service_Standard,
 )
 from models.brokerage.finance import FinancialAccounts
 from models.shipper import Corporation
