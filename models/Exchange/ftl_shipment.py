@@ -183,7 +183,7 @@ class Auction_Turnaround_Window_Demurrage_Protocals(Base):
     maximum_demurrage_incursion_hours = Column(Integer, default=72, nullable=False)
 
 class Client_Shipment_Auction_Vehicle_Requirement(Base):
-    __tablename__ = "shipment_auction_vehicle_configs"
+    __tablename__ = "client_shipment_auction_vehicle_configs"
 
     id = Column(Integer, primary_key=True, index=True)
     auction_id = Column(Integer, nullable=False, index=True)
