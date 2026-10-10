@@ -1,7 +1,22 @@
-from sqlalchemy import Integer, String, Column, Boolean, Date, DateTime, Enum, func, Text, Float, Time, Numeric
+from sqlalchemy import Integer, String, Column, Boolean, Date, DateTime, Enum, func, Text, Float, Time, Numeric, ForeignKey
 from sqlalchemy.dialects.postgresql import ARRAY
 from models.base import Base
 from utils.sast_datetime import get_sast_time
+
+class Lane_Bundle(Base):
+    __tablename__ = "lane_bundles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    client_id = Column(Integer, nullable=False)
+    master_tender_id = Column(Integer, ForeignKey("client_lanes.id"), nullable=False, index=True)
+    bundle_reference = Column(String(100), nullable=False, unique=True, index=True)
+    bundle_type = Column(String(30), nullable=True)
+    award_scope = Column(String(20), nullable=True)
+    stage_count = Column(Integer, nullable=True)
+    status = Column(String(30), nullable=False, default="Awarded")
+    created_by_user_id = Column(Integer, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=get_sast_time)
+    updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)
 
 class Client_Lane(Base):
     __tablename__ = "client_lanes"
@@ -163,6 +178,16 @@ class Client_Lane(Base):
     ratchets_belts_required = Column(Boolean, default=False, nullable=False)
     other_equipment_requirements = Column(Text, nullable=True)
 
+class Lane_Documents(Base):
+    __tablename__ = "lane_documents"
+
+    id = Column(Integer, primary_key=True, index=True)
+    shipment_id = Column(Integer, nullable=False)
+    name = Column(String, nullable=False)
+    doc_url = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=get_sast_time)
+    updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)
+
 class Lane_Stop(Base):
 
     __tablename__ = "lane_stops"
@@ -262,6 +287,50 @@ class Lane_Accessorial(Base):
     threshold_unit = Column(String(50), nullable=True)
 
     notes = Column(Text, nullable=True)
+
+############################################################## Update In Database##################################################################################
+
+class Lane_Turnaround_Window_Demurrage_Protocals(Base):
+    __tablename__ = "lane_turn_around_windows_demurrage_protocals"
+
+    id = Column(Integer, primary_key=True, index=True)
+    lane_id = Column(Integer, ForeignKey("ftl_lane_tenders.id"), nullable=False, index=True)
+    stop_id = Column(Integer, ForeignKey("ftl_lane_tender_stops.id"), nullable=False, index=True)
+    demurrage_conditions = Column(String(5000), nullable=True)
+    loading_offloading_turnaround_hours = Column(Integer, default=5, nullable=False)
+    free_demurrage_hours = Column(Integer, default=5, nullable=False)
+    demurrage_rate_per_hour = Column(Integer, default=0, nullable=False)
+    maximum_demurrage_incursion_hours = Column(Integer, default=72, nullable=False)
+
+class Lane_Carrier_Certification_Driver_Standards(Base):
+    __tablename__ = "lane_carrier_certifications_standards"
+
+    id = Column(Integer, primary_key=True, index=True)
+    lane_id = Column(Integer, ForeignKey("ftl_lane_tenders.id"), nullable=False, index=True)
+    certification_name = Column(String(100), nullable=False)
+    driver_qualification_security_directives = Column(String(5000), nullable=True)
+    is_required = Column(Boolean, default=True, nullable=False)
+
+class Lane_Escort_Policy(Base):
+    __tablename__ = "lane_escort_policy"
+
+    id = Column(Integer, primary_key=True, index=True)
+    lane_id = Column(Integer, ForeignKey("ftl_lane_tenders.id"), nullable=False, index=True)
+    armed_escort_required = Column(Boolean, default=False, nullable=False)
+    escort_expense_responsible_party = Column(String(50), nullable=True)
+
+class Lane_Service_Standard(Base):
+    __tablename__ = "lane_service_standards"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tender_id = Column(Integer, nullable=False, index=True)
+    standard_type = Column(String(50), nullable=False)
+    target_value = Column(Float, nullable=False)
+    unit = Column(String(20), nullable=False)
+    is_mandatory = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=get_sast_time)
+    updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)
+
 
 
 ################################################################################################################

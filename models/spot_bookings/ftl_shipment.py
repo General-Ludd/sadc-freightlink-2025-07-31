@@ -1,6 +1,19 @@
-from sqlalchemy import Boolean, Integer, String, Column, Float, Date, DateTime, Enum, func, Numeric, Text, Time
+from sqlalchemy import Boolean, Integer, String, Column, Float, Date, DateTime, Enum, func, Numeric, Text, Time, ForeignKey
 from models.base import Base
 from utils.sast_datetime import get_sast_time
+
+class Client_Shipment_Bundle(Base):
+    __tablename__ = "client_shipment_bundles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    client_id = Column(Integer, nullable=False, index=True)
+    bundle_reference = Column(String(100), nullable=False, unique=True, index=True)
+    bundle_type = Column(String(50), nullable=False)
+    stage_count = Column(Integer, nullable=False)
+    status = Column(String(50), nullable=False, default="Active")
+    created_by_user_id = Column(Integer, nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
 class Client_Shipment(Base):
     __tablename__ = "client_shipments"
@@ -9,9 +22,19 @@ class Client_Shipment(Base):
     tracking_status = Column(String, nullable=True)
     is_subshipment = Column(Boolean, default=False, nullable=False)
     auction_id = Column(Integer, nullable=True, index=True)
+
+    # ============================================================
+    # SHIPMENT BUNDLE
+    # ============================================================
+    bundlee_id = Column(Integer, nullable=True, index=True)
+    bundle_reference = Column(String(100), nullable=True, index=True)
+    bundle_role = Column(String(50), nullable=True)
+    bundle_trip_sequence = Column(Integer, nullable=True)
+    bundle_type = Column(String(30), nullable=True)
+
     client_lane_id = Column(Integer, nullable=True, index=True)
     carrier_lane_id = Column(Integer, nullable=True, index=True)
-    booking_source = Column(String(50), nullable=False, default="One-Off")
+    booking_source = Column(String(50), nullable=False, default="Auction")
     shipment_reference = Column(String(100), unique=True, index=True)
     booking_reference = Column(String(100), nullable=True, index=True)
     trip_type = Column(String, nullable=False)
@@ -177,6 +200,64 @@ class Client_Shipment_Vehicle_Requirement(Base):
 
     is_required = Column(Boolean, default=True, nullable=False)
 
+############################################################## Update In Database##################################################################################
+
+class Shipment_Accessorial(Base):
+
+    __tablename__ = "shipment_accessorials"
+
+    id = Column(Integer, primary_key=True, index=True)
+    shipment_id = Column(Integer, nullable=False, index=True)
+
+    charge_type = Column(String(100), nullable=False)
+    treatment = Column(String(100), nullable=False)
+
+    threshold_value = Column(Numeric(12, 2), nullable=True)
+    threshold_unit = Column(String(50), nullable=True)
+
+    notes = Column(Text, nullable=True)
+
+class Shipment_Turnaround_Window_Demurrage_Protocals(Base):
+    __tablename__ = "shipment_turnaround_windows_demurrage_protocals"
+
+    id = Column(Integer, primary_key=True, index=True)
+    shipment_id = Column(Integer, ForeignKey("client_shipments.id"), nullable=False, index=True)
+    stop_id = Column(Integer, ForeignKey("client_shipment_stops.id"), nullable=False, index=True)
+    demurrage_conditions = Column(String(5000), nullable=True)
+    loading_offloading_turnaround_hours = Column(Integer, default=5, nullable=False)
+    free_demurrage_hours = Column(Integer, default=5, nullable=False)
+    demurrage_rate_per_hour = Column(Integer, default=0, nullable=False)
+    maximum_demurrage_incursion_hours = Column(Integer, default=72, nullable=False)
+
+class Shipment_Carrier_Certification_Driver_Standards(Base):
+    __tablename__ = "shipment_carrier_certifications_standards"
+
+    id = Column(Integer, primary_key=True, index=True)
+    shipment_id = Column(Integer, ForeignKey("ftl_lane_tenders.id"), nullable=False, index=True)
+    certification_name = Column(String(100), nullable=False)
+    driver_qualification_security_directives = Column(String(5000), nullable=True)
+    is_required = Column(Boolean, default=True, nullable=False)
+
+class Shipment_Escort_Policy(Base):
+    __tablename__ = "shipment_escort_policy"
+
+    id = Column(Integer, primary_key=True, index=True)
+    shipment_id = Column(Integer, ForeignKey("ftl_lane_tenders.id"), nullable=False, index=True)
+    armed_escort_required = Column(Boolean, default=False, nullable=False)
+    escort_expense_responsible_party = Column(String(50), nullable=True)
+
+class Shipment_Service_Standard(Base):
+    __tablename__ = "shipment_service_standards"
+
+    id = Column(Integer, primary_key=True, index=True)
+    shipment_id = Column(Integer, nullable=False, index=True)
+    standard_type = Column(String(50), nullable=False)
+    target_value = Column(Float, nullable=False)
+    unit = Column(String(20), nullable=False)
+    is_mandatory = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=get_sast_time)
+    updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)
+
 class Shipment_Execution_Metrics(Base):
     __tablename__ = "shipment_execution_metrics"
 
@@ -235,17 +316,6 @@ class Shipment_Execution_Metrics(Base):
     created_at = Column(DateTime(timezone=True), default=get_sast_time)
     updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)
 
-class Shipment_Service_Standard(Base):
-    __tablename__ = "shipment_service_standards"
-
-    id = Column(Integer, primary_key=True, index=True)
-    tender_id = Column(Integer, nullable=False, index=True)
-    standard_type = Column(String(50), nullable=False)
-    target_value = Column(Float, nullable=False)
-    unit = Column(String(20), nullable=False)
-    is_mandatory = Column(Boolean, nullable=False, default=True)
-    created_at = Column(DateTime(timezone=True), default=get_sast_time)
-    updated_at = Column(DateTime(timezone=True), default=get_sast_time, onupdate=get_sast_time)
 
 class FTL_SHIPMENT(Base):
     __tablename__ = "ftl_shipments"

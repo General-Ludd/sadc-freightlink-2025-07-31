@@ -576,6 +576,10 @@ def create_single_shipment_auction(
             auction_data.rib_requirements
         ),
 
+        border_customs_responsibility=(
+            auction_data.border_customs_responsibility
+        ),
+
         packaging_quantity=(
             auction_data.packaging_quantity
         ),
@@ -772,6 +776,85 @@ def create_single_shipment_auction(
     db.add(auction)
 
     db.flush()
+
+    # The flush above assigns auction.id without committing.
+    # All nested requirement records below use that ID.
+
+    # ============================================================
+    # 9.1. CREATE ARMED ESCORT POLICY
+    # ============================================================
+
+    if auction_data.escort_policy is not None:
+        escort_policy = Auction_Escort_Policy(
+            auction_id=auction.id,
+            armed_escort_required=(
+                auction_data.escort_policy.armed_escort_required
+            ),
+            escort_expense_responsible_party=(
+                auction_data.escort_policy.escort_expense_responsible_party
+            )
+        )
+
+        db.add(escort_policy)
+
+    # ============================================================
+    # 9.2. CREATE ACCESSORIAL RECORDS
+    # ============================================================
+
+    for accessorial_data in auction_data.accessorials:
+        accessorial = Auction_Accessorial(
+            # Per your mapping, shipment_id stores the auction ID.
+            auction_id=auction.id,
+
+            charge_type=accessorial_data.charge_type,
+            treatment=accessorial_data.treatment,
+            threshold_value=accessorial_data.threshold_value,
+            threshold_unit=accessorial_data.threshold_unit
+        )
+
+        db.add(accessorial)
+
+    # ============================================================
+    # 9.3. CREATE PERMITS / CERTIFICATION / DRIVER STANDARDS
+    # ============================================================
+
+    for permit_data in auction_data.permits_and_certifications:
+        certification = Auction_Carrier_Certification_Driver_Standards(
+            auction_id=auction.id,
+            certification_name=permit_data.certification_name,
+
+            # Schema "directives" maps to the ORM column below.
+            driver_qualification_security_directives=(
+                permit_data.directives
+            ),
+
+            is_required=True
+        )
+
+        db.add(certification)
+
+
+    # ============================================================
+    # 9.4. SLA & SERVICE STANDARDS
+    # ============================================================
+
+    service_standards_to_create = {
+        "OTIF": 95.0,
+        "On Time Pickup": 95.0,
+        "On Time Delivery": 90.0,
+        "Reliability": 95.0,
+        "Capacity Fulfillment": 95.0,
+    }
+
+    for standard_type, standard_data in service_standards_to_create.items():
+            service_standard = Shipment_Auction_Service_Standard(
+                auction_id=auction.id,
+                standard_type=standard_type,
+                target_value=standard_data.value,
+                unit="%",
+                is_mandatory=True,
+            )
+            db.add(service_standard)
 
     # ============================================================
     # 10. CREATE ORIGIN STOP

@@ -144,7 +144,1358 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
 
     return {"access_token": token, "token_type": "bearer"}
 
+from datetime import date, datetime, timedelta
+from decimal import Decimal, ROUND_HALF_UP
+from collections import defaultdict
+from calendar import monthrange
+
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+
+# Make sure these are imported from your actual models/modules:
+# from app.database import get_db
+# from app.auth import get_current_user
+# from app.models import (
+#     Client_Lane,
+#     Lane_Volume_Profile,
+#     Client_Shipment,
+#     Client_Shipment_Auction,
+#     Client_Shipment_Auction_Stop,
+#     Lane_Tender_RFQ,
+#     Lane_Tender_Bid,
+#     Shipment_Auction_Bid,
+# )
+
+
 @router.get("/enterprise-dashboard")
+def get_enterprise_shipper_dashboard(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Enterprise procurement dashboard.
+
+    Calculates:
+    - Total transport spend
+    - Contracted spend
+    - Spot spend
+    - Procurement target
+    - Realized savings
+    - Budget utilization
+    - Active tenders
+    - Active lanes
+    - Vetted carriers
+    - Critical procurement pipeline
+    - Monthly spend velocity
+    - Active reverse auctions
+    """
+
+    # ============================================================
+    # HELPERS
+    # ============================================================
+
+    def money(value):
+        """
+        Convert Decimal / numeric values into JSON-safe float values.
+        """
+        if value is None:
+            return 0.0
+
+        return float(
+            Decimal(str(value)).quantize(
+                Decimal("0.01"),
+                rounding=ROUND_HALF_UP
+            )
+        )
+
+    def percentage(numerator, denominator):
+        """
+        Safe percentage calculation.
+        """
+        if not denominator:
+            return 0.0
+
+        return round(
+            (float(numerator) / float(denominator)) * 100,
+            2
+        )
+
+    def safe_date(value):
+        if isinstance(value, datetime):
+            return value.date()
+
+        return value
+
+    def month_key(value):
+        """
+        Returns YYYY-MM.
+        """
+        if isinstance(value, datetime):
+            value = value.date()
+
+        if isinstance(value, date):
+            return value.strftime("%Y-%m")
+
+        return None
+
+    def month_label(year, month):
+        return date(year, month, 1).strftime("%b")
+
+    def add_months(year, month, amount):
+        """
+        Add months without requiring dateutil.
+        """
+        total = year * 12 + (month - 1) + amount
+
+        new_year = total // 12
+        new_month = total % 12 + 1
+
+        return new_year, new_month
+
+    def month_range(start_date, end_date):
+        """
+        Returns all YYYY-MM values touched by a date range.
+        """
+        if not start_date or not end_date:
+            return []
+
+        start_date = safe_date(start_date)
+        end_date = safe_date(end_date)
+
+        if end_date < start_date:
+            return []
+
+        result = []
+
+        current_year = start_date.year
+        current_month = start_date.month
+
+        while True:
+            result.append(
+                f"{current_year:04d}-{current_month:02d}"
+            )
+
+            if (
+                current_year == end_date.year
+                and current_month == end_date.month
+            ):
+                break
+
+            current_year, current_month = add_months(
+                current_year,
+                current_month,
+                1
+            )
+
+        return result
+
+    def pricing_basis_normalized(value):
+        """
+        Normalize PricingBasis enum values and stored strings.
+        """
+        if value is None:
+            return "PER_TRIP_LOAD"
+
+        value = str(value).strip()
+
+        # Handle Enum-like values
+        if "." in value:
+            value = value.split(".")[-1]
+
+        normalized = value.lower()
+
+        if (
+            normalized in {
+                "rate per trip / load",
+                "per trip / load",
+                "per_trip_load",
+                "per trip load"
+            }
+        ):
+            return "PER_TRIP_LOAD"
+
+        if (
+            normalized in {
+                "rate per container",
+                "rate_per_container",
+                "per container"
+            }
+        ):
+            return "RATE_PER_CONTAINER"
+
+        if (
+            normalized in {
+                "rate per ton",
+                "rate_per_ton",
+                "per ton"
+            }
+        ):
+            return "RATE_PER_TON"
+
+        if (
+            normalized in {
+                "rate per km",
+                "rate_per_km",
+                "per km"
+            }
+        ):
+            return "RATE_PER_KM"
+
+        return value.upper()
+
+    def calculate_spot_shipment_value(
+        rate,
+        pricing_basis,
+        shipment,
+        auction=None
+    ):
+        """
+        Convert an individual spot shipment rate into its monetary
+        shipment value.
+
+        PER_TRIP_LOAD:
+            rate is already the shipment amount.
+
+        RATE_PER_CONTAINER:
+            rate × container quantity where available.
+
+        RATE_PER_TON:
+            rate × shipment weight in tons.
+
+        RATE_PER_KM:
+            rate × shipment distance.
+        """
+
+        rate = Decimal(str(rate or 0))
+        basis = pricing_basis_normalized(pricing_basis)
+
+        if basis == "PER_TRIP_LOAD":
+            return rate
+
+        if basis == "RATE_PER_CONTAINER":
+
+            quantity = shipment.packaging_quantity
+
+            try:
+                quantity = Decimal(str(quantity or 1))
+            except Exception:
+                quantity = Decimal("1")
+
+            if quantity <= 0:
+                quantity = Decimal("1")
+
+            return rate * quantity
+
+        if basis == "RATE_PER_TON":
+
+            weight_kg = Decimal(
+                str(shipment.shipment_weight or 0)
+            )
+
+            weight_tons = weight_kg / Decimal("1000")
+
+            if weight_tons <= 0:
+                return rate
+
+            return rate * weight_tons
+
+        if basis == "RATE_PER_KM":
+
+            distance = shipment.distance
+
+            if distance is None and auction is not None:
+                distance = auction.distance
+
+            distance = Decimal(str(distance or 0))
+
+            if distance <= 0:
+                return rate
+
+            return rate * distance
+
+        # Unknown basis.
+        # Do not crash the dashboard.
+        # Treat rate as the shipment value.
+        return rate
+
+    def calculate_contract_rate_per_shipment(
+        lane,
+        rate
+    ):
+        """
+        Client_Lane.awarded_rate_per_shipment and
+        Client_Lane.procurement_target_rate are already defined
+        as rates per shipment.
+
+        Therefore we deliberately do NOT multiply these rates
+        by distance/weight again.
+        """
+
+        return Decimal(str(rate or 0))
+
+    # ============================================================
+    # COMPANY
+    # ============================================================
+
+    company_id = current_user.get("company_id")
+
+    if not company_id:
+        raise HTTPException(
+            status_code=400,
+            detail="User does not belong to a company"
+        )
+
+    try:
+
+        # ========================================================
+        # 1. CONTRACT LANES
+        # ========================================================
+
+        contracts = (
+            db.query(Client_Lane)
+            .filter(
+                Client_Lane.client_id == company_id,
+                Client_Lane.contract_status.in_(
+                    ["Awarded", "Active"]
+                )
+            )
+            .all()
+        )
+
+        # ========================================================
+        # CONTRACT FINANCIALS
+        # ========================================================
+
+        contract_target_spend = Decimal("0")
+        contract_actual_spend = Decimal("0")
+
+        contract_lane_details = []
+
+        awarded_carrier_ids = set()
+
+        # Monthly contract calculations
+        monthly_contracted = defaultdict(Decimal)
+        monthly_contract_budget = defaultdict(Decimal)
+
+        for lane in contracts:
+
+            # ----------------------------------------------------
+            # Volume profile
+            # ----------------------------------------------------
+
+            volume_profiles = (
+                db.query(Lane_Volume_Profile)
+                .filter(
+                    Lane_Volume_Profile.lane_id == lane.id
+                )
+                .order_by(
+                    Lane_Volume_Profile.period_sequence.asc()
+                )
+                .all()
+            )
+
+            expected_shipments = sum(
+                int(profile.expected_loads or 0)
+                for profile in volume_profiles
+            )
+
+            # ----------------------------------------------------
+            # Rates
+            # ----------------------------------------------------
+
+            target_rate = (
+                lane.procurement_target_rate
+                or lane.procurement_target_contract_rate
+                or Decimal("0")
+            )
+
+            awarded_rate = (
+                lane.awarded_rate_per_shipment
+                or lane.awarded_contract_rate
+                or Decimal("0")
+            )
+
+            target_rate = Decimal(str(target_rate))
+            awarded_rate = Decimal(str(awarded_rate))
+
+            target_rate_per_shipment = (
+                calculate_contract_rate_per_shipment(
+                    lane,
+                    target_rate
+                )
+            )
+
+            awarded_rate_per_shipment = (
+                calculate_contract_rate_per_shipment(
+                    lane,
+                    awarded_rate
+                )
+            )
+
+            # ----------------------------------------------------
+            # Contract value
+            # ----------------------------------------------------
+
+            lane_target_spend = (
+                target_rate_per_shipment *
+                Decimal(expected_shipments)
+            )
+
+            lane_actual_spend = (
+                awarded_rate_per_shipment *
+                Decimal(expected_shipments)
+            )
+
+            lane_savings = (
+                lane_target_spend -
+                lane_actual_spend
+            )
+
+            contract_target_spend += lane_target_spend
+            contract_actual_spend += lane_actual_spend
+
+            # ----------------------------------------------------
+            # Carrier concentration
+            # ----------------------------------------------------
+
+            if lane.awarded_carrier_id:
+                awarded_carrier_ids.add(
+                    lane.awarded_carrier_id
+                )
+
+            # ----------------------------------------------------
+            # Monthly contract allocation
+            # ----------------------------------------------------
+
+            for profile in volume_profiles:
+
+                loads = Decimal(
+                    str(profile.expected_loads or 0)
+                )
+
+                if loads <= 0:
+                    continue
+
+                profile_start = profile.period_start_date
+                profile_end = profile.period_end_date
+
+                # If the profile has no dates, we cannot safely
+                # place it into a calendar month.
+                if not profile_start or not profile_end:
+
+                    # Fall back to contract start date.
+                    profile_start = lane.contract_start_date
+                    profile_end = lane.contract_start_date
+
+                months = month_range(
+                    profile_start,
+                    profile_end
+                )
+
+                if not months:
+                    continue
+
+                # ------------------------------------------------
+                # If profile occupies one month:
+                # straightforward allocation.
+                # ------------------------------------------------
+
+                if len(months) == 1:
+
+                    key = months[0]
+
+                    monthly_contracted[key] += (
+                        loads *
+                        awarded_rate_per_shipment
+                    )
+
+                    monthly_contract_budget[key] += (
+                        loads *
+                        target_rate_per_shipment
+                    )
+
+                else:
+
+                    # --------------------------------------------
+                    # Multi-month profile.
+                    #
+                    # Allocate loads proportionally by number
+                    # of calendar days covered by each month.
+                    # --------------------------------------------
+
+                    total_days = (
+                        profile_end - profile_start
+                    ).days + 1
+
+                    if total_days <= 0:
+                        total_days = 1
+
+                    for month_key_value in months:
+
+                        year = int(
+                            month_key_value[:4]
+                        )
+
+                        month = int(
+                            month_key_value[5:7]
+                        )
+
+                        month_start = date(
+                            year,
+                            month,
+                            1
+                        )
+
+                        month_end = date(
+                            year,
+                            month,
+                            monthrange(
+                                year,
+                                month
+                            )[1]
+                        )
+
+                        allocation_start = max(
+                            profile_start,
+                            month_start
+                        )
+
+                        allocation_end = min(
+                            profile_end,
+                            month_end
+                        )
+
+                        covered_days = (
+                            allocation_end -
+                            allocation_start
+                        ).days + 1
+
+                        if covered_days <= 0:
+                            continue
+
+                        allocation_ratio = (
+                            Decimal(covered_days) /
+                            Decimal(total_days)
+                        )
+
+                        monthly_loads = (
+                            loads *
+                            allocation_ratio
+                        )
+
+                        monthly_contracted[
+                            month_key_value
+                        ] += (
+                            monthly_loads *
+                            awarded_rate_per_shipment
+                        )
+
+                        monthly_contract_budget[
+                            month_key_value
+                        ] += (
+                            monthly_loads *
+                            target_rate_per_shipment
+                        )
+
+            # ----------------------------------------------------
+            # Lane detail
+            # ----------------------------------------------------
+
+            contract_lane_details.append(
+                {
+                    "lane_id": lane.id,
+                    "lane_reference": lane.lane_reference,
+                    "lane_title": lane.lane_title,
+                    "status": lane.contract_status,
+                    "pricing_basis": lane.pricing_basis,
+                    "expected_shipments": expected_shipments,
+                    "procurement_target_rate": money(
+                        target_rate
+                    ),
+                    "awarded_rate_per_shipment": money(
+                        awarded_rate
+                    ),
+                    "target_spend": money(
+                        lane_target_spend
+                    ),
+                    "actual_spend": money(
+                        lane_actual_spend
+                    ),
+                    "savings": money(
+                        lane_savings
+                    ),
+                    "awarded_carrier_id":
+                        lane.awarded_carrier_id
+                }
+            )
+
+        # ========================================================
+        # 2. SPOT SHIPMENTS
+        # ========================================================
+
+        spot_shipments = (
+            db.query(Client_Shipment)
+            .filter(
+                Client_Shipment.client_id == company_id,
+                Client_Shipment.client_lane_id.is_(None)
+            )
+            .all()
+        )
+
+        spot_target_spend = Decimal("0")
+        spot_actual_spend = Decimal("0")
+
+        monthly_spot = defaultdict(Decimal)
+        monthly_spot_budget = defaultdict(Decimal)
+
+        spot_details = []
+
+        for shipment in spot_shipments:
+
+            if not shipment.auction_id:
+                continue
+
+            auction = (
+                db.query(Client_Shipment_Auction)
+                .filter(
+                    Client_Shipment_Auction.id ==
+                    shipment.auction_id,
+                    Client_Shipment_Auction.client_id ==
+                    company_id
+                )
+                .first()
+            )
+
+            if not auction:
+                continue
+
+            # ----------------------------------------------------
+            # Target
+            # ----------------------------------------------------
+
+            target_rate = Decimal(
+                str(
+                    auction.procurement_target_rate or 0
+                )
+            )
+
+            # ----------------------------------------------------
+            # Actual
+            # ----------------------------------------------------
+
+            actual_rate = Decimal(
+                str(
+                    shipment.rate or 0
+                )
+            )
+
+            target_value = calculate_spot_shipment_value(
+                rate=target_rate,
+                pricing_basis=auction.pricing_basis,
+                shipment=shipment,
+                auction=auction
+            )
+
+            actual_value = calculate_spot_shipment_value(
+                rate=actual_rate,
+                pricing_basis=shipment.pricing_basis,
+                shipment=shipment,
+                auction=auction
+            )
+
+            spot_target_spend += target_value
+            spot_actual_spend += actual_value
+
+            shipment_savings = (
+                target_value -
+                actual_value
+            )
+
+            # ----------------------------------------------------
+            # Monthly spot allocation
+            # ----------------------------------------------------
+
+            shipment_month = month_key(
+                shipment.pickup_date
+            )
+
+            if shipment_month:
+
+                monthly_spot[shipment_month] += (
+                    actual_value
+                )
+
+                monthly_spot_budget[shipment_month] += (
+                    target_value
+                )
+
+            spot_details.append(
+                {
+                    "shipment_id": shipment.id,
+                    "shipment_reference":
+                        shipment.shipment_reference,
+                    "auction_id": auction.id,
+                    "pricing_basis":
+                        shipment.pricing_basis,
+                    "target_rate": money(
+                        target_rate
+                    ),
+                    "actual_rate": money(
+                        actual_rate
+                    ),
+                    "target_value": money(
+                        target_value
+                    ),
+                    "actual_value": money(
+                        actual_value
+                    ),
+                    "savings": money(
+                        shipment_savings
+                    ),
+                    "pickup_date":
+                        shipment.pickup_date.isoformat()
+                        if shipment.pickup_date
+                        else None
+                }
+            )
+        # ========================================================
+        # 3. COMBINED FINANCIALS
+        # ========================================================
+        total_transport_spend = (
+            contract_actual_spend +
+            spot_actual_spend
+        )
+        total_procurement_target = (
+            contract_target_spend +
+            spot_target_spend
+        )
+        realized_savings = (
+            total_procurement_target -
+            total_transport_spend
+        )
+        realized_savings_percent = percentage(
+            realized_savings,
+            total_procurement_target
+        )
+        contracted_spend_percent = percentage(
+            contract_actual_spend,
+            total_transport_spend
+        )
+        spot_spend_percent = percentage(
+            spot_actual_spend,
+            total_transport_spend
+        )
+
+        # ========================================================
+        # 4. ACTIVE TENDERS
+        # ========================================================
+        active_tender_statuses = {
+            "Published",
+            "Published / Inviting",
+            "Open",
+            "Active"
+            "Round 1 Bidding",
+            "Round 2 Bidding",
+            "Round 3 Bidding",
+            "Evaluation",
+            "Executive Approval"
+        }
+        all_tenders = (
+            db.query(Lane_Tender_RFQ)
+            .filter(
+                Lane_Tender_RFQ.client_id == company_id
+            )
+            .all()
+        )
+        active_tenders = [
+            tender
+            for tender in all_tenders
+            if (
+                tender.is_active is True
+                and tender.status in active_tender_statuses
+            )
+        ]
+        active_tender_count = len(
+            active_tenders
+        )
+        # ========================================================
+        # 5. CRITICAL PROCUREMENT PIPELINE
+        # ========================================================
+        critical_pipeline = []
+        for tender in active_tenders:
+
+            # ----------------------------------------------------
+            # Tender volume
+            # ----------------------------------------------------
+
+            try:
+                tender_volume_profiles = (
+                    tender.volume_profiles or []
+                )
+            except Exception:
+                tender_volume_profiles = []
+
+            expected_loads = sum(
+                int(profile.expected_loads or 0)
+                for profile in tender_volume_profiles
+            )
+
+            tender_target_rate = Decimal(
+                str(
+                    tender.procurement_target_rate or 0
+                )
+            )
+
+            estimated_value = (
+                tender_target_rate *
+                Decimal(expected_loads)
+            )
+
+            # ----------------------------------------------------
+            # Bid count
+            # ----------------------------------------------------
+
+            bid_count = (
+                db.query(Lane_Tender_Bid)
+                .filter(
+                    Lane_Tender_Bid.tender_id ==
+                    tender.id,
+                    Lane_Tender_Bid.is_active.is_(True)
+                )
+                .count()
+            )
+
+            critical_pipeline.append(
+                {
+                    "tender_id": tender.id,
+                    "tender_ref":
+                        getattr(
+                            tender,
+                            "bundle_reference",
+                            None
+                        ) or f"TND-{tender.id}",
+                    "tender_category":
+                        tender.tender_category,
+                    "title":
+                        tender.tender_title,
+                    "status":
+                        tender.status,
+                    "estimated_value":
+                        money(estimated_value),
+                    "bid_count":
+                        bid_count,
+                    "current_round":
+                        tender.current_tender_round,
+                    "proposed_rounds":
+                        tender.proposed_rounds,
+                    "closing_date":
+                        tender.tender_closing_date.isoformat()
+                        if tender.tender_closing_date
+                        else None
+                }
+            )
+
+        # Sort by closing date
+        critical_pipeline.sort(
+            key=lambda x: (
+                x["closing_date"] is None,
+                x["closing_date"] or ""
+            )
+        )
+
+        # Only send first 5 to dashboard.
+        critical_pipeline_preview = (
+            critical_pipeline[:5]
+        )
+
+        # ========================================================
+        # 6. ENTERPRISE SPEND HEALTH
+        # ========================================================
+
+        # The contract procurement target represents the
+        # planned/benchmark transport envelope for contracted
+        # transport.
+        annual_budget = contract_target_spend
+
+        budget_utilization_percent = percentage(
+            total_transport_spend,
+            annual_budget
+        )
+
+        budget_variance = (
+            annual_budget -
+            total_transport_spend
+        )
+
+        budget_variance_percent = percentage(
+            budget_variance,
+            annual_budget
+        )
+        # There is currently no savings-target field in the
+        # supplied database models.
+        #
+        # Therefore we do NOT fabricate this number.
+        savings_gap_to_target = None
+        # ========================================================
+        # TOP COST CENTERS
+        # ========================================================
+        cost_center_spend = defaultdict(Decimal)
+        for lane_detail in contract_lane_details:
+            lane_id = lane_detail["lane_id"]
+            lane = next(
+                (
+                    contract
+                    for contract in contracts
+                    if contract.id == lane_id
+                ),
+                None
+            )
+            if not lane:
+                continue
+            cost_center = (
+                lane.business_unit
+                or lane.cost_centre_project_code
+                or "Unallocated"
+            )
+            cost_center_spend[cost_center] += Decimal(
+                str(
+                    lane_detail["actual_spend"]
+                )
+            )
+        top_cost_centers = []
+        for cost_center, spend in sorted(
+            cost_center_spend.items(),
+            key=lambda item: item[1],
+            reverse=True
+        )[:5]:
+            top_cost_centers.append(
+                {
+                    "cost_center": cost_center,
+                    "spend": money(spend),
+                    "percentage_of_spend":
+                        percentage(
+                            spend,
+                            total_transport_spend
+                        )
+                }
+            )
+        # ========================================================
+        # SUPPLIER CONCENTRATION
+        # ========================================================
+        carrier_lane_counts = defaultdict(int)
+        for lane in contracts:
+            if lane.awarded_carrier_id:
+                carrier_lane_counts[
+                    lane.awarded_carrier_id
+                ] += 1
+        total_lane_count = len(contracts)
+        top_three_carriers = sorted(
+            carrier_lane_counts.items(),
+            key=lambda item: item[1],
+            reverse=True
+        )[:3]
+        top_three_lane_count = sum(
+            count
+            for _, count in top_three_carriers
+        )
+        top_three_volume_percentage = percentage(
+            top_three_lane_count,
+            total_lane_count
+        )
+        if top_three_volume_percentage >= 70:
+            concentration_risk = "High Risk"
+        elif top_three_volume_percentage >= 50:
+            concentration_risk = "Medium Risk"
+        else:
+            concentration_risk = "Low Risk"
+
+        # ========================================================
+        # 7. SPEND VELOCITY
+        # ========================================================
+        # We create a rolling calendar covering the contract
+        # financial periods plus spot shipment periods.
+        all_month_keys = set()
+        all_month_keys.update(
+            monthly_contracted.keys()
+        )
+        all_month_keys.update(
+            monthly_spot.keys()
+        )
+        all_month_keys.update(
+            monthly_contract_budget.keys()
+        )
+        all_month_keys.update(
+            monthly_spot_budget.keys()
+        )
+        # If no data exists, still provide the current month.
+        if not all_month_keys:
+            today = date.today()
+
+            all_month_keys.add(
+                f"{today.year:04d}-{today.month:02d}"
+            )
+        sorted_months = sorted(
+            all_month_keys
+        )
+        spend_velocity = []
+        for key in sorted_months:
+            contracted = monthly_contracted.get(
+                key,
+                Decimal("0")
+            )
+            spot = monthly_spot.get(
+                key,
+                Decimal("0")
+            )
+            budget_cap = (
+                monthly_contract_budget.get(
+                    key,
+                    Decimal("0")
+                )
+                +
+                monthly_spot_budget.get(
+                    key,
+                    Decimal("0")
+                )
+            )
+            monthly_actual = (
+                contracted +
+                spot
+            )
+            monthly_savings = (
+                budget_cap -
+                monthly_actual
+            )
+            year = int(key[:4])
+            month = int(key[5:7])
+            spend_velocity.append(
+                {
+                    "month": month_label(
+                        year,
+                        month
+                    ),
+                    "month_key": key,
+                    "contracted": money(
+                        contracted
+                    ),
+                    "spot": money(
+                        spot
+                    ),
+                    "budget_cap": money(
+                        budget_cap
+                    ),
+                    "actual_spend": money(
+                        monthly_actual
+                    ),
+                    "savings": money(
+                        monthly_savings
+                    )
+                }
+            )
+        # ========================================================
+        # YTD VARIANCE
+        # ========================================================
+        current_year = date.today().year
+        ytd_budget = Decimal("0")
+        ytd_actual = Decimal("0")
+        for item in spend_velocity:
+            if not item["month_key"].startswith(
+                str(current_year)
+            ):
+                continue
+            ytd_budget += Decimal(
+                str(item["budget_cap"])
+            )
+            ytd_actual += Decimal(
+                str(item["actual_spend"])
+            )
+        ytd_variance = (
+            ytd_budget -
+            ytd_actual
+        )
+        # ========================================================
+        # 8. ACTIVE REVERSE AUCTIONS
+        # ========================================================
+        active_auctions = (
+            db.query(Client_Shipment_Auction)
+            .filter(
+                Client_Shipment_Auction.client_id ==
+                company_id,
+                Client_Shipment_Auction.status ==
+                "Active",
+                Client_Shipment_Auction.bidding_activated.is_(True)
+            )
+            .order_by(
+                Client_Shipment_Auction.auction_closing_date.asc()
+            )
+            .all()
+        )
+        active_auction_results = []
+        for auction in active_auctions:
+            # ----------------------------------------------------
+            # Stops
+            # ----------------------------------------------------
+            stops = (
+                db.query(
+                    Client_Shipment_Auction_Stop
+                )
+                .filter(
+                    Client_Shipment_Auction_Stop.auction_id ==
+                    auction.id
+                )
+                .order_by(
+                    Client_Shipment_Auction_Stop.stop_sequence.asc()
+                )
+                .all()
+            )
+            origin_stop = next(
+                (
+                    stop
+                    for stop in stops
+                    if stop.stop_type == "Origin"
+                ),
+                None
+            )
+            destination_stop = next(
+                (
+                    stop
+                    for stop in reversed(stops)
+                    if stop.stop_type == "Destination"
+                ),
+                None
+            )
+            # ----------------------------------------------------
+            # Lowest active bid
+            # ----------------------------------------------------
+            lowest_bid = (
+                db.query(Shipment_Auction_Bid)
+                .filter(
+                    Shipment_Auction_Bid.auction_id ==
+                    auction.id,
+                    Shipment_Auction_Bid.is_active.is_(True),
+                    Shipment_Auction_Bid.status.in_(
+                        [
+                            "Submitted",
+                            "Leading",
+                            "Under-Review"
+                        ]
+                    ),
+                    Shipment_Auction_Bid.main_rate_per_shipment
+                    .isnot(None)
+                )
+                .order_by(
+                    Shipment_Auction_Bid
+                    .main_rate_per_shipment.asc()
+                )
+                .first()
+            )
+            current_lowest_bid = None
+            auction_savings = None
+            auction_savings_total = None
+            if lowest_bid:
+                current_lowest_bid = money(
+                    lowest_bid.main_rate_per_shipment
+                )
+                auction_target_rate = Decimal(
+                    str(
+                        auction.procurement_target_rate
+                        or 0
+                    )
+                )
+                bid_rate = Decimal(
+                    str(
+                        lowest_bid.main_rate_per_shipment
+                        or 0
+                    )
+                )
+                rate_difference = (
+                    auction_target_rate -
+                    bid_rate
+                )
+                number_of_trucks = Decimal(
+                    str(
+                        auction.number_of_trucks_required
+                        or 1
+                    )
+                )
+                auction_savings = money(rate_difference)
+                auction_savings_total = money(rate_difference * number_of_trucks)
+            active_auction_results.append(
+                {
+                    "auction_id": auction.id,
+                    "shipment_reference": auction.shipment_reference,
+                    "origin":
+                        origin_stop.city_province
+                        if origin_stop
+                        else auction.origin_city_province
+                        if hasattr(auction, "origin_city_province")
+                        else None,
+                    "origin_facility":
+                        origin_stop.facility_name
+                        if origin_stop
+                        else None,
+                    "destination":
+                        destination_stop.city_province
+                        if destination_stop
+                        else auction.destination_city_province
+                        if hasattr(
+                            auction,
+                            "destination_city_province"
+                        )
+                        else None,
+                    "destination_facility":
+                        destination_stop.facility_name
+                        if destination_stop
+                        else None,
+                    "auction_closing_date": auction.auction_closing_date.isoformat() if auction.auction_closing_date else None,
+                    "pricing_basis": auction.pricing_basis,
+                    "procurement_target_rate": money(auction.procurement_target_rate),
+                    "current_lowest_bid": current_lowest_bid,
+                    "rate_savings": auction_savings,
+                    "total_savings": auction_savings_total,
+                    "number_of_trucks_required": auction.number_of_trucks_required,
+                    "slots_remaining": auction.slots_remaining,
+                    "status":
+                        auction.status
+                }
+            )
+
+        # ========================================================
+        # 9. NEXT TENDER DEADLINE
+        # ========================================================
+
+        next_tender_deadline = None
+        next_tender = None
+        now = datetime.now()
+        future_tenders = [
+            tender
+            for tender in active_tenders
+            if (
+                tender.tender_closing_date
+                and tender.tender_closing_date >= now
+            )
+        ]
+        if future_tenders:
+            next_tender = min(
+                future_tenders,
+                key=lambda tender:
+                    tender.tender_closing_date)
+            next_tender_deadline = (next_tender.tender_closing_date.isoformat())
+        # ========================================================
+        # 10. FLAGGED INVOICES
+        # ========================================================
+        # No invoice-discrepancy model was supplied.
+        #
+        # We therefore return zero rather than fabricate invoice
+        # data.
+        flagged_invoices = 0
+        # ========================================================
+        # 11. FINAL RESPONSE
+        # ========================================================
+        return {
+            "summary": {
+                "total_transport_spend": money(total_transport_spend),
+                "annual_budget": money(annual_budget),
+                "budget_variance": money(budget_variance),
+                "budget_variance_percent": budget_variance_percent,
+                "contracted_spend": money(contract_actual_spend),
+                "contracted_spend_percent": contracted_spend_percent,
+                "spot_spend": money(spot_actual_spend),
+                "spot_spend_percent": spot_spend_percent,
+                "procurement_target": money(total_procurement_target),
+                "realized_savings": money(realized_savings),
+                "realized_savings_percent": realized_savings_percent,
+                "active_tenders": active_tender_count,
+                "active_lanes": len(contracts),
+                "vetted_carriers": len(awarded_carrier_ids),
+                "flagged_invoices":
+                    flagged_invoices
+            },
+            # ====================================================
+            # CRITICAL PROCUREMENT PIPELINE
+            # ====================================================
+            "critical_procurement_pipeline": {
+                "total_active_tenders":
+                    active_tender_count,
+                "showing":
+                    len(
+                        critical_pipeline_preview
+                    ),
+                "next_deadline":
+                    next_tender_deadline,
+                "next_tender_id":
+                    next_tender.id
+                    if next_tender
+                    else None,
+                "next_tender_title":
+                    next_tender.tender_title
+                    if next_tender
+                    else None,
+                "tenders": critical_pipeline_preview
+            },
+            # ====================================================
+            # ENTERPRISE SPEND HEALTH
+            # ====================================================
+            "enterprise_spend_health": {
+                "budget_utilization_percent": budget_utilization_percent,
+                "savings_gap_to_target": savings_gap_to_target,
+                "top_cost_centers": top_cost_centers,
+                "supplier_concentration": {
+                    "risk_level": concentration_risk,
+                    "top_3_carriers_volume_percentage": top_three_volume_percentage,
+                    "top_3_carrier_lane_count": top_three_lane_count,
+                    "total_active_lanes": total_lane_count,
+                    "recommendation":
+                        (
+                            "Consider a dual-carrier split "
+                            "award for upcoming tenders."
+                            if concentration_risk ==
+                            "High Risk"
+                            else
+                            "Supplier concentration is "
+                            "within the current monitoring "
+                            "threshold."
+                        )
+                }
+            },
+            # ====================================================
+            # TRANSPORT SPEND VS BUDGET VELOCITY
+            # ====================================================
+            "spend_velocity": {
+                "ytd_budget": money(ytd_budget),
+                "ytd_actual": money(ytd_actual),
+                "ytd_variance": money(ytd_variance),
+                "months": spend_velocity
+            },
+            # ====================================================
+            # ACTIVE REVERSE AUCTIONS
+            # ====================================================
+            "active_auctions": {
+                "count": len(active_auction_results),
+                "auctions": active_auction_results},
+            # ====================================================
+            # OPTIONAL DEBUG / DRILL-DOWN DATA
+            # ====================================================
+            "contract_details": contract_lane_details,
+            "spot_details": spot_details
+            }
+    except HTTPException:
+        raise
+
+    except Exception as e:
+
+        db.rollback()
+
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Failed to generate enterprise "
+                f"procurement dashboard: {str(e)}"
+            )
+        )
+
+        
+@router.get("/old-enterprise-dashboard")
 def get_enterprise_shipper_dashboard(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)

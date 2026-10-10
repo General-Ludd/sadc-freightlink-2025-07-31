@@ -133,6 +133,14 @@ class Exchange_FTL_Shipment_Response(BaseModel):
 # ============================================================
 # CLIENT SHIPMENT AUCTION STOP SCHEMAS
 # ============================================================
+class AuctionDemmurageProtocol(BaseModel):
+    demurrage_conditions: str
+    turnaround_hours: int
+    free_demurrage_hours: int
+    demurrage_rate_per_hour: int
+    maximum_demurrage_incursion_hours: int
+
+
 
 class EmbeddedContactCreate(BaseModel):
     first_name: str = Field(..., max_length=100)
@@ -170,6 +178,8 @@ class ClientShipmentAuctionStopCreate(BaseModel):
 
     # Embedded facility manager contact detail packet
     contact: Optional[EmbeddedContactCreate] = None
+    demurrage_protocol: Optional[AuctionDemmurageProtocol] = None
+
 
 
 class ClientShipmentAuctionStopUpdate(BaseModel):
@@ -241,6 +251,28 @@ class ClientShipmentAuctionVehicleRequirementResponse(BaseModel):
     class Config:
         from_attributes = True
 
+# ============================================================
+# ARMED ESCORT SHIPMENT AUCTION SCHEMAS
+# ============================================================
+class AuctionArmedEscortPolicy(BaseModel):
+    armed_escort_required: bool = False
+    escort_expense_responsible_party: str = Field(..., max_length=100)
+
+# ============================================================
+# SHIPMENT AUCTION Carrier Permits SCHEMAS
+# ============================================================
+class AuctionAccessorialsCreate(BaseModel):
+    charge_type: str = Field(..., max_length=100)
+    treatment: str = Field(..., max_length=100)
+    threshold_value: float = Field(..., ge=0.0)
+    threshold_unit: str = Field(..., max_length=100)
+
+# ============================================================
+# SHIPMENT AUCTION Carrier Permits SCHEMAS
+# ============================================================
+class AuctionPermits(BaseModel):
+    certification_name: str = Field(..., max_length=100)
+    directives: Optional[str] = Field(None, max_length=100)
 
 # ============================================================
 # MAIN CLIENT SHIPMENT AUCTION SCHEMAS
@@ -252,6 +284,7 @@ class ClientShipmentAuctionCreate(BaseModel):
     trip_type: str
     load_type: str
     origin: ClientShipmentAuctionStopCreate
+    stops: list[ClientShipmentAuctionStopCreate] = Field(default_factory=list)
     destination: ClientShipmentAuctionStopCreate
     number_of_trucks_required: int
     pickup_date: Optional[date] = None
@@ -265,6 +298,8 @@ class ClientShipmentAuctionCreate(BaseModel):
     hazchem_classification: Optional[HazchemClass] = None
     under_bond: bool = False
     rib_requirements: bool = False
+    border_customs_responsibility: bool = False
+    escort_policy: Optional[AuctionArmedEscortPolicy] = None
     packaging_quantity: Optional[int] = None
     packaging_type: Optional[str] = None
 
@@ -289,12 +324,17 @@ class ClientShipmentAuctionCreate(BaseModel):
     bidding_activated: bool = True
     rate_direction: str = Field(..., max_length=50)
 
+    # Vehicle Requirements
+    vehicle_configurations: list[ClientShipmentAuctionVehicleRequirementCreate] = Field(default_factory=list)
+    minimum_weight_bracket: int
+
     # OPERATIONAL REQUIREMENTS
     vehicle_tracking_required: bool = False
     all_time_hour_control_room: bool = False
     driver_mobile_phone: bool = False
     clean_compliant_equipment: bool = False
     pallet_management: bool = False
+    permits_and_certifications: list[AuctionPermits] = Field(default_factory=list)
     pod_submission_local: str
     pod_submission_long_haul: str
     pod_submission_cross_border: str
@@ -302,7 +342,6 @@ class ClientShipmentAuctionCreate(BaseModel):
     # INSURANCE REQUIREMENTS
     minimum_git_cover_amount: Optional[int] = 0
     minimum_liability_cover_amount: Optional[int] = 0
-    minimum_weight_bracket: int
     git_all_risk_required: bool = False
     git_first_loss_required: bool = False
     git_driver_fidelity_required: bool = False
@@ -313,8 +352,7 @@ class ClientShipmentAuctionCreate(BaseModel):
     chock_blocks_required: bool = False
     ratchets_belts_required: bool = False
     other_equipment_requirements: Optional[str] = None
-    stops: list[ClientShipmentAuctionStopCreate] = []
-    vehicle_configurations: list[ClientShipmentAuctionVehicleRequirementCreate] = []
+    accessorials: list[AuctionAccessorialsCreate] = Field(default_factory=list)
 
 class ShipmentBundleStageCreate(BaseModel):
     auction_ref: str
@@ -325,12 +363,12 @@ class ShipmentBundleStageCreate(BaseModel):
 class ShipmentBundleCreate(BaseModel):
     client_bundle_ref: str = Field(..., max_length=100)
     bundle_type: str = Field(..., max_length=50)
-    stages: list[ShipmentBundleStageCreate]
+    stages: list[ShipmentBundleStageCreate] = Field(default_factory=list)
 
 
 class ShipmentBatchCreate(BaseModel):
     auctions: list[ClientShipmentAuctionCreate]
-    bundles: list[ShipmentBundleCreate] = []
+    bundles: list[ShipmentBundleCreate] = Field(default_factory=list)
 
 class ClientShipmentAuctionUpdate(BaseModel):
     shipment_reference: Optional[str] = Field(None, max_length=100)
