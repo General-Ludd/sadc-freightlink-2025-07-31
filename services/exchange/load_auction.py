@@ -838,7 +838,6 @@ def create_single_shipment_auction(
 
         db.add(certification)
 
-
     # ============================================================
     # 9.4. SLA & SERVICE STANDARDS
     # ============================================================
@@ -852,15 +851,14 @@ def create_single_shipment_auction(
     }
 
     for standard_type, standard_data in service_standards_to_create.items():
-            service_standard = Shipment_Auction_Service_Standard(
-                auction_id=auction.id,
-                standard_type=standard_type,
-                target_value=standard_data.value,
-                unit="%",
-                is_mandatory=True,
-            )
-            db.add(service_standard)
-
+        service_standard = Shipment_Auction_Service_Standard(
+            auction_id=auction.id,
+            standard_type=standard_type,
+            target_value=standard_data,
+            unit="%",
+            is_mandatory=True,
+        )
+        db.add(service_standard)
     # ============================================================
     # 10. CREATE ORIGIN STOP
     # ============================================================
