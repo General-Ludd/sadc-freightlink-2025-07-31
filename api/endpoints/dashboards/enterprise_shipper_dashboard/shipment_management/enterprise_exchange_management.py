@@ -8,7 +8,7 @@ from models.Exchange.dedicated_ftl_lane import FTL_Lane_Exchange, Lane_Tender_RF
 from models.Exchange.bidding import Shipment_Auction_Bid
 from models.shipper import Corporation
 from models.user import Director
-from models.Exchange.ftl_shipment import Client_Shipment_Auction, Client_Shipment_Auction_Stop, Client_Shipment_Auction_Vehicle_Requirement
+from models.Exchange.ftl_shipment import Client_Shipment_Auction_Bundle, Client_Shipment_Auction, Auction_Escort_Policy, Client_Shipment_Auction_Stop, Auction_Turnaround_Window_Demurrage_Protocals, Client_Shipment_Auction_Vehicle_Requirement, Auction_Accessorial, Auction_Carrier_Certification_Driver_Standards, Shipment_Auction_Service_Standard
 from models.Exchange.ftl_shipment import FTL_SHIPMENT_EXCHANGE
 from models.Exchange.power_shipment import POWER_SHIPMENT_EXCHANGE
 from services.brokerage.tender.tender_award import award_tender_bid
@@ -1162,7 +1162,7 @@ def get_load_exchange_information(
             )
         )
 
-        
+
 @router.post("/award-auction/{auction_id}/bid/{bid_id}")
 def award_auction_bid(
     auction_id: int,
