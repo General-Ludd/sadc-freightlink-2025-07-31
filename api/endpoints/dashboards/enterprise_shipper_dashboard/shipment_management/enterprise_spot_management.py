@@ -2570,6 +2570,40 @@ def get_client_shipment(
         )
 
     try:
+
+        # -----------------------------------------------------
+        # BOOKING USER
+        # -----------------------------------------------------
+
+        booking_user = None
+
+        if auction.client_user_id is not None:
+            booking_user = (
+                db.query(Director)
+                .filter(
+                    Director.id == auction.client_user_id,
+                    Director.company_id == auction.client_id
+                )
+                .first()
+            )
+
+        booking_user_information = (
+            {
+                "id": booking_user.id,
+                "first_name": booking_user.first_name,
+                "last_name": booking_user.last_name,
+                "full_name": (
+                    f"{booking_user.first_name} {booking_user.last_name}"
+                ),
+                "role": booking_user.role,
+                "email": booking_user.email,
+                "phone_number": booking_user.phone_number,
+            }
+            if booking_user
+            else None
+        )
+
+
         # ============================================================
         # HELPERS
         # ============================================================
@@ -3603,6 +3637,9 @@ def get_client_shipment(
                     "id": shipment.id,
                     "shipment_reference": shipment.shipment_reference,
                     "booking_reference": shipment.booking_reference,
+
+                    "booked_by": booking_user_information,
+            
                     "customer_reference_number": (
                         shipment.customer_reference_number
                     ),

@@ -401,6 +401,39 @@ def get_load_exchange_information(
         # =========================================================
 
         def serialize_auction(auction):
+
+            # -----------------------------------------------------
+            # BOOKING USER
+            # -----------------------------------------------------
+
+            booking_user = None
+
+            if auction.client_user_id is not None:
+                booking_user = (
+                    db.query(Director)
+                    .filter(
+                        Director.id == auction.client_user_id,
+                        Director.company_id == auction.client_id
+                    )
+                    .first()
+                )
+
+            booking_user_information = (
+                {
+                    "id": booking_user.id,
+                    "first_name": booking_user.first_name,
+                    "last_name": booking_user.last_name,
+                    "full_name": (
+                        f"{booking_user.first_name} {booking_user.last_name}"
+                    ),
+                    "role": booking_user.role,
+                    "email": booking_user.email,
+                    "phone_number": booking_user.phone_number,
+                }
+                if booking_user
+                else None
+            )
+
             # -----------------------------------------------------
             # 4.1 ROUTE STOPS
             # -----------------------------------------------------
@@ -734,6 +767,8 @@ def get_load_exchange_information(
                 "id": auction.id,
                 "shipment_reference": auction.shipment_reference,
                 "booking_reference": auction.booking_reference,
+
+                "booked_by": booking_user_information,
 
                 "bundle_id": auction.bundle_id,
                 "bundle_reference": auction.bundle_reference,
