@@ -6,7 +6,7 @@ import re
 from db.database import SessionLocal
 from models.Exchange.bidding import Lane_Tender_Bid
 from models.Exchange.auction import Exchange_FTL_Lane_Bid, Exchange_FTL_Shipment_Bid, Exchange_POWER_Shipment_Bid
-from models.Exchange.dedicated_ftl_lane import FTL_Lane_Exchange, Lane_Tender_RFQ, Lane_Tender_RFQ_Stop, Lane_Tender_RFQ_Vehicle_Config, Lane_Tender_RFQ_Volume_Profile, Lane_Tender_RFQ_Accessorial
+from models.Exchange.dedicated_ftl_lane import FTL_Lane_Exchange, Lane_Tender_Bundle, Lane_Tender_RFQ, Escort_Policy, Lane_Tender_RFQ_Stop, Turnaround_Window_Demurrage_Protocals, Lane_Tender_RFQ_Vehicle_Config,Lane_Tender_RFQ_Accessorial, Carrier_Certification_Driver_Standards, Lane_Tender_RFQ_Volume_Profile, Tender_Service_Standard
 from models.Exchange.bidding import Shipment_Auction_Bid
 from models.shipper import Corporation
 from models.user import Director
