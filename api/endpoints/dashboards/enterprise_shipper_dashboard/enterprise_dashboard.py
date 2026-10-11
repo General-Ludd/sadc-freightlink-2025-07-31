@@ -959,14 +959,25 @@ def get_enterprise_shipper_dashboard(
             # Bid count
             # ----------------------------------------------------
 
-            bid_count = (
+            bids = (
                 db.query(Lane_Tender_Bid)
                 .filter(
                     Lane_Tender_Bid.tender_id ==
                     tender.id,
                     Lane_Tender_Bid.is_active.is_(True)
                 )
-                .count()
+                .all()
+            )
+
+            bid_count = len(bids)
+
+            total_combined_value = sum(
+                (
+                    bid.main_contract_bid_amount
+                    if bid.main_contract_bid_amount is not None
+                    else (bid.secondary_contract_bid_amount or 0)
+                )
+                for bid in bids
             )
 
             critical_pipeline.append(
@@ -978,24 +989,19 @@ def get_enterprise_shipper_dashboard(
                             "bundle_reference",
                             None
                         ) or f"TND-{tender.id}",
-                    "tender_category":
-                        tender.tender_category,
-                    "title":
-                        tender.tender_title,
+                    "tender_category": {f"{tender.length_category} {tender.category} - {tender.title}"},
                     "status":
                         tender.status,
                     "estimated_value":
                         money(estimated_value),
-                    "bid_count":
-                        bid_count,
-                    "current_round":
-                        tender.current_tender_round,
-                    "proposed_rounds":
-                        tender.proposed_rounds,
-                    "closing_date":
-                        tender.tender_closing_date.isoformat()
-                        if tender.tender_closing_date
-                        else None
+                    "rounds": {
+                        "current_round":
+                            tender.current_tender_round,
+                        "proposed_rounds":
+                            tender.proposed_rounds,
+                    },
+                    "est_value_bids":
+                        total_combined_value,
                 }
             )
 
@@ -1398,17 +1404,25 @@ def get_enterprise_shipper_dashboard(
         # ========================================================
         return {
             "summary": {
-                "total_transport_spend": money(total_transport_spend),
-                "annual_budget": money(annual_budget),
-                "budget_variance": money(budget_variance),
-                "budget_variance_percent": budget_variance_percent,
-                "contracted_spend": money(contract_actual_spend),
-                "contracted_spend_percent": contracted_spend_percent,
-                "spot_spend": money(spot_actual_spend),
-                "spot_spend_percent": spot_spend_percent,
-                "procurement_target": money(total_procurement_target),
-                "realized_savings": money(realized_savings),
-                "realized_savings_percent": realized_savings_percent,
+                "total_transport_spend": {
+                    "transport_spend": money(total_transport_spend),
+                    "annual_budget": money(annual_budget),
+                    "budget_variance": money(budget_variance),
+                    "budget_variance_percent": budget_variance_percent,
+                },
+                "contracted_spend": {
+                    "total_spend": money(contract_actual_spend),
+                    "contracted_spend_percent": contracted_spend_percent,
+                },
+                "spot_spend": {
+                    "total_spot_spend": money(spot_actual_spend),
+                    "spot_spend_percent": spot_spend_percent,
+                },
+                "realized_savings": {
+                    "procurement_target": money(total_procurement_target),
+                    "realized_savings": money(realized_savings),
+                    "realized_savings_percent": realized_savings_percent,
+                },
                 "active_tenders": active_tender_count,
                 "active_lanes": len(contracts),
                 "vetted_carriers": len(awarded_carrier_ids),
