@@ -1867,6 +1867,7 @@ def get_tender_information(
                 "customer_reference": tender.customer_reference,
                 "route": [{
                     "type": stop.stop_type,
+                    "sequence": stop.stop_sequence,
                     "city_and_province": stop.city_province,
                 } for stop in stops],
                 "distance_km": getattr(
