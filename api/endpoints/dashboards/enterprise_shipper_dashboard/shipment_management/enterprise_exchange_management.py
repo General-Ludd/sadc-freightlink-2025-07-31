@@ -1405,9 +1405,9 @@ def get_tender_information(
             # -----------------------------------------------------
 
             bids = (
-                db.query(Lane_Tender_RFQ_Bids)
+                db.query(Lane_Tender_Bid)
                 .filter(
-                    Lane_Tender_RFQ_Bids.tender_id == tender.id
+                    Lane_Tender_Bid.tender_id == tender.id
                 )
                 .all()
             )
@@ -1811,7 +1811,7 @@ def get_tender_rfq_bids(
     current_user: dict = Depends(get_current_user)
 ):
     try:
-        bids = db.query(Lane_Tender_RFQ_Bids).filter(Lane_Tender_RFQ_Bids.tender_id == id).all()
+        bids = db.query(Lane_Tender_Bid).filter(Lane_Tender_Bid.tender_id == id).all()
 
         return {
             "bids": [{
