@@ -303,14 +303,6 @@ class Escort_Policy(Base):
     armed_escort_required = Column(Boolean, default=False, nullable=False)
     escort_expense_responsible_party = Column(String(50), nullable=True)
 
-class Sla_incident_Reporting(Base):
-    __tablename__ = "tender_sla_and_incident_reporting_policy"
-
-    id = Column(Integer, primary_key=True, index=True)
-    tender_id = Column(Integer, ForeignKey("ftl_lane_tenders.id"), nullable=False, index=True)
-    incident_reporting_sla = Column(String(5000), nullable=True)
-    service_level_agreement = Column(String(5000), nullable=True)
-
 class Tender_Service_Standard(Base):
     __tablename__ = "tender_service_standards"
 
