@@ -1865,20 +1865,10 @@ def get_tender_information(
                     tender.cost_centre_project_code
                 ),
                 "customer_reference": tender.customer_reference,
-                "origin_address": tender.origin_address,
-                "origin_city": getattr(
-                    tender, "origin_city_province", None
-                ),
-                "origin_country": getattr(
-                    tender, "origin_country", None
-                ),
-                "destination_address": tender.destination_address,
-                "destination_city": getattr(
-                    tender, "destination_city_province", None
-                ),
-                "destination_country": getattr(
-                    tender, "destination_country", None
-                ),
+                "route": [{
+                    "type": stop.type,
+                    "city_and_province": stop.city_province,
+                } for stop in stops],
                 "distance_km": getattr(
                     tender, "actual_distance_km", None
                 ),
@@ -1886,11 +1876,16 @@ def get_tender_information(
                 "border_customs_responsibility": (
                     tender.border_customs_responsibility
                 ),
-                "stops": [
-                    serialise_model(stop)
-                    for stop in stops
-                ],
             }
+
+            # -------------------------------------------------
+            # 3. DEDICATED BIDS RESPONSE
+            # -------------------------------------------------
+
+            bid_responses = [
+                build_bid_response(bid, tender)
+                for bid in bids
+            ]
 
             # -------------------------------------------------
             # 3. RATE & COMMERCIAL CONDITIONS
@@ -1957,15 +1952,6 @@ def get_tender_information(
                     "flexibility": tender.evaluation_flexibility_enabled,
                 },
             }
-
-            # -------------------------------------------------
-            # 4. DEDICATED BIDS RESPONSE
-            # -------------------------------------------------
-
-            bid_responses = [
-                build_bid_response(bid, tender)
-                for bid in bids
-            ]
 
             # -------------------------------------------------
             # 5. SEASONALITY & VOLUME PROFILE
