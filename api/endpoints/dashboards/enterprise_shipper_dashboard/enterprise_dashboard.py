@@ -5,6 +5,10 @@ from datetime import datetime, timedelta, timezone, date, time
 from sqlalchemy.orm import Session
 from db.database import SessionLocal
 from models.brokerage.finance import FinancialAccounts, Shipment_Invoice, Interim_Invoice, Invoices
+from models.spot_bookings.ftl_shipment import Client_Shipment
+from models.Exchange.ftl_shipment import Client_Shipment_Auction
+from models.Exchange.dedicated_ftl_lane import Lane_Tender_RFQ
+from models.Exchange.bidding import Lane_Tender_Bid, Shipment_Auction_Bid
 from models.spot_bookings.shipment_facility import ShipmentFacility
 from models.spot_bookings.ftl_shipment import FTL_SHIPMENT, FTL_Shipment_Dispute
 from models.spot_bookings.dedicated_lane_ftl_shipment import Client_Lane, FTL_Lane_Dispute
