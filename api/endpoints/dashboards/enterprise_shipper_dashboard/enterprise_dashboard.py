@@ -5,8 +5,8 @@ from datetime import datetime, timedelta, timezone, date, time
 from sqlalchemy.orm import Session
 from db.database import SessionLocal
 from models.brokerage.finance import FinancialAccounts, Shipment_Invoice, Interim_Invoice, Invoices
-from models.spot_bookings.ftl_shipment import Client_Shipment
-from models.Exchange.ftl_shipment import Client_Shipment_Auction
+from models.spot_bookings.ftl_shipment import Client_Shipment, Client_Shipment_Stop
+from models.Exchange.ftl_shipment import Client_Shipment_Auction, Client_Shipment_Auction_Stop
 from models.Exchange.dedicated_ftl_lane import Lane_Tender_RFQ
 from models.Exchange.bidding import Lane_Tender_Bid, Shipment_Auction_Bid
 from models.spot_bookings.shipment_facility import ShipmentFacility
@@ -992,14 +992,6 @@ def get_enterprise_shipper_dashboard(
                     "tender_category": {f"{tender.length_category} {tender.category} - {tender.title}"},
                     "status":
                         tender.status,
-                    "estimated_value":
-                        money(estimated_value),
-                    "rounds": {
-                        "current_round":
-                            tender.current_tender_round,
-                        "proposed_rounds":
-                            tender.proposed_rounds,
-                    },
                     "est_value_bids":
                         total_combined_value,
                 }
@@ -1333,16 +1325,11 @@ def get_enterprise_shipper_dashboard(
             active_auction_results.append(
                 {
                     "auction_id": auction.id,
-                    "shipment_reference": auction.shipment_reference,
                     "origin":
                         origin_stop.city_province
                         if origin_stop
                         else auction.origin_city_province
                         if hasattr(auction, "origin_city_province")
-                        else None,
-                    "origin_facility":
-                        origin_stop.facility_name
-                        if origin_stop
                         else None,
                     "destination":
                         destination_stop.city_province
@@ -1353,20 +1340,11 @@ def get_enterprise_shipper_dashboard(
                             "destination_city_province"
                         )
                         else None,
-                    "destination_facility":
-                        destination_stop.facility_name
-                        if destination_stop
-                        else None,
                     "auction_closing_date": auction.auction_closing_date.isoformat() if auction.auction_closing_date else None,
                     "pricing_basis": auction.pricing_basis,
                     "procurement_target_rate": money(auction.procurement_target_rate),
                     "current_lowest_bid": current_lowest_bid,
                     "rate_savings": auction_savings,
-                    "total_savings": auction_savings_total,
-                    "number_of_trucks_required": auction.number_of_trucks_required,
-                    "slots_remaining": auction.slots_remaining,
-                    "status":
-                        auction.status
                 }
             )
 
