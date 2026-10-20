@@ -2765,9 +2765,9 @@ def get_loadboard_laness(
                 for equipment in equipment_requirements
             ],
             "rate_profile": {
-                "rate": tender.procurement_target_rate
+                "rate": tender.procurement_target_rate,
                 "rate_basis": tender.pricing_basis,
-                "est_shipment_rate": (tender.procurement_target_rate * (tender.average_shipment_weight / 1000))
+                "est_shipment_rate": (tender.procurement_target_rate * (tender.average_shipment_weight / 1000)),
             },
         })
 
@@ -4960,8 +4960,8 @@ def get_shared_loadboard_lanes(
                 for equipment in equipment_requirements
             ],
             "rate_profile": {
-                "rate": tender.procurement_target_rate
+                "rate": tender.procurement_target_rate,
                 "rate_basis": tender.pricing_basis,
-                "est_shipment_rate": (tender.procurement_target_rate * (tender.average_shipment_weight / 1000))
+                "est_shipment_rate": (tender.procurement_target_rate * (tender.average_shipment_weight / 1000)),
             },
         })
