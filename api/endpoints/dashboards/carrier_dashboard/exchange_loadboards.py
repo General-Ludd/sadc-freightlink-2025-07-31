@@ -4973,11 +4973,16 @@ def get_shared_loadboard_lanes(
                 "rate": tender.procurement_target_rate,
                 "rate_basis": tender.pricing_basis,
                 "est_shipment_rate": (
-                    tender.procurement_target_rate
-                    * (
-                        Decimal(str(tender.average_shipment_weight_kg))
+                    (
+                        Decimal(str(tender.procurement_target_rate))
+                        * Decimal(str(loadboard_tender.average_shipment_weight_kg))
                         / Decimal("1000")
                     )
+                    if (
+                        tender.procurement_target_rate is not None
+                        and loadboard_tender.average_shipment_weight_kg is not None
+                    )
+                    else None
                 ),
             },
         })
