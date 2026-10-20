@@ -1,6 +1,7 @@
 from datetime import date, datetime, time, timezone
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from models.Exchange.dedicated_ftl_lane import (
     Lane_Tender_Bundle,
     Lane_Tender_RFQ,
@@ -434,25 +435,37 @@ def create_tender_and_publish(
                     "region": distance_data.get(f"stop_{stop_index}_region"),
                 })
 
-# Find the latest commencement date for this country
-latest_date = (
-    db.query(func.max(Diesel_Index.commencement_date))
-    .filter(Diesel_Index.country == origin_country)
-    .scalar()
-)
+            # Fetch the latest active diesel index commencement date
+            try:
+                latest_date = (
+                    db.query(func.max(Diesel_Index.commence_date))
+                    .filter(
+                        Diesel_Index.country == origin_country,
+                        Diesel_Index.is_active == True
+                    )
+                    .scalar()
+                )
 
-if latest_date is None:
-    diesel_price = None
-else:
-    # Fetch all rates for the latest index date and calculate their average
-    diesel_price = (
-        db.query(func.avg(Diesel_Index.price))
-        .filter(
-            Diesel_Index.country == origin_country,
-            Diesel_Index.commencement_date == latest_date
-        )
-        .scalar()
-    )
+                if latest_date is None:
+                    diesel_price = None
+                else:
+                    # Average all active regional rates for the latest date
+                    diesel_price = (
+                        db.query(func.avg(Diesel_Index.price))
+                        .filter(
+                            Diesel_Index.country == origin_country,
+                            Diesel_Index.commence_date == latest_date,
+                            Diesel_Index.is_active == True
+                        )
+                        .scalar()
+                    )
+
+                    if diesel_price is not None:
+                        diesel_price = float(diesel_price)
+
+            except Exception as e:
+                print(f"Error fetching diesel index for {origin_country}: {e}")
+                diesel_price = None
 
             tender = Lane_Tender_RFQ(
                 client_id=shipper.id,
