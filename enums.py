@@ -400,8 +400,8 @@ class RateDirectionTarget(Enum):
     DYNAMIC = "Dynamic"
 
 class PaymentTerm(Enum):
-    50_50 == "50% / 50%"
-    70_30 == "70% / 30%"
+    FIFTY_FIFTY = "50% / 50%"
+    SEVENTY_THIRTY = "70% / 30%"
     CAB = "Cash at Booking (PAB)"
     COD = "Cash on Delivery (COD)"
     NET_7 = "NET-7"
