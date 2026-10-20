@@ -399,3 +399,18 @@ class RateDirectionTarget(Enum):
     MAINTAIN = "Maintain"
     DYNAMIC = "Dynamic"
 
+class PaymentTerm(Enum):
+    50_50 == "50% / 50%"
+    70_30 == "70% / 30%"
+    CAB = "Cash at Booking (PAB)"
+    COD = "Cash on Delivery (COD)"
+    NET_7 = "NET-7"
+    NET_10 = "NET-10"
+    NET_15 = "NET-15"
+    NET_30 = "NET-30"
+    NET_45 = "NET-45"
+
+class Rfq_Type(Enum):
+    TENDER = "TENDER"
+    LANE = "LANE"
+    BOTH = "TENDER & LANE"

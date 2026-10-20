@@ -10,6 +10,8 @@ from enums import (
     TrailerLength,
     PricingBasis,
     RateDirectionTarget,
+    PaymentTerm,
+    Rfq_Type
 )
 
 router = APIRouter()
@@ -36,6 +38,20 @@ def get_scheduling_types():
     return [
         scheduling_type.value
         for scheduling_type in SchedulingType
+    ]
+
+@router.get(" /booking-types")
+def get_booking_types():
+    return [
+        booking_type.value
+        for booking_type in Rfq_Type
+    ]
+
+@router.get("/payment_terms")
+def get_payment_terms():
+    return [
+        payment_term.value
+        for payment_term in PaymentTerm
     ]
 
 # ============================================================

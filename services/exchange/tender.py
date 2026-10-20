@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from models.Exchange.dedicated_ftl_lane import (
     Lane_Tender_Bundle,
     Lane_Tender_RFQ,
+    Lane_Tender_RFQ_Payment_Term,
     Lane_Tender_RFQ_Stop,
     Lane_Tender_RFQ_Vehicle_Config,
     Lane_Tender_RFQ_Volume_Profile,
@@ -443,6 +444,7 @@ def create_tender_and_publish(
                 bundle_trip_sequence=current_bundle_trip_sequence,
                 bundle_role=current_bundle_role,
                 tender_title=tender_data.tender_title,
+                booking_type=tender_data.booking_type,
                 lane_commitment_type=tender_data.lane_commitment_type,
                 scope_description=tender_data.scope_description,
                 business_unit=tender_data.business_unit,
@@ -496,8 +498,7 @@ def create_tender_and_publish(
                 fuel_component_percentage=tender_data.fuel_component_percentage,
                 vat_included=tender_data.vat_included,
                 rate_validity=tender_data.rate_validity,
-                payment_terms=financial_account.payment_terms,
-                custom_payment_terms=None,
+                payment_terms=tender_data.payment_terms.terms,
                 invoice_submission_frequency=None,
                 invoice_submission_deadline=None,
                 tender_closing_date=tender_closing_date,
@@ -539,6 +540,15 @@ def create_tender_and_publish(
                 for bundle_data in batch_data.bundles:
                     bundle = create_tender_bundle(db=db, shipper=shipper, user_id=user_id)
                     created_bundles[bundle_data.client_bundle_ref] = bundle
+
+            payment_terms = Lane_Tender_RFQ_Payment_Term(
+                tender_id=tender.id,
+                terms=tender_data.payment_terms.terms,
+                procedure_and_conditions=tender_data.payment_terms.procedure_and_conditions,
+                factoring_available=tender_data.payment_terms.factoring_available,
+                factoring_rate=tender_data.payment_terms.factoring_rate,
+                factoring_period_time=tender_data.payment_terms.factoring_period_time
+            )
 
             origin_stop = Lane_Tender_RFQ_Stop(
                 tender_id=tender.id,
@@ -747,8 +757,8 @@ def create_tender_and_publish(
                 fuel_component_percentage=tender.fuel_component_percentage,
                 vat_included=tender.vat_included,
                 rate_validity=tender.rate_validity,
-                payment_terms=financial_account.payment_terms,
-                custom_payment_terms=tender.custom_payment_terms,
+                payment_terms=tender_data.payment_terms.terms,
+                booking_type=tender_data.booking_type,
                 invoice_submission_frequency=tender.invoice_submission_frequency,
                 invoice_submission_deadline=tender.invoice_submission_deadline,
                 vehicle_tracking_required=tender.vehicle_tracking_required,

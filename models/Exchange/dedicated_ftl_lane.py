@@ -113,6 +113,7 @@ class Lane_Tender_RFQ(Base):
     bundle_stage_sequence = Column(Integer, nullable=True)
     bundle_id = Column(Integer, ForeignKey("ftl_lane_tender_bundles.id"), nullable=True, index=True)
     bundle_trip_sequence = Column(Integer, nullable=True)
+    booking_type = Column(String)
     tender_title = Column(String(255), nullable=False)
     lane_commitment_type = Column(String, nullable=False)
     scope_description = Column(Text, nullable=False)
@@ -178,7 +179,6 @@ class Lane_Tender_RFQ(Base):
     vat_included = Column(Boolean)
     rate_validity = Column(String(50), nullable=False)
     payment_terms = Column(String(50), nullable=True)
-    custom_payment_terms = Column(Text, nullable=True)
     invoice_submission_frequency = Column(String(50), nullable=True)
     invoice_submission_deadline = Column(String(100), nullable=True)
     tender_closing_date = Column(DateTime, nullable=False)
@@ -219,6 +219,17 @@ class Lane_Tender_RFQ(Base):
     vehicle_configurations = relationship("Lane_Tender_RFQ_Vehicle_Config", back_populates="tender", cascade="all, delete-orphan")
     volume_profiles = relationship("Lane_Tender_RFQ_Volume_Profile", back_populates="tender", cascade="all, delete-orphan", order_by="Lane_Tender_RFQ_Volume_Profile.period_sequence")
     accessorials = relationship("Lane_Tender_RFQ_Accessorial", back_populates="tender", cascade="all, delete-orphan")
+
+class Lane_Tender_RFQ_Payment_Term(Base):
+    __tablename__ = "lane_tender_payment_terms"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tender_id = Column(Integer, ForeignKey("ftl_lane_tenders.id"), nullable=False, index=True)
+    terms = Column(String)
+    procedure_and_conditions = Column(String)
+    factoring_available = Column(Boolean)
+    factoring_rate = Column(String)
+    factoring_period_time = Column(String)
 
 class Lane_Tender_RFQ_Stop(Base):
     __tablename__ = "ftl_lane_tender_stops"

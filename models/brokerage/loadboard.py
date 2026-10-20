@@ -395,6 +395,7 @@ class Lane_Tender_Loadboard(Base):
     # ============================================================
 
     tender_title = Column(String(255), nullable=False)
+    booking_type = Column(String)
     lane_commitment_type = Column(String(255), nullable=False)
     tender_category = Column(String(100), nullable=False)
     tender_length_category = Column(String(50), nullable=False)
@@ -494,7 +495,6 @@ class Lane_Tender_Loadboard(Base):
     rate_validity = Column(String(50), nullable=False)
 
     payment_terms = Column(String(50), nullable=True)
-    custom_payment_terms = Column(String, nullable=True)
 
     invoice_submission_frequency = Column(String(50), nullable=True)
     invoice_submission_deadline = Column(String(100), nullable=True)

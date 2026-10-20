@@ -164,6 +164,14 @@ class Exchange_Ftl_Lane_Response(BaseModel):
 from pydantic import BaseModel, Field
 from typing import Optional
 
+class Lane_Tender_Payment_Terms(BaseModel):
+
+    terms: str = Field(..., min_length=1, max_length=5000)
+    procedure_and_conditions: str = Field(..., min_length=1, max_length=5000)
+    factoring_available: bool
+    factoring_rate: Optional [str] = None
+    factoring_period_time: Optional [str] = None
+
 class TurnaroundWindowDemurrageProtocolCreate(BaseModel):
 
     demurrage_conditions: str = Field(..., min_length=1, max_length=5000)
@@ -461,6 +469,7 @@ class TenderCreate(BaseModel):
     # =========================================================
     # 1. TENDER INFORMATION
     # =========================================================
+    booking_type: str
     lane_commitment_type: str = Field(..., min_length=1)
     tender_title: str = Field(..., min_length=1, max_length=255)
     scope_description: str = Field(..., min_length=1)
@@ -553,6 +562,7 @@ class TenderCreate(BaseModel):
     # 7. PRICING & COMMERCIAL
     # =========================================================
 
+    payment_terms: Lane_Tender_Payment_Terms
     pricing_basis: str = Field(..., max_length=50)
 
     incumbent_transport_rate_per_shipment: float = Field(
