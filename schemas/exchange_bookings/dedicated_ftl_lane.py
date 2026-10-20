@@ -937,20 +937,17 @@ class TenderBatchCreate(BaseModel):
                 tender = matching_tenders[0]
 
                 # ---------------------------------------------
-                # MASTER CANNOT BE IN A BUNDLE
+                # MASTER MAY BELONG TO A BUNDLE
                 # ---------------------------------------------
 
                 if tender.relationship_type == "Master":
-                    raise ValueError(
-                        f"Tender {tender_ref} is MASTER and "
-                        "cannot belong to a bundle."
-                    )
+                    pass
 
                 # ---------------------------------------------
                 # MUST BE DECLARED AS BUNDLE
                 # ---------------------------------------------
 
-                if tender.relationship_type != "Bundle":
+                elif tender.relationship_type != "Bundle":
                     raise ValueError(
                         f"Tender {tender_ref} is referenced "
                         f"by Bundle {bundle.client_bundle_ref} "
