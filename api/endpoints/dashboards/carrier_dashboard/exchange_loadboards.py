@@ -2520,7 +2520,7 @@ def get_loadboard_laness(
         db.query(Lane_Tender_Loadboard)
         .filter(
             Lane_Tender_Loadboard.is_visible_to_carriers == True,
-            Lane_Tender_Loadboard.booking_type = "LANE" or "TENDER & LANE"
+            Lane_Tender_Loadboard.booking_type == "LANE" or "TENDER & LANE"
             Lane_Tender_Loadboard.status == "open"
         )
         .order_by(
