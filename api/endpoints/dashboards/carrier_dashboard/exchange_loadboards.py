@@ -4986,3 +4986,11 @@ def get_shared_loadboard_lanes(
                 ),
             },
         })
+    # ========================================================
+    # 4. RETURN ALL TENDERS
+    # ========================================================
+
+    return {
+        "count": len(response),
+        "lanes": response
+    }
