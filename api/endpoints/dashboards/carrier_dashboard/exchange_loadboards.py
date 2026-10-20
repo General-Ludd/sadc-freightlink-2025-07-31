@@ -2,6 +2,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
+from decimal import Decimal
 from db.database import SessionLocal
 from models.Exchange.ftl_shipment import Client_Shipment_Auction, Client_Shipment_Auction_Stop, Client_Shipment_Auction_Vehicle_Requirement
 from models.Exchange.dedicated_ftl_lane import Lane_Tender_RFQ, Lane_Tender_RFQ_Stop, Lane_Tender_RFQ_Vehicle_Config, Lane_Tender_RFQ_Volume_Profile, Lane_Tender_RFQ_Accessorial, Tender_Service_Standard
@@ -2767,7 +2768,13 @@ def get_loadboard_laness(
             "rate_profile": {
                 "rate": tender.procurement_target_rate,
                 "rate_basis": tender.pricing_basis,
-                "est_shipment_rate": (tender.procurement_target_rate * (tender.average_shipment_weight_kg / 1000)),
+                "est_shipment_rate": (
+                    tender.procurement_target_rate
+                    * (
+                        Decimal(str(tender.average_shipment_weight_kg))
+                        / Decimal("1000")
+                    )
+                ),
             },
         })
 
@@ -4965,6 +4972,12 @@ def get_shared_loadboard_lanes(
             "rate_profile": {
                 "rate": tender.procurement_target_rate,
                 "rate_basis": tender.pricing_basis,
-                "est_shipment_rate": (tender.procurement_target_rate * (tender.average_shipment_weight_kg / 1000)),
+                "est_shipment_rate": (
+                    tender.procurement_target_rate
+                    * (
+                        Decimal(str(tender.average_shipment_weight_kg))
+                        / Decimal("1000")
+                    )
+                ),
             },
         })
