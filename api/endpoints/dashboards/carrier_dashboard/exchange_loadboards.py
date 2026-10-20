@@ -4715,7 +4715,10 @@ def get_shared_loadboard_lanes(
         db.query(Lane_Tender_Loadboard)
         .filter(
             Lane_Tender_Loadboard.is_visible_to_carriers == True,
-            Lane_Tender_Loadboard.booking_type == "LANE" or "TENDER & LANE",
+            Lane_Tender_Loadboard.booking_type.in_([
+                "LANE",
+                "TENDER & LANE"
+            ]),
             Lane_Tender_Loadboard.status == "open"
         )
         .order_by(
