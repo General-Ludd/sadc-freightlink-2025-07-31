@@ -2745,7 +2745,7 @@ def get_loadboard_laness(
             # ------------------------------------------------
             # EQUIPMENT
             # ------------------------------------------------
-            "required_equipment_specification": [
+            "allowed_equipment_specification": [
                 {
                     "config_type": (
                         equipment.configuration_type
