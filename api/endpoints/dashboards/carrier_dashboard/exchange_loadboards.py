@@ -4949,7 +4949,7 @@ def get_shared_loadboard_lanes(
             # ------------------------------------------------
             # EQUIPMENT
             # ------------------------------------------------
-            "required_equipment_specification": [
+            "allowed_equipment_specification": [
                 {
                     "config_type": (
                         equipment.configuration_type
