@@ -2480,7 +2480,7 @@ def download_tender_document(
     )
 
 
-@router.get("/lane-loadboard")
+@router.get("/lanes-loadboard")
 def get_loadboard_laness(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
@@ -4710,7 +4710,7 @@ def get_public_tender_loadboard(
         )
 
 
-@router.get("/shared-lane-loadboard")
+@router.get("/shared-lanes-loadboard")
 def get_shared_loadboard_lanes(
     db: Session = Depends(get_db),
 ):
