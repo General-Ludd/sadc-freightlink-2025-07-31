@@ -2989,7 +2989,7 @@ def get_lane_loadboard(
         # ------------------------------------------------------------
 
         total_estimated_movements = sum(
-            get_tender_volume(t.id)
+            get_lane_volume(t.id)
             for t in tender_family
         )
 
