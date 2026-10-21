@@ -2653,12 +2653,12 @@ def get_loadboard_laness(
             # ------------------------------------------------
 
             "id": loadboard_tender.id,
-            "tender_id": tender.id,
+            "lane_id": tender.id,
             "closing_date": loadboard_tender.bid_closing_date,
             "questions_deadline": loadboard_tender.questions_deadline,
             "title": loadboard_tender.tender_title,
-            "tender_category": loadboard_tender.tender_category,
-            "tender_length_category": (
+            "lane_category": loadboard_tender.tender_category,
+            "length_category": (
                 loadboard_tender.tender_length_category
             ),
             "shipper": (
@@ -4857,12 +4857,12 @@ def get_shared_loadboard_lanes(
             # ------------------------------------------------
 
             "id": loadboard_tender.id,
-            "tender_id": tender.id,
+            "lane_id": tender.id,
             "closing_date": loadboard_tender.bid_closing_date,
             "questions_deadline": loadboard_tender.questions_deadline,
             "title": loadboard_tender.tender_title,
-            "tender_category": loadboard_tender.tender_category,
-            "tender_length_category": (
+            "lane_category": loadboard_tender.tender_category,
+            "length_category": (
                 loadboard_tender.tender_length_category
             ),
             "shipper": (
