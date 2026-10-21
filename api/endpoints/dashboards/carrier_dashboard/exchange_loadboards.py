@@ -2966,7 +2966,7 @@ def get_lane_loadboard(
 
             return profiles, total_loads
 
-        def get_lane_volume(tender_id):
+        def get_tender_volume(tender_id):
             """
             Returns the total expected loads for one tender.
             """
@@ -2989,7 +2989,7 @@ def get_lane_loadboard(
         # ------------------------------------------------------------
 
         total_estimated_movements = sum(
-            get_lane_volume(t.id)
+            get_tender_volume(t.id)
             for t in tender_family
         )
 
