@@ -214,20 +214,19 @@ def create_tender_and_publish(
             for tender in batch_data.tenders
         }
 
-        master_tender_data = next(
-            (
-                tender
-                for tender in batch_data.tenders
-                if tender.relationship_type.upper() == "MASTER"
-            ),
-            None
-        )
+        master_tenders = [
+            tender
+            for tender in batch_data.tenders
+            if tender.relationship_type.upper() == "MASTER"
+        ]
 
-        if master_tender_data is None:
+        if len(master_tenders) != 1:
             raise HTTPException(
                 status_code=400,
-                detail="A tender batch must contain exactly one Master tender."
+                detail="A tender batch must contain exactly one MASTER tender."
             )
+
+        master_tender_data = master_tenders[0]
 
         bundle_stage_assignments = {}
         for bundle_data in batch_data.bundles:
@@ -265,6 +264,19 @@ def create_tender_and_publish(
         master_tender_id = None
         created_bundles = {}
 
+        # ========================================================
+        # CREATE BUNDLE RECORDS BEFORE CREATING ANY TENDERS
+        # ========================================================
+
+        for bundle_data in batch_data.bundles:
+            bundle = create_tender_bundle(
+                db=db,
+                shipper=shipper,
+                user_id=user_id
+            )
+
+            created_bundles[bundle_data.client_bundle_ref] = bundle
+
         ordered_tenders = [
             master_tender_data
         ] + [
@@ -291,30 +303,44 @@ def create_tender_and_publish(
                 is_sub_tender = True
                 parent_tender_id = master_tender_id
 
-            current_bundle_id = None
-            current_bundle_reference = None
-            current_bundle_trip_sequence = None
-            current_bundle_role = None
+                # Hierarchy role and bundle membership are independent.
+                relationship_type = tender_data.relationship_type.upper()
 
-            if tender_data.relationship_type.upper() == "BUNDLE":
                 bundle_assignment = bundle_stage_assignments.get(
                     tender_data.client_ref
                 )
 
-                # A tender explicitly referenced by a bundle stage
-                # can belong to that bundle, including the MASTER tender.
-                if (
-                    tender_data.relationship_type.upper() == "BUNDLE"
-                    or bundle_assignment is not None
-                ):
-                    if bundle_assignment is None:
+                current_bundle_id = None
+                current_bundle_reference = None
+                current_bundle_trip_sequence = None
+                current_bundle_role = None
+
+                if bundle_assignment is not None:
+                    client_bundle_ref = bundle_assignment["client_bundle_ref"]
+                    bundle = created_bundles.get(client_bundle_ref)
+
+                    if bundle is None:
                         raise HTTPException(
                             status_code=400,
                             detail=(
-                                f"Tender {tender_data.client_ref} is marked as "
-                                f"{tender_data.relationship_type} but is not assigned to a bundle."
+                                f"Bundle '{client_bundle_ref}' referenced by tender "
+                                f"'{tender_data.client_ref}' was not found."
                             )
                         )
+
+                    current_bundle_id = bundle.id
+                    current_bundle_reference = bundle.bundle_reference
+                    current_bundle_trip_sequence = bundle_assignment["stage_sequence"]
+                    current_bundle_role = bundle_assignment["stage_role"]
+
+                elif relationship_type == "BUNDLE":
+                    raise HTTPException(
+                        status_code=400,
+                        detail=(
+                            f"Tender '{tender_data.client_ref}' is labelled BUNDLE "
+                            "but is not assigned to any bundle stage."
+                        )
+                    )
 
                     client_bundle_ref = bundle_assignment["client_bundle_ref"]
                     bundle = created_bundles.get(client_bundle_ref)
