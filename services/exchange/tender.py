@@ -300,6 +300,7 @@ def create_tender_and_publish(
             # ----------------------------------------------------
             # B. Initialize bundle fields for EVERY tender
             # ----------------------------------------------------
+
             current_bundle_id = None
             current_bundle_reference = None
             current_bundle_trip_sequence = None
@@ -307,8 +308,8 @@ def create_tender_and_publish(
 
             relationship_type = tender_data.relationship_type.upper()
 
-            # A MASTER can also belong to a bundle.
-            # Membership is determined by bundles[].stages.
+            # Bundle membership is independent of tender hierarchy.
+            # A MASTER tender can also be a bundle stage.
             bundle_assignment = bundle_stage_assignments.get(
                 tender_data.client_ref
             )
@@ -344,7 +345,8 @@ def create_tender_and_publish(
                         f"Tender '{tender_data.client_ref}' is labelled "
                         f"BUNDLE but is not assigned to a bundle stage."
                     )
-                )                   
+                )
+                   
                     client_bundle_ref = bundle_assignment["client_bundle_ref"]
                     bundle = created_bundles.get(client_bundle_ref)
 
