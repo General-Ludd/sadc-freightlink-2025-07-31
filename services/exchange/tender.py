@@ -338,7 +338,13 @@ def create_tender_and_publish(
                 current_bundle_role = bundle_assignment["stage_role"]
 
             elif relationship_type == "BUNDLE":
-                raise HTTPException(status_code=400, detail=(f"Tender '{tender_data.client_ref}' is labelled ", f"BUNDLE but is not assigned to a bundle stage."))                    
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"Tender '{tender_data.client_ref}' is labelled "
+                        f"BUNDLE but is not assigned to a bundle stage."
+                    )
+                )                   
                     client_bundle_ref = bundle_assignment["client_bundle_ref"]
                     bundle = created_bundles.get(client_bundle_ref)
 
