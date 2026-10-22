@@ -264,19 +264,6 @@ def create_tender_and_publish(
         master_tender_id = None
         created_bundles = {}
 
-        # ========================================================
-        # CREATE BUNDLE RECORDS BEFORE CREATING ANY TENDERS
-        # ========================================================
-
-        for bundle_data in batch_data.bundles:
-            bundle = create_tender_bundle(
-                db=db,
-                shipper=shipper,
-                user_id=user_id
-            )
-
-            created_bundles[bundle_data.client_bundle_ref] = bundle
-
         ordered_tenders = [
             master_tender_data
         ] + [
@@ -286,8 +273,13 @@ def create_tender_and_publish(
         ]
 
         for index, tender_data in enumerate(ordered_tenders):
-            is_master_tender = (tender_data.client_ref == master_tender_data.client_ref)
+            is_master_tender = (
+                tender_data.client_ref == master_tender_data.client_ref
+            )
 
+            # ----------------------------------------------------
+            # A. Determine hierarchy independently of bundle role
+            # ----------------------------------------------------
             if is_master_tender:
                 is_sub_tender = False
                 parent_tender_id = None
@@ -296,53 +288,63 @@ def create_tender_and_publish(
                     raise HTTPException(
                         status_code=500,
                         detail=(
-                            f"Tender ordering failure: '{tender_data.client_ref}' was processed before "
-                            f"the database master tender '{master_tender_data.client_ref}'."
+                            f"Tender ordering failure: "
+                            f"'{tender_data.client_ref}' was processed "
+                            f"before the master tender."
                         )
                     )
+
                 is_sub_tender = True
                 parent_tender_id = master_tender_id
 
-                # Initialize bundle fields for every tender.
-                current_bundle_id = None
-                current_bundle_reference = None
-                current_bundle_trip_sequence = None
-                current_bundle_role = None
+            # ----------------------------------------------------
+            # B. Initialize bundle fields for EVERY tender
+            # ----------------------------------------------------
+            current_bundle_id = None
+            current_bundle_reference = None
+            current_bundle_trip_sequence = None
+            current_bundle_role = None
 
-                # Bundle membership is independent of the tender's hierarchy role.
-                relationship_type = tender_data.relationship_type.upper()
+            relationship_type = tender_data.relationship_type.upper()
 
-                bundle_assignment = bundle_stage_assignments.get(
-                    tender_data.client_ref
-                )
+            # A MASTER can also belong to a bundle.
+            # Membership is determined by bundles[].stages.
+            bundle_assignment = bundle_stage_assignments.get(
+                tender_data.client_ref
+            )
 
-                if bundle_assignment is not None:
-                    client_bundle_ref = bundle_assignment["client_bundle_ref"]
-                    bundle = created_bundles.get(client_bundle_ref)
+            if bundle_assignment is not None:
+                client_bundle_ref = bundle_assignment[
+                    "client_bundle_ref"
+                ]
 
-                    if bundle is None:
-                        raise HTTPException(
-                            status_code=400,
-                            detail=(
-                                f"Bundle '{client_bundle_ref}' referenced by tender "
-                                f"'{tender_data.client_ref}' was not found."
-                            )
-                        )
+                bundle = created_bundles.get(client_bundle_ref)
 
-                    current_bundle_id = bundle.id
-                    current_bundle_reference = bundle.bundle_reference
-                    current_bundle_trip_sequence = bundle_assignment["stage_sequence"]
-                    current_bundle_role = bundle_assignment["stage_role"]
-
-                elif relationship_type == "BUNDLE":
+                if bundle is None:
                     raise HTTPException(
                         status_code=400,
                         detail=(
-                            f"Tender '{tender_data.client_ref}' is labelled BUNDLE "
-                            "but is not assigned to any bundle stage."
+                            f"Bundle '{client_bundle_ref}' referenced "
+                            f"by tender '{tender_data.client_ref}' "
+                            f"has not been created."
                         )
                     )
-                    
+
+                current_bundle_id = bundle.id
+                current_bundle_reference = bundle.bundle_reference
+                current_bundle_trip_sequence = (
+                    bundle_assignment["stage_sequence"]
+                )
+                current_bundle_role = bundle_assignment["stage_role"]
+
+            elif relationship_type == "BUNDLE":
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"Tender '{tender_data.client_ref}' is labelled "
+                        f"BUNDLE but is not assigned to a bundle stage."
+                    )
+                )                    
                     client_bundle_ref = bundle_assignment["client_bundle_ref"]
                     bundle = created_bundles.get(client_bundle_ref)
 
@@ -610,9 +612,6 @@ def create_tender_and_publish(
             if is_master_tender:
                 master_tender = tender
                 master_tender_id = tender.id
-                for bundle_data in batch_data.bundles:
-                    bundle = create_tender_bundle(db=db, shipper=shipper, user_id=user_id)
-                    created_bundles[bundle_data.client_bundle_ref] = bundle
 
             payment_terms = Lane_Tender_RFQ_Payment_Term(
                 tender_id=tender.id,
