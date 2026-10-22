@@ -264,6 +264,24 @@ def create_tender_and_publish(
         master_tender_id = None
         created_bundles = {}
 
+        # Create all bundle records BEFORE processing any tender.
+        for bundle_data in batch_data.bundles:
+            client_bundle_ref = bundle_data.client_bundle_ref
+
+            if client_bundle_ref in created_bundles:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Duplicate bundle reference '{client_bundle_ref}'."
+                )
+
+            bundle = create_tender_bundle(
+                db=db,
+                shipper=shipper,
+                user_id=user_id
+            )
+
+            created_bundles[client_bundle_ref] = bundle
+
         ordered_tenders = [
             master_tender_data
         ] + [
