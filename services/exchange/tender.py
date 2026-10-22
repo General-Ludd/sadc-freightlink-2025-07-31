@@ -347,19 +347,19 @@ def create_tender_and_publish(
                     )
                 )
                    
-                    client_bundle_ref = bundle_assignment["client_bundle_ref"]
-                    bundle = created_bundles.get(client_bundle_ref)
+                client_bundle_ref = bundle_assignment["client_bundle_ref"]
+                bundle = created_bundles.get(client_bundle_ref)
 
-                    if bundle is None:
-                        raise HTTPException(
-                            status_code=500,
-                            detail=f"Bundle {client_bundle_ref} has not been created."
-                        )
+                if bundle is None:
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"Bundle {client_bundle_ref} has not been created."
+                    )
 
-                    current_bundle_id = bundle.id
-                    current_bundle_reference = bundle.bundle_reference
-                    current_bundle_trip_sequence = bundle_assignment["stage_sequence"]
-                    current_bundle_role = bundle_assignment["stage_role"]
+                current_bundle_id = bundle.id
+                current_bundle_reference = bundle.bundle_reference
+                current_bundle_trip_sequence = bundle_assignment["stage_sequence"]
+                current_bundle_role = bundle_assignment["stage_role"]
 
 
             if tender_data.contract_end_date < tender_data.contract_start_date:
