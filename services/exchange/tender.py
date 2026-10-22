@@ -313,38 +313,32 @@ def create_tender_and_publish(
                 tender_data.client_ref
             )
 
-                if bundle_assignment is not None:
-                    client_bundle_ref = bundle_assignment[
-                        "client_bundle_ref"
-                    ]
+            if bundle_assignment is not None:
+                client_bundle_ref = bundle_assignment[
+                    "client_bundle_ref"
+                ]
 
-                    bundle = created_bundles.get(client_bundle_ref)
+                bundle = created_bundles.get(client_bundle_ref)
 
-                    if bundle is None:
-                        raise HTTPException(
-                            status_code=400,
-                            detail=(
-                                f"Bundle '{client_bundle_ref}' referenced "
-                                f"by tender '{tender_data.client_ref}' "
-                                f"has not been created."
-                            )
-                        )
-
-                    current_bundle_id = bundle.id
-                    current_bundle_reference = bundle.bundle_reference
-                    current_bundle_trip_sequence = (
-                        bundle_assignment["stage_sequence"]
-                    )
-                    current_bundle_role = bundle_assignment["stage_role"]
-
-                elif relationship_type == "BUNDLE":
+                if bundle is None:
                     raise HTTPException(
                         status_code=400,
                         detail=(
-                            f"Tender '{tender_data.client_ref}' is labelled "
-                            f"BUNDLE but is not assigned to a bundle stage."
+                            f"Bundle '{client_bundle_ref}' referenced "
+                            f"by tender '{tender_data.client_ref}' "
+                            f"has not been created."
                         )
-                    )                    
+                    )
+
+                current_bundle_id = bundle.id
+                current_bundle_reference = bundle.bundle_reference
+                current_bundle_trip_sequence = (
+                    bundle_assignment["stage_sequence"]
+                )
+                current_bundle_role = bundle_assignment["stage_role"]
+
+            elif relationship_type == "BUNDLE":
+                raise HTTPException(status_code=400, detail=(f"Tender '{tender_data.client_ref}' is labelled ", f"BUNDLE but is not assigned to a bundle stage."))                    
                     client_bundle_ref = bundle_assignment["client_bundle_ref"]
                     bundle = created_bundles.get(client_bundle_ref)
 
