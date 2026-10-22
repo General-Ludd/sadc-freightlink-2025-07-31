@@ -3122,26 +3122,37 @@ def get_lane_loadboard(
 
         # ------------------------------------------------------------
         # PAYMENT TERMS
-        #
         # PRIMARY / ROOT TENDER ONLY
         # ------------------------------------------------------------
 
-        payment_terms = db.query(Lane_Tender_RFQ_Payment_Term).filter(Lane_Tender_RFQ_Payment_Term.tender_id == tender.id).first()
+        payment_terms = (
+            db.query(Lane_Tender_RFQ_Payment_Term)
+            .filter(
+                Lane_Tender_RFQ_Payment_Term.tender_id == root_tender.id
+            )
+            .first()
+        )
+
+        payment_terms_response = []
 
         if payment_terms:
             payment_terms_text = str(payment_terms.term)
+
+            payment_terms_response.append({
+                "term": payment_terms.term,
+                "procedure_and_conditions":
+                    payment_terms.procedure_and_conditions,
+                "factoring_or_discounting_available":
+                    payment_terms.factoring_available,
+                "factoring_rate":
+                    payment_terms.factoring_rate,
+                "factoring_period_time":
+                    payment_terms.factoring_period_time,
+            })
         else:
             payment_terms_text = (
                 "the applicable contractual payment terms"
             )
-
-        payment_terms_response.append({
-            "term": payment_terms.term,
-            "procedure_and_conditions": payment_terms.procedure_and_conditions,
-            "factoring_or_discounting_available": payment_terms.factoring_available,
-            "factoring_rate": payment_terms.factoring_rate,
-            "factoring_period_time": payment_terms.factoring_period_time,
-        })
 
 
         # ------------------------------------------------------------
@@ -3559,15 +3570,40 @@ def get_lane_loadboard(
             # ====================================================
             # CARRIER'S BIDS
             # ====================================================
+
+            rate_response = []
+
+            # ====================================================
+            # CARRIER RATE PROFILE
+            # ====================================================
+
+            rate_response = []
+
             rate_response.append({
                 "rate_profile": {
                     "rate": tender.procurement_target_rate,
                     "rate_basis": tender.pricing_basis,
                     "vat_inclusive": {
-                        "est_rate_per_shipment": (tender.procurement_target_rate * (Decimal(str(tender.average_shipment_weight_kg)) / Decimal("1000"))),
+                        "est_rate_per_shipment": (
+                            tender.procurement_target_rate
+                            * (
+                                Decimal(str(
+                                    tender.average_shipment_weight_kg or 0
+                                ))
+                                / Decimal("1000")
+                            )
+                        ),
                     },
                     "vat_exclusive_or_not_applicable": {
-                        "est_rate_per_shipment": (tender.procurement_target_rate * (Decimal(str(tender.average_shipment_weight_kg)) / Decimal("1000"))) / 1.15,
+                        "est_rate_per_shipment": (
+                            tender.procurement_target_rate
+                            * (
+                                Decimal(str(
+                                    tender.average_shipment_weight_kg or 0
+                                ))
+                                / Decimal("1000")
+                            )
+                        ) / Decimal("1.15"),
                     },
                 },
             })
